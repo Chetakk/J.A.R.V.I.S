@@ -4,7 +4,8 @@ Running is `biztel run` (biztel-project-builder/cli): a terminal on JARVIS's wor
 backend and frontend and prints their links. While it runs, its state file says which links it serves, so
 JARVIS can tell you ("Avtec HS is up, on port 5173") and stop it again without asking biztel.
 
-config/projects.yaml adds spoken names ("aliases"), how to say one back ("say_as") and leaves folders out ("skip").
+config/projects.yaml adds spoken names ("aliases"), how to say one back ("say_as"), what one is when its README
+doesn't say ("about") and leaves folders out ("skip").
 """
 import difflib
 import json
@@ -78,12 +79,14 @@ class Projects:
         extra = {key(k): [str(a) for a in v or []] for k, v in (cfg.get("aliases") or {}).items()}
         say_as = {key(k): str(v) for k, v in (cfg.get("say_as") or {}).items()}
         skip = {key(s) for s in cfg.get("skip") or []}
+        about = {key(k): str(v) for k, v in (cfg.get("about") or {}).items()}
         items = []
         for name in sorted(os.listdir(self.root) if os.path.isdir(self.root) else [], key=str.lower):
             path = os.path.join(self.root, name)
             if name.startswith(".") or not os.path.isdir(path) or key(name) in skip:
                 continue
             title, summary = _readme(path)
+            summary = about.get(key(name), summary)
             aliases = _aliases(name, path, title) + extra.get(key(name), [])
             if key(name) in say_as:
                 aliases.insert(0, say_as[key(name)])

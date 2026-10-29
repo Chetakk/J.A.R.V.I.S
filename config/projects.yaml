@@ -17,6 +17,11 @@ aliases:
 
 skip: [temp]
 
+# What a project is, for folders whose README doesn't say (or that have none). Wins over the README.
+about:
+  Crowning-qc: "Crankshaft crowning QC for Stellantis: reads and annotates crankshaft barrel-shape (crowning) graphs. The pilot app has a backend, frontend and infra."
+  extract-frames: "Scripts that pull frames out of station videos into images for CVAT annotation, including frames picked where the vacuum head is on the engine."
+
 # How JARVIS says a project's name back (default: project.json's name, the README title, or the folder).
 say_as:
   ProductVT: Product V T
