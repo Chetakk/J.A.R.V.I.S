@@ -10,6 +10,7 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
 Built from plain GTK widgets and a little Cairo, so it costs nothing while hidden.
 """
 import json
+import math
 import os
 import re
 
@@ -28,18 +29,23 @@ POS_FILE = os.path.expanduser("~/.local/share/jarvis/card.json")
 
 CSS = b"""
 .card label { color: #e6e6e6; }
-.card .heading { color: #f4f4f4; font-weight: bold; font-size: 11pt; }
-.card .heading1 { color: #ffffff; font-weight: bold; font-size: 13pt; }
-.card .quote { color: #a8a8a8; font-style: italic; border-left: 2px solid rgba(255, 255, 255, 0.3); padding-left: 8px; }
-.card separator { background-color: rgba(255, 255, 255, 0.15); min-height: 1px; }
-.card .cell-head { color: rgba(255, 255, 255, 0.55); font-size: 9pt; }
-.card .mono { font-family: monospace; font-size: 9pt; color: #cfcfcf; }
-.card button.close { background: transparent; border: none; box-shadow: none; color: rgba(255, 255, 255, 0.55);
-                     padding: 0 4px; min-height: 0; min-width: 0; }
-.card button.close:hover { color: #ffffff; }
-.card button.choice { background: rgba(255, 255, 255, 0.06); color: #f2f2f2; border-radius: 8px;
-                      border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: none; padding: 3px 10px; }
-.card button.choice:hover { background: rgba(255, 255, 255, 0.16); }
+.card .heading { color: #f4f4f4; font-weight: bold; font-size: 11.5pt; }
+.card .heading1 { color: #ffffff; font-weight: bold; font-size: 13.5pt; }
+.card .quote { color: #b4b4b4; font-style: italic; border-left: 3px solid rgba(255, 255, 255, 0.28);
+               padding: 2px 0 2px 10px; }
+.card separator { background-color: rgba(255, 255, 255, 0.10); min-height: 1px; margin: 4px 0; }
+.card .cell-head { color: rgba(255, 255, 255, 0.5); font-size: 9pt; font-weight: bold; }
+.card .cell { padding: 2px 0; }
+.card .mono { font-family: monospace; font-size: 9.5pt; color: #d6d6d6; background-color: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 8px 10px; }
+.card button.close { background: transparent; border: none; box-shadow: none; color: rgba(255, 255, 255, 0.5);
+                     padding: 0 6px; min-height: 0; min-width: 0; border-radius: 8px; font-size: 13pt; }
+.card button.close label { font-size: 14pt; }
+.card button.close:hover { color: #ffffff; background: rgba(255, 255, 255, 0.10); }
+.card button.choice { background: rgba(255, 255, 255, 0.07); color: #f2f2f2; border-radius: 10px;
+                      border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: none; padding: 5px 12px; }
+.card button.choice:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.3); }
+.card button.choice label { color: #f2f2f2; }
 .card label link:link, .card label link:visited { color: #ffffff; }
 .card label link:hover { color: #bbbbbb; }
 """
@@ -112,10 +118,12 @@ def _label(markup, cls=None, mono=False):
 
 
 def _table(rows):
-    grid = Gtk.Grid(column_spacing=14, row_spacing=3)
+    grid = Gtk.Grid(column_spacing=16, row_spacing=4)
+    head = len(rows) > 1
     for r, cells in enumerate(rows):
         for c, cell in enumerate(cells):
-            grid.attach(_label(_inline(cell), "cell-head" if r == 0 and len(rows) > 1 else None), c, r, 1, 1)
+            grid.attach(_label(_inline(cell.upper() if head and r == 0 else cell),
+                               "cell-head" if head and r == 0 else "cell"), c, r, 1, 1)
     return grid
 
 
@@ -130,26 +138,34 @@ def _bars(lines):
         return None
     top = 100.0 if all(u == "%" for _l, _v, u in rows) else max(v for _l, v, _u in rows) or 1.0
     area = Gtk.DrawingArea()
-    area.set_size_request(CARD_W - 24, 22 * len(rows))
+    area.set_size_request(CARD_W - 28, 26 * len(rows))
+
+    def bar(cr, x, y, w, h):
+        r = min(h / 2, w / 2)
+        cr.new_sub_path()
+        cr.arc(x + w - r, y + r, r, -math.pi / 2, math.pi / 2)
+        cr.arc(x + r, y + r, r, math.pi / 2, 3 * math.pi / 2)
+        cr.close_path()
+        cr.fill()
 
     def draw(widget, cr):
         width = widget.get_allocated_width()
         for i, (label, value, unit) in enumerate(rows):
-            y = i * 22
+            y = i * 26
             cr.set_source_rgba(0.9, 0.9, 0.9, 1)
             cr.select_font_face("Sans")
-            cr.set_font_size(11)
-            cr.move_to(0, y + 15)
+            cr.set_font_size(12)
+            cr.move_to(0, y + 17)
             cr.show_text(label[:16])
-            x0, x1 = 110, width - 64
-            cr.set_source_rgba(1, 1, 1, 0.12)
-            cr.rectangle(x0, y + 5, x1 - x0, 12)
-            cr.fill()
-            cr.set_source_rgba(1, 1, 1, 0.85)
-            cr.rectangle(x0, y + 5, (x1 - x0) * max(0.0, min(1.0, value / top)), 12)
-            cr.fill()
+            x0, x1 = 116, width - 66
+            cr.set_source_rgba(1, 1, 1, 0.10)
+            bar(cr, x0, y + 7, x1 - x0, 12)
+            fill = (x1 - x0) * max(0.0, min(1.0, value / top))
+            if fill >= 1:
+                cr.set_source_rgba(1, 1, 1, 0.85)
+                bar(cr, x0, y + 7, fill, 12)
             cr.set_source_rgba(0.75, 0.75, 0.75, 1)
-            cr.move_to(x1 + 8, y + 15)
+            cr.move_to(x1 + 10, y + 17)
             cr.show_text(("%g%s" % (value, unit if unit == "%" else " " + unit)).strip())
         return False
 
@@ -229,11 +245,12 @@ class Card:
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         outer.get_style_context().add_class("panel")
         outer.get_style_context().add_class("card")
-        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        inner.set_border_width(12)
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        inner.set_border_width(14)
         outer.pack_start(inner, True, True, 0)
 
         head = Gtk.Box(spacing=6)
+        head.get_style_context().add_class("header")
         grip = Gtk.EventBox()  # drag the title to move the card
         grip.connect("button-press-event", self._press)
         self.title = Gtk.Label(xalign=0, ellipsize=3)
@@ -247,13 +264,13 @@ class Card:
         head.pack_end(close, False, False, 0)
         inner.pack_start(head, False, False, 0)
 
-        self.body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         scroll = self.scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.add(self.body)
         inner.pack_start(scroll, True, True, 0)
         self.buttons = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=6, row_spacing=6,
-                                   max_children_per_line=3)
+                                   max_children_per_line=3, homogeneous=False)
         inner.pack_start(self.buttons, False, False, 0)
         w.add(outer)
         w.set_size_request(CARD_W, -1)
@@ -273,18 +290,21 @@ class Card:
         self.last = card
         for child in self.body.get_children() + self.buttons.get_children():
             child.destroy()
-        self.title.set_text("JARVIS  ·  %s" % (card.get("title") or "Here you go"))
+        self.title.set_text(card.get("title") or "Here you go")
         image = card.get("image")
         if image:
             try:
-                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(image, CARD_W - 24, CARD_MAX_H // 2, True)
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(image, CARD_W - 28, CARD_MAX_H // 2, True)
                 self.body.pack_start(Gtk.Image.new_from_pixbuf(pix), False, False, 0)
             except GLib.Error:
                 pass
         for widget in build(card.get("text")):
             self.body.pack_start(widget, False, False, 0)
         for n, (label, phrase) in enumerate(choices(card), 1):
-            button = Gtk.Button(label="%d  %s" % (n, label))
+            button = Gtk.Button()
+            text = Gtk.Label()
+            text.set_markup('<span alpha="50%%">%d</span>  %s' % (n, GLib.markup_escape_text(label)))
+            button.add(text)
             button.get_style_context().add_class("choice")
             button.connect("clicked", lambda _b, p=phrase: self.on_choice(p))
             self.buttons.add(button)
@@ -292,7 +312,7 @@ class Card:
         self.buttons.set_visible(bool(choices(card)))
         # Wrapped labels don't pass their height up through a ScrolledWindow, so measure it: grow to fit,
         # scroll beyond CARD_MAX_H.
-        _, natural = self.body.get_preferred_height_for_width(CARD_W - 24)
+        _, natural = self.body.get_preferred_height_for_width(CARD_W - 28)
         self.scroll.set_min_content_height(min(natural, CARD_MAX_H))
         self.win.resize(CARD_W, 1)  # shrink to fit the new content
         self.visible = True
