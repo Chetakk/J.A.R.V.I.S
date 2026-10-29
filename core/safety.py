@@ -1,0 +1,122 @@
+"""Decides whether a shell command runs automatically, needs a yes/no, or must be run by the user.
+
+Kept dependency-free (stdlib + yaml) so the Claude Code hook can import it quickly.
+"""
+import os
+import shlex
+
+import yaml
+
+AUTO, CONFIRM, MANUAL = "auto", "confirm", "manual"
+_RANK = {AUTO: 0, CONFIRM: 1, MANUAL: 2}
+
+# Programs that are always manual, whatever safety.yaml says.
+HARD_MANUAL = {
+    "rm", "rmdir", "unlink", "shred", "truncate", "mv", "dd", "fdisk", "sfdisk", "parted",
+    "wipefs", "mkswap", "sudo", "su", "doas", "pkexec", "chmod", "chown", "chgrp", "chattr",
+    "apt", "apt-get", "aptitude", "dpkg", "snap", "pip", "pip3", "kill", "killall",
+    "crontab", "useradd", "userdel", "usermod", "passwd", "mount", "umount", "iptables",
+    "ufw", "eval", "exec", "source", ".", "xargs", "env", "nohup", "sh", "bash", "zsh",
+    "dash", "python", "python3", "perl", "ruby", "node", "git",
+    # Wrappers that run another program.
+    "command", "builtin", "nice", "ionice", "timeout", "stdbuf", "watch", "script", "setsid",
+    "flock", "chroot", "nsenter", "busybox", "unshare",
+}
+# Shell keywords that can sit in front of the real program.
+SHELL_KEYWORDS = {"{", "}", "!", "if", "then", "else", "elif", "fi", "do", "done", "while",
+                  "until", "time", "case", "esac", "in"}
+HARD_MANUAL_PREFIXES = ("mkfs",)
+# Shell syntax that can overwrite files or hide another command.
+HARD_MANUAL_TOKENS = {">", ">>", ">|", "&>", "<<<"}
+SEPARATORS = {";", "&&", "||", "|", "&", "|&", "\n", "(", ")"}
+# find flags that change files.
+FIND_DANGEROUS = {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprintf", "-fls"}
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_RULES = os.path.join(_HERE, "..", "config", "safety.yaml")
+
+
+def stricter(a, b):
+    return a if _RANK[a] >= _RANK[b] else b
+
+
+class Safety:
+    def __init__(self, path=DEFAULT_RULES):
+        with open(path) as f:
+            data = yaml.safe_load(f) or {}
+        # Prefix (as a word tuple) -> level; longest prefix wins.
+        self.rules = {}
+        for level in (AUTO, CONFIRM, MANUAL):
+            for entry in data.get(level) or []:
+                self.rules[tuple(str(entry).split())] = level
+
+    def classify(self, command, declared=None):
+        """Return (level, reason) for a full shell command string."""
+        level, reason = self._classify(command)
+        if declared in _RANK and _RANK[declared] > _RANK[level]:
+            return declared, "marked %s in the command list" % declared
+        return level, reason
+
+    def _classify(self, command):
+        if "`" in command or "$(" in command or "<(" in command or ">(" in command:
+            return MANUAL, "it contains a hidden sub-command"
+        try:
+            # Newlines separate commands, but shlex treats them as plain whitespace.
+            lex = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
+            lex.whitespace_split = True
+            tokens = list(lex)
+        except ValueError:
+            return MANUAL, "I couldn't parse it safely"
+        if not tokens:
+            return MANUAL, "it is empty"
+
+        overall, why = AUTO, "it is on the safe list"
+        for segment in _segments(tokens):
+            level, reason = self._segment_level(segment)
+            if _RANK[level] > _RANK[overall]:
+                overall, why = level, reason
+        return overall, why
+
+    def _segment_level(self, words):
+        for i, w in enumerate(words):
+            nxt = words[i + 1] if i + 1 < len(words) else ""
+            if (w in HARD_MANUAL_TOKENS or (w.startswith(">") and w != ">&")) and nxt != "/dev/null":
+                return MANUAL, "it writes over a file"
+        # Skip shell keywords and leading VAR=value assignments.
+        i = 0
+        while i < len(words) and (words[i] in SHELL_KEYWORDS
+                                  or ("=" in words[i] and not words[i].startswith("="))):
+            i += 1
+        words = words[i:]
+        if not words:
+            return CONFIRM, "it only sets variables"
+        prog = os.path.basename(words[0])
+        if "$" in prog:
+            return MANUAL, "the program name is hidden in a variable"
+        if prog in HARD_MANUAL or prog.startswith(HARD_MANUAL_PREFIXES):
+            return MANUAL, "%s can change or delete things on your system" % prog
+        if prog == "find" and FIND_DANGEROUS.intersection(words):
+            return MANUAL, "find with %s can change files" % "/".join(sorted(FIND_DANGEROUS.intersection(words)))
+
+        key = (prog,) + tuple(words[1:])
+        for n in range(len(key), 0, -1):
+            level = self.rules.get(key[:n])
+            if level:
+                reasons = {AUTO: "it is on the safe list",
+                           CONFIRM: "%s needs your okay" % " ".join(key[:n]),
+                           MANUAL: "%s is on the manual list" % " ".join(key[:n])}
+                return level, reasons[level]
+        return CONFIRM, "%s is not on any list yet" % prog
+
+
+def _segments(tokens):
+    seg = []
+    for t in tokens:
+        if t in SEPARATORS:
+            if seg:
+                yield seg
+            seg = []
+        else:
+            seg.append(t)
+    if seg:
+        yield seg
