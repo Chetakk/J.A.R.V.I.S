@@ -24,7 +24,7 @@ try:
 except ImportError:
     pass
 
-from core import context, learned, misslog, persona, undo
+from core import context, learned, misslog, persona, undo, verify
 from system import apps, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import Claude, ClaudeError, open_in_vscode
@@ -174,6 +174,7 @@ class Jarvis:
         self.speaker.quiet = lambda: persona.quiet_hours(self.settings)
         self.speaker.quiet_volume = (self.settings.get("quiet_hours") or {}).get("volume", 40)
         self.executor = Executor(self.safety, self.speaker, self.settings, self.ask)
+        self.executor.notify = lambda line: self.inbox.put(("say", line))  # from its checking thread
         self.whisper_port = int((self.settings.get("stt") or {}).get("port", 8178))
         self.projects = Projects()  # ~/Projects: names, READMEs; running them is biztel run
         self.skills = Skills(self)  # everything JARVIS does itself: one module per skill in skills/
@@ -853,9 +854,12 @@ class Jarvis:
         if not app:
             return False
         desktop.go_to_jarvis_workspace()
+        before = verify.windows_now()
         if not self.apps.launch(app):
+            verify.record("open %s" % app["name"], False, "it didn't start")
             self.speaker.say("Hmm, %s didn't start." % app["name"])
             return True
+        verify.launched("open %s" % app["name"], None, before, True, self.executor.notify)
         self.last_app = app["process"] or None
         self.context.done(text, said)
         self.speaker.say(["Opening %s." % app["name"], "Sure, here's %s." % app["name"]])

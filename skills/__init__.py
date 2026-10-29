@@ -7,6 +7,7 @@ go last.
 """
 from skills.browser_tabs import BrowserTabs
 from skills.cards import Cards
+from skills.checks import Checks
 from skills.clipboard import Clipboard
 from skills.clipboard_history import ClipboardHistory
 from skills.controls import Controls
@@ -31,7 +32,7 @@ from skills.windows import Windows
 ORDER = [
     ("cards", Cards), ("dictation", Dictation), ("maths", Maths), ("focus_mode", FocusMode),
     ("slow_computer", SlowComputer), ("where_was_i", WhereWasI), ("clipboard_history", ClipboardHistory),
-    ("status", Status), ("daytracker", DayTracker), ("todos", Todos), ("projects", Projects), ("screen", Screen),
+    ("status", Status), ("checks", Checks), ("daytracker", DayTracker), ("todos", Todos), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("clipboard", Clipboard), ("notes", Notes), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]

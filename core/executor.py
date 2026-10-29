@@ -3,7 +3,9 @@ import os
 import shlex
 import shutil
 import subprocess
+import tempfile
 
+from core import verify
 from system import desktop
 from core.persona import with_name
 from core.safety import CONFIRM, MANUAL
@@ -19,13 +21,15 @@ class Executor:
         self.ask = ask  # ask(question) -> bool, by voice or keyboard
         self.user_name = settings.get("user_name")
         self.ok = False  # whether the last run() actually ran
+        self.notify = speaker.say  # a sure failure noticed later (from a thread); JARVIS sets its inbox
 
     def run(self, command, reply="Done", output=False, declared=None, on_output=None, question=None,
             window=False, timeout=15):
         """Run `command` under the safety rules. Returns the captured output, if any.
 
         window=True: the command opens a new app window, so go to JARVIS's workspace first.
-        Afterwards self.ok tells whether it actually ran (and, with output=True, exited successfully).
+        Afterwards self.ok tells whether it actually ran (and, with output=True, exited successfully);
+        verify.last tells, a few seconds later, what came of it.
         """
         self.ok = False
         reply = pick(reply)
@@ -54,14 +58,28 @@ class Executor:
                 return None
             self.ok = res.returncode == 0
             out = (res.stdout or res.stderr).strip()
+            verify.record(command, self.ok, "it ran without errors" if self.ok else
+                          "it failed (exit %d)" % res.returncode)
             if on_output:
                 self.speaker.say(on_output(out))
             return out
         if window:
             desktop.go_to_jarvis_workspace()
-        subprocess.Popen(command, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL, start_new_session=True)
+        # A window app's stderr isn't kept: it can write to it for days. A quick command's is, for the error.
+        err = None if window else tempfile.TemporaryFile()
+        before = verify.windows_now() if window else {}
+        proc = subprocess.Popen(command, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                stderr=err or subprocess.DEVNULL, start_new_session=True)
+        verify.launched(command, proc, before, window, self.notify, errors=err and (lambda: _read(err)))
         self.ok = True
         if reply:
             self.speaker.say(with_name(reply, self.user_name))
         return None
+
+
+def _read(f):
+    try:
+        f.seek(0)
+        return f.read()[-2000:].decode("utf-8", "replace")
+    finally:
+        f.close()

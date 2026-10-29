@@ -828,3 +828,10 @@
 "show me the options in this window": skill:list_controls
 "what's in the file menu": skill:list_controls
 "read the edit menu": skill:list_controls
+
+# did the last action work
+"did that work": skill:did_it_work
+"did it open": skill:did_it_work
+"has it opened yet": skill:did_it_work
+"did that go through": skill:did_it_work
+"check if it worked": skill:did_it_work
