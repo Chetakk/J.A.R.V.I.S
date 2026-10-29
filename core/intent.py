@@ -75,7 +75,8 @@ SLOTS = {
     # a todo: never "I'm", "it", "that" ("I'm done" isn't a todo)
     "item": r"(?!(?:i'?m|i am|it|that|this|we'?re|you'?re|all|everything)$).+?",
     # an app, never "down ..." ("shut down the computer") or the computer itself
-    "app": r"(?!down\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine|wifi|bluetooth|tab|window)$).+?",
+    "app": r"(?!down\b|off\b|up\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine|wifi|bluetooth|tab|window|"
+           r"everything|all|it all)$).+?",
 }
 
 
@@ -170,6 +171,17 @@ class IntentMatcher:
             if m:
                 return re.sub(r"\{(\w+)\}", lambda s: _value(s.group(1), m.group(s.group(1))), target)
         return None
+
+    def candidates(self, text, n=2):
+        """The n best different phrases for `text`, as [(phrase, score)] (going the same way as what was said)."""
+        scores = self.matrix @ self.embed([text])[0]
+        out = []
+        for i in np.argsort(-scores):
+            if self.targets[i] not in [t for t, _ in out] and not opposite_direction(text, self.targets[i]):
+                out.append((self.targets[i], float(scores[i])))
+                if len(out) == n:
+                    break
+        return out
 
     def match(self, text):
         """(known phrase, score), or (None, best score) when nothing is close enough."""

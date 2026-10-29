@@ -139,6 +139,13 @@ def worth_asking(text, names):
     return bool(real) and (len(words) > 1 or len(real[0]) >= 4)
 
 
+# Open questions are for Claude, even when they sound a bit like a command ("what time is it in London").
+OPEN_QUESTION = re.compile(r"^(?:who|whom|whose|why|explain|describe|define|compare|write|summari[sz]e|translate|"
+                           r"recommend|suggest|should i|tell me (?:about|a|how|why)|can you help|help me|"
+                           r"what (?:is|are|was|were|does|do) (?:a|an|the)\b|how (?:do|does|did|can|could|should|"
+                           r"would|to)\b)|\b(?:in|at) (?!a\b|the\b|my\b)[a-z]+$|\b(?:yesterday|last (?:week|month|year))\b",
+                           re.IGNORECASE)
+UNSURE = 0.62  # from here up to the matcher's threshold, a guess is asked about (real questions scored lower)
 YES = re.compile(r"^\W*(y|yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|correct)\b", re.IGNORECASE)
 
 
@@ -229,6 +236,24 @@ class Jarvis:
 
     def ask(self, question):
         """Ask a yes/no question; the answer can be typed or spoken."""
+        return bool(YES.match(self._answer(question) or ""))
+
+    def choose(self, question, options):
+        """Ask "X, or Y?": the option picked ("the first", "Y", "pause"), or None for "neither"/no answer."""
+        answer = (self._answer(question) or "").lower().strip(" .!?")
+        if not answer or re.match(r"^(?:no|nope|neither|none|nothing|never ?mind|cancel)\b", answer):
+            return None
+        for words in (("first", "second", "third"), ("one", "two", "three")):  # "the second one": second, not one
+            hit = [i for i, w in enumerate(words) if re.search(r"\b%s\b" % w, answer) and i < len(options)]
+            if len(hit) == 1:
+                return options[hit[0]]
+        said = set(re.findall(r"[a-z']+", answer))
+        overlap = [len(said & set(re.findall(r"[a-z']+", o.lower()))) for o in options]
+        best = max(overlap)
+        return options[overlap.index(best)] if best and overlap.count(best) == 1 else None
+
+    def _answer(self, question):
+        """Say `question` and wait for the typed or spoken answer (None if none came)."""
         self.speaker.say(question)
         self.follow_up()  # "yes" without saying the name first
         timeout = self.settings.get("confirm_timeout", 8)
@@ -244,7 +269,7 @@ class Jarvis:
                 deferred.append((kind, answer))
         except queue.Empty:
             print()
-            return False
+            return None
         finally:
             for item in deferred:
                 self.inbox.put(item)
@@ -252,7 +277,8 @@ class Jarvis:
             print(answer)
         if kind in ("text", "voice", "follow"):
             self.chat("you", answer)
-        return kind in ("text", "voice", "follow") and bool(YES.match(answer or ""))
+            return answer
+        return None
 
     def handle(self, raw, follow_up=False):
         """follow_up: said without the name after an answer; then only a clear request goes to Claude.
@@ -345,6 +371,8 @@ class Jarvis:
             self._miss(text, "unclear")
             self.recent.append("JARVIS ignored that (too short or unclear)")
             self.speaker.say(["Sorry, I didn't catch that.", "Sorry, could you say that again?"])
+            return True
+        if self._unsure(text):
             return True
         self._miss(text, "claude" if self.mode != "sys" else "unknown")
         if self.mode == "sys":
@@ -687,6 +715,30 @@ class Jarvis:
                 and any(w not in common for w in re.findall(r"[a-z]+", a["name"].lower()))]
         return (["To-do list", "Reminder", "Timer", "Workspace", "Jetson Nano", "biztel", "Claude"]
                 + [p.spoken for p in self.projects.items] + apps)
+
+    def _unsure(self, text):
+        """Nearly understood: ask instead of guessing, or of waiting ~4 s for Claude.
+        Two meanings tied: "Pause the music, or mute?". A likely one: "Did you mean pause the music?".
+        A yes also teaches the wording (unless learn: off)."""
+        if not self.intents or self._rewording or self.from_claude:
+            return False
+        (best, score), (other, second) = (self.intents.candidates(text) + [(None, 0.0)] * 2)[:2]
+        if not best or best.startswith("/") or OPEN_QUESTION.search(text):
+            return False
+        threshold = (self.settings.get("intents") or {}).get("threshold", 0.72)
+        if second >= UNSURE and score - second < 0.06 and not other.startswith("/"):  # two close meanings
+            phrase = self.choose("%s, or %s?" % (best[0].upper() + best[1:], other), [best, other])
+        elif UNSURE <= score < threshold:  # one likely meaning (no close second: that was the case above)
+            phrase = best if self.ask("Did you mean %s?" % best) else None
+        else:
+            return False
+        if not phrase:
+            return False  # neither: Claude, as before
+        if self.settings.get("learn", "ask") != "off" and learned.worth_learning(text, phrase, learned.load()):
+            learned.remember(text, phrase)  # you just confirmed it: no need to ask again
+            self.intents.learn(text, phrase)
+        self.heard(text, "you meant \"%s\"" % phrase)
+        return self._reword(phrase)
 
     def _learn(self, said, phrase):
         """Claude turned `said` into a JARVIS phrase that worked: learn the wording, so next time needs no Claude.
