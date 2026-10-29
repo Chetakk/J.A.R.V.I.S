@@ -39,7 +39,7 @@ wake_word:
   # kws:     small CPU keyword model; lighter, but caught only about 13 of 21 of the same recording.
   engine: whisper
   follow_up_seconds: 8     # whisper only: after an answer, the orb stays lit and you can just talk (0 = off)
-  barge_in: any            # whisper only: talking over JARVIS. any = a new request stops it (no name needed
+  barge_in: named          # whisper only: talking over JARVIS. any = a new request stops it (no name needed
                            # within a minute of your last one), named = only with the name, off = only "stop"
   threshold: 0.10          # kws only: lower = triggers more easily (and more false alarms)
   boost: 2.0               # kws only: higher = favours the wake phrases more
