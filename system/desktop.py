@@ -144,6 +144,36 @@ def close_window(window):
     _act("_NET_CLOSE_WINDOW", window.id, [X.CurrentTime, 2])
 
 
+def unresponsive(wins, seconds=2.0):
+    """The windows among `wins` that don't answer a _NET_WM_PING within `seconds`: their app is frozen (what
+    the desktop's own "not responding" dialog goes by). Windows that don't take pings aren't counted."""
+    import time
+    try:
+        d = display.Display()
+        root = d.screen().root
+        root.change_attributes(event_mask=X.SubstructureNotifyMask)  # the answers are sent to the root window
+        protocols, ping = _atom(d, "WM_PROTOCOLS"), _atom(d, "_NET_WM_PING")
+        waiting = {}
+        for w in wins:
+            win = d.create_resource_object("window", w.id)
+            if ping in (win.get_wm_protocols() or []):
+                win.send_event(protocol.event.ClientMessage(window=win, client_type=protocols,
+                                                            data=(32, [ping, X.CurrentTime, w.id, 0, 0])))
+                waiting[w.id] = w
+        d.flush()
+        deadline = time.time() + seconds
+        while waiting and time.time() < deadline:
+            while d.pending_events():
+                ev = d.next_event()
+                if ev.type == X.ClientMessage and ev.client_type == protocols and ev.data[1][0] == ping:
+                    waiting.pop(ev.data[1][2], None)
+            time.sleep(0.05)
+        d.close()
+        return list(waiting.values())
+    except Exception:
+        return []
+
+
 def current_workspace():
     """The workspace you're on (1-based)."""
     try:

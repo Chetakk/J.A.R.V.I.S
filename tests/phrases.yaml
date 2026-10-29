@@ -896,6 +896,16 @@
 "summarise it": claude
 "summarise my clipboard": skill:clipboard_job
 "read it to me": card:read
+# Frozen apps (skills/frozen.py)
+"is anything frozen": skill:check
+"what's frozen": skill:check
+"which app is not responding": skill:check
+"close the frozen app": skill:check
+"my computer is frozen": skill:about
+"this app is stuck": skill:about
+"it's frozen": skill:about
+"force quit this": skill:force
+"the build is stuck": claude
 # Browser agent (skills/web.py)
 "summarise this page": skill:page
 "what's this page about": skill:page

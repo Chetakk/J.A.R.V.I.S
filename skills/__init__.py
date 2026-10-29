@@ -17,6 +17,7 @@ from skills.dev import Dev
 from skills.dictation import Dictation
 from skills.files import Files
 from skills.focus_mode import FocusMode
+from skills.frozen import Frozen
 from skills.layouts import Layouts
 from skills.maths import Maths
 from skills.media import Media
@@ -37,7 +38,8 @@ from skills.windows import Windows
 ORDER = [
     ("cards", Cards), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
     ("maths", Maths), ("focus_mode", FocusMode),
-    ("slow_computer", SlowComputer), ("where_was_i", WhereWasI), ("clipboard_history", ClipboardHistory),
+    ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
+    ("clipboard_history", ClipboardHistory),
     ("status", Status), ("checks", Checks), ("daytracker", DayTracker), ("todos", Todos),
     ("troubleshoot", Troubleshoot), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("clipboard", Clipboard), ("notes", Notes), ("files", Files),

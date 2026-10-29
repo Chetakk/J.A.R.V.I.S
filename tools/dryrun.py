@@ -20,6 +20,7 @@ import yaml  # noqa: E402
 
 import jarvis as J  # noqa: E402
 from skills import controls as J_controls  # noqa: E402
+from skills import frozen as J_frozen  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
 from skills import troubleshoot as J_troubleshoot  # noqa: E402
 
@@ -75,6 +76,9 @@ class DryJarvis:
         if obj is self.j.skills.controls:  # "click it", "hit me with a joke": handed on
             passes["click"] = lambda m: m.group(2) or J_controls._spoken_keys(m.group(1)) or J_controls._name(m.group(1))
             passes["hit"] = lambda m: J_controls._spoken_keys(m.group(1))
+        if obj is self.j.skills.frozen:  # "the build is stuck": not a window, handed on
+            passes["about"] = lambda m: J_frozen.target(m.group(1)) is not None
+            passes["force"] = lambda m: J_frozen.target(m.group(1) or m.group(2)) not in (None, J_frozen.ALL)
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

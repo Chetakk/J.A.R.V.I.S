@@ -1,9 +1,12 @@
-""""What's slowing my computer": top CPU and memory users; offers to close the worst one."""
+""""What's slowing my computer": top CPU and memory users; offers to close the worst one, or deals with a frozen
+window first (skills/frozen.py)."""
 import os
 import signal
+import threading
 import time
 
 from skills.base import Skill
+from system import desktop
 
 # Never offered for closing: the desktop, sound, JARVIS itself and its helpers.
 PROTECTED = {"gnome-shell", "xorg", "x", "systemd", "pulseaudio", "pipewire", "gdm", "gnome-session-b",
@@ -20,7 +23,12 @@ class SlowComputer(Skill):
         ]
 
     def slow(self):
+        stuck = []  # windows are pinged while the CPU is measured
+        ping = threading.Thread(target=lambda: stuck.extend(desktop.unresponsive(
+            [w for w in desktop.windows() if "jarvis" not in w.wm_class], 1.5)))
+        ping.start()
         procs = top_processes()
+        ping.join()
         cpu = [p for p in procs if p[1] >= 5][:3]
         heavy = sorted(procs, key=lambda p: -p[2])[:3]
         free = _meminfo("MemAvailable") / 2 ** 20  # GB
@@ -34,6 +42,10 @@ class SlowComputer(Skill):
         spoken += ". The biggest on memory is %s at %s." % (heavy[0][0], _mb(heavy[0][2]))
         if free < 1.5:
             spoken += " Memory is low, only %.1f gigabytes free." % free
+        if stuck:  # one question at a time: the frozen app is the likelier culprit
+            self.say(spoken)
+            self.j.skills.frozen.check(stuck)
+            return
         target = next((p for p in cpu + heavy if p[0].lower() not in PROTECTED), None)
         if not target or (target[1] < 30 and free >= 1.5):
             self.say(spoken)
