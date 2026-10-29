@@ -48,7 +48,9 @@ class Cards(Skill):
             (r"(?:show )?(?:me )?(?:the )?next card", lambda m: self.step(1)),
             (r"pin (?:it|that|this|the card)", self.pin),
             (r"unpin(?: it| that| everything| the cards?| all)?|close (?:the |all )?pinned cards?", self.unpin),
-            (r"(?:set |start )?(?:a |an )?(?:timer|countdown) (?:for )?%s(?: for (.+))?" % _AMOUNT, self.timer),
+            # "our"/"my": Whisper often hears "set a timer" as "set our timer".
+            (r"(?:set(?: up)? |start )?(?:a |an |the |my |our |one )?(?:timer|countdown) (?:for )?%s(?: for (.+))?"
+             % _AMOUNT, self.timer),
             (r"%s timer(?: for (.+))?" % _AMOUNT.replace(r"\s*(seconds?", r"[\s-]*(seconds?"), self.timer),
             (r"(?:cancel|stop|clear) (?:the |my |all )?(?:timers?|countdowns?)", self.cancel_timers),
         ]

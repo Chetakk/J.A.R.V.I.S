@@ -1107,3 +1107,5 @@
 "set a reminder": "skill:remind_when"
 "i want you to set a reminder": "skill:remind_when"
 "to set a reminder": "skill:remind_when"
+"set our timer for two minutes": "card:timer"
+"set up a timer for 3 minutes": "card:timer"
