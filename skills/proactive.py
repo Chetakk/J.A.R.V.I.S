@@ -68,9 +68,9 @@ class Proactive(Skill):
              r"battery|crash|project|habit|suggestion|offer)? ?%s|"
              r"(?:stop|quit) (offering|suggesting) (?:me )?(?:that|this|it|things)(?: again)?"
              % (r"(?:that|this|it|the \w+(?: \w+)?)", r"(?:that|this|it|the \w+(?: \w+)?)", SOME, ALERTS), self.mute),
-            (r"(?:turn (?:on )?|unmute |enable )?%s(cpu|processor|memory|ram|temperature|temp|disk(?: space)?|"
-             r"battery|crash|project|habit)? ?%s (?:back on|on again)|(?:unmute|enable|turn on) %s(cpu|memory|"
-             r"temperature|disk|battery|crash|habit)? ?%s|warn me about (?:the )?(\w+(?: \w+)?) again"
+            (r"(?:(?:turn|switch)(?: on)? |unmute |enable )?%s(cpu|processor|memory|ram|temperature|temp|disk(?: space)?|"
+             r"battery|crash|project|habit)? ?%s (?:back on|on(?: again)?)|(?:unmute|enable|turn on|switch on|start) %s(cpu|"
+             r"memory|temperature|disk|battery|crash|habit)? ?%s(?: again)?|warn me about (?:the )?(\w+(?: \w+)?) again"
              % (SOME, ALERTS, SOME, ALERTS), self.unmute),
             (r"(?:tell me|let me know|notify me|ping me|alert me|give me a shout|shout|say something) (?:when|once|"
              r"as soon as|after) (?:(?:the|my) )?(.+?)(?:'s|'re| is| are| has| have)? (?:finished|finishes|finish|"
