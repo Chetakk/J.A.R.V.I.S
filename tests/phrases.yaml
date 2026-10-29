@@ -1,0 +1,90 @@
+# Expected routing for tools/dryrun.py --check (run it after every change).
+# Results: command:<name>, skill:<method>, card:<method>, slash:<cmd>, browser, persona, claude, ignored.
+# A skill that would fall through at run time (returns False) still shows as that skill here.
+"open terminal": command:open_terminal
+"open vs code": command:open_vscode
+"open the downloads folder": command:open_downloads
+"close chrome": command:close_app
+"volume down": command:volume_down
+"turn the sound up": command:volume_up
+"mute": command:mute
+"set volume to 40": command:set_volume
+"take a screenshot": command:screenshot
+"screenshot area": command:screenshot_area
+"lock screen": command:lock_screen
+"dark mode": command:dark_mode
+"light mode": command:light_mode
+"make everything dark": command:dark_mode
+"bigger text": command:text_bigger
+"normal text": command:text_normal
+"brightness low": command:brightness_low
+"night light on": command:night_light_on
+"wifi off": command:wifi_off
+"turn the wifi off": command:wifi_off
+"am i online": command:internet_check
+"bluetooth devices": command:bluetooth_devices
+"shut down": command:shutdown
+"reboot": command:reboot
+"suspend": command:suspend
+"what time is it": command:time
+"what's the date": command:date
+"disk space": command:disk_space
+"memory usage": command:memory
+"cpu usage": command:cpu_usage
+"temperature": command:cpu_temp
+"ip address": command:ip_address
+"what's my ip address": command:ip_address
+"empty trash": command:empty_trash
+"open youtube": browser
+"open gmail in firefox": browser
+"search for jetson nano": browser
+"new tab": skill:tab
+"close this tab": skill:tab
+"get rid of this tab": skill:tab
+"next tab": skill:tab
+"switch to the github tab": skill:find_tab
+"go back": skill:tab
+"reload the page": skill:tab
+"scroll down": skill:tab
+"zoom in": skill:tab
+"pause": skill:media
+"pause the music": skill:media
+"turn off the music": skill:media
+"play the music": skill:media
+"next song": skill:media
+"skip this one": skill:media
+"what's playing": skill:playing
+"what's on my screen": skill:screen
+"what's on my clipboard": skill:read_clipboard
+"summarise what i copied": skill:clipboard_job
+"remember that the router password is on the fridge": skill:remember
+"list my notes": skill:list_notes
+"forget the router": skill:forget
+"what's pending": skill:pending
+"find my resume": skill:find_file
+"open the latest download": skill:latest_file
+"maximise": skill:window_state
+"close this window": skill:close_window
+"go to workspace 3": skill:workspace
+"switch to firefox": skill:focus
+"status": skill:status
+"how's the system": skill:status
+"what's running": skill:whats_running
+"list projects": skill:list_projects
+"run the jarvis project": skill:run_project
+"stop all projects": skill:stop_all
+"git status of jarvis": skill:git_status
+"is the nano up": skill:nano_status
+"open": claude
+"open": claude
+"show chat": "slash:/chat on"
+"hide chat": "slash:/chat off"
+"close the card": "slash:/card off"
+"how are you": persona
+"thank you": persona
+"remind me in 10 minutes to stretch": persona
+"who is the president of france": claude
+"tell me a joke": persona
+"write a poem about rain": claude
+"uh": ignored
+"kill the music": skill:media

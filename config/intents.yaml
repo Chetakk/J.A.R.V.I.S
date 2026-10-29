@@ -25,7 +25,7 @@ what's pending: [what's left to do, anything i need to do, what am i forgetting,
 status: [how are you running, system check, are you okay, health check, how are your systems]
 what's running: [which projects are up, what's running right now, anything running]
 stop all projects: [shut down every project, kill all the projects, stop everything that's running]
-list projects: [what projects do i have, show me my projects, which projects are there]
+list my projects: [what projects do i have, show me my projects, which projects are there]
 open claude: [i want to talk to claude, bring up claude code, start claude]
 show chat: [open the chat, show me the conversation, show the chat window]
 hide chat: [close the chat, get rid of the chat, hide the conversation]
