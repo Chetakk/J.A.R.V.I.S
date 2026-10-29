@@ -34,6 +34,7 @@ class DryJarvis:
         j._run_match = lambda match: rec(("command", match.command.get("name"))) or True
         j._ask_claude = lambda text, **k: rec(("claude", text))
         j._slash = lambda raw: rec(("slash", raw)) or True
+        j._miss = lambda text, outcome: rec(("miss", outcome))
         for name in ("seen", "used", "add_reminder", "clear_reminders"):
             setattr(j.memory, name, lambda *a, **k: 0)
         self._stub_rules("skill", j.skills)
@@ -54,7 +55,7 @@ class DryJarvis:
         del self.log[:]
         self.j.last_request = None
         self.j.handle(text)
-        acts = [(k, v) for k, v in self.log if k not in ("say", "note")]
+        acts = [(k, v) for k, v in self.log if k not in ("say", "note", "miss")]
         notes = [v for k, v in self.log if k == "note"]
         if not acts:
             said = [v for k, v in self.log if k == "say"]

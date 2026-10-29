@@ -64,6 +64,7 @@ class IntentMatcher:
                 self.targets.append(target)
                 examples.append(s)
         self.matrix = self.embed(examples)
+        self.nearest = (None, 0.0)
 
     def embed(self, sentences):
         encoded = [self.tok.encode(s) for s in sentences]
@@ -85,6 +86,7 @@ class IntentMatcher:
         # The runner-up must be clearly worse unless it points at the same phrase.
         rival = next((i for i in order[1:] if self.targets[i] != self.targets[best]), None)
         score = float(scores[best])
+        self.nearest = (self.targets[best], score)  # for the miss log, even when it's not a match
         if score < self.threshold or (rival is not None and score - scores[rival] < self.margin):
             return None, score
         return self.targets[best], score
