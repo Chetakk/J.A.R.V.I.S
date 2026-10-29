@@ -23,6 +23,7 @@ from system.webagent import PAYMENT, RISKY, UNTRUSTED_RULE, AgentError, WebAgent
 MAX_STEPS = 10  # actions per agent task before it stops and tells you where it got to
 ACTIONS = ("click", "fill", "select", "check", "press", "scroll", "back", "goto", "upload", "download", "done", "ask")
 URL = r"(https?://\S+|(?:www\.)?[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}(?:/\S*)?)"
+AGENT = r"the (?:agent(?:'?s)? browser|browser agent)"  # JARVIS's own browser, however it's called
 BOOKMARKS = os.path.expanduser("~/.config/google-chrome/%s/Bookmarks")
 
 ANSWER_SYSTEM = ("You read web pages for a voice assistant. %s Reply with only JSON: {\"say\": \"<one or two short "
@@ -54,8 +55,8 @@ class Web(Skill):
              r"about|summari[sz]e (?:the |this )?(?:youtube )?video (https?://\S+)|summari[sz]e "
              r"(https?://(?:www\.)?(?:youtube\.com|youtu\.be)/\S+)", self.video),
             (r"(?:summari[sz]e|sum up|read) " + URL, lambda m: self.page(None, url=m.group(1))),
-            (r"(?:on|from) (?:this|the) page,? (download .+|upload .+)|(upload .+? to (?:this|the) (?:page|form|"
-             r"site).*)|(download (?:the|this|that) (?:file|pdf|image|picture|video|attachment|document|zip)s? "
+            (r"(?:on|from) (?:this|the) page,? (download .+|upload .+)|((?:upload|attach) .+? (?:to|on|onto|into) "
+             r"(?:this|the) (?:page|form|site).*)|(download (?:the|this|that) (?:file|pdf|image|picture|video|attachment|document|zip)s? "
              r"(?:on|from) (?:this|the) page)", lambda m: self.browse(next(g for g in m.groups() if g), here=True)),
             (r"(?:on|from) %s,? (.+)|(.+?) (?:on|in) %s|find (.+) on %s" % (page, page, page),
              lambda m: self.page(next(g for g in m.groups() if g))),
@@ -72,10 +73,13 @@ class Web(Skill):
             (r"(?:in|using|with) the (?:agent|agent'?s) browser,? (.+)|(?:use )?the browser agent(?: to)?,? (.+)|"
              r"agent,? (go to .+|open .+ and .+)", lambda m: self.browse(next(g for g in m.groups() if g))),
             (r"download " + URL, self.download),
-            (r"(?:show|open) (?:me )?the agent(?:'?s)? browser|log ?in (?:to|on) (.+?) (?:in|on) the agent(?:'?s)? "
-             r"browser", self.show_agent),
-            (r"(?:hide|close) the agent(?:'?s)? browser", self.hide_agent),
-            (r"bookmark (?:this|that)(?: page| tab| site)?", lambda m: self.bookmark_this()),
+            (r"(?:(?:show|open|bring up)(?: me)?|let me (?:see|watch|take over)|i want to (?:see|watch|take over)|"
+             r"take over) (?:%s|the agent)|(?:log|sign) ?(?:in|on)(?: ?to)? (.+?) (?:in|on|with|using) %s" % (AGENT, AGENT),
+             self.show_agent),
+            (r"(?:hide|close) " + AGENT, self.hide_agent),
+            (r"bookmark (?:this|that|it)(?: page| tab| site)?|(?:save|add) (?:this|it)(?: page| tab| site)? (?:to|in|as) "
+             r"(?:my |a )?bookmarks?|(?:save|add) a bookmark(?: for this(?: page| tab| site)?)?",
+             lambda m: self.bookmark_this()),
             (r"open (?:my |the )?(.+?) bookmark", self.open_bookmark),
             (r"(?:search|find|look) (?:in |through )?(?:my )?bookmarks (?:for|about) (.+)|what did i bookmark "
              r"(?:about|on|for) (.+)|(?:show|list) (?:me )?(?:my )?bookmarks(?: (?:in|from) (?:the )?(.+?)(?: folder)?)?",
