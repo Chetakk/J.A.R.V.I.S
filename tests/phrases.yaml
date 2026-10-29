@@ -465,7 +465,7 @@
 "airplane mode off": "command:airplane_off"
 "turn off flight mode": "command:airplane_off"
 "do i have internet": "command:internet_check"
-"check the internet": "command:internet_check"
+"check the internet": "skill:diagnose"
 "bluetooth on": "command:bluetooth_on"
 "enable bluetooth": "command:bluetooth_on"
 "bluetooth off": "command:bluetooth_off"
@@ -857,7 +857,7 @@
 "why won't it start": skill:why
 "why did the server crash": skill:why
 "what's wrong with my project": skill:why
-"why isn't my wifi working": command:wifi_status
+"why isn't my wifi working": skill:diagnose
 "why is the sky blue": claude
 "what's using port 5173": skill:port
 "is port 8178 free": skill:port
@@ -1035,3 +1035,16 @@
 "ask claude to make these changes in jarvis": claude-terminal
 "tell claude to add a battery card to jarvis": claude-terminal
 "ask claude what the weather is": claude
+# Network diagnostics (skills/network.py); "am i online" stays the quick ping command
+"why is my internet so slow": skill:diagnose
+"what's wrong with my wifi": skill:diagnose
+"diagnose my network": skill:diagnose
+"check my internet connection": skill:diagnose
+"my wifi keeps dropping": skill:diagnose
+"the internet is down": skill:diagnose
+"is my internet slow today": skill:diagnose
+"websites aren't loading": skill:diagnose
+"run a network test": skill:diagnose
+"why won't the wifi connect": skill:diagnose
+"how strong is my wifi signal": skill:signal
+"wifi signal strength": skill:signal

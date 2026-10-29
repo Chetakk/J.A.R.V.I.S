@@ -5,7 +5,8 @@ The order matters: the first skill whose phrase matches (and doesn't hand it on)
 tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
 and the screen ("what's this page about" in a browser reads the page itself); copying between apps before the
 clipboard ("summarise my clipboard and put it in Slack"); reading files before the browser agent ("summarise
-resume.pdf" isn't a website); the briefing before "everything about X" ("what do I have on today"); "everything
+resume.pdf" isn't a website); the network check before troubleshooting ("what's wrong with my
+wifi" isn't a project); the briefing before "everything about X" ("what do I have on today"); "everything
 about X" before projects and notes
 (their "tell me about" / "what do you remember about" would take it); clicking in a window and window focus go last.
 """
@@ -29,6 +30,7 @@ from skills.layouts import Layouts
 from skills.linked import Linked
 from skills.maths import Maths
 from skills.media import Media
+from skills.network import Network
 from skills.nano import Nano
 from skills.notes import Notes
 from skills.organise import Organise
@@ -52,7 +54,7 @@ ORDER = [
     ("clipboard_history", ClipboardHistory),
     ("status", Status), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
-    ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
+    ("network", Network), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
