@@ -4,7 +4,7 @@
 "open terminal": command:open_terminal
 "open vs code": command:open_vscode
 "open the downloads folder": command:open_downloads
-"close chrome": command:close_app
+"close chrome": "app:close Google Chrome"
 "volume down": command:volume_down
 "turn the sound up": command:volume_up
 "mute": command:mute
@@ -89,7 +89,7 @@
 "uh": ignored
 "kill the music": skill:media
 "undo that": persona
-"shut chrome": command:close_app
-"get rid of the calculator": command:close_app
+"shut chrome": "app:close Google Chrome"
+"get rid of the calculator": "app:close Calculator"
 "make it 40 percent": command:set_volume
 "join home wifi": command:wifi_connect

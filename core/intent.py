@@ -4,6 +4,7 @@
 Claude. Uses all-MiniLM-L6-v2 (int8 ONNX, ~23 MB) with a small built-in WordPiece tokenizer, so
 nothing beyond onnxruntime and numpy is needed. ~10-20 ms per sentence on the Orin's CPU.
 """
+import hashlib
 import os
 import re
 import unicodedata
@@ -12,6 +13,7 @@ import numpy as np
 import yaml
 
 MODEL_DIR = os.path.expanduser("~/.local/share/jarvis/models/minilm")
+CACHE = os.path.join(MODEL_DIR, "phrases.npz")
 
 
 class WordPiece:
@@ -76,8 +78,24 @@ class IntentMatcher:
                 self.targets.append(target)
                 examples.append(s)
         self.templates.sort(key=lambda t: -len(re.sub(r"\(\?.*?\)", "", t[0].pattern)))  # most fixed words first
-        self.matrix = self.embed(examples)
+        self.matrix = self._cached(examples)
         self.nearest = (None, 0.0)
+
+    def _cached(self, examples):
+        """Phrase vectors, reused from disk while the phrase list is unchanged (saves ~2 s at startup)."""
+        key = hashlib.sha1("\n".join(examples).encode()).hexdigest()
+        try:
+            data = np.load(CACHE)
+            if str(data["key"]) == key:
+                return data["matrix"]
+        except (OSError, KeyError, ValueError):
+            pass
+        matrix = self.embed(examples)
+        try:
+            np.savez(CACHE, key=key, matrix=matrix)
+        except OSError as e:
+            print("[intent] can't cache phrase vectors: %r" % e)
+        return matrix
 
     def embed(self, sentences):
         encoded = [self.tok.encode(s) for s in sentences]

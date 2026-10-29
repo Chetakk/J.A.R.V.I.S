@@ -13,7 +13,7 @@ import subprocess
 import time
 import urllib.request
 
-from core import desktop
+from core import desktop, health
 from core.daytracker import DayTracker
 from core.todos import Todos
 from core.claude_bridge import WORKSPACE, ClaudeError
@@ -146,7 +146,10 @@ class Skills:
         lines = ["Voice: %s." % voice, "Speech: %s." % stt, "%s (%s mode)." % (claude, j.mode),
                  "Disk: %.1f GB free." % disk, "Memory: %.1f GB free." % mem]
         j.chat("sys", "status\n" + "\n".join(lines))
+        broken = list(health.problems(j).values())
+        lines += broken
         problems = [l for l in lines if "NOT" in l or "off" in l] + (["Disk is nearly full."] if disk < 2 else [])
+        problems += [l for l in broken if l not in problems]
         self.say("All good. I'm %s, and there's %.0f gigabytes of disk free." % (voice, disk) if not problems
                  else "Mostly fine, but: %s" % " ".join(problems))
 

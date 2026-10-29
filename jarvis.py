@@ -22,12 +22,13 @@ try:
 except ImportError:
     pass
 
-from core import desktop, misslog, persona, undo, watchdog
+from core import apps, desktop, misslog, persona, undo, watchdog
 from core.browser import Browser
 from core.claude_bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from core.skills import Skills
 from core.listen import PushToTalk
+from core.apps import Apps
 from core.intent import IntentMatcher
 from core.registry import Registry, clean
 from core.safety import MANUAL, Safety
@@ -167,11 +168,12 @@ class Jarvis:
         self.names = [n.lower() for n in self.settings.get("names") or [self.name]]
         self.safety = Safety(os.path.join(CONFIG, "safety.yaml"))
         self.registry = Registry(os.path.join(CONFIG, "commands.yaml"))
+        self.apps = Apps()  # everything in the app menu
         self.intents = None  # meaning matcher: other wordings of known phrases, before Claude
         try:
             cfg = self.settings.get("intents") or {}
             self.intents = IntentMatcher(os.path.join(CONFIG, "intents.yaml"), cfg.get("threshold", 0.72),
-                                         extra=command_phrases(self.registry))
+                                         extra=dict(self.apps.intents(), **command_phrases(self.registry)))
         except Exception as e:
             print("[intent] meaning matcher off: %r" % e)
         self.browser = Browser(self.registry)
@@ -247,10 +249,14 @@ class Jarvis:
             self.speaker.say(["Done, I've passed that to Claude in VS Code.", "Okay, Claude in VS Code has it."])
             return True
 
-        # 1. Exact command, 2. browser phrase, 3. close-enough command, 4. Claude.
+        # 1. Exact command, 2. an installed app, 3. browser phrase, 4. close-enough command, 5. Claude.
+        if self._close_app(text):  # before the command list, whose "close {app}" can't find real process names
+            return True
         match = self.registry.match_exact(text)
         if match:
             return self._run_match(match)
+        if self._open_app(text):
+            return True
         action = self.browser.parse(text)
         if action:
             if action.browser:
@@ -503,6 +509,33 @@ class Jarvis:
                           on_output=lambda out: match.reply(out))
         if self.executor.ok:
             self.last_undo = undo.opposite(match.name)
+        return True
+
+    def _open_app(self, text):
+        m = apps.OPEN.match(text)
+        app = m and self.apps.find(m.group(1))
+        if not app:
+            return False
+        desktop.go_to_jarvis_workspace()
+        if not self.apps.launch(app):
+            self.speaker.say("Hmm, %s didn't start." % app["name"])
+            return True
+        self.last_app = app["process"] or None
+        self.speaker.say(["Opening %s." % app["name"], "Sure, here's %s." % app["name"]])
+        return True
+
+    def _close_app(self, text):
+        m = apps.CLOSE.match(text)
+        app = m and self.apps.find(m.group(1))
+        if not app:
+            return False
+        if not app["process"]:
+            self.speaker.say("%s runs inside the browser, so I'd close the whole browser. Switch to it and say "
+                             "close this window instead." % app["name"])
+            return True
+        self.executor.run("pkill -x %s" % shlex.quote(app["process"]),
+                          reply=["Okay, closed %s." % app["name"], "Done, %s is closed." % app["name"]],
+                          question="Close %s? Anything unsaved will be lost." % app["name"], declared="confirm")
         return True
 
     def _undo(self):

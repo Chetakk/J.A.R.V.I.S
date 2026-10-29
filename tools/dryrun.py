@@ -6,7 +6,7 @@
 
 The real routing in jarvis.py runs; every way out of it (shell commands, skills, card actions, Claude,
 speech, memory writes) is swapped for a recorder, so nothing on the desktop changes.
-Results look like: command:volume_down, skill:media, card:close, persona, browser, claude, ignored.
+Results look like: command:volume_down, skill:media, app:open Rhythmbox, card:close, persona, browser, claude, ignored.
 """
 import os
 import queue
@@ -18,6 +18,7 @@ sys.path.insert(0, HERE)
 import yaml  # noqa: E402
 
 import jarvis as J  # noqa: E402
+from core import extras as J_extras  # noqa: E402
 
 PHRASES = os.path.join(HERE, "tests", "phrases.yaml")
 
@@ -35,10 +36,23 @@ class DryJarvis:
         j._ask_claude = lambda text, **k: rec(("claude", text))
         j._slash = lambda raw: rec(("slash", raw)) or True
         j._miss = lambda text, outcome: rec(("miss", outcome))
+        j._open_app = lambda text: self._app(J.apps.OPEN, text, "open")
+        j._close_app = lambda text: self._app(J.apps.CLOSE, text, "close")
         for name in ("seen", "used", "add_reminder", "clear_reminders"):
             setattr(j.memory, name, lambda *a, **k: 0)
         self._stub_rules("skill", j.skills)
         self._stub_rules("card", j.cards)
+        j.extras._log = lambda text: None  # "where was I" history
+        self._stub_rules("skill", j.extras)
+        j.extras.first = lambda text: False  # not dictating
+        j.extras.focusing = lambda: False
+
+    def _app(self, pattern, text, verb):
+        m = pattern.match(text)
+        app = m and self.j.apps.find(m.group(1))
+        if app:
+            self.log.append(("app", "%s %s" % (verb, app["name"])))
+        return bool(app)
 
     def _stub_rules(self, kind, obj):
         """Rules point at bound methods (record their name) or lambdas calling methods (stubbed below)."""
@@ -47,8 +61,23 @@ class DryJarvis:
             fn = getattr(obj, name)
             if callable(fn) and not name.startswith("_") and name != "handle":
                 setattr(obj, name, lambda *a, _n=name, **k: rec((kind, _n)) or True)
-        obj.rules = [(p, (lambda m, _n=fn.__name__: rec((kind, _n)) or True) if fn.__name__ != "<lambda>" else fn)
-                     for p, fn in obj.rules]
+        # Skills that hand non-matches on at run time: the same read-only lookup decides here too.
+        projects = getattr(obj, "projects", None)
+        find = projects and (lambda m: projects.find(_first(m)) or len(projects.candidates(_first(m))) > 1)  # as _find
+        passes = {"run_project": find, "stop_project": find} if find else {}
+        units = lambda a, src, dst: _convertible(a) and J_extras.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731
+        passes.update({"maths": lambda m: J_extras.calculate(m.group(0)) is not None,
+                       "units": lambda m: units(*m.groups()),
+                       "units_how_many": lambda m: units(m.group(2), m.group(3), m.group(1))})
+
+        def stub(name):
+            def fn(m):
+                if name in passes and not passes[name](m):
+                    return False
+                rec((kind, name))
+                return True
+            return fn
+        obj.rules = [(p, stub(fn.__name__) if fn.__name__ != "<lambda>" else fn) for p, fn in obj.rules]
 
     def route(self, text):
         """(result, details) for one phrase."""
@@ -63,13 +92,25 @@ class DryJarvis:
                 return "ignored", "; ".join(notes)
             return "persona", str(said[0])
         kind, value = acts[0]
-        if kind in ("command", "skill", "card", "slash"):
+        if kind in ("command", "skill", "card", "slash", "app"):
             result = "%s:%s" % (kind, value)
         elif kind == "run":
             result = "browser"
         else:
             result = kind
         return result, "; ".join(notes + ([str(value)] if kind == "run" else []))
+
+
+def _first(m):
+    return next((g for g in m.groups() if g), "")
+
+
+def _convertible(amount):
+    try:
+        J_extras._number(amount)
+        return True
+    except ValueError:
+        return False
 
 
 def main(argv):
