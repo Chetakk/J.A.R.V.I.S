@@ -22,7 +22,7 @@ try:
 except ImportError:
     pass
 
-from core import desktop, persona, undo
+from core import desktop, misslog, persona, undo
 from core.browser import Browser
 from core.claude_bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
@@ -275,14 +275,20 @@ class Jarvis:
             return True
         if not worth_asking(text, self.names):
             self.heard(text, "ignored (too short or unclear to ask Claude)")
+            self._miss(text, "unclear")
             self.speaker.say(["Sorry, I didn't catch that.", "Sorry, could you say that again?"])
             return True
+        self._miss(text, "claude" if self.mode != "sys" else "unknown")
         if self.mode == "sys":
             self.speaker.say(["Sorry, that one's not on my list, and I can't ask Claude in system mode.",
                               "Hmm, I don't know that one yet. Switch to agent mode and I can ask Claude."])
         else:
             self._ask_claude(text)
         return True
+
+    def _miss(self, text, outcome):
+        guess, score = self.intents.nearest if self.intents else (None, 0.0)
+        misslog.log(text, outcome, guess, score)
 
     def _personal(self, text):
         """Small talk, reminders, "do that again" and friends: answered instantly, without Claude."""
