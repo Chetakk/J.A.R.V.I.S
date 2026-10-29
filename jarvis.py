@@ -222,6 +222,7 @@ class Jarvis:
         self.whisper = self.wake = None
         self.ignored = False  # last follow-up was chatter, not a request
         self.follow_up = lambda: None  # wake word: listen once more without the name (set by start_voice)
+        self.keep_following = lambda: None  # wake word: noise doesn't end the follow-up window (set by start_voice)
         self.recent = deque(maxlen=8)  # what happened without Claude since its last answer, passed on next time
         self.talk = deque(maxlen=12)  # the last few lines both ways, Claude's answers too, for "make these changes"
         self.exit_code = 0  # RESTART_CODE after "restart yourself"
@@ -1094,6 +1095,7 @@ def start_voice(jarvis, whisper):
         wake.start()
         jarvis.wake = wake
         jarvis.follow_up = wake.follow_up
+        jarvis.keep_following = wake.keep_following
         print('[voice] Wake word ready: say any of: %s (optionally with "hey").' % ", ".join(jarvis.names))
     elif wake_cfg.get("enabled", True):
         phrases = [g + n for n in jarvis.names for g in ("", "hey ", "hello ", "ok ")]
@@ -1149,6 +1151,8 @@ def run_loop(jarvis, has_ui):
             jarvis.state(jarvis.rest)
         if kind == "voice" or (kind == "follow" and not jarvis.ignored):
             jarvis.follow_up()  # "what's the weather?" next, without the name
+        elif kind == "follow":
+            jarvis.keep_following()  # it was noise: the rest of the window is still yours
 
 
 def watch(jarvis):

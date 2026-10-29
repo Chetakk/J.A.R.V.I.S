@@ -194,6 +194,7 @@ class WhisperWake:
         self.follow_seconds = follow_seconds  # after an answer, how long to listen without the name
         self.waiting_until = 0.0
         self.following = False  # the current wait is a follow-up (after an answer), not after "EV?"
+        self.follow_until = 0.0  # when the current follow-up window ends (noise doesn't cut it short)
         vad_cfg = sherpa_onnx.VadModelConfig()
         vad_cfg.silero_vad.model = os.path.join(MODELS, "silero_vad.onnx")
         vad_cfg.silero_vad.min_silence_duration = 0.5
@@ -370,7 +371,16 @@ class WhisperWake:
             time.sleep(0.1)
         self.on_wake(True)
         self.following = True
+        self.follow_until = time.time() + self.follow_seconds
         self._wait(self.follow_seconds)
+
+    def keep_following(self):
+        """The follow-up was just noise ("Vee", a cough): keep listening without the name for the rest
+        of the window instead of closing it."""
+        left = self.follow_until - time.time()
+        if self.following and left > 1.0:
+            self.on_wake(True)
+            self._wait(left)
 
     def _wait(self, seconds):
         self.waiting_until = until = time.time() + seconds
