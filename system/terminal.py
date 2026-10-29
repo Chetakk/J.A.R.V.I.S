@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import time
 
-from core import desktop
+from system import desktop
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 MANUAL_SCRIPT = os.path.join(_HERE, "..", "tools", "manual_terminal.sh")

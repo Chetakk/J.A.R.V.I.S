@@ -12,7 +12,7 @@ import time
 
 import yaml
 
-from core.terminal import RUN_DIR
+from system.terminal import RUN_DIR
 
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "Hmm, ..." is spoken as "Hmm. ...": a sentence break, so Piper leaves a small, natural pause.

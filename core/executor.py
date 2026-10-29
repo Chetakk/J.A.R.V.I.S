@@ -4,11 +4,11 @@ import shlex
 import shutil
 import subprocess
 
-from core import desktop
+from system import desktop
 from core.persona import with_name
 from core.safety import CONFIRM, MANUAL
-from core.speech import pick
-from core.terminal import DEFAULT_TERMINAL, ManualTerminal
+from voice.speech import pick
+from system.terminal import DEFAULT_TERMINAL, ManualTerminal
 
 
 class Executor:

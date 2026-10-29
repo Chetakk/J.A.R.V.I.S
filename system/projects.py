@@ -19,7 +19,7 @@ import time
 
 import yaml
 
-from core import desktop
+from system import desktop
 
 HOME = os.path.expanduser("~")
 PROJECTS = os.path.join(HOME, "Projects")

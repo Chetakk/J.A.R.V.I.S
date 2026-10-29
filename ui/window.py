@@ -15,7 +15,7 @@ gi.require_version("AppIndicator3", "0.1")
 from gi.repository import AppIndicator3, Gdk, GLib, Gtk  # noqa: E402
 import cairo  # noqa: E402
 
-from core.terminal import RUN_DIR  # noqa: E402
+from system.terminal import RUN_DIR  # noqa: E402
 
 STATE_FILE = os.path.expanduser("~/.local/share/jarvis/ui.json")
 LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "thinking": "Thinking...",
@@ -85,7 +85,7 @@ class UI:
         self._quiet_since = None
         self._build_orb()
         self._build_panel()
-        from core.card import Card  # needs the names above, so imported here
+        from ui.card import Card  # needs the names above, so imported here
         self.card = Card(lambda: self._orb_xy, self.panel.get_visible, self.on_command)  # a choice = said it
         self._build_tray()
         if self.orb_mode is True:

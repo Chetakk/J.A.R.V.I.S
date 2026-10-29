@@ -21,7 +21,7 @@ import subprocess
 import threading
 import time
 
-from core import desktop
+from system import desktop
 
 HOME = os.path.expanduser("~")
 WHERE_FILE = os.path.join(HOME, ".local/share/jarvis/where.json")

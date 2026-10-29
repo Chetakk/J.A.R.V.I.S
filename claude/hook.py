@@ -18,8 +18,8 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from core.safety import AUTO, CONFIRM, Safety  # noqa: E402
-from core.speech import pick, speak_via_jarvis  # noqa: E402
-from core.terminal import RUN_DIR, ManualTerminal  # noqa: E402
+from voice.speech import pick, speak_via_jarvis  # noqa: E402
+from system.terminal import RUN_DIR, ManualTerminal  # noqa: E402
 
 WORKSPACE = os.path.realpath(os.path.expanduser("~/jarvis-workspace"))
 TURN_START = os.path.join(RUN_DIR, "claude_turn_start")

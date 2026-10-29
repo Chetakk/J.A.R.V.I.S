@@ -1,7 +1,7 @@
 """Asks Claude (via the Claude Code CLI) when nothing in the command list matches.
 
 JARVIS's questions all go into one Claude session, so Claude remembers the conversation.
-"Open Claude" opens a terminal with a copy of that session, guarded by core/claude_hook.py.
+"Open Claude" opens a terminal with a copy of that session, guarded by claude/hook.py.
 """
 import json
 import os
@@ -15,12 +15,12 @@ import time
 import uuid
 from urllib.parse import quote
 
-from core import desktop
-from core.terminal import RUN_DIR
+from system import desktop
+from system.terminal import RUN_DIR
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 PROMPT_FILE = os.path.join(_HERE, "..", "config", "claude_prompt.md")
-HOOK = os.path.join(_HERE, "claude_hook.py")
+HOOK = os.path.join(_HERE, "hook.py")
 STATE_DIR = os.path.expanduser("~/.local/share/jarvis")
 WORKSPACE = os.path.expanduser("~/jarvis-workspace")
 TERMINAL_ROLE = "jarvis-claude"

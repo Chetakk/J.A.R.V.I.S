@@ -11,8 +11,8 @@ import subprocess
 import threading
 import time
 
-from core.card import choices, links, meter, plain
-from core.claude_bridge import WORKSPACE
+from ui.card import choices, links, meter, plain
+from claude.bridge import WORKSPACE
 from core.safety import AUTO
 
 CARDS_DIR = os.path.join(WORKSPACE, "cards")  # "save that" puts cards here

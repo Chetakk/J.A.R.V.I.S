@@ -19,10 +19,10 @@ import numpy as np
 import sentencepiece
 import sherpa_onnx
 
-from core.listen import RATE, beep
+from voice.listen import RATE, beep
 from core.registry import _names_regex
 from core.skills import STOP as INTERRUPT  # "stop", "be quiet", "enough"...
-from core.terminal import RUN_DIR
+from system.terminal import RUN_DIR
 
 MODELS = os.path.expanduser("~/.local/share/jarvis/models")
 KWS_DIR = os.path.join(MODELS, "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01")

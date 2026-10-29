@@ -15,8 +15,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
-from core.speech import INBOX, speak_via_jarvis  # noqa: E402
-from core.terminal import RUN_DIR  # noqa: E402
+from voice.speech import INBOX, speak_via_jarvis  # noqa: E402
+from system.terminal import RUN_DIR  # noqa: E402
 
 ABILITIES = os.path.join(RUN_DIR, "abilities.txt")  # written by JARVIS at start: phrases "do" understands
 

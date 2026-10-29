@@ -23,23 +23,24 @@ try:
 except ImportError:
     pass
 
-from core import apps, desktop, misslog, persona, undo, watchdog
-from core.browser import Browser
-from core.claude_bridge import Claude, ClaudeError, open_in_vscode
+from core import misslog, persona, undo
+from system import apps, desktop, watchdog
+from system.browser import Browser
+from claude.bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from core.skills import Skills
 from core.extras import Extras
 from core.card_actions import CardActions
-from core.listen import PushToTalk
-from core.projects import Projects
-from core.apps import Apps
+from voice.listen import PushToTalk
+from system.projects import Projects
+from system.apps import Apps
 from core.intent import IntentMatcher
 from core.registry import Registry, clean
 from core.safety import MANUAL, Safety
-from core.speech import Speaker, pick
-from core.stt import Whisper
-from core.terminal import RUN_DIR
-from core.wake import WakeWord, WhisperWake
+from voice.speech import Speaker, pick
+from voice.stt import Whisper
+from system.terminal import RUN_DIR
+from voice.wake import WakeWord, WhisperWake
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(HERE, "config")
@@ -67,7 +68,7 @@ Built-in skills (core/skills.py): "stop", "status", "what's on my screen", "clos
 "open the latest download", "maximise", "move this to workspace 2", "put chrome on the left", "switch to vs code",
 "is the nano up", "run uptime on the nano", "git status of study buddy", "open the study buddy project",
 "run the tests in jarvis", "ask claude to <task> in the <name> project".
-Projects (~/Projects, core/projects.py; spoken names in config/projects.yaml): "run avtec hs" (biztel run, in a
+Projects (~/Projects, system/projects.py; spoken names in config/projects.yaml): "run avtec hs" (biztel run, in a
 terminal), "stop avtec hs", "what's running", "links for avtec hs", "open avtec hs in the browser", "biztel build",
 "what's study buddy about", "list my projects", "what was I working on", "note for avtec hs: <text>",
 "notes for avtec hs", "what's pending", "refresh projects". "run it" / "its links" = the project you last named."""
@@ -527,7 +528,7 @@ class Jarvis:
                 self.from_claude = False
 
     def show(self, card):
-        """Put a card on screen: {"title", "text" (markdown), "image", "choices", "id", "refresh"} (see core/card.py)."""
+        """Put a card on screen: {"title", "text" (markdown), "image", "choices", "id", "refresh"} (see ui/card.py)."""
         if not (card.get("text") or card.get("image") or card.get("choices")):
             return
         if self.ui:
@@ -919,7 +920,7 @@ def main():
 
     ui_cfg = jarvis.settings.get("ui") or {}
     if ui_cfg.get("enabled", True) and os.environ.get("DISPLAY"):
-        from core.ui import UI
+        from ui.window import UI
         jarvis.ui = UI(ui_cfg, on_text=lambda t: inbox.put(("text", t)),
                        on_command=lambda c: inbox.put(("quit", "") if c == "/quit" else ("text", c)),
                        is_speaking=jarvis.speaker.busy)

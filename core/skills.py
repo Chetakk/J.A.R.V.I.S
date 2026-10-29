@@ -13,10 +13,10 @@ import subprocess
 import time
 import urllib.request
 
-from core import desktop, health
+from system import desktop, health
 from core.daytracker import DayTracker
 from core.todos import Todos
-from core.claude_bridge import WORKSPACE, ClaudeError
+from claude.bridge import WORKSPACE, ClaudeError
 from core.safety import MANUAL
 
 HOME = os.path.expanduser("~")
@@ -42,7 +42,7 @@ class Skills:
             # day tracker timer and today's totals (core/daytracker.py); before projects, so "start work" isn't a project
             *DayTracker(self.say).rules(),
             *Todos(self.say).rules(),  # todos and reminders, kept in the day tracker (core/todos.py)
-            # projects (core/projects.py) — running them is biztel run, in a terminal on JARVIS's workspace
+            # projects (system/projects.py) — running them is biztel run, in a terminal on JARVIS's workspace
             (r"biztel build|(?:build|make|create|start) (?:a )?new (?:biztel |station )?(?:project|station)",
              lambda m: self.biztel_build()),
             (r"biztel status|(?:what'?s|what is|which (?:projects?|stations?|apps?) (?:is |are )?|is anything) "

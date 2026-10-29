@@ -5,7 +5,7 @@ import shlex
 
 import yaml
 
-from core.speech import pick
+from voice.speech import pick
 
 FUZZY_CUTOFF = 0.82
 _SLOT = re.compile(r"\{(\w+)\}")

@@ -98,7 +98,7 @@ nano:
 intents:
   threshold: 0.72
 
-# Watchdog (core/watchdog.py): restarts what hangs. Memory use is logged every 10 minutes.
+# Watchdog (system/watchdog.py): restarts what hangs. Memory use is logged every 10 minutes.
 watchdog:
   stuck_minutes: 10   # a request running longer than this restarts JARVIS
   jarvis_mb: 1500     # JARVIS restarts itself (when idle) above this

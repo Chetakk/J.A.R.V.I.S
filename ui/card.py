@@ -20,7 +20,7 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
-from core.ui import ORB, PANEL_W, _clear, _make_transparent  # noqa: E402
+from ui.window import ORB, PANEL_W, _clear, _make_transparent  # noqa: E402
 
 CARD_W, CARD_MAX_H = 380, 520
 HISTORY = 10

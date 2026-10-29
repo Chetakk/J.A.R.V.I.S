@@ -2,13 +2,13 @@
 
 Every 30 s: whisper-server still answering (else restart it), the mic still delivering audio (else
 reopen it), no request stuck for ages (else exit; tools/run_jarvis.sh starts JARVIS again).
-Then core/health.py: anything still broken (mic, speaker, speech recognition) is said out loud.
+Then system/health.py: anything still broken (mic, speaker, speech recognition) is said out loud.
 Every 10 min: logs memory use; restarts whisper, or JARVIS itself when idle, if one grows past its limit.
 """
 import os
 import time
 
-from core import health
+from system import health
 
 CHECK_SECONDS = 30
 MEMORY_EVERY = 20  # checks, i.e. every 10 minutes

@@ -12,7 +12,7 @@ import shutil
 import threading
 import time
 
-from core.speech import pick
+from voice.speech import pick
 
 MEMORY = os.path.expanduser("~/.local/share/jarvis/memory.json")
 DAY = 86400
