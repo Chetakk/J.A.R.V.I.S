@@ -23,10 +23,12 @@ IN = r"in %s (seconds?|secs?|minutes?|mins?|hours?|hrs?)" % NUM
 AT = r"(?:(today|tonight|tomorrow) )?(?:at )?(\d{1,2})(?:[:.](\d{2}))? ?([ap]\.? ?m\.?)?(?: (today|tonight|tomorrow))?"
 # "remind me", "set a reminder", "I want you to set up a reminder": a reminder that may not say what it's for.
 SET = (r"(?:(?:i want you to|i need you to|i'd like you to|i want to|i need to|go ahead and|just|to) )?"
-       r"(?:remind me|(?:set|add|create|make|put|schedule|give me)(?: up| in)? (?:a |an |the |my |our |one )?"
-       r"(?:new )?reminder)")
+       r"(?:remind me(?: (?:of |about )?something)?|(?:set|add|create|make|put|schedule|give me|get me|start)(?: up| in| me)?"
+       r" (?:a |an |the |my |our |one )?(?:new )?(?:reminder|alarm)|(?:i'd like|i want|i need) (?:a |an )?(?:new )?"
+       r"(?:reminder|alarm)|(?:new |a )?(?:reminder|alarm)(?: please)?)")
 LATER = r"(?:in|for|after) %s (seconds?|secs?|minutes?|mins?|hours?|hrs?)" % NUM
 NO_TEXT = "Reminder"  # what's kept when you didn't say what it's for
+ALARM = "Alarm"  # "set an alarm for 7": not asked what for
 
 
 def due_in(n, unit):
@@ -189,27 +191,32 @@ class Todos(Skill):
 
     @_guard
     def remind_later(self, m):
-        self._remind(self._what(), due_in(m.group(1), m.group(2)))
+        self._remind(self._what(m), due_in(m.group(1), m.group(2)))
 
     @_guard
     def remind_clock(self, m):
         at = due_at(*m.groups())
         if at is None:
             return False
-        self._remind(self._what(), at)
+        self._remind(self._what(m), at)
 
     @_guard
     def remind_when(self, m):
-        """Just "set a reminder": asks when (and what for) and goes on with the answer."""
-        answer = (self.j._answer("Sure, when? And what for?") or "").replace(",", "").strip(" .!?")
+        """Just "set a reminder": asks when (and what for) and goes on with the answer. An alarm: only when."""
+        alarm = re.search(r"\balarm\b", m.group(0), re.I)
+        answer = (self.j._answer("Sure, what time?" if alarm else "Sure, when? And what for?") or "")
+        answer = answer.replace(",", "").strip(" .!?")
         if not answer or re.match(r"(?:no|nothing|never ?mind|cancel|forget it)\b", answer, re.I):
-            self.say("Okay, no reminder.")
+            self.say("Okay, no alarm." if alarm else "Okay, no reminder.")
             return
-        if not self.handle("remind me " + re.sub(r"^remind me ", "", answer, flags=re.I)):
+        lead = "set an alarm " if alarm else "remind me "
+        if not self.handle(lead + re.sub(r"^(?:remind me|set an alarm)(?: for)? ", "", answer, flags=re.I)):
             self.say("Sorry, I didn't get the time. Say something like: remind me in 10 minutes to stretch.")
 
-    def _what(self):
-        """Asks what a reminder is for; NO_TEXT when there's no answer."""
+    def _what(self, m):
+        """Asks what a reminder is for; NO_TEXT when there's no answer. An alarm isn't asked about."""
+        if re.search(r"\balarm\b", m.group(0), re.I):
+            return ALARM
         answer = (self.j._answer("Sure. What should I remind you about?") or "").strip(" .!?")
         answer = re.sub(r"^(?:to|about|that) ", "", answer, flags=re.I)
         if not answer or re.match(r"(?:no|nothing|nope|just remind me|anything)\b", answer, re.I):
@@ -232,6 +239,10 @@ class Todos(Skill):
 
         def drop(items):
             live = [r for r in items if r["at"] > now]
+            if want in ("a", "an", "one", "some"):  # "cancel a reminder": the only one, or ask which
+                if len(live) == 1:
+                    items.remove(live[0])
+                return live
             hits = [r for r in live if want in r["text"].lower()] if want and want not in ("that", "the", "my", "all") else \
                 (live if want == "all" else live[-1:])  # "cancel that reminder": the newest one
             if len(hits) == 1 or want == "all":
@@ -245,8 +256,9 @@ class Todos(Skill):
         elif len(hits) > 1 and want != "all":
             self.say("Which one? %s." % " or ".join(r["text"] for r in hits[:3]))
         else:
-            self.say("Cancelled %s." % ("all reminders" if want == "all" else "the reminder" if hits[0]["text"] == NO_TEXT
-                                        else "the reminder to " + hits[0]["text"]))
+            text = hits[0]["text"]
+            self.say("Cancelled %s." % ("all reminders" if want == "all" else "the alarm" if text == ALARM else
+                                        "the reminder" if text == NO_TEXT else "the reminder to " + text))
 
     def _watch(self):
         while True:
@@ -266,7 +278,8 @@ class Todos(Skill):
 
                 self._change("reminders", mark)
                 for text in due:
-                    self.say("This is your reminder." if text == NO_TEXT else "Reminder: %s." % text)
+                    self.say("This is your reminder." if text == NO_TEXT else "This is your alarm." if text == ALARM
+                             else "Reminder: %s." % text)
             except Exception as e:  # hub down or restarting: try again next round
                 if not isinstance(e, HubDown):
                     print("[reminders] %r" % e)

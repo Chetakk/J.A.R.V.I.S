@@ -21,6 +21,7 @@ CACHE = os.path.join(MODEL_DIR, "phrases.npz")
 DOING = re.compile(r"^(?:(?:i want you to|i need you to|i'd like you to|i want to|i need to|i'd like to|please|just|"
                    r"go ahead and|let's) )?(?:set|add|make|create|start|new|put|save|schedule|book|write|record|change|"
                    r"switch|adjust|connect|join|install|remind|(?:give|get) me an?|(?:i'd like|i want|i need) an?)\b", re.I)
+ASK_FOR_VALUE = "ask for the value"
 ASKING = re.compile(r"^(?:what|what's|which|how|show|list|read|tell me|any|is|am|are|where|when|who|did|do i|does|"
                     r"has|have i)\b", re.I)
 
@@ -116,6 +117,11 @@ class IntentMatcher:
         self.threshold, self.margin = threshold, margin
         with open(path, encoding="utf-8") as f:
             intents = yaml.safe_load(f) or {}
+        # "ask for the value:" holds bare requests ("set a timer") whose handler asks for what's missing.
+        # They never take a request that already says a number ("copy this to workspace 2"): asking for it again
+        # would be wrong, and a request that really was one of them has already been taken by its pattern.
+        self.bare = set(intents.get(ASK_FOR_VALUE) or {})
+        intents.update(intents.pop(ASK_FOR_VALUE, None) or {})
         for said, target in (learned or {}).items():
             intents[target] = list(intents.get(target) or []) + [said]
         own = {k: set(v or []) for k, v in intents.items()}  # only this file's wordings get the word-for-word check
@@ -185,10 +191,11 @@ class IntentMatcher:
                 return re.sub(r"\{(\w+)\}", lambda s: _value(s.group(1), m.group(s.group(1))), target)
         return None
 
-    @staticmethod
-    def _against(text, phrase):
-        """`phrase` goes the other way ("on" said, "off" in it), or only asks when you asked to do something."""
-        return opposite_direction(text, phrase) or wrong_kind(text, phrase)
+    def _against(self, text, phrase):
+        """`phrase` goes the other way ("on" said, "off" in it), only asks when you asked to do something, or would
+        ask for a value you already said."""
+        return opposite_direction(text, phrase) or wrong_kind(text, phrase) or (
+            phrase in self.bare and bool(re.search(r"\d", text)))
 
     def candidates(self, text, n=2):
         """The n best different phrases for `text`, as [(phrase, score)] (going the same way as what was said)."""

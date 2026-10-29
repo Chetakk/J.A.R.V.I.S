@@ -2,7 +2,7 @@
 # phrases runs it. Key = a phrase JARVIS already understands; list = other ways of saying it.
 # Only phrases without names/values in them. Add lines here when JARVIS misses something.
 pause the music: [turn off the music, kill the music, shut the song up, hold the video, stop the song for a sec, mute the music]
-play the music: [put the music back on, start the song again, carry on playing, let it play, put on some music, play some music, i want music]
+play the music: [put the music back on, start the song again, carry on playing, let it play, put on some music, play some music, i want music, play something, play a song, play me something, play some songs, play me a song]
 next song: [skip this one, i don't like this song, change the song, play something else, play the next song, play the next track, next one please]
 previous song: [play the one before, go back to the last song, replay the previous track, play the last song again, play the previous song, go back to the previous track, previous, last track, back one song]
 what's playing: [what am i hearing, which song is this, name this song, who sings this]
@@ -136,3 +136,42 @@ rotate screen left: [turn the screen sideways, rotate it left, portrait mode]
 # Complaints and questions about a setting (embeddings confuse "too bright" with "brighter")
 bluetooth devices: [is bluetooth on, is my bluetooth working, what's connected over bluetooth]
 open files: [show me the files, show my files]
+
+# --- requests that leave out their value: JARVIS asks for it (skills/missing.py; reminders in skills/todos.py).
+# Without these the matcher's nearest phrase was often a question ("add a todo" -> "what's on my todo list").
+# They never take a request that has a number in it (core/intent.py).
+ask for the value:
+  set a reminder: [make me a reminder, i'd like a reminder, new reminder, i need a reminder, start a reminder, remind me something, put in a reminder, create a new reminder, can you set a reminder]
+  set an alarm: [wake me up, i need an alarm, alarm please, set my alarm, set up an alarm, new alarm, i want an alarm]
+  set a timer: [i'd like a timer, i need a timer, start a countdown, give me a timer, time something for me, start timing, new timer, make a timer, start a timer]
+  add a note: [take a note, make a note, new note, write a note, jot something down, note this down, save a note, create a note, write this down, i want to make a note]
+  add a todo: [new todo, add a task, create a task, new task, add to my todo list, make a todo, i have a new task, add something to my list, put something on my to do list, add an item to my list]
+  set the volume: [change the volume, adjust the volume, set volume, change the volume level]
+  set the brightness: [change the brightness, adjust brightness, adjust the brightness, change the screen brightness]
+  connect to wifi: [connect to a network, join a wifi network, change wifi network, change the wifi, use a different wifi]
+  open an app: [open something, launch an app, start an app, open a program, launch something, open an application]
+  close an app: [close something, quit an app, close a program, close an application]
+  search for something: [google something, look something up, search the web, search online, do a search, search the internet]
+  search youtube: [look something up on youtube, find something on youtube, search on youtube]
+  search github: [look something up on github, find something on github, search on github]
+  search amazon: [look something up on amazon, find something on amazon, search on amazon]
+  search wikipedia: [look something up on wikipedia, find something on wikipedia, search on wikipedia]
+  search maps: [search google maps, look something up on the map, find a place on the map]
+  get directions: [navigate somewhere, how do i get somewhere, directions, give me directions, navigate]
+  find a file: [find my file, search my files, look for a file, find a document, look through my files]
+  type something: [type this, type for me, write something for me, type some text]
+  go to a workspace: [switch workspace, change workspace, switch workspaces, go to another workspace]
+  move this window: [move this to another workspace, move this window somewhere, put this window somewhere else, move the window]
+  change the resolution: [set the resolution, set the screen resolution, change the screen resolution, adjust the resolution]
+  change the refresh rate: [set the refresh rate, adjust the refresh rate, change the screen refresh rate]
+  switch audio: [change the speaker, change output device, change the audio output, use a different speaker, switch speakers, change speakers, change the audio device]
+  switch the mic: [switch the microphone, change the mic, change the microphone, use a different mic, use another microphone, change the input device]
+  install something: [install an app, install a program, install some software, install a package]
+  uninstall something: [uninstall an app, remove an app, remove a program, uninstall a program]
+  make a folder: [create a folder, new folder, make a new folder, create a new folder]
+  delete a file: [trash a file, remove a file, delete some files]
+
+# --- more wordings found while checking those
+mute microphone: [turn off my mic, turn off the mic, unmute my mic, turn my mic back on, turn on my mic]
+focus mode: [start focusing, i need to focus, i want to focus, help me focus, time to focus, focus time, let me concentrate, i need to concentrate]
+open claude in vs code: [ask claude in vs code, ask claude in vscode, talk to claude in vs code]

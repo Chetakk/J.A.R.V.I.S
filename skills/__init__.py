@@ -1,8 +1,9 @@
 """Everything JARVIS does itself, before the command list and Claude: one module per skill.
 
 The order matters: the first skill whose phrase matches (and doesn't hand it on) wins. Cards come first
-("the second one" is about the card on screen), then the instant local extras, then the rest; the day
-tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
+("the second one" is about the card on screen), then requests missing their value ("set a timer": asked for,
+before a pattern takes a placeholder like "something" as the value), then the instant local extras, then the
+rest; the day tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
 and the screen ("what's this page about" in a browser reads the page itself); copying between apps before the
 clipboard ("summarise my clipboard and put it in Slack"); reading files before the browser agent ("summarise
 resume.pdf" isn't a website); the network check before troubleshooting ("what's wrong with my
@@ -33,6 +34,7 @@ from skills.layouts import Layouts
 from skills.linked import Linked
 from skills.maths import Maths
 from skills.media import Media
+from skills.missing import Missing
 from skills.network import Network
 from skills.nano import Nano
 from skills.notes import Notes
@@ -52,7 +54,7 @@ from skills.where_was_i import WhereWasI
 from skills.windows import Windows
 
 ORDER = [
-    ("cards", Cards), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
+    ("cards", Cards), ("missing", Missing), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
     ("maths", Maths), ("focus_mode", FocusMode), ("proactive", Proactive), ("notifications", Notifications),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
