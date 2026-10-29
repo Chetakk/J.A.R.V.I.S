@@ -14,6 +14,7 @@ import time
 import urllib.request
 
 from core import desktop
+from core.daytracker import DayTracker
 from core.claude_bridge import WORKSPACE, ClaudeError
 from core.safety import MANUAL
 
@@ -36,6 +37,8 @@ class Skills:
         rules = [
             (STOP, self.stop),
             (r"(?:jarvis |system )?status|health check|are you (?:ok|okay|working)|how are you running", self.status),
+            # day tracker timer and today's totals (core/daytracker.py); before projects, so "start work" isn't a project
+            *DayTracker(self.say).rules(),
             # screen
             (r"(?:what'?s|what is) on (?:my|the) screen.*|(?:look at|check|read) (?:my|the) screen.*|"
              r"what am i looking at|what do you see|describe (?:my|the) screen|(?:what'?s|what is|explain) "
