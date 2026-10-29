@@ -42,13 +42,14 @@ class Controls(Skill):
              r"(?:list|show me|read(?: out)?|tell me) (?:the |all the |all )?(?:buttons|menus|options|controls)"
              r"(?: (?:here|in this window|on (?:the |my )?screen))?|"
              r"what'?s in the (.+?) menu|(?:show me|list|read(?: out)?) the (.+?) menu", self.list_controls),
-            (r"(?:choose|select|pick) (.+?) (?:from|in|under) the (.+?) menu", self.choose),
+            (r"(?:choose|select|pick) (?P<item>.+?) (?:from|in|under) the (?P<menu>.+?) menu|(?:open|go to) the "
+             r"(?P<menu2>.+?) menu and (?:click|choose|select|pick|tap)(?: on)? (?P<item2>.+)", self.choose),
             (r"(?:click(?: on)?|press|tap) (.+?)(?: (?:in|from|under|on) the (.+?) menu)?", self.click),
             (r"hit (.+)", self.hit),  # "hit enter"; "hit me with a joke" isn't a click
         ]
 
     def choose(self, m):
-        return self._click(m.group(1), m.group(2))
+        return self._click(m.group("item") or m.group("item2"), m.group("menu") or m.group("menu2"))
 
     def click(self, m):
         combo = _spoken_keys(m.group(1)) if not m.group(2) else None

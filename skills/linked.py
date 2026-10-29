@@ -38,8 +38,9 @@ class Linked(Skill):
             (r"what (?:do i have|have i got|do you have|do we have|is there|'?s there) (?:on|about|for|to do with) "
              + _TOPIC, lambda m: self.everything(m.group(1), personal=True)),
             (r"what'?s (?:linked|connected|related) to " + _TOPIC + r"|(?:show me )?(?:all )?my (?:stuff|things|notes "
-             r"and files|files and notes) (?:about|on|for) " + _TOPIC,
-             lambda m: self.everything(m.group(1) or m.group(2), personal=True)),
+             r"and files|files and notes) (?:about|on|for) " + _TOPIC + r"|(?:show me )?all (?:my|the) (?:stuff|things|"
+             r"notes|files) (?:about|on|for) " + _TOPIC,
+             lambda m: self.everything(m.group(1) or m.group(2) or m.group(3), personal=True)),
             (r"(?:show me |pull up |give me )?everything (?:about|on|for|to do with|related to) " + _TOPIC,
              lambda m: self.everything(m.group(1), personal=False)),
         ]

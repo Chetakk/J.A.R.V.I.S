@@ -56,7 +56,7 @@ class Files(Skill):
             (r"(open|find|show me|where'?s|where is|locate|get) (?:me )?(?:the |that |my )?(?:(%s|file|thing|one) )?"
              r"(?:that )?i (?:just )?downloaded(?: (%s))?" % (KIND_RE, WHEN), self.downloaded_one),
             (r"(?:what|which) files? (?:did|have) i (?:change|changed|edit|edited|save|saved|modify|modified|work on|"
-             r"touch|touched)(?: (%s))?(?: in %s)?|(?:show|list|find)(?: me)? (?:the )?files? i (?:changed|edited|"
+             r"touch|touched)(?: (%s))?(?: in %s)?|(?:show|list|find)(?: me)? (?:the |my )?files? i (?:changed|edited|"
              r"saved|modified|worked on)(?: (%s))?(?: in %s)?" % (WHEN, FOLDER_RE, WHEN, FOLDER_RE), self.changed),
             (r"(?:find|show|list|get)(?: me)?(?: all)?(?: my| the)? (?:(%s)s?|\.?(\w{1,10}) files)"
              r"(?: (?:from|modified|changed|edited|saved|made|created) (%s)| (%s))?(?: (?:in|from) %s)?"
