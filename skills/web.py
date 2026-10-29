@@ -160,7 +160,10 @@ class Web(Skill):
             return
         if answer.get("card"):
             self.j.show({"title": title, "text": str(answer["card"])})
-        self.say(str(answer.get("say") or "It's on the card."))
+        if answer.get("say"):
+            self.j.claude_says(str(answer["say"]))
+        else:
+            self.say("It's on the card.")
 
     def video(self, m):
         url = next((g for g in m.groups() if g), None) or self._page_url()

@@ -23,39 +23,38 @@ LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "t
           "starting": "Starting voice..."}
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
 ORB = 64
-PANEL_W, PANEL_H = 430, 560
+PANEL_W, PANEL_H = 390, 500
 CHAT_KEEP = 200  # messages kept in the panel
 
 CSS = b"""
 .panel { background-color: rgba(14, 14, 16, 0.92); border-radius: 16px;
          border: 1px solid rgba(255, 255, 255, 0.12); }
-.panel * { font-size: 11.5pt; }
+.panel * { font-size: 11pt; }
 .panel scrolledwindow, .panel viewport, .panel list { background-color: transparent; }
 .panel entry { background-color: rgba(255, 255, 255, 0.07); color: #f2f2f2; border-radius: 12px;
                border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: none;
-               padding: 10px 14px; min-height: 22px; }
+               padding: 7px 12px; min-height: 20px; }
 .panel entry:focus { border-color: rgba(255, 255, 255, 0.34); }
 .panel scrolledwindow undershoot.top, .panel scrolledwindow undershoot.bottom { background: none; }
 .panel scrollbar slider { background-color: rgba(255, 255, 255, 0.22); min-width: 4px; }
-.title { color: #f4f4f4; font-weight: bold; font-size: 12pt; }
-.status { color: rgba(255, 255, 255, 0.5); font-size: 10pt; }
-.header { padding: 2px 4px 10px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.title { color: #f4f4f4; font-weight: bold; font-size: 11pt; }
+.status { color: rgba(255, 255, 255, 0.5); font-size: 9.5pt; }
+.header { padding: 0 4px 8px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
 .dot { color: rgba(255, 255, 255, 0.35); font-size: 9pt; }
 .dot.live { color: #ffffff; }
-.bubble { border-radius: 14px; padding: 8px 12px; }
+.bubble { border-radius: 13px; padding: 6px 11px; }
 .bubble label selection { background-color: rgba(255, 255, 255, 0.28); }
 .you { background-color: rgba(255, 255, 255, 0.16); color: #f6f6f6; border-bottom-right-radius: 4px; }
 .jarvis { background-color: rgba(255, 255, 255, 0.05); color: #f2f2f2;
           border: 1px solid rgba(255, 255, 255, 0.09); border-bottom-left-radius: 4px; }
-.claude { background-color: rgba(255, 255, 255, 0.05); color: #d8d8d8; font-style: italic;
-          border: 1px solid rgba(255, 255, 255, 0.09); border-left: 3px solid rgba(255, 255, 255, 0.4);
+.claude { background-color: rgba(217, 119, 87, 0.10); border: 1px solid rgba(217, 119, 87, 0.30);
           border-bottom-left-radius: 4px; }
 .you label { color: #f6f6f6; }
 .jarvis label { color: #f2f2f2; }
-.claude label { color: #d8d8d8; font-style: italic; }
-.sender { color: rgba(255, 255, 255, 0.42); font-size: 9pt; font-weight: bold; }
-.heard { color: rgba(255, 255, 255, 0.4); font-style: italic; font-size: 9.5pt; }
-.sys { color: rgba(255, 255, 255, 0.45); font-size: 9.5pt; }
+.claude label { color: #f2e6e1; }
+.sender { color: #e08a6d; font-size: 8.5pt; font-weight: bold; }
+.heard { color: rgba(255, 255, 255, 0.4); font-style: italic; font-size: 9pt; }
+.sys { color: rgba(255, 255, 255, 0.45); font-size: 9pt; }
 """
 
 # Tray icons: white/grey rings, one per state.
@@ -341,6 +340,7 @@ class UI:
         scroll.add(self.msgs)
         adj = self._adj = scroll.get_vadjustment()
         self._at_bottom = True  # follow new messages unless scrolled up to read
+        self._last_kind = None
         adj.connect("value-changed", lambda a: setattr(
             self, "_at_bottom", a.get_value() >= a.get_upper() - a.get_page_size() - 40))
         adj.connect("changed", lambda a: self._at_bottom and a.set_value(a.get_upper() - a.get_page_size()))
@@ -423,22 +423,24 @@ class UI:
             label.set_margin_end(4)
             row = label
         else:
-            label.set_max_width_chars(34)
+            label.set_max_width_chars(32)
             bubble = Gtk.Box()
             bubble.get_style_context().add_class("bubble")
             bubble.get_style_context().add_class(kind)
             bubble.pack_start(label, False, False, 0)
             bubble.set_halign(Gtk.Align.END if kind == "you" else Gtk.Align.START)
             row = bubble
-            if kind == "claude":
+            if kind == "claude" and self._last_kind != "claude":  # name it once per run of Claude's lines
                 row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-                sender = Gtk.Label(label="CLAUDE", xalign=0)
+                sender = Gtk.Label(label="\u273b CLAUDE", xalign=0)
                 sender.get_style_context().add_class("sender")
                 sender.set_margin_start(6)
                 row.pack_start(sender, False, False, 0)
                 row.pack_start(bubble, False, False, 0)
         if kind == "you":
             self._at_bottom = True
+        if kind != "heard":
+            self._last_kind = kind
         self.msgs.pack_start(row, False, False, 0)
         row.show_all()
         old = self.msgs.get_children()

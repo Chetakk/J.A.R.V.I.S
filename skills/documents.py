@@ -209,8 +209,10 @@ class Documents(Skill):
                                      {"label": "Go through it with Claude",
                                       "do": "go through %s with claude" % paths[0].replace(files.HOME, "~")}]
                          if len(paths) == 1 else None})
-        self.j.chat("claude", str(answer.get("say") or ""))
-        self.say(str(answer.get("say") or "It's on the card."))
+        if answer.get("say"):
+            self.j.claude_says(str(answer["say"]))
+        else:
+            self.say("It's on the card.")
 
     def _copy(self, path):
         """A copy of a scan or picture in Claude's folder (its Read tool works there). Returns the name in it."""

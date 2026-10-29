@@ -80,8 +80,7 @@ class Reading(Skill):
             return
         finally:
             self.j.state("thinking")
-        self.j.chat("claude", summary)
-        self.say(summary)
+        self.j.claude_says(summary)
 
     def _card_text(self):
         ui = self.j.ui

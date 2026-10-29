@@ -38,8 +38,7 @@ class Clipboard(Skill):
             return
         verb = m.group(1).split()[0].lower()
         if verb in ("summarise", "summarize", "explain") and len(result) < 400:
-            self.j.chat("claude", result)
-            self.say(result)
+            self.j.claude_says(result)
         else:
             set_clipboard(result)
             self.j.chat("claude", result)
