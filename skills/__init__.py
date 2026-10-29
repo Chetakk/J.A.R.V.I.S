@@ -26,13 +26,15 @@ from skills.screen import Screen
 from skills.slow_computer import SlowComputer
 from skills.status import Status
 from skills.todos import Todos
+from skills.troubleshoot import Troubleshoot
 from skills.where_was_i import WhereWasI
 from skills.windows import Windows
 
 ORDER = [
     ("cards", Cards), ("dictation", Dictation), ("maths", Maths), ("focus_mode", FocusMode),
     ("slow_computer", SlowComputer), ("where_was_i", WhereWasI), ("clipboard_history", ClipboardHistory),
-    ("status", Status), ("checks", Checks), ("daytracker", DayTracker), ("todos", Todos), ("projects", Projects), ("screen", Screen),
+    ("status", Status), ("checks", Checks), ("daytracker", DayTracker), ("todos", Todos),
+    ("troubleshoot", Troubleshoot), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("clipboard", Clipboard), ("notes", Notes), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]

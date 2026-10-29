@@ -10,6 +10,7 @@ Results look like: command:volume_down, skill:media, app:open Rhythmbox, card:cl
 """
 import os
 import queue
+import re as J_re
 import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +21,7 @@ import yaml  # noqa: E402
 import jarvis as J  # noqa: E402
 from skills import controls as J_controls  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
+from skills import troubleshoot as J_troubleshoot  # noqa: E402
 
 PHRASES = os.path.join(HERE, "tests", "phrases.yaml")
 
@@ -66,6 +68,8 @@ class DryJarvis:
         projects = getattr(obj, "projects", None)
         find = projects and (lambda m: projects.find(_first(m)) or len(projects.candidates(_first(m))) > 1)  # as _find
         passes = {"run_project": find, "stop_project": find} if find else {}
+        if find and obj is self.j.skills.troubleshoot:  # "why isn't my wifi working": not a project
+            passes["why"] = lambda m: J_re.fullmatch(J_troubleshoot.GENERIC, _first(m), J_re.I) or find(m)
         if obj is self.j.skills.controls:  # "click it", "hit me with a joke": handed on
             passes["click"] = lambda m: m.group(2) or J_controls._spoken_keys(m.group(1)) or J_controls._name(m.group(1))
             passes["hit"] = lambda m: J_controls._spoken_keys(m.group(1))

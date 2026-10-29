@@ -850,3 +850,18 @@
 "press pause": skill:media
 "hit me with a joke": claude
 "click it": claude
+
+# why isn't my app running, ports
+"why isn't my app running": skill:why
+"why won't it start": skill:why
+"why did the server crash": skill:why
+"what's wrong with my project": skill:why
+"why isn't my wifi working": command:wifi_status
+"why is the sky blue": claude
+"what's using port 5173": skill:port
+"is port 8178 free": skill:port
+"who is listening on port 3000": skill:port
+"is anything running on port 8000": skill:port
+"what ports are open": skill:all_ports
+"which ports are in use": skill:all_ports
+"show me the ports": skill:project_links

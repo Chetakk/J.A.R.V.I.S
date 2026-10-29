@@ -16,6 +16,7 @@ import signal
 import subprocess
 import threading
 import time
+from collections import deque
 
 import yaml
 
@@ -189,6 +190,19 @@ class Projects:
     def show(self, p):
         """Bring up the terminal `p` runs in. True if there was one."""
         return desktop.activate_role(_role(p))
+
+    def terminal(self, p):
+        """The terminal window `p` runs (or ran) in, or None."""
+        return desktop.window_with_role(_role(p))
+
+    def log(self, p, lines=80):
+        """(the last lines biztel run logged for `p`, when it was last written), or ("", None)."""
+        path = os.path.join(RUNS, "%s.log" % p.name)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                return "".join(deque(f, maxlen=lines)), os.path.getmtime(path)
+        except OSError:
+            return "", None
 
     def stop(self, st, wait=8):
         """Stop a run like `biztel stop` does: SIGTERM to biztel run, then SIGKILL what's left."""
