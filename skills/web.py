@@ -58,18 +58,23 @@ class Web(Skill):
             (r"(?:on|from) (?:this|the) page,? (download .+|upload .+)|((?:upload|attach) .+? (?:to|on|onto|into) "
              r"(?:this|the) (?:page|form|site).*)|(download (?:the|this|that) (?:file|pdf|image|picture|video|attachment|document|zip)s? "
              r"(?:on|from) (?:this|the) page)", lambda m: self.browse(next(g for g in m.groups() if g), here=True)),
+            # before "X on this page", a question about the page
+            (r"(?:fill (?:in |out )?|complete )(?:the |this )?(?:sign ?-?up |registration |contact )?form"
+             r"(?: on (?:this|the) page| here)?(?: (?:with|using) (.+))?",
+             lambda m: self.browse("Fill in the form on this page%s." % (" with: " + m.group(1) if m.group(1)
+                                                                        else " with what you know about me"),
+                                   here=True)),
             (r"(?:on|from) %s,? (.+)|(.+?) (?:on|in) %s|find (.+) on %s" % (page, page, page),
              lambda m: self.page(next(g for g in m.groups() if g))),
             (r"(?:summari[sz]e|what are|list|what) (?:all )?(?:my|the) (?:open )?tabs(?: (?:about|i have open|"
              r"are open|do i have open))?|what tabs (?:do i have|are) open", lambda m: self.tabs()),
-            (r"(?:research|look into|find out about|dig into) (.+?)(?: (?:with|and give me|and cite) sources)?"
+            (r"(?:research|look into|find out about|dig into|do (?:some )?research (?:on|into|about)|(?:find|get|give me) "
+             r"(?:some )?sources (?:on|about|for)) (.+?)(?: (?:with|and give me|and cite) sources)?"
              r"(?: in depth| properly| thoroughly| deeply)?$", self.research),
             (r"compare (.+?) (?:and|vs\.?|versus|with|to) (.+)", lambda m: self.research(m, compare=True)),
-            (r"(?:deep research|do a deep dive|deep dive)(?: on| into| about)? (.+)", self.deep_research),
-            (r"fill (?:in |out )?(?:the |this )?form(?: on (?:this|the) page)?(?: (?:with|using) (.+))?",
-             lambda m: self.browse("Fill in the form on this page%s." % (" with: " + m.group(1) if m.group(1)
-                                                                        else " with what you know about me"),
-                                   here=True)),
+            (r"(?:deep research|(?:do|start) (?:a |some )?deep (?:research|dive)|deep dive|in-?depth research)"
+             r"(?: on| into| about)? "
+             r"(.+)", self.deep_research),
             (r"(?:in|using|with) the (?:agent|agent'?s) browser,? (.+)|(?:use )?the browser agent(?: to)?,? (.+)|"
              r"agent,? (go to .+|open .+ and .+)", lambda m: self.browse(next(g for g in m.groups() if g))),
             (r"download " + URL, self.download),
@@ -82,7 +87,8 @@ class Web(Skill):
              lambda m: self.bookmark_this()),
             (r"open (?:my |the )?(.+?) bookmark", self.open_bookmark),
             (r"(?:search|find|look) (?:in |through )?(?:my )?bookmarks (?:for|about) (.+)|what did i bookmark "
-             r"(?:about|on|for) (.+)|(?:show|list) (?:me )?(?:my )?bookmarks(?: (?:in|from) (?:the )?(.+?)(?: folder)?)?",
+             r"(?:about|on|for) (.+)|(?:show|list|open) (?:me )?(?:my |the )?bookmarks(?: (?:in|from) (?:the |my )?(.+?)"
+             r"(?: folder)?)?|what'?s in (?:my |the )?(.+?) bookmarks? folder",
              self.bookmarks),
         ]
 
@@ -418,7 +424,7 @@ class Web(Skill):
         if not marks:
             self.say("You don't have any Chrome bookmarks yet.")
             return
-        query, folder = m.group(1) or m.group(2), m.group(3)
+        query, folder = m.group(1) or m.group(2), m.group(3) or m.group(4)
         if query:
             marks = self._match(query, marks)
         elif folder:
