@@ -14,13 +14,15 @@ WHERE_FILE = os.path.join(HOME, ".local/share/jarvis/where.json")
 class WhereWasI(Skill):
     def patterns(self):
         return [
-            (r"where was i|where did i (?:leave|stop) off|catch me up|what did i leave (?:open|running)",
+            (r"where was i|where did i (?:leave|stop) off|catch me up|what did i leave (?:open|running)|"
+             r"(?:continue|carry on|pick up|start again) (?:from )?where i (?:left|stopped)(?: off)?",
              lambda m: self.where_was_i()),
         ]
 
     def log(self, text):
         """Every request (except asking this) is kept for "where was I"."""
-        if re.match(r"^(?:where was i|where did i (?:leave|stop) off|catch me up)\b", text, re.IGNORECASE):
+        if re.match(r"^(?:where was i|where did i (?:leave|stop) off|catch me up|(?:continue|carry on|pick up) "
+                    r"(?:from )?where i)\b", text, re.IGNORECASE):
             return
         try:
             with open(WHERE_FILE) as f:

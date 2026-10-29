@@ -1,9 +1,14 @@
-"""Coding on your projects: git status, open in VS Code, run the tests, "ask Claude to ... in X project"."""
+"""Coding on your projects: git status, open in VS Code, run the tests, "ask Claude to ... in X project",
+"open the project I was working on yesterday"."""
+import json
 import os
 import shlex
 import subprocess
+import urllib.request
 
 from skills.base import Skill
+from skills.daytracker import HUB
+from skills.files import WHEN, _since
 from skills.helpers import PROJECTS
 
 
@@ -16,6 +21,14 @@ class Dev(Skill):
         return [
             (r"git status(?: (?:of|for|in))?(?: (?:the )?(.+?)(?: project)?)?|(?:any )?changes in (?:the )?(.+?)(?: project)?|"
              r"what changed in (?:the )?(.+?)(?: project)?", self.git_status),
+            (r"(?:open|continue|resume|reopen|go back to|back to|pick up|get back to)(?: with| on)? (?:the |my |that )?"
+             r"(?:(?:last|latest|previous|most recent|recent) )?project"
+             r"(?: (?:that |which )?i (?:was|were|have been|'?ve been|had been) (?:working on|on|doing|coding(?: on)?))?"
+             r"(?: (%s))?(?: in vs ?code)?|"
+             r"(?:open|continue|resume|reopen|go back to|get back to) (?:the |my |that )?(?:thing|stuff|work|code) "
+             r"(?:that |which )?i (?:was|were|have been|'?ve been|had been) (?:working on|doing|coding(?: on)?)"
+             r"(?: (%s))?|(?:open|continue|resume|reopen) (yesterday|today|last night|this morning)'?s project"
+             % (WHEN, WHEN), self.last_project),
             (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code", self.open_project),
             (r"run (?:the )?tests(?: (?:in|for|of) (?:the )?(.+?)(?: project)?)?", self.run_tests),
             (r"(?:ask|tell|have) claude (?:to )?(.+?) in (?:the )?(.+?) project", self.claude_project),
@@ -53,6 +66,48 @@ class Dev(Skill):
         if not path:
             return False
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
+
+    def last_project(self, m):
+        when = next((g for g in m.groups() if g), None)
+        p, minutes = self._worked_on(when)
+        if not p:
+            self.say("I don't see a project you worked on %s." % when if when else "I don't know your projects yet.")
+            return
+        self.projects.current = p
+        how = " You spent about %d minutes on it %s." % (minutes, when) if minutes >= 2 and when else ""
+        self.j.executor.run("code %s" % shlex.quote(p.path), reply="Opening %s.%s" % (p.spoken, how), window=True)
+
+    def _worked_on(self, when):
+        """(project, minutes): the one with the most VS Code time then, from the Day Tracker; with no time
+        given, the one you were in last. Without the tracker, the one whose files changed last."""
+        start, end = _since(when) if when else (0, float("inf"))
+        totals, last = {}, (0, None)
+        try:
+            with urllib.request.urlopen(HUB + "/api/state", timeout=2) as r:
+                entries = json.load(r).get("autoEntries") or []
+        except (OSError, ValueError):
+            entries = []
+        for e in entries:
+            if not (start <= e.get("start", 0) / 1000 <= end):
+                continue
+            parts = e.get("parts") or {e.get("label") or "": e.get("end", 0) - e.get("start", 0)}
+            for label, ms in parts.items():
+                if not str(label).startswith("VS Code \u00b7 "):
+                    continue
+                p = self.projects.get(label[len("VS Code \u00b7 "):]) or self.projects.find(
+                    label[len("VS Code \u00b7 "):], strict=True)
+                if not p:
+                    continue  # "temp", a folder that isn't one of your projects
+                totals[p.name] = totals.get(p.name, 0) + ms
+                if e["start"] >= last[0]:
+                    last = (e["start"], p)
+        if totals:
+            if not when:
+                return last[1], 0
+            name = max(totals, key=totals.get)
+            return self.projects.get(name), totals[name] / 60000
+        recent = self.projects.recent(1)
+        return (recent[0], 0) if recent and (not when or not entries) else (None, 0)
 
     def run_tests(self, m):
         path = self._project_path(m.group(1)) if m.group(1) else None
