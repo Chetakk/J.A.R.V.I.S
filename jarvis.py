@@ -523,7 +523,7 @@ class Jarvis:
                 elif out:
                     self.recent.append("Command output: %s" % out)
         if answer["save"]:
-            self._save(answer["save"])
+            self._save(answer["save"], answer["command"])
         if answer["suggest"]:
             self._suggest(answer["suggest"])
         if isinstance(answer["show"], dict):
@@ -689,7 +689,7 @@ class Jarvis:
         else:
             self.speaker.say(["All %d steps done." % len(steps), "Done, that's everything."])
 
-    def _save(self, save):
+    def _save(self, save, ran=""):
         """Offer to add Claude's suggested shortcut to commands.yaml; it's only saved if you say yes."""
         try:
             name = re.sub(r"\W+", "_", str(save["name"]).lower()).strip("_")
@@ -706,12 +706,21 @@ class Jarvis:
         if self.safety.classify(re.sub(r"\{(\w+)\}", r"\1", run))[0] == MANUAL:
             return  # JARVIS could never run it itself, so it isn't worth a shortcut.
         print("  save as: %s  (say: %s)  run: %s" % (name, " | ".join(phrases), run))
-        phrase = re.sub(r"\{\w+\}", "something", phrases[0])
+        # Asked with the values from the command that just ran: "check port 8178", not "check port something".
+        parts = re.split(r"\{(\w+)\}", run)
+        m = re.match("^%s$" % "".join(re.escape(x) if i % 2 == 0 else "(?P<%s>.+?)" % x
+                                      for i, x in enumerate(parts)), ran.strip()) if ran and len(parts) > 1 else None
+        values = m.groupdict() if m else {}
+        phrase = re.sub(r"\{(\w+)\}", lambda v: values.get(v.group(1)) or "something", phrases[0])
         self.chat("sys", "suggested command %s: %s\nrun: %s" % (name, " | ".join(phrases), run))
         if not self.ask('Want me to remember "%s" for next time?' % phrase):
             self.speaker.say(["Okay, I won't save it.", "No problem, not saved."])
             return
         self.registry.add(name, phrases, run, str(save.get("reply") or "Done"), bool(save.get("output")))
+        if self.intents:  # other wordings of it work at once, not only after a restart
+            for p in phrases:
+                if "{" not in p:
+                    self.intents.learn(p, phrases[0] if "{" not in phrases[0] else p)
         self.chat("sys", "saved command %s: %s" % (name, " | ".join(phrases)))
         self.speaker.say(['I\'ve saved that. Next time just say "%s".' % phrase,
                           'Saved. Just say "%s" next time.' % phrase])

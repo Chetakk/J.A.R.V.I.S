@@ -68,9 +68,13 @@ Rules:
   what runs; risky commands are shown to the user to run themselves.
 - A message may start with what happened since your last answer, handled by {name} without you (commands it
   ran, what it said). Use it to understand follow-ups and complaints; answer only the "User now says" part.
-- Fill "save" on your own whenever {user} is likely to ask this again (a routine, a habit, something you've seen
-  before in this conversation). {name} asks {user} whether to save it, using the first phrase, so make the
-  phrases short and natural, and never say in "say" that it's already saved. Leave it null for one-off questions.
+- Fill "save" whenever your answer runs a "command" that would work again for the same kind of request, so
+  {name} can do it itself next time without asking you: checking something (battery, a service, a port, the
+  weather), opening or controlling something, a routine. Put the parts that change in {slots} ("check port
+  {port}", "is {service} running"). {name} runs the command first, then asks {user} whether to save it, using
+  the first phrase, so make the phrases short and natural (2-4 ways to say it), and never say in "say" that
+  it's already saved. Leave it null only for one-offs (a specific file or one-time fix), multi-step "steps",
+  or when one of {name}'s own "do" phrases already does it.
 - "suggest": think ahead like a good assistant: a useful next step, a shortcut for something they keep doing, a
   problem you noticed (e.g. low disk). Most answers need none; never suggest what they just did or declined.
 - "show": use it whenever seeing beats hearing: numbers to compare (a table or bars), several items or results,
