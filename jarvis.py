@@ -36,7 +36,7 @@ from system.projects import Projects
 from system.apps import Apps
 from core.context import Context, sounds_like_follow_up
 from core.intent import IntentMatcher
-from core.registry import Registry, clean
+from core.registry import Registry, _names_regex, clean
 from core.safety import MANUAL, Safety
 from voice.speech import Speaker, pick
 from voice.stt import Whisper
@@ -78,6 +78,18 @@ OPEN_CLAUDE = {"open claude", "open claude terminal", "open claude code", "talk 
 OPEN_CLAUDE_VSCODE = {"open claude in vs code", "open claude in vscode", "open claude code in vs code",
                       "open claude code in vscode"}
 ASK_CLAUDE_VSCODE = re.compile(r"^(?:ask|tell) claude(?: code)? in (?:vs ?code) (?:to )?(.+)$", re.IGNORECASE)
+# JARVIS itself, not an app or a project called Jarvis (%s: its names): "close Jarvis", "restart yourself".
+QUIT_ME = r"^(?:close|quit|exit|shut ?down|turn off|switch off|kill) (?:yourself|%s)$"
+RESTART_ME = r"^(?:restart|reload|reboot|relaunch) (?:yourself|%s)$"
+RESTART_CODE = 4  # tools/run_jarvis.sh starts JARVIS again straight away
+# "Ask Claude to add a timer to Jarvis", "tell Claude in VS Code that the Jarvis icon doesn't show": a change to
+# JARVIS itself when the request names it (or "yourself") anywhere.
+ASK_CLAUDE_ME = re.compile(r"\b(?:ask|asks|tell|get|have) claude(?: code)?( in vs ?code)?(?: to| that|,)? (.+)",
+                           re.IGNORECASE)
+MENTIONS_ME = r"(?<![a-z])(?:yourself|your (?:code|project)|%s)"
+# "Make these changes in Jarvis": the task points at what was just said, so Claude Code gets that too.
+POINTS_BACK = re.compile(r"\b(?:this|that|these|those|it|them|what (?:we|you|i) (?:said|discussed|talked about))\b",
+                         re.IGNORECASE)
 CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hearing off",
                 "stop showing what you hear": "/hearing off",
                 "show chat": "/chat on", "open chat": "/chat on", "show the chat": "/chat on",
@@ -211,6 +223,8 @@ class Jarvis:
         self.ignored = False  # last follow-up was chatter, not a request
         self.follow_up = lambda: None  # wake word: listen once more without the name (set by start_voice)
         self.recent = deque(maxlen=8)  # what happened without Claude since its last answer, passed on next time
+        self.talk = deque(maxlen=12)  # the last few lines both ways, Claude's answers too, for "make these changes"
+        self.exit_code = 0  # RESTART_CODE after "restart yourself"
         self.source = "text"  # how the current request came in: text / voice / follow
         self.from_claude = False  # handling one of Claude's "do" phrases: never send it back to Claude
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
@@ -230,6 +244,7 @@ class Jarvis:
     def _said(self, text):
         self.chat("jarvis", text)
         self.recent.append("JARVIS said: %s" % text)
+        self.talk.append("JARVIS said: %s" % text)
 
     def chat(self, who, text):
         if self.ui:
@@ -323,6 +338,7 @@ class Jarvis:
             return True
 
         self.recent.append("User: %s" % text)
+        self.talk.append("User: %s" % text)
         low = text.lower()
         if undo.UNDO.match(text):
             return self._undo()
@@ -343,6 +359,10 @@ class Jarvis:
         if phrase:  # a listed other wording, word for word: before any pattern can misread it
             self.heard(text, "means \"%s\"" % phrase)
             return self._reword(phrase)
+        # Before the skills: "close Jarvis" isn't an app, nor a project. Claude's "do" can't close JARVIS.
+        about_me = None if self.from_claude else self._about_me(text)
+        if about_me is not None:
+            return about_me
         if low in OPEN_CLAUDE:  # before the skills: "open claude in vs code" isn't a project
             if self.claude.open_terminal():
                 self.speaker.say(["Claude's already open, here it is.", "Here's Claude."])
@@ -559,6 +579,28 @@ class Jarvis:
                 self._fix_jarvis(answer["fix"])
             else:
                 self.speaker.say(["Okay, I'll leave it as it is.", "Sure, no fix for now."])
+
+    def _about_me(self, text):
+        """Close or restart JARVIS, or have Claude Code change it: what handle() returns (False ends JARVIS),
+        or None when the request isn't about JARVIS itself."""
+        me = _names_regex(self.names)
+        if re.match(QUIT_ME % me, text, re.IGNORECASE):
+            if self.ask(["Close me? You'll have to start me again from the app menu.", "Shut me down completely?"]):
+                return False
+            self.speaker.say(["Okay, I'll stay.", "Sure, I'm staying."])
+            return True
+        if re.match(RESTART_ME % me, text, re.IGNORECASE):
+            self.exit_code = RESTART_CODE
+            return False
+        m = ASK_CLAUDE_ME.search(text)
+        if not m or not re.search(MENTIONS_ME % me, text, re.IGNORECASE):
+            return None
+        task = m.group(2).strip(" ,.")
+        said = list(self.talk)[:-1]  # the last line is this request itself
+        if POINTS_BACK.search(task) and said:
+            task += "\n\nWhat was said with JARVIS just before this:\n" + "\n".join(said)
+        self._fix_jarvis({"task": task, "size": "big" if m.group(1) else "small"})
+        return True
 
     def _fix_jarvis(self, fix):
         """You asked for a change to JARVIS itself: Claude Code does it in this project, in a terminal for
@@ -1204,11 +1246,12 @@ def main():
     except KeyboardInterrupt:
         print()
     jarvis.memory.seen()
-    jarvis.speaker.say(["Goodbye!", "See you later.", "Bye for now."])
+    jarvis.speaker.say("Restarting, back in a moment." if jarvis.exit_code == RESTART_CODE
+                       else ["Goodbye!", "See you later.", "Bye for now."])
     jarvis.speaker.close()
     whisper.stop()
     sys.stdout.flush()
-    os._exit(0)  # Background threads are blocked reading the mic/keyboard; don't wait for them.
+    os._exit(jarvis.exit_code)  # Background threads are blocked reading the mic/keyboard; don't wait for them.
 
 
 if __name__ == "__main__":

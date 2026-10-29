@@ -226,7 +226,8 @@
 "open jarvis in vs code": skill:open_project
 "any changes in jarvis": skill:git_status
 "run the tests in jarvis": skill:run_tests
-"ask claude to fix the readme in the jarvis project": skill:claude_project
+"ask claude to fix the readme in the jarvis project": claude-terminal
+"ask claude to fix the login in the avtec hs project": skill:claude_project
 "look at my screen": skill:screen
 "what am i looking at": skill:screen
 "explain this error": skill:screen
@@ -1025,3 +1026,12 @@
 "don't brief me every morning": skill:set_auto
 "how's my day going": skill:summary
 "what's on my todo list": skill:read
+# JARVIS itself: close (asks first), restart, have Claude Code change it
+"close jarvis": asks
+"quit yourself": asks
+"shut down jarvis": asks
+"restart jarvis": restart
+"restart yourself": restart
+"ask claude to make these changes in jarvis": claude-terminal
+"tell claude to add a battery card to jarvis": claude-terminal
+"ask claude what the weather is": claude

@@ -17,6 +17,11 @@ while true; do
   if [ "$code" -eq 0 ] || [ "$code" -eq 3 ]; then
     exit 0
   fi
+  # 4 = "restart yourself": not a crash.
+  if [ "$code" -eq 4 ]; then
+    echo "=== $(date '+%F %T') restarting JARVIS as asked" >> "$LOG"
+    continue
+  fi
   echo "=== $(date '+%F %T') JARVIS stopped unexpectedly (exit $code); restarting" >> "$LOG"
   # Give up if it keeps crashing (5 times in 2 minutes) instead of looping forever.
   now=$(date +%s)

@@ -6,7 +6,7 @@
 
 The real routing in jarvis.py runs; every way out of it (shell commands, skills, card actions, Claude,
 speech, memory writes) is swapped for a recorder, so nothing on the desktop changes.
-Results look like: command:volume_down, skill:media, app:open Rhythmbox, card:close, persona, browser, claude, ignored.
+Results look like: command:volume_down, skill:media, app:open Rhythmbox, card:close, persona, browser, claude, asks, restart, ignored.
 """
 import os
 import queue
@@ -123,7 +123,9 @@ class DryJarvis:
         """(result, details) for one phrase."""
         del self.log[:]
         self.j.last_request = None
-        self.j.handle(text)
+        if self.j.handle(text) is False:  # JARVIS would close ("close jarvis") or restart
+            restart, self.j.exit_code = self.j.exit_code == J.RESTART_CODE, 0
+            return ("restart" if restart else "quit"), ""
         acts = [(k, v) for k, v in self.log if k not in ("say", "note", "miss")]
         notes = [v for k, v in self.log if k == "note"]
         if not acts:
