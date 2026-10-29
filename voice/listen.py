@@ -83,6 +83,8 @@ class PushToTalk:
     """Calls on_audio(pcm) after the key is held and released, unless used as a shortcut modifier.
 
     on_listen(True) when recording starts, on_listen(False) if it is cancelled or too short.
+    In VS Code (vscode_dictation set) the key works Claude Code's own mic instead: the shortcut is pressed on
+    key down and again on key up, toggling the chat's dictation on and off.
     """
 
     def __init__(self, cfg, on_audio, on_listen=None):
@@ -95,6 +97,11 @@ class PushToTalk:
         self.on_listen = on_listen or (lambda active: None)
         self.recorder = Recorder()
         self._recording_since = None
+        combo = cfg.get("vscode_dictation") or ""
+        self.dictation_keys = [getattr(keyboard.Key, k, None) or k for k in combo.lower().split("+") if k]
+        self._dictating = False
+        self._keyboard = None
+        self._inject_lock = threading.Lock()
 
     @property
     def recording(self):
@@ -130,7 +137,11 @@ class PushToTalk:
 
     def _press(self, key):
         if key == self.key:
-            if self.recording:
+            if self.recording or self._dictating:
+                return
+            if self.dictation_keys and self._focused_window_wants_key():
+                self._dictating = True
+                self._toggle_dictation()
                 return
             if self._focused_app_wants_key():
                 print("[ptt] key left to %s (it's the focused window)" % "/".join(active_window_class()[-1:]))
@@ -145,15 +156,42 @@ class PushToTalk:
             self.recorder.stop()
             self.on_listen(False)
 
-    def _focused_app_wants_key(self):
+    def _focused_window_wants_key(self):
         classes = [c.lower() for c in active_window_class()]
-        if any(p in c for p in self.pass_through for c in classes):
+        return any(p in c for p in self.pass_through for c in classes)
+
+    def _focused_app_wants_key(self):
+        if self._focused_window_wants_key():
             return True
         title = active_window_title().lower() if self.pass_through_titles else ""
         return any(t in title for t in self.pass_through_titles)
 
+    def _toggle_dictation(self):
+        """Press and release the vscode_dictation shortcut (bound to claude-vscode.toggleDictation)."""
+        def press():
+            with self._inject_lock:
+                if self._keyboard is None:
+                    self._keyboard = keyboard.Controller()
+                for k in self.dictation_keys:
+                    self._keyboard.press(k)
+                for k in reversed(self.dictation_keys):
+                    self._keyboard.release(k)
+        # Injected from another thread: the listener's own callback is still running.
+        threading.Thread(target=self._safe_inject(press), daemon=True).start()
+
+    def _safe_inject(self, fn):
+        def wrapper():
+            try:
+                fn()
+            except Exception as e:
+                print("[ptt] couldn't press the VS Code dictation shortcut: %r" % e)
+        return wrapper
+
     def _release(self, key):
-        if key == self.key and self.recording:
+        if key == self.key and self._dictating:
+            self._dictating = False
+            self._toggle_dictation()
+        elif key == self.key and self.recording:
             self.recording = False
             pcm = self.recorder.stop()
             if len(pcm) >= RATE * 2 * MIN_SECONDS:

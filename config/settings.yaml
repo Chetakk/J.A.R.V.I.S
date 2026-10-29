@@ -85,6 +85,10 @@ push_to_talk:
   pass_through_windows: ["vscode"]
   # Same, matched against the window title: Claude Code in a terminal and Claude chats in the browser.
   pass_through_titles: ["claude"]
+  # In pass_through_windows the key opens Claude Code's own mic: JARVIS presses this shortcut when the key goes
+  # down and again when it comes up (hold to talk). ~/.config/Code/User/keybindings.json binds it to
+  # claude-vscode.toggleDictation. Leave empty to just pass the key through.
+  vscode_dictation: ctrl+shift+alt+v
 
 # Browser agent (skills/web.py): its own Chrome with its own profile (~/.local/share/jarvis/agent-chrome), run by
 # tools/browser-agent (npm install there once). It starts when needed and closes after idle_minutes.
