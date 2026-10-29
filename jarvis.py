@@ -273,6 +273,10 @@ class Jarvis:
             return self._undo()
         if low in CHAT_PHRASES:
             return self._slash(CHAT_PHRASES[low])
+        phrase = self.intents.early(text) if self.intents and not self._rewording else None
+        if phrase:  # a listed other wording, word for word: before any pattern can misread it
+            self.heard(text, "means \"%s\"" % phrase)
+            return self._reword(phrase)
         if low in OPEN_CLAUDE:  # before the skills: "open claude in vs code" isn't a project
             if self.claude.open_terminal():
                 self.speaker.say(["Claude's already open, here it is.", "Here's Claude."])

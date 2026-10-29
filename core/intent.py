@@ -48,6 +48,10 @@ class WordPiece:
         return ids[:max_len - 1] + [self.sep]
 
 
+def _norm(text):
+    return " ".join(re.findall(r"[\w']+|:", text.lower()))
+
+
 def _value(slot, value):
     """{when}: "5 pm" -> "at 5 pm", "20 minutes" -> "in 20 minutes" ("tomorrow at 9 am" stays)."""
     value = value.strip()
@@ -65,8 +69,13 @@ SLOTS = {
     # "20 minutes", "5 pm", "in an hour", "tomorrow at 9 am", "noon"
     "when": r"(?:(?:in|at) )?(?:(?:today|tonight|tomorrow)(?: at)? ?)?(?:%s(?: ?(?:[ap]\.? ?m\.?|minutes?|mins?|"
             r"hours?|hrs?|seconds?|secs?|o'?clock))?|noon|midnight)" % _NUM,
+    "dur": r"%s ?(?:minutes?|mins?|hours?|hrs?|seconds?|secs?)" % _NUM,
+    "a": r"-?[\d.,]+", "b": r"-?[\d.,]+",  # sums take numbers only ("add a note to X" isn't one)
+    "n": r"first|second|third|fourth|fifth|last|1st|2nd|3rd|4th|5th|one|two|three|four|five|\d",
+    # a todo: never "I'm", "it", "that" ("I'm done" isn't a todo)
+    "item": r"(?!(?:i'?m|i am|it|that|this|we'?re|you'?re|all|everything)$).+?",
     # an app, never "down ..." ("shut down the computer") or the computer itself
-    "app": r"(?!down\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine)$).+?",
+    "app": r"(?!down\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine|wifi|bluetooth|tab|window)$).+?",
 }
 
 
@@ -92,10 +101,12 @@ class IntentMatcher:
         self.threshold, self.margin = threshold, margin
         with open(path, encoding="utf-8") as f:
             intents = yaml.safe_load(f) or {}
+        own = {k: set(v or []) for k, v in intents.items()}  # only this file's wordings get the word-for-word check
         for target, says in (extra or {}).items():
             intents[target] = list(intents.get(target) or []) + list(says)
         self.targets, examples = [], []
         self.templates = []  # (regex of another wording with {slots}, known phrase with the same {slots})
+        self.exact = {}  # another wording, word for word -> the known phrase (checked before anything else)
         for target, says in intents.items():
             if "{" in target:
                 for s in [target] + list(says or []):
@@ -104,6 +115,8 @@ class IntentMatcher:
             for s in [target] + list(says or []):
                 self.targets.append(target)
                 examples.append(s)
+                if s in own.get(target, ()):
+                    self.exact.setdefault(_norm(s), target)
         self.templates.sort(key=lambda t: -len(re.sub(r"\(\?.*?\)", "", t[0].pattern)))  # most fixed words first
         self.matrix = self._cached(examples)
         self.nearest = (None, 0.0)
@@ -135,6 +148,11 @@ class IntentMatcher:
                                       "token_type_ids": np.zeros_like(ids)})[0]
         vec = (out * mask[..., None]).sum(1) / mask.sum(1, keepdims=True)
         return vec / np.linalg.norm(vec, axis=1, keepdims=True)
+
+    def early(self, text):
+        """A listed other wording, said word for word: its known phrase, before any pattern can misread it
+        ("kill the wifi" isn't "kill {app}", "start working" isn't a project)."""
+        return self.exact.get(_norm(text))
 
     def fill(self, text):
         """Another wording with a value in it -> the known phrase with that value ("shut chrome" -> "close chrome")."""

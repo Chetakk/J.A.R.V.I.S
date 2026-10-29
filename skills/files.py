@@ -15,7 +15,9 @@ class Files(Skill):
         return [
             (r"open (?:the |my )?(?:latest|newest|last|most recent) (?:file|download)(?:ed file)?"
              r"(?: in (?:my )?(downloads|documents|desktop|pictures|videos))?", self.latest_file),
-            (r"(?:find|locate|where'?s|where is|where are)(?: my| the)? (.+?)(?: file| files)?", self.find_file),
+            # (not "find X on github": that's a site search)
+            (r"(?:find|locate|where'?s|where is|where are)(?: my| the)? (?!.+ on (?:github|maps|google maps|amazon|"
+             r"youtube|wikipedia|google)$)(.+?)(?: file| files)?", self.find_file),
         ]
 
     def latest_file(self, m):

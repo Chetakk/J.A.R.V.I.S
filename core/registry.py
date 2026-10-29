@@ -12,7 +12,8 @@ _SLOT = re.compile(r"\{(\w+)\}")
 # "turn on airplane mode" is one letter away from "turn off airplane mode": never match across these.
 _OPPOSITES = [("on", "off"), ("up", "down"), ("enable", "disable"), ("open", "close"), ("show", "hide"),
               ("start", "stop"), ("louder", "quieter"), ("brighter", "darker"), ("in", "out"), ("max", "min"),
-              ("mute", "unmute"), ("connect", "disconnect"), ("lock", "unlock"), ("next", "previous")]
+              ("mute", "unmute"), ("connect", "disconnect"), ("lock", "unlock"), ("next", "previous"),
+              ("start", "end"), ("begin", "end"), ("start", "finish")]
 
 
 def opposite_direction(said, phrase):
