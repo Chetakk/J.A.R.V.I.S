@@ -22,7 +22,7 @@ CLIPBOARD = r"what i(?: just)? copied|(?:my |the )?clipboard|the copied text"
 LINK = r"(?:the |this )?(?:page'?s? |tab'?s? )?(?:link|url|web address|address)(?: of this page)?"
 ERROR = r"the (?:last )?error(?: message)?"
 WINDOW = (r"(?:all |everything )?(?:the )?(?:text )?(?:in |of |on )?(?:this|the) (?:whole )?(?:window|page|screen)|"
-          r"everything (?:here|in this window)|all of it")
+          r"everything (?:here|in this window)|all of it|(?:the text (?:in|of) )?(?:this|the) terminal(?:'?s text)?")
 SELECTION = (r"this|that|it|(?:the )?(?:selection|selected text|highlighted text)|"
              r"what(?: i(?:'ve)?|'s) (?:selected|highlighted)")
 SOURCE = r"(?P<src>%s)" % "|".join((CLIPBOARD, LINK, ERROR, WINDOW, SELECTION))
@@ -78,10 +78,11 @@ class CopyBetween(Skill):
                 self.say("Your clipboard is empty. Copy something first.")
                 return None
             return text
-        if m.group("from"):
-            win = _find(m.group("from"))
+        where = m.group("from") or ("the terminal" if re.search(r"\bterminal\b", src) else None)
+        if where:
+            win = _find(where)
             if not win:
-                self.say("I don't see %s open." % m.group("from"))
+                self.say("I don't see %s open." % where)
                 return None
         else:
             win = front_window()
