@@ -112,9 +112,12 @@ class Notes(Skill):
     def patterns(self):
         return [
             (r"what do you (?:know|remember) about me|what have you (?:learned|remembered) about me|"
-             r"(?:show|open)(?: me)? (?:your|my) memory|what'?s in your memory|everything you (?:know|remember)(?: about me)?",
+             r"(?:show|open|list)(?: me)? (?:your|my) memor(?:y|ies)|what'?s in your memory|"
+             r"tell me what (?:you|do you) (?:know|remember) about me|what have you (?:saved|stored|kept) about me|"
+             r"everything you (?:know|remember)(?: about me)?",
              lambda m: self.about_me()),
-            (r"forget (?:this|our|the) (?:conversation|chat)|forget what (?:we|i) (?:just )?(?:talked|said|spoke) about|"
+            (r"(?:forget|clear|reset|wipe|erase) (?:this|our|the) (?:conversation|chat)(?: history)?|"
+             r"forget what (?:we|i) (?:just )?(?:talked|said|spoke) about|"
              r"start (?:a )?(?:fresh|new) conversation", lambda m: self.forget_conversation()),
             (r"forget %s%s(?: one)?" % (_ITEM, _NTH), self.forget_nth),
             (r"(?:change|update|edit|correct) %s%s (?:to|so it says) (.+)" % (_ITEM, _NTH), self.edit_nth),
