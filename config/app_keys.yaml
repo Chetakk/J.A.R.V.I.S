@@ -1,0 +1,87 @@
+# "Click X" / "press X" in the window you're looking at: its keyboard shortcut is tried first (the surest way),
+# then the app's accessibility tree, then a spot Claude finds on a screenshot (only after you say yes).
+# Each section: a word from the window's app class (see "jarvis status" or xprop WM_CLASS), "any" = every app.
+# Names are said as written ("click save", "press the back button"); keys as in desktop.keys():
+# ctrl/shift/alt/super + a key name (Return, Escape, Tab, Left, F5, plus, minus, a letter).
+
+any:
+  save: ctrl+s
+  save as: ctrl+shift+s
+  undo: ctrl+z
+  redo: ctrl+shift+z
+  copy: ctrl+c
+  cut: ctrl+x
+  paste: ctrl+v
+  select all: ctrl+a
+  find: ctrl+f
+  search: ctrl+f
+  print: ctrl+p
+  new: ctrl+n
+  open: ctrl+o
+  cancel: Escape
+  ok: Return
+
+google-chrome:
+  back: alt+Left
+  forward: alt+Right
+  reload: ctrl+r
+  refresh: ctrl+r
+  home: alt+Home
+  bookmark: ctrl+d
+  bookmarks: ctrl+shift+o
+  history: ctrl+h
+  downloads: ctrl+j
+  address bar: ctrl+l
+  new window: ctrl+n
+  incognito: ctrl+shift+n
+  zoom in: ctrl+plus
+  zoom out: ctrl+minus
+
+firefox:
+  back: alt+Left
+  forward: alt+Right
+  reload: ctrl+r
+  refresh: ctrl+r
+  bookmark: ctrl+d
+  history: ctrl+h
+  downloads: ctrl+shift+y
+  address bar: ctrl+l
+  private window: ctrl+shift+p
+
+vscode:
+  command palette: ctrl+shift+p
+  quick open: ctrl+p
+  explorer: ctrl+shift+e
+  search: ctrl+shift+f
+  source control: ctrl+shift+g
+  extensions: ctrl+shift+x
+  terminal: ctrl+grave
+  new terminal: ctrl+shift+grave
+  sidebar: ctrl+b
+  run: F5
+  debug: F5
+  format: ctrl+shift+i
+  comment: ctrl+slash
+  go to line: ctrl+g
+  split editor: ctrl+backslash
+  close editor: ctrl+w
+
+gnome-terminal:
+  copy: ctrl+shift+c
+  paste: ctrl+shift+v
+  find: ctrl+shift+f
+  new tab: ctrl+shift+t
+  new window: ctrl+shift+n
+  zoom in: ctrl+plus
+  zoom out: ctrl+minus
+
+nautilus:
+  back: alt+Left
+  forward: alt+Right
+  up: alt+Up
+  home: alt+Home
+  new folder: ctrl+shift+n
+  hidden files: ctrl+h
+  show hidden files: ctrl+h
+  address bar: ctrl+l
+  rename: F2

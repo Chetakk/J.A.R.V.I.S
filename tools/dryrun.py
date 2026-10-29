@@ -18,6 +18,7 @@ sys.path.insert(0, HERE)
 import yaml  # noqa: E402
 
 import jarvis as J  # noqa: E402
+from skills import controls as J_controls  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
 
 PHRASES = os.path.join(HERE, "tests", "phrases.yaml")
@@ -65,6 +66,9 @@ class DryJarvis:
         projects = getattr(obj, "projects", None)
         find = projects and (lambda m: projects.find(_first(m)) or len(projects.candidates(_first(m))) > 1)  # as _find
         passes = {"run_project": find, "stop_project": find} if find else {}
+        if obj is self.j.skills.controls:  # "click it", "hit me with a joke": handed on
+            passes["click"] = lambda m: m.group(2) or J_controls._spoken_keys(m.group(1)) or J_controls._name(m.group(1))
+            passes["hit"] = lambda m: J_controls._spoken_keys(m.group(1))
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

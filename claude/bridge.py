@@ -186,12 +186,37 @@ class Claude:
 
     def rewrite(self, instruction, content):
         """One-off text job ("fix the grammar", "translate to Hindi"): returns just the resulting text."""
+        return self._once("%s\n\n<text>\n%s\n</text>" % (instruction, content),
+                          "Do what the user asks with the text between <text> tags. Reply with only the "
+                          "result: no preamble, no quotes, no tags, no explanation.")
+
+    def locate(self, image, target, size):
+        """Where `target` ("the Save button") is on the window screenshot `image` (inside WORKSPACE, `size` =
+        (width, height) pixels, small enough not to be scaled down): ((x, y), what it is), or (None, why not)."""
+        w, h = size
+        text = self._once(
+            "Read the image %s: a %dx%d pixel screenshot of one app window. Find the thing to click that the user "
+            "means by: \"%s\". Reply with only JSON: {\"x\": <int>, \"y\": <int>, \"what\": \"<what it is, a few "
+            "words>\"} for the middle of it, in pixels of this image, or {\"x\": null, \"what\": \"<why not>\"} if it "
+            "isn't there or you aren't sure." % (os.path.basename(image), w, h, target),
+            "You find things on screenshots for a desktop assistant that will click where you say. Be exact; "
+            "never guess a spot you can't see. Reply with only the JSON.", tools="Read")
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        try:
+            data = json.loads(m.group(0)) if m else {}
+            x, y = data.get("x"), data.get("y")
+            if isinstance(x, (int, float)) and isinstance(y, (int, float)) and 0 <= x < w and 0 <= y < h:
+                return (int(x), int(y)), str(data.get("what") or target)
+            return None, str(data.get("what") or "")
+        except (ValueError, AttributeError):
+            return None, ""
+
+    def _once(self, prompt, system, tools=""):
+        """A one-off question outside the conversation: returns Claude's reply text."""
         if not self.bin:
             raise ClaudeError("Claude Code isn't installed")
-        args = [self.bin, "-p", "%s\n\n<text>\n%s\n</text>" % (instruction, content), "--model", self.model,
-                "--tools", "", "--strict-mcp-config", "--no-session-persistence", "--effort", self.effort,
-                "--system-prompt", "Do what the user asks with the text between <text> tags. Reply with only the "
-                                   "result: no preamble, no quotes, no tags, no explanation.",
+        args = [self.bin, "-p", prompt, "--model", self.model, "--tools", tools, "--strict-mcp-config",
+                "--no-session-persistence", "--effort", self.effort, "--system-prompt", system,
                 "--output-format", "json"]
         try:
             res = subprocess.run(args, cwd=WORKSPACE, capture_output=True, text=True, timeout=self.timeout,

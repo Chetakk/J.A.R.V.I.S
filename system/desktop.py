@@ -264,6 +264,24 @@ def keys(combo):
     d.close()
 
 
+def click(x, y, button=1):
+    """Click at (x, y) on the screen, then put the pointer back where it was."""
+    import time
+    from Xlib.ext import xtest
+    d = display.Display()
+    was = d.screen().root.query_pointer()
+    xtest.fake_input(d, X.MotionNotify, x=x, y=y)
+    d.sync()
+    time.sleep(0.05)
+    xtest.fake_input(d, X.ButtonPress, button)
+    xtest.fake_input(d, X.ButtonRelease, button)
+    d.sync()
+    time.sleep(0.05)
+    xtest.fake_input(d, X.MotionNotify, x=was.root_x, y=was.root_y)
+    d.sync()
+    d.close()
+
+
 def activate_role(role):
     """Like activate(), but by window role (gnome-terminal --role), which apps can't rename. True if found."""
     try:

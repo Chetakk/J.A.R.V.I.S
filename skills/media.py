@@ -8,8 +8,8 @@ from system import desktop
 class Media(Skill):
     def patterns(self):
         return [
-            (r"(?:pause|stop)(?: the)?(?: music| video| song| youtube| playback)?|(?:kill|mute) the (?:music|song|video)", lambda m: self.media("Pause")),
-            (r"(?:play|resume|continue|unpause)(?: the)?(?: music| video| song| youtube| playback)?",
+            (r"(?:(?:press|hit|click) )?(?:pause|stop)(?: the)?(?: music| video| song| youtube| playback)?|(?:kill|mute) the (?:music|song|video)", lambda m: self.media("Pause")),
+            (r"(?:(?:press|hit|click) )?(?:play|resume|continue|unpause)(?: the)?(?: music| video| song| youtube| playback)?",
              lambda m: self.media("Play")),
             (r"(?:next|skip)(?: this)?(?: song| track| video)?", lambda m: self.media("Next")),
             (r"(?:previous|last|go back a) (?:song|track|video)", lambda m: self.media("Previous")),

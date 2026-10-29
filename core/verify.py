@@ -75,6 +75,22 @@ class Pixels:
         self.window = window
         self.geometry = desktop.geometry(window)
         self.image = _grab(self.geometry)
+        self.windows = windows_now()
+
+    def report(self):
+        """(ok, what) a moment after an action in the window: True when something on screen changed,
+        None when nothing did (it may still have worked: "copy" shows nothing)."""
+        time.sleep(0.6)
+        now = windows_now()
+        new = [t for i, t in now.items() if i not in self.windows]
+        if new:
+            return True, "a window opened: %s" % (new[-1] or "untitled")
+        title = now.get(self.window.id)
+        if title is not None and title != self.windows.get(self.window.id):
+            return True, "the window changed to %s" % title
+        if self.changed():
+            return True, "the window changed"
+        return None, "nothing changed on screen"
 
     def moved(self):
         """True if the window moved or changed size since (then a picked spot is in the wrong place)."""
@@ -94,6 +110,23 @@ class Pixels:
 
 
 def _grab(geometry):
+    """Half size, with JARVIS's own windows (the orb, cards) blacked out: they change on their own."""
+    shot = grab(geometry)
+    if not shot:
+        return None
+    img, (ox, oy) = shot
+    for w in desktop.windows():
+        g = "jarvis" in w.wm_class and desktop.geometry(w)
+        box = g and (max(0, g[0] - ox), max(0, g[1] - oy), min(img.width, g[0] - ox + g[2]),
+                     min(img.height, g[1] - oy + g[3]))
+        if box and box[2] > box[0] and box[3] > box[1]:
+            img.paste((0, 0, 0), box)
+    return img.resize((max(1, img.width // 2), max(1, img.height // 2)))
+
+
+def grab(geometry):
+    """(image, (x, y)) of that part of the screen as it looks now (its top left corner, kept on screen),
+    or None."""
     if not geometry:
         return None
     try:
@@ -103,14 +136,17 @@ def _grab(geometry):
         root = d.screen().root
         sw, sh = root.get_geometry().width, root.get_geometry().height
         x, y, w, h = geometry
-        x, y = max(0, x), max(0, y)
+        if x < 0:
+            w, x = w + x, 0
+        if y < 0:
+            h, y = h + y, 0
         w, h = min(w, sw - x), min(h, sh - y)
         if w <= 0 or h <= 0:
             d.close()
             return None
         raw = root.get_image(x, y, w, h, X.ZPixmap, 0xFFFFFFFF)
         d.close()
-        return Image.frombytes("RGB", (w, h), raw.data, "raw", "BGRX").resize((max(1, w // 2), max(1, h // 2)))
+        return Image.frombytes("RGB", (w, h), raw.data, "raw", "BGRX"), (x, y)
     except Exception:
         return None
 

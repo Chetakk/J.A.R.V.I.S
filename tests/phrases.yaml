@@ -835,3 +835,18 @@
 "has it opened yet": skill:did_it_work
 "did that go through": skill:did_it_work
 "check if it worked": skill:did_it_work
+
+# clicking and pressing keys in the front window
+"click save": skill:click
+"press the back button": skill:click
+"press control shift t": skill:click
+"press f5": skill:click
+"hit enter": skill:hit
+"click reset in the terminal menu": skill:click
+"choose zoom in from the view menu": skill:choose
+"tap the settings icon": skill:click
+"click on the sign in link": skill:click
+"press play": skill:media
+"press pause": skill:media
+"hit me with a joke": claude
+"click it": claude
