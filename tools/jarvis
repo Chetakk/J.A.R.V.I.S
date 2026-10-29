@@ -7,12 +7,15 @@
     more options: --id NAME (update that card in place: progress), --choice "phrase" (a button; repeat it),
     --refresh "command" --every 5 (keep the card live; {output} in the markdown is the latest output)
   jarvis do "phrase"                      have JARVIS do one of its own abilities, as if the user said it
+  jarvis do --wait "phrase"               ...and wait for what came of it: "done: <what JARVIS saw>", or
+                                          unchecked / failed / declined / refused (exit 1 unless done or unchecked)
 
 Card markdown: # heading, - bullets (indent to nest), 1. numbered, - [ ] / - [x] checklists, | table |, ``` blocks, > quote, --- divider, **bold**, *italic*, `code`, [links](https://...).
 """
 import json
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
 from voice.speech import INBOX, speak_via_jarvis  # noqa: E402
@@ -21,6 +24,7 @@ from system.terminal import RUN_DIR  # noqa: E402
 ABILITIES = os.path.join(RUN_DIR, "abilities.txt")  # written by JARVIS at start: phrases "do" understands
 
 MAX = 3500  # one write to the pipe stays whole below 4 KB
+WAIT = 180  # seconds `do --wait` waits (JARVIS may be asking the user first)
 
 
 def send(message):
@@ -44,6 +48,8 @@ def main(args):
             sys.exit(__doc__)
     if args[0] == "say":
         speak_via_jarvis(" ".join(args[1:]))  # speaks even when JARVIS isn't running
+    elif args[0] == "do" and "--wait" in args:
+        return do_and_wait(" ".join(a for a in args[1:] if a != "--wait"))
     elif args[0] == "do":
         send({"do": " ".join(args[1:])})
     else:
@@ -63,6 +69,26 @@ def main(args):
             card["refresh"] = {"command": options["--refresh"][-1], "every": float((options["--every"] or [5])[-1])}
         send({"show": card})
     print("ok")
+
+
+def do_and_wait(phrase):
+    """JARVIS does the phrase like a task step (checked, through its safety gate) and writes back what came of it."""
+    replies = os.path.join(RUN_DIR, "replies")
+    os.makedirs(replies, mode=0o700, exist_ok=True)
+    path = os.path.join(replies, "%d-%d.json" % (os.getpid(), time.time() * 1000))
+    send({"do": phrase, "reply": path})
+    deadline = time.time() + WAIT
+    while time.time() < deadline:
+        try:
+            with open(path) as f:
+                result = json.load(f)
+            os.remove(path)
+        except (OSError, ValueError):
+            time.sleep(0.2)
+            continue
+        print("%s: %s" % (result.get("status"), result.get("result")))
+        sys.exit(0 if result.get("status") in ("done", "unchecked") else 1)
+    sys.exit("jarvis: no answer within %d s (JARVIS may be busy, or still waiting for the user)" % WAIT)
 
 
 if __name__ == "__main__":
