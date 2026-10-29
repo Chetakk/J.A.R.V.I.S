@@ -11,6 +11,12 @@ from skills.daytracker import HUB
 from skills.files import WHEN, _since
 from skills.helpers import PROJECTS
 
+# "open / reopen / bring up the project I worked on (yesterday, last time)"
+_BACK_TO = r"open|continue|resume|reopen|go back to|back to|pick up|get back to|bring up|load"
+_WORKED = (r" (?:that |which )?i (?:(?:was|were|have been|'?ve been|had been) (?:working on|on|doing|coding(?: on)?)|"
+           r"worked on)")
+_AFTER = r"(?: (?:last time|before|earlier))?(?: in vs ?code)?"
+
 
 class Dev(Skill):
     def __init__(self, jarvis):
@@ -21,14 +27,10 @@ class Dev(Skill):
         return [
             (r"git status(?: (?:of|for|in))?(?: (?:the )?(.+?)(?: project)?)?|(?:any )?changes in (?:the )?(.+?)(?: project)?|"
              r"what changed in (?:the )?(.+?)(?: project)?", self.git_status),
-            (r"(?:open|continue|resume|reopen|go back to|back to|pick up|get back to)(?: with| on)? (?:the |my |that )?"
-             r"(?:(?:last|latest|previous|most recent|recent) )?project"
-             r"(?: (?:that |which )?i (?:was|were|have been|'?ve been|had been) (?:working on|on|doing|coding(?: on)?))?"
-             r"(?: (%s))?(?: in vs ?code)?|"
-             r"(?:open|continue|resume|reopen|go back to|get back to) (?:the |my |that )?(?:thing|stuff|work|code) "
-             r"(?:that |which )?i (?:was|were|have been|'?ve been|had been) (?:working on|doing|coding(?: on)?)"
-             r"(?: (%s))?|(?:open|continue|resume|reopen) (yesterday|today|last night|this morning)'?s project"
-             % (WHEN, WHEN), self.last_project),
+            (r"(?:%s)(?: with| on)? (?:the |my |that )?(?:(?:last|latest|previous|most recent|recent) )?project(?:%s)?"
+             r"(?: (%s))?%s|(?:%s) (?:the |my |that )?(?:thing|stuff|work|code)%s(?: (%s))?%s|"
+             r"(?:open|continue|resume|reopen|load) (yesterday|today|last night|this morning)'?s project"
+             % (_BACK_TO, _WORKED, WHEN, _AFTER, _BACK_TO, _WORKED, WHEN, _AFTER), self.last_project),
             (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code", self.open_project),
             (r"run (?:the )?tests(?: (?:in|for|of) (?:the )?(.+?)(?: project)?)?", self.run_tests),
             (r"(?:ask|tell|have) claude (?:to )?(.+?) in (?:the )?(.+?) project", self.claude_project),
