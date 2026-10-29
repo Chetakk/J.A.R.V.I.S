@@ -40,7 +40,7 @@ class Skills:
             (r"(?:jarvis |system )?status|health check|are you (?:ok|okay|working)|how are you running", self.status),
             # day tracker timer and today's totals (core/daytracker.py); before projects, so "start work" isn't a project
             *DayTracker(self.say).rules(),
-            *Todos(self.say).rules(),  # ProductVT todos (core/todos.py)
+            *Todos(self.say).rules(),  # todos and reminders, kept in the day tracker (core/todos.py)
             # screen
             (r"(?:what'?s|what is) on (?:my|the) screen.*|(?:look at|check|read) (?:my|the) screen.*|"
              r"what am i looking at|what do you see|describe (?:my|the) screen|(?:what'?s|what is|explain) "

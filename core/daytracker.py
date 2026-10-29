@@ -13,7 +13,7 @@ import urllib.request
 
 HUB = os.environ.get("DAY_TRACKER_URL", "http://localhost:7313")
 # The fields the tracker page owns; PUT /api/state replaces them wholesale.
-PAGE_FIELDS = ("entries", "active", "goals", "breakAfter", "focus", "weeklyGoals", "summaryAt")
+PAGE_FIELDS = ("entries", "active", "goals", "breakAfter", "focus", "weeklyGoals", "summaryAt", "todos", "reminders")
 MIN_MANUAL = 10  # seconds; the hub drops shorter timers too
 CATS = {"work": "work", "study": "study", "studying": "study", "entertainment": "fun", "fun": "fun",
         "workout": "workout", "work out": "workout", "working out": "workout", "exercise": "workout", "gym": "workout",
@@ -24,6 +24,15 @@ CAT_WORDS = "|".join(sorted(CATS, key=len, reverse=True))
 
 class HubDown(Exception):
     pass
+
+
+def new_id():
+    """Same shape as the tracker's own ids: time in base 36 plus a few random characters."""
+    ms, digits, out = int(time.time() * 1000), string.digits + string.ascii_lowercase, ""
+    while ms:
+        ms, d = divmod(ms, 36)
+        out = digits[d] + out
+    return out + "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
 
 
 def spoken(secs):
@@ -120,9 +129,8 @@ class DayTracker:
     def _close(state, now):
         a = state.get("active")
         if a and now - a["start"] / 1000 >= MIN_MANUAL:
-            uid = "%x%s" % (int(now * 1000), "".join(random.choices(string.ascii_lowercase + string.digits, k=6)))
             state.setdefault("entries", []).append(
-                {"id": uid, "cat": a["cat"], "start": a["start"], "end": int(now * 1000), "note": a.get("note", "")})
+                {"id": new_id(), "cat": a["cat"], "start": a["start"], "end": int(now * 1000), "note": a.get("note", "")})
         state["active"] = None
 
     @_guard
