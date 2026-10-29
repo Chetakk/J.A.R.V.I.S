@@ -1,18 +1,17 @@
 """The dashboard: one card with what JARVIS is doing for you, kept up to date while it's open.
 "show my dashboard", "what are you working on", "show running tasks", "close the dashboard".
 
-It shows the question waiting for your answer (with Yes / No buttons, which answer it), Claude's plan with each
-step ticked off, what's running (biztel run projects, commands busy in your terminals, Claude task terminals,
+It shows the question waiting for your answer (with Yes / No buttons, which answer it), the task under way with
+each step ticked off (skills/tasks.py), what's running (biztel run projects, commands busy in your terminals, Claude task terminals,
 JARVIS's own browser, timers), the modes that are on, and your last requests. Everything is read from what
-JARVIS already keeps; nothing is stored for it. Claude's multi-step plans also tick themselves off on their own
-card as they run (plan_card)."""
+JARVIS already keeps; nothing is stored for it. A task also ticks itself off on its own card as it runs."""
 import json
 import os
 import threading
 import time
 
 from claude.bridge import TASK_ROLE, TERMINAL_ROLE
-from core import verify
+from core import tasks, verify
 from skills.base import Skill
 from skills.helpers import and_list
 from skills.where_was_i import WHERE_FILE
@@ -21,7 +20,7 @@ from system import desktop
 CARD_ID = "dashboard"
 EVERY = 2  # seconds between updates
 FOR = 30 * 60  # it stops updating itself after this long
-PLAN_MINUTES = 30  # a finished plan stays on the dashboard this long
+TASK_MINUTES = 30  # a finished task stays on the dashboard this long
 
 
 class Dashboard(Skill):
@@ -71,11 +70,15 @@ class Dashboard(Skill):
             lines += ["**Waiting for your answer**", "> %s" % j.asking, ""]
             choices += [{"label": "Yes", "do": "yes"}, {"label": "No", "do": "no"}]
 
-        plan = j.plan
-        if plan and (plan["state"] in ("waiting", "running") or now - plan["at"] < PLAN_MINUTES * 60):
-            parts["plan"] = plan["state"] in ("waiting", "running")
-            lines += ["**Plan: %s** · %s" % (plan["request"][:60] or "%d steps" % len(plan["steps"]), plan["state"]),
-                      plan_text(plan), ""]
+        task = j.skills.tasks.task or (tasks.past() or [None])[-1]
+        if task and (task["state"] in tasks.OPEN_STATES or now - task["at"] < TASK_MINUTES * 60):
+            parts["task"] = task["state"]
+            done, total = tasks.counts(task)
+            lines += ["**Task: %s** · %s, %d of %d done" % (task["title"][:60], task["state"], done, total),
+                      tasks.text(task), ""]
+            if task["state"] in ("running", "paused") and len(choices) < 3:
+                choices.append({"label": "Pause the task", "do": "pause the task"} if task["state"] == "running"
+                               else {"label": "Continue the task", "do": "continue the task"})
 
         running = []
         for name, st in j.projects.running().items():
@@ -128,24 +131,6 @@ class Dashboard(Skill):
         return parts, "\n".join(lines).strip(), choices
 
 
-def plan_text(plan):
-    """Claude's plan as a checklist: done steps ticked, the one running marked, where it stopped said."""
-    out = []
-    for i, command in enumerate(plan["steps"]):
-        note = ""
-        if i == plan["done"]:
-            note = {"running": " ← now", "stopped": " ✗ stopped here", "waiting": " ← waiting for your OK"}.get(
-                plan["state"], "")
-        out.append("- [%s] `%s`%s" % ("x" if i < plan["done"] else " ", command, note))
-    return "\n".join(out)
-
-
-def plan_card(plan):
-    return {"id": "plan", "title": "Plan: %d steps" % len(plan["steps"]),
-            "text": plan_text(plan) + ("\n\n*%s*" % plan["state"] if plan["state"] in ("done", "stopped",
-                                                                                         "cancelled") else "")}
-
-
 def _jobs():
     """Commands busy in your terminals (system/jobs.py), or [] without it."""
     try:
@@ -176,8 +161,10 @@ def _spoken(parts):
     if parts.get("timers"):
         things.append("%d timer%s" % (parts["timers"], "" if parts["timers"] == 1 else "s"))
     line = ("Running: %s." % and_list(things)) if things else "Nothing's running right now."
-    if parts.get("plan"):
-        line += " A plan is under way."
+    if parts.get("task") == "running":
+        line += " A task is under way."
+    elif parts.get("task") == "paused":
+        line += " A task is paused."
     if parts.get("question"):
         line += " One question is waiting for you."
     return line + " It's on the dashboard."

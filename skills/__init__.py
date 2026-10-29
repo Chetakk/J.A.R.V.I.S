@@ -46,6 +46,7 @@ from skills.reading import Reading
 from skills.screen import Screen
 from skills.slow_computer import SlowComputer
 from skills.status import Status
+from skills.tasks import Tasks
 from skills.todos import Todos
 from skills.troubleshoot import Troubleshoot
 from skills.voice_prefs import VoicePrefs
@@ -58,7 +59,7 @@ ORDER = [
     ("maths", Maths), ("focus_mode", FocusMode), ("proactive", Proactive), ("notifications", Notifications),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
-    ("status", Status), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
+    ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
     ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),

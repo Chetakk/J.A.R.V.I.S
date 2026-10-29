@@ -127,6 +127,15 @@ intents:
   threshold: 0.72
 
 # Watchdog (system/watchdog.py): restarts what hangs. Memory use is logged every 10 minutes.
+# Tasks: requests that take several steps, each one checked (skills/tasks.py). "continue the task" after a pause.
+agent:
+  max_steps: 12       # a longer plan is offered to Claude Code in a terminal instead
+  ask_over_steps: 4   # more steps than this: asked "shall I go ahead?" first (risky steps always are)
+  retries: 1          # a failed step that's safe to repeat is tried this many more times, then you're asked
+  max_rounds: 4       # times Claude may plan again in one task (after a step that needs it, or a failure)
+  step_timeout: 300   # seconds a shell step may take
+  big_model: claude-sonnet-5-5  # Claude Code model when a task is handed over
+
 watchdog:
   stuck_minutes: 10   # a request running longer than this restarts JARVIS
   jarvis_mb: 1500     # JARVIS restarts itself (when idle) above this

@@ -1211,3 +1211,20 @@
 "ask claude in vs code": "vscode"
 "record my screen": "claude"
 "save a layout": "skill:save"
+# Tasks (skills/tasks.py): several steps, each checked; paused, continued, handed over.
+"continue the task": skill:resume
+"carry on with the task": skill:resume
+"resume the plan": skill:resume
+"pause the task": skill:pause
+"hold the task": skill:pause
+"stop the task": skill:stop
+"cancel the task": skill:stop
+"how's the task going": skill:status
+"what's left on the task": skill:status
+"show the task": skill:status
+"skip that step": skill:skip
+"try that step again": skill:retry
+"hand the task to claude code": skill:hand_over
+"give this task to claude": skill:hand_over
+"what tasks did you do today": skill:history
+"show my recent tasks": skill:history

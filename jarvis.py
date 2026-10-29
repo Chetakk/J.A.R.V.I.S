@@ -6,6 +6,7 @@ Modes:
   /sys    command list only, no AI
 """
 import fcntl
+import json
 import os
 import queue
 import random
@@ -30,7 +31,6 @@ from system.browser import Browser
 from claude.bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from skills import Skills
-from skills.dashboard import plan_card
 from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
@@ -121,7 +121,8 @@ ABILITIES = "\n  ".join((
     "Trash), \"tidy my downloads\", \"find duplicate files in downloads\", \"undo that\"",
     "jetson nano: \"is the nano up\", \"restart the nano link\", \"switch to the nano\", \"run <command> on the nano\"",
     "projects: \"open <project> project\", \"run <project>\", \"stop <project>\", \"run the tests in <project>\", "
-    "\"ask claude to <task> in <project> project\", \"git status of <project>\"",
+    "\"ask claude to <task> in <project> project\", \"git status of <project>\", \"open <project> in the browser\" "
+    "(its running link), \"links for <project>\"",
     "itself: \"status\", \"stop\" (stop talking), \"open claude\", \"show chat\", \"do that again\", \"undo that\" (reverses the last setting or file change)",
     "cards: \"show that again\", \"close the card\", \"read it to me\", \"copy that\", \"save that\", "
     "\"show the previous card\", \"pin it\", \"unpin\", \"the second one\" (a choice), \"open the first link\"",
@@ -132,6 +133,8 @@ ABILITIES = "\n  ".join((
     "alerts: \"why did you say that\" (why a heads-up came up), \"show my recent alerts\", \"don't warn me about that "
     "again\", \"turn the cpu alerts back on\", \"tell me when this finishes\" (a command in a terminal), \"quiet hours "
     "from 10 pm to 6 am\", \"turn off quiet hours\", \"what are my quiet hours\"",
+    "tasks: \"how's the task going\", \"pause the task\", \"continue the task\", \"stop the task\", \"skip that step\", "
+    "\"hand the task to claude code\", \"what tasks did you do\"",
     "computer: \"what's slowing my computer\" (top CPU/memory users, offers to close one), \"where was I\"",
     "overview: \"show my dashboard\" / \"what are you working on\" (live card: question waiting, plan, what's "
     "running), \"everything about <project>\", \"what do I have on <topic>\" (notes, to-dos, time, bookmarks, files)",
@@ -233,7 +236,6 @@ class Jarvis:
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
         self.asking = None  # the question waiting for your answer, for the dashboard
         self._private = False  # this request is private: what's said in it isn't passed on to Claude
-        self.plan = None  # Claude's multi-step plan: {"request", "steps", "done", "state", "at"}, for the dashboard
 
     def state(self, name):
         if self.ui:
@@ -329,7 +331,7 @@ class Jarvis:
         try:
             while True:
                 kind, answer = self.inbox.get(timeout=max(0.01, deadline - time.time()))
-                if kind not in ("say", "offer"):
+                if kind not in ("say", "offer", "task"):  # (a task's next step waits for the answer too)
                     break
                 deferred.append((kind, answer))
         except queue.Empty:
@@ -562,6 +564,12 @@ class Jarvis:
             answer["steps"] = [{"command": part.strip()} for part in answer["command"].split(" && ")]
             answer["command"] = ""
         dos = (answer["do"] if isinstance(answer["do"], list) else [])[:5]
+        # Several actions: one task, each step checked and the whole thing on a card (skills/tasks.py).
+        plan = answer["task"] if isinstance(answer["task"], dict) else {"steps": answer["task"]} if isinstance(
+            answer["task"], list) else {}
+        steps = [{"do": str(d)} for d in dos] + list(plan.get("steps") or []) + list(answer["steps"] or [])
+        if len(steps) > 1 or plan.get("steps"):
+            dos = []
         for phrase in dos:
             self.chat("sys", "do: %s" % phrase)
             self.from_claude = True
@@ -572,8 +580,6 @@ class Jarvis:
                 self.from_claude = False
         if len(dos) == 1 and not self.do_missed:
             self._learn(text, str(dos[0]))
-        if answer["steps"]:
-            self._run_steps(answer["steps"], text)
         if answer["details"]:
             print("  " + str(answer["details"]).replace("\n", "\n  "))
             self.chat("claude", str(answer["details"]))
@@ -609,6 +615,8 @@ class Jarvis:
                 self._fix_jarvis(answer["fix"])
             else:
                 self.speaker.say(["Okay, I'll leave it as it is.", "Sure, no fix for now."])
+        if not dos and steps:  # last: its card goes over anything shown above, and its steps take a while
+            self.skills.tasks.start(text, dict(plan, steps=steps))
 
     def _about_me(self, text):
         """Close or restart JARVIS, or have Claude Code change it: what handle() returns (False ends JARVIS),
@@ -690,10 +698,23 @@ class Jarvis:
             self.skills.proactive.note("claude", str(msg["say"]), str(msg.get("why") or "Claude Code sent it."))
             self.speaker.say(str(msg["say"]))
         elif msg.get("do"):
-            self.chat("sys", "Claude asked: %s" % msg["do"])
+            phrase = str(msg["do"])
+            self.chat("sys", "Claude asked: %s" % phrase)
+            reply = str(msg.get("reply") or "")
+            if reply:  # `jarvis do --wait`: done and checked like a task step, the result written back
+                result = self.skills.tasks.run_one(phrase)
+                if os.path.dirname(os.path.abspath(reply)) == os.path.join(RUN_DIR, "replies"):
+                    try:
+                        with open(reply, "w") as f:
+                            json.dump(result, f)
+                    except OSError:
+                        pass
+                return
+            if not self.skills.tasks.gate(phrase):  # nothing about JARVIS itself; risky ones asked about
+                return
             self.from_claude = True  # never bounce it back to Claude
             try:
-                self.handle(str(msg["do"]))
+                self.handle(phrase)
             finally:
                 self.from_claude = False
 
@@ -760,56 +781,6 @@ class Jarvis:
             self.executor.run(command, reply=["Done.", "There you go."], output=True)
         else:
             self.speaker.say(["Okay, no worries.", "Sure, never mind."])
-
-    def _run_steps(self, steps, request=""):
-        """Agent mode: run Claude's multi-step plan in order. Every step goes through the safety rules;
-        the plan stops at the first step that fails, is refused, or has to be run by hand."""
-        steps = [s for s in steps if isinstance(s, dict) and str(s.get("command") or "").strip()][:10]
-        if not steps:
-            return
-        plan = "\n".join("%d. %s" % (i + 1, s["command"]) for i, s in enumerate(steps))
-        self.chat("sys", "plan:\n" + plan)
-        self.plan = {"request": request, "steps": [str(s["command"]).strip() for s in steps], "done": 0,
-                     "state": "waiting" if len(steps) > 1 else "running", "at": time.time()}
-        if len(steps) > 1:
-            self.show(plan_card(self.plan))  # ticks itself off as the steps run
-        if len(steps) > 1 and not self.ask("That's %d steps; they're on your screen. Shall I go ahead?"
-                                           % len(steps)):
-            self._plan(state="cancelled")
-            self.speaker.say(["Okay, I won't.", "No problem, cancelled."])
-            return
-        self._plan(state="running")
-        outputs = []
-        for i, step in enumerate(steps):
-            command = str(step["command"]).strip()
-            if step.get("say"):
-                self.speaker.say(str(step["say"]))
-            self.chat("sys", "step %d: %s" % (i + 1, command))
-            out = self.executor.run(command, reply="", output=True, timeout=600,
-                                    question=["Step %d: run %s?" % (i + 1, command.split()[0])])
-            if out:
-                self.chat("sys", out[-600:])
-                self.recent.append("Step %d output: %s" % (i + 1, out[-600:]))
-                if step.get("output"):
-                    outputs.append("$ %s\n%s" % (command, out[-1500:]))
-            if not self.executor.ok:
-                self._plan(state="stopped")
-                self.speaker.say("I stopped at step %d of %d%s." % (
-                    i + 1, len(steps), ", it didn't work" if out else ""))
-                return
-            self._plan(done=i + 1)
-        self._plan(state="done")
-        if outputs:  # the plan was there to find something out: Claude reads it out and shows it
-            self._read_out(request, " ; ".join(str(s["command"]) for s in steps), "\n\n".join(outputs))
-        else:
-            self.speaker.say(["All %d steps done." % len(steps), "Done, that's everything."])
-
-    def _plan(self, **changes):
-        """Move the plan on, and its card with it when that's on screen."""
-        self.plan.update(changes, at=time.time())
-        card = self.ui.current_card() if self.ui and self.ui.card_visible() else None
-        if card and card.get("id") == "plan":
-            self.ui.show_card(plan_card(self.plan))
 
     def _save(self, save, ran=""):
         """Offer to add Claude's suggested shortcut to commands.yaml; it's only saved if you say yes."""
@@ -1159,6 +1130,17 @@ def run_loop(jarvis, has_ui):
         if kind == "ctl":  # another Claude, via tools/jarvis
             print()
             jarvis.control(line)
+            continue
+        if kind == "task":  # the next step of a task (skills/tasks.py): one per turn, so a pause gets in between
+            jarvis.state("thinking")
+            jarvis.handling_since = time.time()
+            try:
+                jarvis.skills.tasks.step(line)
+            except Exception as e:  # a broken step must never take JARVIS down
+                print("[task] step failed: %r" % e)
+            finally:
+                jarvis.handling_since = None
+                jarvis.state(jarvis.rest)
             continue
         if kind == "follow":
             print(line)
