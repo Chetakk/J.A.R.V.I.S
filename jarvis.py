@@ -24,7 +24,7 @@ try:
 except ImportError:
     pass
 
-from core import learned, misslog, persona, undo
+from core import context, learned, misslog, persona, undo
 from system import apps, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import Claude, ClaudeError, open_in_vscode
@@ -33,6 +33,7 @@ from skills import Skills
 from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
+from core.context import Context, sounds_like_follow_up
 from core.intent import IntentMatcher
 from core.registry import Registry, clean
 from core.safety import MANUAL, Safety
@@ -182,6 +183,8 @@ class Jarvis:
         self.last_request = None  # for "do that again"
         self.last_app = None  # process of the last app opened, for "close it"
         self.last_undo = None  # saved command that reverses the last one, for "undo that"
+        self.context = Context()  # what JARVIS just did, for "a bit more", "make it 70", "and firefox too"
+        self._text = ""
         self.handling_since = None  # when the request being handled started (the watchdog restarts a stuck one)
         self._rewording = False  # handling a phrase the meaning matcher rewrote; it isn't rewritten again
         self.do_missed = False  # Claude's "do" phrase matched nothing (then it isn't learned)
@@ -300,6 +303,17 @@ class Jarvis:
         low = text.lower()
         if undo.UNDO.match(text):
             return self._undo()
+        phrase = None if self._rewording else self.context.follow_up(text)
+        if phrase:  # "a bit more", "make it 70", "and firefox too": about what JARVIS just did
+            self.heard(text, "means \"%s\"" % phrase)
+            return self._reword(phrase)
+        if not self._rewording and not self.from_claude and sounds_like_follow_up(text):
+            self.heard(text, "a follow-up, but there's nothing recent to apply it to")
+            self.speaker.say(["Sorry, I've lost track. What should I do?", "Hmm, more of what?"]
+                             if context.MORE.match(text) or context.LESS.match(text)
+                             else "Sorry, I've lost track. What should I do?")
+            return True
+        self._text = text  # what's being handled (the rewritten phrase, when one was), for self.context
         if low in CHAT_PHRASES:
             return self._slash(CHAT_PHRASES[low])
         phrase = self.intents.early(text) if self.intents and not self._rewording else None
@@ -321,7 +335,10 @@ class Jarvis:
             open_in_vscode(m.group(1))
             self.speaker.say(["Done, I've passed that to Claude in VS Code.", "Okay, Claude in VS Code has it."])
             return True
-        if self.skills.first(text) or self._personal(text) or self.skills.handle(text):
+        if self.skills.first(text) or self._personal(text):
+            return True
+        if self.skills.handle(text):
+            self.context.done(text)
             return True
         self.last_request = text
 
@@ -699,6 +716,8 @@ class Jarvis:
                           on_output=lambda out: match.reply(out))
         if self.executor.ok:
             self.last_undo = undo.opposite(match.name)
+            values = [v for v in match.slots.values() if v]
+            self.context.done(self._text, values[0] if len(values) == 1 else None)
         return True
 
     def vocabulary(self):
@@ -728,6 +747,8 @@ class Jarvis:
         threshold = (self.settings.get("intents") or {}).get("threshold", 0.72)
         if second >= UNSURE and score - second < 0.06 and not other.startswith("/"):  # two close meanings
             phrase = self.choose("%s, or %s?" % (best[0].upper() + best[1:], other), [best, other])
+            if phrase:
+                self.context.chose([best, other], phrase)  # for "the other one"
         elif UNSURE <= score < threshold:  # one likely meaning (no close second: that was the case above)
             phrase = best if self.ask("Did you mean %s?" % best) else None
         else:
@@ -778,6 +799,7 @@ class Jarvis:
             self.speaker.say("Hmm, %s didn't start." % app["name"])
             return True
         self.last_app = app["process"] or None
+        self.context.done(text, m.group(1))
         self.speaker.say(["Opening %s." % app["name"], "Sure, here's %s." % app["name"]])
         return True
 
@@ -793,6 +815,8 @@ class Jarvis:
         self.executor.run("pkill -x %s" % shlex.quote(app["process"]),
                           reply=["Okay, closed %s." % app["name"], "Done, %s is closed." % app["name"]],
                           question="Close %s? Anything unsaved will be lost." % app["name"], declared="confirm")
+        if self.executor.ok:
+            self.context.done(text, m.group(1))
         return True
 
     def _undo(self):
