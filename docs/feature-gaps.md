@@ -157,14 +157,14 @@ Small additions that **can be done**: "why did the tests fail" (read last `bizte
 | Pause everything / revoke tools | Yes: "pause JARVIS" kill-switch + per-skill on/off in settings | – | – |
 | Private / temporary session | Yes: "private mode": no saving, no Claude history | – | – |
 
-## 13. Advanced 🔴
+## 13. Advanced 🟡 (dashboard and links built 2026-10-29)
 
-| Gap | Can be done | Can't / limits | Other options |
+| Gap | Done / can be done | Can't / limits | Other options |
 |---|---|---|---|
 | Workflow learning ("every time I start this project…") | Yes: saved routines in YAML, JARVIS offers one after it sees the same steps 3 times | Must ask before saving routines with risky steps | Hand-written routines first, learning later |
 | Triggers ("whenever a PDF lands here, summarise it") | Yes: inotify watcher (Python stdlib-friendly via `inotifywait` or polling) | Each trigger = background Claude calls; keep a limit | – |
-| Knowledge graph | Possible later: SQLite tables linking projects, notes, files, URLs | Big build for little gain right now | Project notes + embeddings cover most of it |
-| Visual dashboard (plan, approvals, running tasks) | Yes: GTK card already shows cards; add a "tasks" card | – | – |
+| Knowledge graph | **Done, the lighter way:** "everything about study buddy", "what do I have on avtec", "what's linked to the camera calibration", "all my stuff about the nano" (skills/linked.py). No graph database: the links are worked out when you ask, from what JARVIS already keeps. For a project: what it is (README), its folder, git (branch, last commit, uncommitted files), its links if running, and Day Tracker VS Code time today and this week. For a project or a topic: notes, open to-dos that name it, Chrome bookmarks, files in Downloads / Documents / Desktop and saved cards with its name. One card with Open in VS Code / Run / Git status buttons, in ~0.1 s. Nothing is stored, so nothing goes stale or needs syncing | Matched by names and words, not meaning: a note that says "the app" without naming it isn't found. Files are matched by name, not content. "Everything about X" only answers for projects ("everything about black holes" is a question for Claude); other topics need "what do I have on X". Time only counts VS Code | A real SQLite graph only if questions like "which projects use this library" come up. MiniLM embeddings over notes (5) would add matching by meaning |
+| Visual dashboard (plan, approvals, running tasks) | **Done:** "show my dashboard", "what are you working on", "show running tasks", "what's in progress", "close the dashboard" (skills/dashboard.py). One live card, refreshed every 2 s while it's open (only when something changed; it stops once closed or replaced, or after 30 min). It shows the question waiting for your answer, with Yes / No buttons that answer it; Claude's plan with each step ticked; and what's running: biztel run projects (links, Stop buttons), commands busy in your terminals (and the ones JARVIS will tell you about), Claude task terminals, the agent browser, timers. Also focus / quiet / private mode, the last checked action and your last requests. Claude's multi-step plans now tick themselves off on their own Plan card too ("← now", "✗ stopped here") | Claude task terminals show as open, not whether Claude is still working in them. "What are you doing" stays small talk. Checked with real data and a simulated plan, not yet tried live on the desktop | – |
 | Fully offline LLM | Small one possible (Qwen 0.5B–1.5B) | Weak reasoning, uses GBs of RAM/disk; was rejected for size | Keep Claude as the fallback |
 
 ---
