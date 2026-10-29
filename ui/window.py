@@ -22,7 +22,7 @@ LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "t
           "claude": "Asking Claude...", "speaking": "Speaking", "off": "Voice input off",
           "starting": "Starting voice..."}
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
-ORB = 64
+ORB = 78
 PANEL_W, PANEL_H = 390, 500
 CHAT_KEEP = 200  # messages kept in the panel
 
