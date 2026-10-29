@@ -92,13 +92,16 @@ class Projects(Skill):
 
     def _project_up(self, p, links):
         """From the watcher thread: say where it's running (once its links are in)."""
+        why = "You asked me to run %s, and I watch biztel run until its links are in." % p.spoken
         if links is None:
-            self.j.inbox.put(("say", "%s didn't start. Have a look at its terminal." % p.spoken))
-            return
-        if links:
-            self.j.chat("sys", "%s is running:\n%s" % (p.name, _link_lines(links)))
-        self.j.inbox.put(("say", "%s is up. %s" % (p.spoken, _ports(links)) if links
-                          else "%s is running, but I haven't seen a link yet. It's in the terminal." % p.spoken))
+            line = "%s didn't start. Have a look at its terminal." % p.spoken
+        else:
+            if links:
+                self.j.chat("sys", "%s is running:\n%s" % (p.name, _link_lines(links)))
+            line = "%s is up. %s" % (p.spoken, _ports(links)) if links \
+                else "%s is running, but I haven't seen a link yet. It's in the terminal." % p.spoken
+        self.j.skills.proactive.note("project", line, why)
+        self.j.inbox.put(("say", line))
 
     def stop_project(self, m):
         name = m.group(1)

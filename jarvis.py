@@ -111,6 +111,9 @@ ABILITIES = "\n  ".join((
     "typing: \"type <text>\" (into the focused window), \"start dictation\" ... \"stop dictation\"",
     "maths and units (instant): \"what's 18% of 2400\", \"50 miles in km\", \"100 fahrenheit in celsius\"",
     "focus: \"focus for 45 minutes\" (no heads-ups or notifications), \"stop focusing\", \"how long left on focus\"",
+    "alerts: \"why did you say that\" (why a heads-up came up), \"show my recent alerts\", \"don't warn me about that "
+    "again\", \"turn the cpu alerts back on\", \"tell me when this finishes\" (a command in a terminal), \"quiet hours "
+    "from 10 pm to 6 am\", \"turn off quiet hours\", \"what are my quiet hours\"",
     "computer: \"what's slowing my computer\" (top CPU/memory users, offers to close one), \"where was I\"",
     "clipboard history: \"paste the thing I copied before\", \"paste number 3\", \"clipboard history\"",
     "web: \"summarise this page\", \"what's the price on this page\", \"research <topic>\", \"compare <x> and <y>\", "
@@ -186,6 +189,7 @@ class Jarvis:
         self.mode = self.settings.get("mode", "agent")
         self.memory = persona.Memory()
         self.skills.voice_prefs.apply()  # "talk faster", "be brief", private / quiet mode, from last time
+        self.skills.proactive.apply()  # quiet hours set by voice
         self.warned = {}  # heads-up key -> when it was last mentioned
         self.last_request = None  # for "do that again"
         self.last_app = None  # process of the last app opened, for "close it"
@@ -599,6 +603,9 @@ class Jarvis:
         """A message from tools/jarvis (the Claude terminal, a fix task, VS Code): show a card or do a phrase."""
         if isinstance(msg.get("show"), dict):
             self.show(msg["show"])
+        elif msg.get("say"):  # e.g. a Claude task terminal finishing, with why for "why did you say that"
+            self.skills.proactive.note("claude", str(msg["say"]), str(msg.get("why") or "Claude Code sent it."))
+            self.speaker.say(str(msg["say"]))
         elif msg.get("do"):
             self.chat("sys", "Claude asked: %s" % msg["do"])
             self.from_claude = True  # never bounce it back to Claude
@@ -647,10 +654,12 @@ class Jarvis:
         if not isinstance(suggest, dict) or not str(suggest.get("say") or "").strip():
             return
         gap = (self.settings.get("claude") or {}).get("suggest_every_minutes", 10) * 60
-        if time.time() - self.last_suggest < gap or self.skills.focusing():
+        if time.time() - self.last_suggest < gap or self.skills.proactive.holding():
             return
         self.last_suggest = time.time()
         say, command = str(suggest["say"]).strip(), str(suggest.get("command") or "").strip()
+        self.skills.proactive.note("suggestion", say, "Claude suggested it while answering “%s”. I pass on "
+                                                      "at most one suggestion every %d minutes." % (self._text, gap // 60))
         fix = suggest.get("fix") if isinstance(suggest.get("fix"), dict) else None
         self.chat("sys", "suggestion: %s%s" % (say, "  (command: %s)" % command if command else
                                                 "  (fix: %s)" % fix.get("task") if fix else ""))
@@ -1071,23 +1080,34 @@ def run_loop(jarvis, has_ui):
 
 
 def watch(jarvis):
-    """Background: reminders when they're due; every 2 minutes, heads-ups and habit offers."""
+    """Background: reminders when they're due; crashed projects; every 2 minutes, heads-ups and habit offers
+    (skills/proactive.py keeps why each was said, and holds them in focus mode and quiet hours)."""
+    tell = jarvis.skills.proactive
     tick = 0
     while True:
         time.sleep(10)
         tick += 1
         try:
             for reminder in jarvis.memory.due_reminders():
-                jarvis.inbox.put(("say", persona.reminder_line(reminder, jarvis.settings.get("user_name"))))
-            if tick % 12 or jarvis.skills.focusing():  # focus mode: no heads-ups or habit offers
+                line = persona.reminder_line(reminder, jarvis.settings.get("user_name"))
+                tell.note("reminder", line, "You asked me to remind you, for %s." % time.strftime(
+                    "%H:%M", time.localtime(reminder["due"])))
+                jarvis.inbox.put(("say", line))
+            tell.watch()
+            if tick % 12 or tell.holding():  # focus mode, quiet hours: no heads-ups or habit offers
                 continue
-            for key, line in persona.heads_ups(jarvis.settings):
-                if time.time() - jarvis.warned.get(key, 0) > 2 * 3600:
+            for key, line, why in persona.heads_ups(jarvis.settings) + tell.resources():
+                if time.time() - jarvis.warned.get(key, 0) > 2 * 3600 and tell.tell(key, line, why):
                     jarvis.warned[key] = time.time()
-                    jarvis.inbox.put(("say", line))
             if (jarvis.settings.get("habits") or {}).get("enabled", True) and not persona.quiet_hours(jarvis.settings):
                 name = jarvis.memory.habit_due()
-                if name:
+                if name and not tell.muted("habit:" + name):
+                    days = jarvis.memory.habit_days(name)
+                    tell.note("habit:" + name, "You usually %s around now." % tell._habit_say(name),
+                              "You did it around this hour on %d of the last 14 days (%s), and not yet today. I offer "
+                              "each one once a day; say stop offering that to stop." % (
+                                  len(days), ", ".join(time.strftime("%a %d", time.strptime(d, "%Y-%m-%d"))
+                                                       for d in days[-4:])))
                     jarvis.inbox.put(("offer", name))
         except Exception as e:
             print("[watch] %s" % e)
@@ -1121,10 +1141,11 @@ def main():
         from gi.repository import GLib
         GLib.idle_add(jarvis.skills.clipboard_history.watch_clipboard)  # clipboard history ("paste the thing I copied before")
 
-    ups = persona.heads_ups(jarvis.settings)[:2]
-    for key, _ in ups:
+    ups = [u for u in persona.heads_ups(jarvis.settings) if not jarvis.skills.proactive.muted(u[0])][:2]
+    for key, line, why in ups:
         jarvis.warned[key] = time.time()
-    jarvis.speaker.say(persona.greeting(jarvis.settings, jarvis.memory, [line for _, line in ups]))
+        jarvis.skills.proactive.note(key, line, why)
+    jarvis.speaker.say(persona.greeting(jarvis.settings, jarvis.memory, [line for _, line, _ in ups]))
     jarvis.memory.seen()
     threading.Thread(target=watch, args=(jarvis,), daemon=True).start()
     print("Type /help for commands.")

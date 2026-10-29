@@ -250,27 +250,33 @@ def greeting(settings, memory, ups=()):
 
 
 def heads_ups(settings):
-    """[(key, line)] for things worth mentioning: a nearly full disk, low batteries."""
+    """[(key, line, why)] for things worth mentioning: a nearly full disk, low batteries.
+    The key's start (before ":") is its kind, which "don't warn me about that again" mutes."""
     cfg = settings.get("heads_up") or {}
     ups = []
     if cfg.get("disk", True):
-        disk = shutil.disk_usage("/")
-        if disk.free < 0.05 * disk.total or disk.free < 3 * 2 ** 30:
+        disk, limit = shutil.disk_usage("/"), cfg.get("disk_gb", 3)
+        if disk.free < 0.05 * disk.total or disk.free < limit * 2 ** 30:
             gb = disk.free // 2 ** 30
             left = "less than a gigabyte" if gb < 1 else "1 gigabyte" if gb == 1 else "%d gigabytes" % gb
-            ups.append(("disk", "Heads up, your main disk is almost full, only %s left." % left))
+            ups.append(("disk", "Heads up, your main disk is almost full, only %s left." % left,
+                        "Your main disk has %.1f GB free of %d GB, and I mention it under %s GB or 5 percent free "
+                        "(heads_up disk_gb in settings)." % (disk.free / 2 ** 30, disk.total // 2 ** 30, limit)))
     if cfg.get("battery", True):
         for path in glob.glob("/sys/class/power_supply/*"):
             if _read(path, "type") != "Battery" or _read(path, "status") in ("Charging", "Full"):
                 continue
             device = _read(path, "model_name").lower() if _read(path, "scope") == "Device" else ""
             capacity, level = _read(path, "capacity"), _read(path, "capacity_level")
+            which = device + " " if device else ""
             if capacity.isdigit() and int(capacity) <= 15:
-                ups.append((path + capacity, "Heads up, your %sbattery is down to %s percent."
-                            % (device + " " if device else "", capacity)))
+                ups.append(("battery:" + path + capacity, "Heads up, your %sbattery is down to %s percent."
+                            % (which, capacity), "Your %sbattery is at %s percent and not charging; I mention it at "
+                                                 "15 percent and below." % (which, capacity)))
             elif level in ("Low", "Critical"):
-                ups.append((path + level, "Heads up, your %sbattery is %s." % (
-                    device + " " if device else "", "almost dead" if level == "Critical" else "running low")))
+                ups.append(("battery:" + path + level, "Heads up, your %sbattery is %s." % (
+                    which, "almost dead" if level == "Critical" else "running low"),
+                    "Your %sbattery reports its level as %s and it isn't charging." % (which, level.lower())))
     return ups
 
 
@@ -432,3 +438,10 @@ class Memory:
                     self._save()
                     return name
             return None
+
+    def habit_days(self, name):
+        """The days in the last 2 weeks you ran `name` around this hour, oldest first (why it's offered)."""
+        with self.lock:
+            now, hour = time.time(), time.localtime().tm_hour
+            return sorted({time.strftime("%Y-%m-%d", time.localtime(ts)) for ts, n in self.data["history"]
+                           if n == name and now - ts <= 14 * DAY and time.localtime(ts).tm_hour == hour})

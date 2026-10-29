@@ -13,10 +13,19 @@ greeting:
   - "Hey {name}, good {daypart}."
 # What JARVIS calls you, now and then ("Done, Chetak."). Remove to never use a name.
 user_name: Chetak
-# Quiet hours: softer voice (volume in percent) and the shortest version of each reply.
-quiet_hours: {enabled: true, start: 23, end: 7, volume: 40}
-# Heads-ups JARVIS mentions by itself (at startup, then at most every 2 hours each).
-heads_up: {disk: true, battery: true}
+# Quiet hours: softer voice (volume in percent) and the shortest version of each reply. hold: heads-ups, habit
+# offers and Claude's suggestions wait until they're over (said once you're back). Also by voice: "quiet hours
+# from 10 pm to 6 am", "turn off quiet hours" (that wins over this line).
+quiet_hours: {enabled: true, start: 23, end: 7, volume: 40, hold: true}
+# Heads-ups JARVIS mentions by itself (checked every 2 minutes, each at most every 2 hours; "why did you say
+# that" gives the reason, "don't warn me about that again" turns one kind off). Numbers: 0 = off.
+heads_up:
+  disk: true
+  disk_gb: 3          # main disk under this many GB free (or 5 percent)
+  battery: true
+  cpu: 90             # percent, averaged over the 2 minutes since the last check
+  memory: 90          # percent in use
+  temperature: 85     # °C, the hottest sensor (the Jetson slows itself down near 100)
 # "You usually open VS Code around now. Want me to?" (apps you open at the same hour on 3+ days).
 habits: {enabled: true}
 wake_word:

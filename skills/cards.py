@@ -203,7 +203,10 @@ class Cards(Skill):
                 return
             if self.j.ui:
                 self.j.ui.show_card({"id": card_id, "title": name, "text": "# Done ✓\n%s is up." % name})
-            self.j.inbox.put(("say", "Your %s is done." % name.lower() if what else "Time's up!"))
+            line = "Your %s is done." % name.lower() if what else "Time's up!"
+            self.j.skills.proactive.note("timer", line, "You set a timer for %s at %s." % (
+                _spoken(seconds), time.strftime("%H:%M", time.localtime(time.time() - seconds))))
+            self.j.inbox.put(("say", line))
 
         threading.Thread(target=loop, daemon=True).start()
 

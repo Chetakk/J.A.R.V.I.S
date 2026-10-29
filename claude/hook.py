@@ -97,7 +97,9 @@ def main():
         if summary and took > LONG_TASK:
             summary = pick(["All done. ", "That's finished. ", "Okay, that's done. "]) + summary
         if summary:
-            speak_via_jarvis(summary)
+            speak_via_jarvis(summary, "Claude Code in %s finished a reply%s; its hooks tell me when it does." % (
+                os.path.basename(event.get("cwd") or "") or "its terminal",
+                " after %d minutes" % round(took / 60) if took > LONG_TASK else ""))
         return
     if name == "Notification":
         if event.get("message"):

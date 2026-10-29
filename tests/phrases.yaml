@@ -940,3 +940,25 @@
 "open my jira bookmark": skill:open_bookmark
 "search my bookmarks for recipes": skill:bookmarks
 "show my bookmarks": skill:bookmarks
+
+# Proactive: why, recent alerts, muting, job finished, quiet hours (skills/proactive.py)
+"why did you say that": skill:why
+"why did that notification appear": skill:why
+"why this alert": skill:why
+"show my recent alerts": skill:recent
+"what did i miss": skill:recent
+"don't warn me about that again": skill:mute
+"stop the cpu alerts": skill:mute
+"no more temperature warnings": skill:mute
+"stop offering that": skill:mute
+"mute notifications": command:dnd_on
+"turn the cpu alerts back on": skill:unmute
+"turn alerts back on": skill:unmute
+"tell me when this finishes": skill:when_done
+"let me know when the build is done": skill:when_done
+"notify me when npm install finishes": skill:when_done
+"set quiet hours from 10 pm to 6 am": skill:set_quiet
+"quiet hours from 11 to 7": skill:set_quiet
+"turn off quiet hours": skill:toggle_quiet
+"what are my quiet hours": skill:quiet_status
+"quiet mode": skill:quiet

@@ -60,6 +60,8 @@ class FocusMode(Skill):
     def _focus_over(self):
         if self.focus_until and time.time() >= self.focus_until - 1:
             self._clear_focus()
+            self.j.skills.proactive.note("focus", "Focus time's over.", "The focus session you started ended at %s."
+                                         % time.strftime("%H:%M"))
             self.j.inbox.put(("say", "Focus time's over. Nice work."))
 
     def end_focus(self):

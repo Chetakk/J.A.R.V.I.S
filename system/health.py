@@ -64,6 +64,9 @@ def problems(jarvis):
     return found
 
 
+WHY = ("Every 30 seconds I check that I can hear you (microphone), talk (speaker, voice) and understand you "
+       "(speech recognition), and I tell you when that changes, as a notification too in case the speaker is the "
+       "problem.")
 FIXED = {"mic": "The microphone is working again.", "speaker": "The speaker is back.",
          "voice": "My voice is working again.", "stt": "Speech recognition is running again."}
 
@@ -79,14 +82,15 @@ class Monitor:
         if announce:
             for key, line in now.items():
                 if self.known.get(key) != line:
-                    self._tell(line, urgent=True)
+                    self._tell(line, urgent=True, kind="health:" + key)
             for key in self.known.keys() - now.keys():
-                self._tell(FIXED.get(key, "That's fixed."))
+                self._tell(FIXED.get(key, "That's fixed."), kind="health:" + key)
         self.known = now
         return now
 
-    def _tell(self, line, urgent=False):
+    def _tell(self, line, urgent=False, kind="health"):
         print("[health] %s" % line)
+        self.jarvis.skills.proactive.note(kind, line, WHY)
         subprocess.Popen(["notify-send", "-u", "critical" if urgent else "normal", "JARVIS", line],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.jarvis.inbox.put(("say", line))

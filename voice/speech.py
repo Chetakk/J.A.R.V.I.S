@@ -30,9 +30,10 @@ def pick(text):
     return random.choice(text) if isinstance(text, (list, tuple)) else text
 
 
-def speak_via_jarvis(text):
-    """Speak `text` through the running JARVIS, or directly with the same voice if it isn't running."""
-    line = " ".join(text.split()) + "\n"
+def speak_via_jarvis(text, why=None):
+    """Speak `text` through the running JARVIS, or directly with the same voice if it isn't running.
+    why: kept for "why did you say that"."""
+    line = (json.dumps({"say": text, "why": why}) if why else " ".join(text.split())) + "\n"
     try:
         fd = os.open(INBOX, os.O_WRONLY | os.O_NONBLOCK)
         os.write(fd, line.encode())
