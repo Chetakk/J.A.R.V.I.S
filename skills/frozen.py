@@ -14,9 +14,10 @@ from system import desktop
 
 PING_SECONDS = 2.0  # a working app answers in milliseconds; the desktop itself waits 5 s
 KEEP = PROTECTED - {"python3"}  # your python3 apps may be closed; JARVIS itself is skipped by its pid
-STUCK = (r"(?:frozen|stuck|hung|hanging|unresponsive|locked up|not responding|stopped responding|"
+STUCK = (r"(?:frozen|froze(?: up)?|stuck|hung|hanging|unresponsive|locked up|not responding|stopped responding|"
          r"isn'?t responding|is not responding|won'?t respond|doesn'?t respond|not doing anything)")
-THIS = {"this", "it", "that", "this app", "this window", "this program", "the app", "the window", "this thing"}
+THIS = {"this", "it", "that", "this app", "this window", "this program", "the app", "the window", "the program",
+        "this thing"}
 ALL = "all"  # target() for "my computer": every window
 EVERYTHING = {"computer", "everything", "screen", "desktop", "system", "jetson", "pc", "laptop"}
 
@@ -29,8 +30,9 @@ class Frozen(Skill):
              r"(?:frozen|stuck|hung) (?:apps|windows|programs)|close (?:the |that )?(?:frozen|stuck|hung) "
              r"(?:app|window|program|one)" % (STUCK, STUCK, STUCK), lambda m: self.check(None)),
             (r"(?:is|has) (?:the |my )?(.+?) %s" % STUCK, self.about),
-            (r"(?:why (?:is|has) |why'?s )?(?:the |my )?(.+?)(?: is|'s| has)? %s" % STUCK, self.about),
-            (r"force (?:quit|close|kill|stop) (?:the |my )?(.+)|kill (this (?:app|window|program))", self.force),
+            (r"(?:why (?:is|has) |why'?s )?(?:the |my )?(.+?)(?: is|'s| has| seems(?: to be)?| looks)? %s" % STUCK,
+             self.about),
+            (r"force (?:quit|close|kill|stop) (?:the |my )?(.+)|(?:kill|end) ((?:this|the) (?:frozen |stuck |hung )?(?:app|window|program))", self.force),
         ]
 
     def about(self, m):
@@ -120,7 +122,8 @@ class Frozen(Skill):
 def target(words):
     """The windows `words` means: ALL for "my computer", the front one for "this app", the app's windows for
     "chrome"; None when it's no window at all."""
-    words = re.sub(r"^(?:the|my) ", "", (words or "").lower().strip())
+    words = re.sub(r"^(this|the) (?:frozen|stuck|hung) ", r"\1 ", (words or "").lower().strip())  # "kill the stuck app"
+    words = re.sub(r"^(?:the|my) ", "", words)
     if words in EVERYTHING:
         return ALL
     if words in THIS or "the " + words in THIS:
