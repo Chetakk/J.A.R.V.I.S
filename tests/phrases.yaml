@@ -1228,3 +1228,22 @@
 "give this task to claude": skill:hand_over
 "what tasks did you do today": skill:history
 "show my recent tasks": skill:history
+
+# went to the wrong skill (tools/variants.py --check, 2026-10-30)
+"is the task done": skill:status
+"was that done": skill:did_it_work
+"which tasks have you done": skill:history
+"buy milk is done": skill:done
+"get rid of the dashboard": skill:close
+"delete my pin": skill:forget
+"remove my pin": skill:forget
+"delete my locker code": skill:forget
+"all my notes about the nano": skill:everything
+"all the stuff about the nano": skill:everything
+"put old.txt in the rubbish": skill:trash
+"move resume.pdf to documents": skill:move
+"put the terminal to the right": skill:snap
+"move the terminal to the left half": skill:snap
+"show me my files i changed today": skill:changed
+"open the file menu and click zoom in": skill:choose
+"what is left to do": skill:pending
