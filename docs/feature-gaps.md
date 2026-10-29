@@ -38,14 +38,14 @@ Legend: ✅ mostly there · 🟡 partial · 🔴 mostly missing
 | Verify an action worked | **Done:** every launch is watched (core/verify.py): a new window or a changed title counts as done; a non-zero exit is said out loud with its error. After a click the window's pixels are compared (~0.1 s, JARVIS's own orb and cards masked), and if nothing changed JARVIS says so. "Did that work?" answers from what it saw | Key presses and things like "copy" leave no visible trace: reported as "couldn't tell", not as done. Window apps' errors aren't captured (they write to stderr for days), only their exit code | When it couldn't tell, "did that work?" offers a screenshot for Claude to check (slow, so only when asked) |
 | "Why isn't my app running?" | **Done:** skills/troubleshoot.py reads biztel run's state, the ports its folder's programs listen on, the log `biztel run` now keeps, and the terminal's visible text. Clear cases are said locally (never started, port taken and by what, the last error before it stopped); unclear ones go to Claude with those facts. Also "what's using port 3000", "what ports are open" | AT-SPI only gives a terminal's visible screen, not its scrollback. Projects started by hand outside `biztel run` have no log | `biztel run` keeps `~/.local/state/biztel/runs/<name>.log` (last ~1 MB, kept after it stops). For other terminals: run under `script` or tmux to keep a log |
 
-## D. Personality and presence ✅
+## D. Personality and presence ✅ (built 2026-10-29)
 
-| Gap | Can be done | Can't / limits | Other options |
+| Gap | Done | Can't / limits | Other options |
 |---|---|---|---|
-| Speaking speed by voice | Yes: Piper `length_scale` ("talk faster/slower") | – | – |
-| Verbosity by voice | Yes (same as A) | – | – |
-| Headphones-only / private mode | Yes: `pactl` is installed, can route JARVIS's player to a chosen sink | Only if headphones are connected; Bluetooth switching takes a few seconds | "Quiet mode": cards only, no speech |
-| Summarise long text instead of reading it all | Yes: over N words → Claude summary spoken, full text on a card | – | Read the first 2 sentences locally, offer "read the rest" |
+| Speaking speed by voice | **Done:** "talk faster" / "slow down" / "you're talking too fast" / "normal speed" (Piper `length_scale`, 0.6–1.6, kept across restarts). The reply already uses the new speed; "a bit more" / "too much" follow it | Piper restarts for it (unnoticeable between lines) | – |
+| Verbosity by voice | **Done:** "be brief" / "give me detailed answers" / "normal answers". Brief picks the shortest local lines and tells Claude to keep "say" to one sentence; detailed lets it use 3–4. "More detail" on its own still goes to Claude as "tell me more" | – | – |
+| Headphones-only / private mode | **Done:** "headphones only" / "private mode (off)". Only JARVIS's own voice moves, to Bluetooth or named headphones when connected, else `speech.private_sink` (the jack); other sound stays where it is. If the headphones disconnect it goes quiet and writes in the chat, never out loud | The jack can't tell whether anything is plugged in. The "only X will hear me now" confirmation is still said on the speaker | **Done too:** "quiet mode" / "don't talk" / "you can talk again": nothing spoken, everything in the chat panel (opened for you) |
+| Summarise long text instead of reading it all | **Done:** over `speech.read_words` (60) words, the start is said locally and all of it goes on a card; "read the rest", "read all of it", "summarise it" (Claude, 2–3 sentences). Used by "read it to me" (cards), "read this window", "read my clipboard" | – | `speech.long_text: summary` summarises straight away (a few seconds slower) |
 | Mic indicator | Already: orb + tray | – | – |
 
 ## 3. Browser agent 🔴
