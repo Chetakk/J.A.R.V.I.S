@@ -66,7 +66,6 @@
 "maximise": skill:window_state
 "close this window": skill:close_window
 "go to workspace 3": skill:workspace
-"switch to firefox": skill:focus
 "status": skill:status
 "how's the system": skill:status
 "what's running": skill:whats_running
@@ -82,7 +81,7 @@
 "close the card": "slash:/card off"
 "how are you": persona
 "thank you": persona
-"remind me in 10 minutes to stretch": persona
+"remind me in 10 minutes to stretch": skill:remind_in
 "who is the president of france": claude
 "tell me a joke": persona
 "write a poem about rain": claude
@@ -118,3 +117,251 @@
 "paste the thing i copied before": skill:paste_copy
 "paste number 3": skill:paste_copy
 "clipboard history": skill:copy_history
+
+# everyday wordings across JARVIS (2026-10-29)
+"i want to dictate something": skill:start_dictation
+"type this for me: hello there": skill:type_text
+"write hello there in this window": skill:type_text
+"what's 18 percent of 2400": skill:maths
+"how much is 12 times 7": skill:maths
+"add 45 and 30": skill:maths
+"convert 50 miles to km": skill:units
+"how many grams in 2 kilos": skill:units_how_many
+"what's 100 fahrenheit in celsius": skill:units
+"focus mode for an hour": skill:focus
+"i need to concentrate for 30 minutes": skill:focus
+"don't disturb me for 20 minutes": skill:focus
+"leave me alone for half an hour": skill:focus
+"stop focus mode": skill:end_focus
+"i'm done focusing": skill:end_focus
+"how long is left on my focus": skill:focus_left
+"why is the jetson so slow": skill:slow
+"what's eating my memory": skill:slow
+"what was i doing before": skill:where_was_i
+"catch me up": skill:where_was_i
+"show my clipboard history": skill:copy_history
+"paste what i copied earlier": skill:paste_copy
+"pick the second one": card:pick
+"i'll take the first": card:pick
+"open the first link": card:open_link
+"read it to me": card:read
+"read that card out": card:read
+"copy that": card:copy
+"save that for later": card:save
+"pin it": card:pin
+"keep this card on screen": card:pin
+"unpin it": card:unpin
+"show the previous card": card:step
+"set a timer for 10 minutes": card:timer
+"start a 5 minute timer": card:timer
+"countdown 3 minutes": card:timer
+"wake me in 20 minutes": card:timer
+"cancel the timer": card:cancel_timers
+"stop the countdown": card:cancel_timers
+"start tracking work": skill:start
+"i'm starting work now": skill:start
+"log my workout": skill:start
+"i'm going to study now": skill:start
+"stop tracking": skill:stop
+"i'm done working": skill:stop
+"what am i tracking": skill:current
+"how long did i work today": skill:how_long
+"how much did i study today": skill:how_long
+"how's my day going": skill:summary
+"give me my day summary": skill:summary
+"remind me in 20 minutes to stretch": skill:remind_in
+"remind me to drink water in an hour": skill:remind_in
+"set a reminder for 20 minutes to stretch": skill:remind_in
+"set a reminder to stretch in 20 minutes": skill:remind_in
+"ping me in 10 minutes to check the oven": skill:remind_in
+"don't let me forget to call raj in an hour": skill:remind_in
+"remind me at 5 pm to call the vendor": skill:remind_at
+"set a reminder for 5 pm to call the vendor": skill:remind_at
+"remind me tomorrow at 9 am to send the report": skill:remind_at
+"what are my reminders": skill:reminders
+"show reminders": skill:reminders
+"any reminders today": skill:reminders
+"cancel the stretch reminder": skill:cancel
+"forget the stretch reminder": skill:cancel
+"delete the reminder about stretching": skill:cancel
+"add buy milk to my todo list": skill:add
+"put buy milk on my to-do list": skill:add
+"add milk to the todo": skill:add
+"new todo buy milk": skill:add
+"todo: buy milk": skill:add
+"add a task buy milk": skill:add
+"i need to buy milk, add it to my list": skill:add
+"what's on my todo list": skill:read
+"what do i have to do today": skill:read
+"show my tasks": skill:read
+"read my to do list": skill:read
+"mark buy milk done": skill:done
+"buy milk is done": skill:done
+"cross buy milk off my list": skill:done
+"tick off buy milk": skill:done
+"i finished buy milk": skill:done
+"remove buy milk from my todo list": skill:done
+"delete the milk todo": skill:done
+"start up avtec hs": skill:run_project
+"fire up the jarvis project": skill:run_project
+"stop the jarvis project": skill:stop_project
+"shut down avtec hs": skill:stop_project
+"which projects are running": skill:whats_running
+"is anything running right now": skill:whats_running
+"stop everything": skill:stop_all
+"what are the links for jarvis": skill:project_links
+"what port is jarvis on": skill:project_links
+"open jarvis in the browser": skill:open_frontend
+"list my projects": skill:list_projects
+"what projects do i have": skill:list_projects
+"what was i working on": skill:recent_projects
+"refresh the projects": skill:refresh_projects
+"what's the jarvis project about": skill:about_project
+"tell me about avtec hs": skill:about_project
+"note for jarvis: fix the echo filter": skill:project_note
+"what are the notes for jarvis": skill:project_notes
+"anything pending": skill:pending
+"make a new project": skill:biztel_build
+"open the jarvis project": skill:open_project
+"open jarvis in vs code": skill:open_project
+"any changes in jarvis": skill:git_status
+"run the tests in jarvis": skill:run_tests
+"ask claude to fix the readme in the jarvis project": skill:claude_project
+"look at my screen": skill:screen
+"what am i looking at": skill:screen
+"explain this error": skill:screen
+"can you read this page": skill:screen
+"what did i just copy": skill:read_clipboard
+"translate my clipboard to hindi": skill:clipboard_job
+"make a note that the meeting moved to friday": skill:remember
+"what do you remember": skill:list_notes
+"read my notes": skill:list_notes
+"what do you know about the router": skill:recall
+"forget the router note": skill:forget
+"where is my invoice pdf": skill:find_file
+"open my latest download": skill:latest_file
+"open the newest file in documents": skill:latest_file
+"close the tab": skill:tab
+"open a new tab": skill:tab
+"reopen the last tab": skill:tab
+"bring back the tab i closed": skill:tab
+"go to the next tab": skill:tab
+"previous tab": skill:tab
+"go back a page": skill:tab
+"go forward": skill:tab
+"refresh the page": skill:tab
+"scroll down a bit": skill:tab
+"scroll to the top": skill:tab
+"zoom in a bit": skill:tab
+"reset the zoom": skill:tab
+"pause the video": skill:media
+"stop the music": skill:media
+"play": skill:media
+"resume the song": skill:media
+"play the next song": skill:media
+"skip this track": skill:media
+"previous song": skill:media
+"play the last song again": skill:media
+"what song is this": skill:playing
+"who is singing this": skill:playing
+"is the jetson nano online": skill:nano_status
+"restart the nano": skill:nano_restart
+"connect to the nano": skill:nano_restart
+"switch to the nano": skill:nano_focus
+"run uptime on the nano": skill:nano_run
+"switch to workspace two": skill:workspace
+"move this to workspace 2": skill:move_window
+"maximise this window": skill:window_state
+"make this window full screen": skill:window_state
+"minimise it": skill:window_state
+"snap this to the left": skill:snap
+"put it on the right side": skill:snap
+"are you working": skill:status
+"how are your systems": skill:status
+"stop talking": persona
+"be quiet": persona
+"never mind": persona
+"open my email": "app:open Thunderbird Mail"
+"start the remote desktop app": "app:open RustDesk"
+"open word": "app:open LibreOffice Writer"
+"open the pdf viewer": "app:open Document Viewer"
+"open the webcam": "app:open Cheese"
+"open discord": "app:open Discord"
+"close firefox": "app:close Firefox"
+"close the music player": "app:close Rhythmbox"
+"quit the calculator": "app:close Calculator"
+"turn the volume up": command:volume_up
+"make it louder": command:volume_up
+"turn it down a bit": command:volume_down
+"it's too loud": command:volume_down
+"set the volume to 50": command:set_volume
+"volume 30 percent": command:set_volume
+"mute the sound": command:mute
+"unmute": command:mute
+"mute my mic": command:mute_mic
+"play sound on the echo dot": command:audio_to_echo
+"switch to headphones": command:audio_to_jack
+"screenshot this window": command:screenshot_window
+"screenshot an area": command:screenshot_area
+"lock the computer": command:lock_screen
+"lock my screen": command:lock_screen
+"make the screen brighter": command:brightness_high
+"full brightness": command:brightness_full
+"dim the screen": command:brightness_low
+"turn on the night light": command:night_light_on
+"turn off night light": command:night_light_off
+"turn on dark mode": command:dark_mode
+"switch to light mode": command:light_mode
+"make the text bigger": command:text_bigger
+"normal text size": command:text_normal
+"turn off the screen": command:screen_off
+"turn on do not disturb": command:dnd_on
+"turn off wifi": command:wifi_off
+"switch wifi on": command:wifi_on
+"what wifi am i on": command:wifi_status
+"show wifi networks": command:wifi_list
+"connect to wifi home": command:wifi_connect
+"disconnect from wifi": command:wifi_disconnect
+"turn on the hotspot": command:hotspot_on
+"turn on airplane mode": command:airplane_on
+"is the internet working": command:internet_check
+"am i connected to the internet": command:internet_check
+"turn bluetooth on": command:bluetooth_on
+"what bluetooth devices are connected": command:bluetooth_devices
+"shut down the computer": command:shutdown
+"turn off the computer": command:shutdown
+"restart the computer": command:reboot
+"put the computer to sleep": command:suspend
+"log me out": command:log_out
+"what power mode am i in": command:power_mode
+"max power mode": command:power_max
+"turn the fan to max": command:fan_max
+"tell me the time": command:time
+"what's the date today": command:date
+"what day is it": command:date
+"how much disk space is left": command:disk_space
+"how much memory is free": command:memory
+"how much ram am i using": command:memory
+"what's the cpu usage": command:cpu_usage
+"how hot is the computer": command:cpu_temp
+"what's the gpu temperature": command:gpu_temp
+"what's my ip": command:ip_address
+"how long has the computer been on": command:uptime
+"what's my computer called": command:computer_name
+"what's my mouse battery": command:peripheral_battery
+"open a terminal": "app:open Terminal"
+"open my downloads": command:open_downloads
+"open the documents folder": command:open_documents
+"open settings": command:open_settings
+"open the trash": command:open_trash
+"empty the trash": command:empty_trash
+"open github in chrome": browser
+"search for jetson orin": browser
+"google the weather in bangalore": browser
+"search youtube for lofi music": browser
+"look up python tutorials": browser
+"put it back": persona
+"do that again": persona
+"what did you say": persona
+"open claude in vs code": vscode
+"hide the chat": "slash:/chat off"

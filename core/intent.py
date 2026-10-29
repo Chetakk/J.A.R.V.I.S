@@ -58,10 +58,25 @@ def _value(slot, value):
     return "in " + value
 
 
+_NUM = (r"(?:\d[\d:.]*|an?|half an|a couple of|a few|one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
+        r"twelve|fifteen|twenty|thirty|forty(?: five)?|fifty|ninety)")
+# Slots that only take a certain kind of value; any other {slot} takes any words.
+SLOTS = {
+    # "20 minutes", "5 pm", "in an hour", "tomorrow at 9 am", "noon"
+    "when": r"(?:(?:in|at) )?(?:(?:today|tonight|tomorrow)(?: at)? ?)?(?:%s(?: ?(?:[ap]\.? ?m\.?|minutes?|mins?|"
+            r"hours?|hrs?|seconds?|secs?|o'?clock))?|noon|midnight)" % _NUM,
+    # an app, never "down ..." ("shut down the computer") or the computer itself
+    "app": r"(?!down\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine)$).+?",
+}
+
+
 def template_regex(wording):
     """"shut {app} down" -> ^shut (?P<app>.+?) down$; a stray "the"/"my" before the value is dropped."""
     parts = re.split(r"\{(\w+)\}", wording)
-    pattern = "".join(re.escape(p) if i % 2 == 0 else "(?:the |my )?(?P<%s>.+?)" % p for i, p in enumerate(parts))
+    keep = ("what", "text")  # a reminder's or a typed text's own words stay as said
+    pattern = "".join(re.escape(p) if i % 2 == 0 else "%s(?P<%s>%s)" % ("" if p in keep else "(?:the |my )?", p,
+                                                                       SLOTS.get(p, ".+?"))
+                      for i, p in enumerate(parts))
     return re.compile("^%s$" % pattern, re.IGNORECASE)
 
 
