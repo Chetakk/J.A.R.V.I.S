@@ -1098,3 +1098,12 @@
 "rotate screen left": command:rotate_left
 "dim the screen": command:brightness_low
 "what's on my screen": skill:screen
+# Reminders without "to ...": JARVIS asks what for (and asks when, if no time was said)
+"set a reminder in 2 minutes": "skill:remind_later"
+"remind me in 2 minutes": "skill:remind_later"
+"set a reminder for 5 minutes": "skill:remind_later"
+"remind me at 7:30": "skill:remind_clock"
+"set a reminder at 5 pm": "skill:remind_clock"
+"set a reminder": "skill:remind_when"
+"i want you to set a reminder": "skill:remind_when"
+"to set a reminder": "skill:remind_when"

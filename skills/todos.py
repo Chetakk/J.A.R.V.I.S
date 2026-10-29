@@ -21,6 +21,12 @@ WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, 
 NUM = r"(\d+(?:\.\d+)?|%s)" % "|".join(sorted(WORDS, key=len, reverse=True))
 IN = r"in %s (seconds?|secs?|minutes?|mins?|hours?|hrs?)" % NUM
 AT = r"(?:(today|tonight|tomorrow) )?(?:at )?(\d{1,2})(?:[:.](\d{2}))? ?([ap]\.? ?m\.?)?(?: (today|tonight|tomorrow))?"
+# "remind me", "set a reminder", "I want you to set up a reminder": a reminder that may not say what it's for.
+SET = (r"(?:(?:i want you to|i need you to|i'd like you to|i want to|i need to|go ahead and|just|to) )?"
+       r"(?:remind me|(?:set|add|create|make|put|schedule|give me)(?: up| in)? (?:a |an |the |my |our |one )?"
+       r"(?:new )?reminder)")
+LATER = r"(?:in|for|after) %s (seconds?|secs?|minutes?|mins?|hours?|hrs?)" % NUM
+NO_TEXT = "Reminder"  # what's kept when you didn't say what it's for
 
 
 def due_in(n, unit):
@@ -70,6 +76,10 @@ class Todos(Skill):
     def patterns(self):
         """"what's pending" stays with project notes; these say "todo" or "remind"."""
         return [
+            # A time but nothing to remind about ("set a reminder in 2 minutes"): asks what it's for.
+            (r"%s %s" % (SET, LATER), self.remind_later),
+            (r"%s (?:for )?%s" % (SET, AT), self.remind_clock),
+            (r"%s(?: for me| please)?" % SET, self.remind_when),
             (r"remind me %s(?: to| about| that)? (.+)|remind me(?: to| about| that)? (.+?) %s" % (IN, IN), self.remind_in),
             (r"remind me %s(?: to| about| that)? (.+)|remind me(?: to| about| that)? (.+?) %s" % (AT, AT), self.remind_at),
             (r"(?:what are|read|list|show me|tell me|any) (?:my |the )?reminders(?: today| for today)?|"
@@ -178,6 +188,35 @@ class Todos(Skill):
         self._remind(text, at)
 
     @_guard
+    def remind_later(self, m):
+        self._remind(self._what(), due_in(m.group(1), m.group(2)))
+
+    @_guard
+    def remind_clock(self, m):
+        at = due_at(*m.groups())
+        if at is None:
+            return False
+        self._remind(self._what(), at)
+
+    @_guard
+    def remind_when(self, m):
+        """Just "set a reminder": asks when (and what for) and goes on with the answer."""
+        answer = (self.j._answer("Sure, when? And what for?") or "").replace(",", "").strip(" .!?")
+        if not answer or re.match(r"(?:no|nothing|never ?mind|cancel|forget it)\b", answer, re.I):
+            self.say("Okay, no reminder.")
+            return
+        if not self.handle("remind me " + re.sub(r"^remind me ", "", answer, flags=re.I)):
+            self.say("Sorry, I didn't get the time. Say something like: remind me in 10 minutes to stretch.")
+
+    def _what(self):
+        """Asks what a reminder is for; NO_TEXT when there's no answer."""
+        answer = (self.j._answer("Sure. What should I remind you about?") or "").strip(" .!?")
+        answer = re.sub(r"^(?:to|about|that) ", "", answer, flags=re.I)
+        if not answer or re.match(r"(?:no|nothing|nope|just remind me|anything)\b", answer, re.I):
+            return NO_TEXT
+        return answer
+
+    @_guard
     def reminders(self):
         now = time.time() * 1000
         rems = sorted((r for r in self._list("reminders") if r["at"] > now), key=lambda r: r["at"])
@@ -206,7 +245,8 @@ class Todos(Skill):
         elif len(hits) > 1 and want != "all":
             self.say("Which one? %s." % " or ".join(r["text"] for r in hits[:3]))
         else:
-            self.say("Cancelled %s." % ("all reminders" if want == "all" else "the reminder to " + hits[0]["text"]))
+            self.say("Cancelled %s." % ("all reminders" if want == "all" else "the reminder" if hits[0]["text"] == NO_TEXT
+                                        else "the reminder to " + hits[0]["text"]))
 
     def _watch(self):
         while True:
@@ -226,7 +266,7 @@ class Todos(Skill):
 
                 self._change("reminders", mark)
                 for text in due:
-                    self.say("Reminder: %s." % text)
+                    self.say("This is your reminder." if text == NO_TEXT else "Reminder: %s." % text)
             except Exception as e:  # hub down or restarting: try again next round
                 if not isinstance(e, HubDown):
                     print("[reminders] %r" % e)
