@@ -1,0 +1,455 @@
+"""A sealed world for testing what a skill really does: the real JARVIS and skill code runs, but everything it
+would touch outside itself is fake and recorded.
+
+  shell      subprocess.* / os.system: nothing runs. Rules give a command its output, exit code or error.
+  net        urllib urlopen / sockets: nothing leaves (the Day Tracker and Study Buddy hubs are live data).
+  desktop    X11 windows, keys, clicks: a list of pretend windows; actions are recorded.
+  claude     Claude Code: canned answers, or ClaudeError.
+  speech     what JARVIS says is recorded, never spoken.
+  answers    replies to JARVIS's yes/no and "X, or Y?" questions.
+  ui         cards and the chat panel: recorded.
+
+conftest.py also points HOME at a temp folder (wiped before each test), so notes, memory and reminders
+start empty and your real ones are never read or written; and it unsets DISPLAY and the session bus, so any
+call the fakes missed fails instead of reaching your desktop.
+
+    def test_volume(jv):
+        jv.shell.on(r"pactl get-sink-volume", out="Volume: front-left: 26214 /  40% / ...")
+        jv.do("what's the volume")
+        assert jv.says("40")
+"""
+import io
+import json
+import re
+import shlex
+import subprocess
+import threading
+import time
+import urllib.error
+
+from claude.bridge import ClaudeError, _parse_answer
+from system import desktop
+from voice import speech
+
+
+class Shell:
+    """Fake subprocess. The first rule whose regex is found in the command line decides what happens;
+    a command no rule knows "runs" and succeeds with no output."""
+
+    def __init__(self):
+        self.rules = []
+        self.calls = []  # command lines, in order
+        self.inputs = []  # (command line, stdin text) for run(input=...) and Popen stdin writes
+        self.missing = set()  # program names shutil.which() doesn't find
+
+    def on(self, pattern, out="", code=0, err="", raises=None):
+        """raises: an exception to throw instead, e.g. FileNotFoundError() or subprocess.TimeoutExpired."""
+        self.rules.insert(0, (re.compile(pattern), out, code, err, raises))
+        return self
+
+    def ran(self, pattern):
+        """The command lines matching `pattern` that were run."""
+        return [c for c in self.calls if re.search(pattern, c)]
+
+    def _result(self, args, shell=False):
+        line = args if isinstance(args, str) else " ".join(shlex.quote(str(a)) for a in args)
+        self.calls.append(line)
+        for pattern, out, code, err, raises in self.rules:
+            if pattern.search(line):
+                if raises is not None:
+                    raise raises() if isinstance(raises, type) else raises
+                out = out(line) if callable(out) else out
+                return line, out, code, err
+        return line, "", 0, ""
+
+    # --- the patched subprocess functions ---
+    def run(self, args, *a, input=None, capture_output=False, text=None, universal_newlines=None, check=False,
+            **kw):
+        line, out, code, err = self._result(args, kw.get("shell"))
+        if input is not None:
+            self.inputs.append((line, input.decode() if isinstance(input, bytes) else input))
+        as_text = text or universal_newlines or kw.get("encoding")
+        out, err = (out, err) if as_text else (out.encode(), err.encode())
+        if check and code:
+            raise subprocess.CalledProcessError(code, args, out, err)
+        return subprocess.CompletedProcess(args, code, out, err)
+
+    def check_output(self, args, *a, **kw):
+        kw.pop("stdout", None)
+        return self.run(args, *a, check=True, **kw).stdout
+
+    def call(self, args, *a, **kw):
+        return self.run(args, *a, **kw).returncode
+
+    def check_call(self, args, *a, **kw):
+        self.run(args, *a, check=True, **kw)
+        return 0
+
+    def popen(self, args, *a, **kw):
+        line, out, code, err = self._result(args, kw.get("shell"))
+        return FakePopen(self, line, args, out, code, err, text=kw.get("text") or kw.get("universal_newlines"))
+
+    def system(self, line):
+        return self._result(line, True)[2]
+
+
+class FakePopen:
+    _pids = iter(range(40000, 90000))
+
+    def __init__(self, shell, line, args, out, code, err, text=False):
+        self.args, self.pid, self.returncode = args, next(self._pids), code
+        self._shell, self._line = shell, line
+        self.stdout = io.StringIO(out) if text else io.BytesIO(out.encode())
+        self.stderr = io.StringIO(err) if text else io.BytesIO(err.encode())
+        self.stdin = _Stdin(shell, line)
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+    def communicate(self, input=None, timeout=None):
+        if input is not None:
+            self._shell.inputs.append((self._line, input.decode() if isinstance(input, bytes) else input))
+        return self.stdout.read(), self.stderr.read()
+
+    def kill(self):
+        pass
+
+    terminate = send_signal = kill
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _Stdin:
+    def __init__(self, shell, line):
+        self._shell, self._line = shell, line
+
+    def write(self, data):
+        self._shell.inputs.append((self._line, data.decode() if isinstance(data, bytes) else data))
+        return len(data)
+
+    def flush(self):
+        pass
+
+    close = flush
+
+
+class Net:
+    """Fake urllib: a URL no rule knows is unreachable (URLError), like a hub that's down."""
+
+    def __init__(self):
+        self.rules = []
+        self.calls = []  # (method, url, body)
+
+    def on(self, pattern, body="", status=200, raises=None):
+        """body: str, or a dict/list sent as JSON, or a function(url, data) returning either."""
+        self.rules.insert(0, (re.compile(pattern), body, status, raises))
+        return self
+
+    def opened(self, pattern):
+        return [c for c in self.calls if re.search(pattern, c[1])]
+
+    def urlopen(self, req, data=None, timeout=None, **kw):
+        url = req if isinstance(req, str) else req.full_url
+        data = data if data is not None else getattr(req, "data", None)
+        method = (req.get_method() if not isinstance(req, str) else ("POST" if data else "GET"))
+        self.calls.append((method, url, data.decode() if isinstance(data, bytes) else data))
+        for pattern, body, status, raises in self.rules:
+            if pattern.search(url):
+                if raises is not None:
+                    raise raises
+                body = body(url, data) if callable(body) else body
+                if not isinstance(body, (str, bytes)):
+                    body = json.dumps(body)
+                return _Response(body, status, url)
+        raise urllib.error.URLError("no network in tests: %s" % url)
+
+
+class _Response(io.BytesIO):
+    def __init__(self, body, status, url):
+        super().__init__(body.encode() if isinstance(body, str) else body)
+        self.status = self.code = status
+        self.url = url
+        self.headers = {}
+
+    def getcode(self):
+        return self.status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class FakeWindow(desktop.Window):
+    def __init__(self, wid, title, wm_class, workspace=1, geometry=(0, 0, 800, 600), pid=None, role=None,
+                 frozen=False, text=""):
+        super().__init__(wid, title, wm_class, workspace)
+        self.geometry, self.pid, self.role, self.frozen, self.text = geometry, pid, role, frozen, text
+
+
+class Desktop:
+    """Pretend windows, bottom to top (the last is in front). Patches every system.desktop function that talks to
+    X; the ones built on top of them (find_window, place, side, ...) run for real on these windows."""
+
+    def __init__(self):
+        self.wins = []
+        self.active = None
+        self.workspace = 1
+        self.tiling = False
+        self.area = (0, 0, 1920, 1080)
+        self.actions = []  # ("focus", title), ("keys", "ctrl+w"), ("click", (x, y)), ...
+        self._ids = iter(range(0x1000001, 0x2000000))
+
+    def add(self, title, wm_class, front=True, **kw):
+        w = FakeWindow(next(self._ids), title, wm_class.lower(), **kw)
+        self.wins.append(w)
+        if front:
+            self.active = w
+        return w
+
+    def did(self, kind):
+        """What was done of that kind, e.g. did("keys") -> ["ctrl+t"]."""
+        return [v for k, v in self.actions if k == kind]
+
+    def _get(self, wid):
+        return next((w for w in self.wins if w.id == wid), None)
+
+    def patch(self, monkeypatch):
+        rec = self.actions.append
+        title = lambda w: getattr(w, "title", w)  # noqa: E731
+
+        def focus(w):
+            rec(("focus", title(w)))
+            self.active = self._get(w.id) or self.active
+
+        def close_window(w):
+            rec(("close", title(w)))
+            self.wins = [x for x in self.wins if x.id != w.id]
+            if self.active is not None and self.active.id == w.id:
+                self.active = self.wins[-1] if self.wins else None
+
+        def move_resize(w, x, y, width, height):
+            rec(("move", (title(w), x, y, width, height)))
+            real = self._get(w.id)
+            if real:
+                real.geometry = (x, y, width, height)
+
+        def set_state(w, on, *props):
+            rec(("state", (title(w), on) + props))
+            real = self._get(w.id)
+            if real and on == 1 and any("MAXIMIZED" in p for p in props):
+                real.geometry = self.area
+            elif real and on == 0 and real.geometry == self.area:
+                real.geometry = (self.area[0], self.area[1], self.area[2] // 2, self.area[3])
+
+        def activate(text):
+            w = next((w for w in reversed(self.wins) if text.lower() in w.title.lower()), None)
+            if w:
+                focus(w)
+            return bool(w)
+
+        def activate_role(role):
+            w = next((w for w in reversed(self.wins) if w.role == role), None)
+            if w:
+                focus(w)
+            return bool(w)
+
+        def switch_to(n):
+            rec(("workspace", n))
+            self.workspace = n
+
+        fakes = {
+            "windows": lambda: list(self.wins),
+            "active_window": lambda: self.active,
+            "current_workspace": lambda: self.workspace,
+            "pid": lambda w: getattr(self._get(w.id), "pid", None),
+            "geometry": lambda w: getattr(self._get(w.id), "geometry", None),
+            "workarea": lambda: self.area,
+            "tiling": lambda: self.tiling,
+            "unresponsive": lambda wins, seconds=2.0: [w for w in wins if getattr(self._get(w.id), "frozen", False)],
+            "windows_with_role": lambda role: [w for w in self.wins if w.role == role],
+            "switch_to": switch_to,
+            "focus": focus,
+            "move_to_workspace": lambda w, n: rec(("to_workspace", (title(w), n))),
+            "set_state": set_state,
+            "minimize": lambda w: rec(("minimize", title(w))),
+            "close_window": close_window,
+            "move_resize": move_resize,
+            "keys": lambda combo: rec(("keys", combo)),
+            "click": lambda x, y, button=1: rec(("click", (x, y, button))),
+            "activate": activate,
+            "activate_role": activate_role,
+            "_act": lambda name, wid, data: rec(("x11", name)),
+        }
+        for name, fn in fakes.items():
+            monkeypatch.setattr(desktop, name, fn)
+
+
+class FakeClaude:
+    """Stands in for j.claude's calls out to Claude Code. Queue replies with reply(); with none queued, ask()
+    answers "(claude answer)" and the others return "(claude text)". fail() makes the next call raise."""
+
+    def __init__(self):
+        self.calls = []  # (method, prompt)
+        self._replies = []
+
+    def reply(self, answer):
+        """answer: a str (said), a dict of answer fields (ask) or text (rewrite/_once/files_agent), or an
+        exception to raise."""
+        self._replies.append(answer)
+        return self
+
+    def fail(self, message="I couldn't reach Claude"):
+        return self.reply(ClaudeError(message))
+
+    def asked(self, pattern=""):
+        return [p for m, p in self.calls if re.search(pattern, p, re.I | re.S)]
+
+    def _next(self, default):
+        r = self._replies.pop(0) if self._replies else default
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    def patch(self, monkeypatch, claude):
+        def ask(text, recent=(), on_say=None, image=None, about=None):
+            self.calls.append(("ask", text))
+            r = self._next({"say": "(claude answer)"})
+            answer = _parse_answer(json.dumps(r if isinstance(r, dict) else {"say": r}))
+            answer["spoken"] = bool(on_say and answer["say"])
+            if answer["spoken"]:
+                on_say(answer["say"])
+            return answer
+
+        def text_call(method):
+            def fn(prompt, *a, **k):
+                self.calls.append((method, prompt))
+                r = self._next("(claude text)")
+                return r.get("say", "") if isinstance(r, dict) else r
+            return fn
+
+        def locate(image, target, size):
+            self.calls.append(("locate", target))
+            return self._next((None, ""))
+
+        def open_terminal(cwd=None, prompt=None, model=None):
+            self.calls.append(("open_terminal", prompt or ""))
+            return True
+
+        monkeypatch.setattr(claude, "ask", ask)
+        monkeypatch.setattr(claude, "locate", locate)
+        monkeypatch.setattr(claude, "open_terminal", open_terminal)
+        for method in ("rewrite", "_once", "files_agent"):
+            monkeypatch.setattr(claude, method, text_call(method))
+
+
+class FakeUI:
+    """j.ui: cards and the chat panel. Every call is recorded in .calls; shown cards in .cards."""
+
+    def __init__(self):
+        self.calls = []
+        self.cards = []
+        self.visible = False
+
+    def show_card(self, card, *a, **k):
+        self.calls.append(("show_card", card))
+        self.cards.append(card)
+        self.visible = True
+
+    def current_card(self):
+        return self.cards[-1] if self.cards and self.visible else None
+
+    def card_visible(self, *a):
+        return self.visible
+
+    def close_card(self, *a, **k):
+        self.calls.append(("close_card", a))
+        self.visible = False
+
+    def __getattr__(self, name):
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return lambda *a, **k: self.calls.append((name, a)) or None
+
+
+class JV:
+    """One JARVIS with the fake world around it. do(text) runs a request the way typing it would."""
+
+    def __init__(self, monkeypatch, build, shell, net):
+        """shell, net: the Shell and Net already patched in (before JARVIS is built: it runs commands then)."""
+        global current
+        current = self
+        self.shell, self.net, self.desktop, self.claude, self.ui = shell, net, Desktop(), FakeClaude(), FakeUI()
+        self.spoken = []  # every say(): a list of the alternative lines it was given
+        self.questions = []  # what JARVIS asked you
+        self.answers = []  # your replies, used in order; none left = no answer (like the timeout)
+        self.desktop.patch(monkeypatch)
+        monkeypatch.setattr(speech.Speaker, "say", _say)
+        self.j = build()
+        j = self.j
+        j.ui = self.ui
+        j.follow_up = j.keep_following = lambda: None
+        self.claude.patch(monkeypatch, j.claude)
+        monkeypatch.setattr(j, "_answer", self._answer)
+
+    def _answer(self, question):
+        self.questions.append(question if isinstance(question, str) else question[0])
+        _say(self.j.speaker, question)
+        return self.answers.pop(0) if self.answers else None
+
+    def do(self, text, *answers, wait=2.0):
+        """Handle `text` (answering JARVIS's questions with `answers`), then wait for the threads it started."""
+        self.answers.extend(answers)
+        before = set(threading.enumerate())
+        result = self.j.handle(text)
+        self.settle(before, wait)
+        return result
+
+    def settle(self, before=(), wait=2.0):
+        deadline = time.time() + wait
+        for t in threading.enumerate():
+            if t in before or t is threading.current_thread() or isinstance(t, threading.Timer):
+                continue
+            t.join(max(0.0, deadline - time.time()))
+
+    # --- what came of it ---
+    @property
+    def said(self):
+        """The lines JARVIS said (the first of each set of alternatives)."""
+        return [alts[0] for alts in self.spoken]
+
+    def says(self, *fragments):
+        """True if one line JARVIS said (any of its alternatives) holds every fragment (case-insensitive)."""
+        return any(all(f.lower() in alt.lower() for f in fragments) for alts in self.spoken for alt in alts)
+
+    def clear(self):
+        """Forget what was said and run so far (e.g. after setting something up through JARVIS itself)."""
+        del self.spoken[:], self.questions[:], self.shell.calls[:], self.shell.inputs[:], self.claude.calls[:]
+        del self.desktop.actions[:], self.ui.calls[:], self.net.calls[:]
+
+    @property
+    def cards(self):
+        return self.ui.cards
+
+    def card_text(self):
+        return "\n".join("%s\n%s" % (c.get("title") or "", c.get("text") or "") for c in self.cards)
+
+
+current = None
+
+
+def _say(speaker, text):
+    alts = [str(t) for t in text] if isinstance(text, (list, tuple)) else [str(text)] if text else []
+    if alts and current is not None:
+        current.spoken.append(alts)
+        speaker.last = alts[0]
+        if speaker.on_say:
+            speaker.on_say(alts[0])
