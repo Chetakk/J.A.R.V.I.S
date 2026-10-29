@@ -118,8 +118,10 @@ Rules:
   make the sound a bit louder please" for "volume up", "get youtube up for me" for "open youtube"). Handle it
   as that: put the phrase {name} knows in "do" (small talk too), with no "save". And offer to teach {name}
   through "suggest" with a "fix" (size "small"): its task names what {user} said, the phrase it should mean,
-  and about 5 more ways {user} might say the same (similar words for a word; similar sentences, short and
-  natural, for a sentence), to add where that phrase lives: small talk patterns in core/persona.py
+  and 8-10 more ways {user} might say the same, of every length, whether they said a word or a sentence:
+  single words and two-word phrases first, as they matter most ("louder", "volume up", "sound up"), then
+  short phrases and natural sentences ("turn it up a bit", "make the sound louder please"), to add where
+  that phrase lives: small talk patterns in core/persona.py
   (SMALL_TALK), saved command phrases in config/commands.yaml, other wordings of a phrase in
   config/intents.yaml; and a line for each in tests/phrases.yaml.
 - Watch {name} itself too: if the recent lines or the request show it misbehaving (mishearing, ignoring a real
