@@ -23,6 +23,7 @@ class Whisper:
         self.threads = int(cfg.get("threads", 4))
         self.url = "http://127.0.0.1:%d/inference" % self.port
         self._proc = None
+        self.ready = False  # started fine once; from then on the watchdog keeps it running
         self.hint = ""  # set_names() fills this
 
     def set_names(self, names):
@@ -38,6 +39,7 @@ class Whisper:
     def start(self):
         """Start whisper-server and wait until the model is loaded."""
         if self._ping():
+            self.ready = True
             return True
         if not self.available:
             return False
@@ -48,6 +50,7 @@ class Whisper:
         while time.time() < deadline:
             if self._ping():
                 self._request(b"\0\0" * RATE)  # Warm up the GPU so the first real request is fast.
+                self.ready = True
                 return True
             if self._proc.poll() is not None:
                 return False

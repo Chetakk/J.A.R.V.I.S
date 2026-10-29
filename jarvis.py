@@ -22,7 +22,7 @@ try:
 except ImportError:
     pass
 
-from core import desktop, misslog, persona, undo
+from core import desktop, misslog, persona, undo, watchdog
 from core.browser import Browser
 from core.claude_bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
@@ -133,6 +133,8 @@ class Jarvis:
         self.last_request = None  # for "do that again"
         self.last_app = None  # process of the last app opened, for "close it"
         self.last_undo = None  # saved command that reverses the last one, for "undo that"
+        self.handling_since = None  # when the request being handled started (the watchdog restarts a stuck one)
+        self.whisper = self.wake = None
         self.ignored = False  # last follow-up was chatter, not a request
         self.follow_up = lambda: None  # wake word: listen once more without the name (set by start_voice)
         self.recent = deque(maxlen=8)  # what happened without Claude since its last answer, passed on next time
@@ -612,6 +614,7 @@ def start_voice(jarvis, whisper):
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
                            on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)))
         wake.start()
+        jarvis.wake = wake
         jarvis.follow_up = wake.follow_up
         print('[voice] Wake word ready: say any of: %s (optionally with "hey").' % ", ".join(jarvis.names))
     elif wake_cfg.get("enabled", True):
@@ -654,11 +657,13 @@ def run_loop(jarvis, has_ui):
         if not line.startswith("/"):
             jarvis.chat("you", line)
         jarvis.state("thinking")
+        jarvis.handling_since = time.time()  # for the watchdog
         try:
             jarvis.source = kind
             if not jarvis.handle(line, follow_up=kind == "follow"):
                 break
         finally:
+            jarvis.handling_since = None
             jarvis.state(jarvis.rest)
         if kind == "voice" or (kind == "follow" and not jarvis.ignored):
             jarvis.follow_up()  # "what's the weather?" next, without the name
@@ -720,7 +725,8 @@ def main():
     jarvis.memory.seen()
     threading.Thread(target=watch, args=(jarvis,), daemon=True).start()
     print("Type /help for commands.")
-    whisper = Whisper(jarvis.settings.get("stt") or {})
+    whisper = jarvis.whisper = Whisper(jarvis.settings.get("stt") or {})
+    threading.Thread(target=watchdog.run, args=(jarvis, jarvis.settings.get("watchdog") or {}), daemon=True).start()
     threading.Thread(target=start_voice, args=(jarvis, whisper), daemon=True).start()
     threading.Thread(target=read_keyboard, args=(inbox,), daemon=True).start()
 

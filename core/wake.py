@@ -176,6 +176,7 @@ class WhisperWake:
         self.max_seconds = max_seconds    # longer speech is conversation, not a wake phrase
         self.wait_seconds = wait_seconds  # after "EV?" alone, how long to wait for the command
         self.follow_seconds = follow_seconds  # after an answer, how long to listen without the name
+        self.mic, self.audio_at = None, time.time()  # for the watchdog: a mic that stops delivering is reopened
         self.waiting_until = 0.0
         self.following = False  # the current wait is a follow-up (after an answer), not after "EV?"
         vad_cfg = sherpa_onnx.VadModelConfig()
@@ -193,6 +194,7 @@ class WhisperWake:
             try:
                 mic = subprocess.Popen(["arecord", "-q", "-f", "S16_LE", "-r", str(RATE), "-c", "1", "-t", "raw"],
                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                self.mic = mic
                 try:
                     self._listen(mic)
                 finally:
@@ -210,6 +212,7 @@ class WhisperWake:
             raw = mic.stdout.read(VAD_WINDOW * 2)
             if not raw:
                 return
+            self.audio_at = time.time()
             ints = np.frombuffer(raw, dtype=np.int16)
             if np.abs(ints).max() > 200:
                 last_sound, warned = time.time(), False

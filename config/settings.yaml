@@ -90,3 +90,9 @@ nano:
 # Meaning matcher (config/intents.yaml): how close (0-1) another wording must be to run a known phrase.
 intents:
   threshold: 0.72
+
+# Watchdog (core/watchdog.py): restarts what hangs. Memory use is logged every 10 minutes.
+watchdog:
+  stuck_minutes: 10   # a request running longer than this restarts JARVIS
+  jarvis_mb: 1500     # JARVIS restarts itself (when idle) above this
+  whisper_mb: 2500    # whisper-server is restarted above this
