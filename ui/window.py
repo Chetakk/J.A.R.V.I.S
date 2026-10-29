@@ -12,7 +12,7 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("AppIndicator3", "0.1")
-from gi.repository import AppIndicator3, Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import AppIndicator3, Gdk, GLib, Gtk, Pango  # noqa: E402
 import cairo  # noqa: E402
 
 from system.terminal import RUN_DIR  # noqa: E402
@@ -23,16 +23,39 @@ LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "t
           "starting": "Starting voice..."}
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
 ORB = 64
-PANEL_W, PANEL_H = 360, 440
+PANEL_W, PANEL_H = 430, 560
+CHAT_KEEP = 200  # messages kept in the panel
 
 CSS = b"""
-.panel { background-color: rgba(10, 10, 10, 0.88); border-radius: 14px;
+.panel { background-color: rgba(14, 14, 16, 0.92); border-radius: 16px;
          border: 1px solid rgba(255, 255, 255, 0.12); }
-.panel textview, .panel textview text { background-color: transparent; color: #e6e6e6; }
-.panel scrolledwindow { background-color: transparent; }
-.panel entry { background-color: rgba(255, 255, 255, 0.06); color: #f2f2f2; border-radius: 8px;
-               border: 1px solid rgba(255, 255, 255, 0.14); box-shadow: none; }
-.title { color: rgba(255, 255, 255, 0.55); font-size: 9pt; }
+.panel * { font-size: 11.5pt; }
+.panel scrolledwindow, .panel viewport, .panel list { background-color: transparent; }
+.panel entry { background-color: rgba(255, 255, 255, 0.07); color: #f2f2f2; border-radius: 12px;
+               border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: none;
+               padding: 10px 14px; min-height: 22px; }
+.panel entry:focus { border-color: rgba(255, 255, 255, 0.34); }
+.panel scrolledwindow undershoot.top, .panel scrolledwindow undershoot.bottom { background: none; }
+.panel scrollbar slider { background-color: rgba(255, 255, 255, 0.22); min-width: 4px; }
+.title { color: #f4f4f4; font-weight: bold; font-size: 12pt; }
+.status { color: rgba(255, 255, 255, 0.5); font-size: 10pt; }
+.header { padding: 2px 4px 10px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.dot { color: rgba(255, 255, 255, 0.35); font-size: 9pt; }
+.dot.live { color: #ffffff; }
+.bubble { border-radius: 14px; padding: 8px 12px; }
+.bubble label selection { background-color: rgba(255, 255, 255, 0.28); }
+.you { background-color: rgba(255, 255, 255, 0.16); color: #f6f6f6; border-bottom-right-radius: 4px; }
+.jarvis { background-color: rgba(255, 255, 255, 0.05); color: #f2f2f2;
+          border: 1px solid rgba(255, 255, 255, 0.09); border-bottom-left-radius: 4px; }
+.claude { background-color: rgba(255, 255, 255, 0.05); color: #d8d8d8; font-style: italic;
+          border: 1px solid rgba(255, 255, 255, 0.09); border-left: 3px solid rgba(255, 255, 255, 0.4);
+          border-bottom-left-radius: 4px; }
+.you label { color: #f6f6f6; }
+.jarvis label { color: #f2f2f2; }
+.claude label { color: #d8d8d8; font-style: italic; }
+.sender { color: rgba(255, 255, 255, 0.42); font-size: 9pt; font-weight: bold; }
+.heard { color: rgba(255, 255, 255, 0.4); font-style: italic; font-size: 9.5pt; }
+.sys { color: rgba(255, 255, 255, 0.45); font-size: 9.5pt; }
 """
 
 # Tray icons: white/grey rings, one per state.
@@ -292,30 +315,35 @@ class UI:
         w.set_type_hint(Gdk.WindowTypeHint.DOCK)  # not tiled or outlined by Pop Shell; still takes typing
         w.set_default_size(PANEL_W, PANEL_H)
         w.stick()
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         box.get_style_context().add_class("panel")
-        for side in ("top", "bottom", "start", "end"):
-            getattr(box, "set_margin_" + side)(0)
-        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        inner.set_border_width(12)
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        inner.set_border_width(14)
         box.pack_start(inner, True, True, 0)
 
-        self.title = Gtk.Label(label="JARVIS", xalign=0)
-        self.title.get_style_context().add_class("title")
-        inner.pack_start(self.title, False, False, 0)
+        header = Gtk.Box(spacing=8)
+        header.get_style_context().add_class("header")
+        self.dot = Gtk.Label(label="\u25cf")
+        self.dot.get_style_context().add_class("dot")
+        name = Gtk.Label(label="JARVIS")
+        name.get_style_context().add_class("title")
+        self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.title.get_style_context().add_class("status")
+        header.pack_start(self.dot, False, False, 0)
+        header.pack_start(name, False, False, 0)
+        header.pack_start(self.title, True, True, 0)
+        inner.pack_start(header, False, False, 0)
 
-        self.view = Gtk.TextView(editable=False, cursor_visible=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)
-        self.view.set_left_margin(2)
-        buf = self.view.get_buffer()
-        buf.create_tag("you", foreground="#9c9c9c")
-        buf.create_tag("jarvis", foreground="#f4f4f4")
-        buf.create_tag("claude", foreground="#cfcfcf", style=2)  # italic
-        buf.create_tag("sys", foreground="#6f6f6f", scale=0.85)
-        buf.create_tag("heard", foreground="#858585", style=2, scale=0.85)  # what speech recognition heard
-        buf.create_tag("who", weight=700, scale=0.85)
+        self.msgs = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.msgs.set_margin_end(6)  # room for the scrollbar
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.add(self.view)
+        scroll.add(self.msgs)
+        adj = self._adj = scroll.get_vadjustment()
+        self._at_bottom = True  # follow new messages unless scrolled up to read
+        adj.connect("value-changed", lambda a: setattr(
+            self, "_at_bottom", a.get_value() >= a.get_upper() - a.get_page_size() - 40))
+        adj.connect("changed", lambda a: self._at_bottom and a.set_value(a.get_upper() - a.get_page_size()))
         inner.pack_start(scroll, True, True, 0)
 
         self.entry = Gtk.Entry(placeholder_text="Type to JARVIS...")
@@ -382,19 +410,40 @@ class UI:
             self.on_text(text)
 
     def _add_chat(self, who, text):
-        buf = self.view.get_buffer()
-        tag = {"you": "you", "jarvis": "jarvis", "claude": "claude", "heard": "heard"}.get(who, "sys")
-        end = buf.get_end_iter()
-        if buf.get_char_count():
-            buf.insert(end, "\n")
-        if who in ("you", "jarvis"):
-            buf.insert_with_tags_by_name(buf.get_end_iter(), ("You  " if who == "you" else "JARVIS  "), "who", tag)
-        buf.insert_with_tags_by_name(buf.get_end_iter(), text, tag)
-        if buf.get_line_count() > 300:
-            buf.delete(buf.get_start_iter(), buf.get_iter_at_line(buf.get_line_count() - 300))
-        self.view.scroll_to_mark(buf.get_insert(), 0, False, 0, 1)
-        buf.place_cursor(buf.get_end_iter())
-        self.view.scroll_mark_onscreen(buf.get_insert())
+        kind = who if who in ("you", "jarvis", "claude", "heard") else "sys"
+        label = Gtk.Label(label=text, xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR,
+                          selectable=True, can_focus=False)
+        if kind in ("heard", "sys"):
+            label.set_max_width_chars(60)
+            label.get_style_context().add_class(kind)
+            if kind == "heard":  # what you said, so it sits on your side
+                label.set_xalign(1)
+                label.set_halign(Gtk.Align.END)
+            label.set_margin_start(4)
+            label.set_margin_end(4)
+            row = label
+        else:
+            label.set_max_width_chars(34)
+            bubble = Gtk.Box()
+            bubble.get_style_context().add_class("bubble")
+            bubble.get_style_context().add_class(kind)
+            bubble.pack_start(label, False, False, 0)
+            bubble.set_halign(Gtk.Align.END if kind == "you" else Gtk.Align.START)
+            row = bubble
+            if kind == "claude":
+                row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+                sender = Gtk.Label(label="CLAUDE", xalign=0)
+                sender.get_style_context().add_class("sender")
+                sender.set_margin_start(6)
+                row.pack_start(sender, False, False, 0)
+                row.pack_start(bubble, False, False, 0)
+        if kind == "you":
+            self._at_bottom = True
+        self.msgs.pack_start(row, False, False, 0)
+        row.show_all()
+        old = self.msgs.get_children()
+        for child in old[:max(0, len(old) - CHAT_KEEP)]:
+            child.destroy()
         return False
 
     # --- tray icon ---
@@ -466,7 +515,9 @@ class UI:
             self._shown = shown
             self.tray.set_icon_full("jarvis-%s" % shown, LABELS.get(shown, shown))
             self.status_item.set_label("JARVIS: %s" % LABELS.get(shown, shown))
-            self.title.set_text("JARVIS  ·  %s" % LABELS.get(shown, shown))
+            self.title.set_text(LABELS.get(shown, shown))
+            dot = self.dot.get_style_context()
+            dot.add_class("live") if shown in ANIMATED else dot.remove_class("live")
             self.orb.queue_draw()
             if shown in ANIMATED and not self._anim:
                 self._anim = GLib.timeout_add(40, self._tick)
