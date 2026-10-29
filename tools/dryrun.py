@@ -24,6 +24,7 @@ from skills import copy_between as J_copy  # noqa: E402
 from skills import documents as J_docs  # noqa: E402
 from skills import frozen as J_frozen  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
+from skills import notes as J_notes  # noqa: E402
 from skills import organise as J_organise  # noqa: E402
 from skills import troubleshoot as J_troubleshoot  # noqa: E402
 
@@ -46,12 +47,13 @@ class DryJarvis:
         j._miss = lambda text, outcome: rec(("miss", outcome))
         j._open_app = lambda text: self._app(J.apps.OPEN, text, "open")
         j._close_app = lambda text: self._app(J.apps.CLOSE, text, "close")
-        for name in ("seen", "used", "add_reminder", "clear_reminders", "set_pref"):
+        for name in ("seen", "used", "add_reminder", "clear_reminders", "set_pref", "set_preferences"):
             setattr(j.memory, name, lambda *a, **k: 0)
         j.claude.open_terminal = lambda *a, **k: rec(("claude-terminal", "")) or False
         J.open_in_vscode = lambda *a, **k: rec(("vscode", ""))
         for skill in j.skills.all:
             self._stub_rules("card" if skill is j.cards else "skill", skill)
+        j.skills.notes.answer = lambda text: False  # your own notes would make results differ per computer
         j.skills.first = lambda text: False  # not dictating; no "where was I" history
         j.skills.focusing = lambda: False
 
@@ -94,6 +96,8 @@ class DryJarvis:
             passes["rename"] = passes["move"] = lambda m: J_docs.could_be(m.group(1))
             passes["trash"] = lambda m: J_docs.could_be(_first(m)) and not (
                 J_organise.OTHER_THINGS.search(_first(m)) and not J_docs.sure(_first(m)))
+        if obj is self.j.skills.notes:  # "I prefer X, which should I get": a question, for Claude
+            passes["casual"] = lambda m: not J_notes.ASKING.search(m.group(0))
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

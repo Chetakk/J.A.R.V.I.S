@@ -36,6 +36,17 @@ class WhereWasI(Skill):
         except OSError:
             pass
 
+    def unlog(self):
+        """Drop the request just logged (it was private: a secret, a private note)."""
+        try:
+            with open(WHERE_FILE) as f:
+                log = json.load(f)
+            if log and time.time() - log[-1][0] < 300:
+                with open(WHERE_FILE, "w") as f:
+                    json.dump(log[:-1], f)
+        except (OSError, ValueError, IndexError, TypeError):
+            pass
+
     def where_was_i(self):
         try:
             with open(WHERE_FILE) as f:

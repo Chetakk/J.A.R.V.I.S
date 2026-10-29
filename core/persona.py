@@ -392,6 +392,16 @@ class Memory:
                 prefs[key] = value
             self._save()
 
+    def preferences(self):
+        """What you've told JARVIS about yourself ("I prefer battery life"): [{"topic", "value", "at", "private"}],
+        in your own words. topic is set for "my favourite X is Y" (a new one replaces the old), else None."""
+        return list(self.data.get("preferences") or [])
+
+    def set_preferences(self, prefs):
+        with self.lock:
+            self.data["preferences"] = prefs
+            self._save()
+
     def add_reminder(self, reminder):
         with self.lock:
             self.data["reminders"].append({k: reminder[k] for k in ("due", "what", "kind")})

@@ -98,6 +98,8 @@ class Cards(Skill):
         if not text:
             self.say("There's only a picture on it.")
             return
+        if card.get("private"):  # a secret or private notes: read out, but not passed on to Claude
+            self.j.keep_private()
         self.j.skills.reading.long(text)  # the start of a long one; "read the rest" / "summarise it"
 
     def copy(self, m):

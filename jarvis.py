@@ -106,7 +106,8 @@ CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hea
 ABILITIES = "\n  ".join((
     "reminders: \"remind me in 10 minutes to <x>\", \"remind me at 5 pm to <x>\", \"what are my reminders\", "
     "\"clear my reminders\"",
-    "notes: \"remember that <x>\", \"what do you remember about <x>\", \"forget <x>\"",
+    "memory: \"remember that <x>\", \"what do you remember about <x>\", \"forget <x>\", \"what do you know about "
+    "me\" (card of everything kept, with Forget buttons), \"forget number <n>\", \"forget this conversation\"",
     "windows: \"switch to <app>\", \"go to workspace <n>\", \"move this to workspace <n>\", \"maximize <app>\", "
     "\"minimize <app>\", \"put <app> on the left|right\", \"close this window\", \"close <app>\"",
     "browser tabs: \"switch to the <name> tab\", \"close this tab\", \"new tab\", \"reopen the last tab\", "
@@ -230,6 +231,7 @@ class Jarvis:
         self.from_claude = False  # handling one of Claude's "do" phrases: never send it back to Claude
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
         self.asking = None  # the question waiting for your answer, for the dashboard
+        self._private = False  # this request is private: what's said in it isn't passed on to Claude
         self.plan = None  # Claude's multi-step plan: {"request", "steps", "done", "state", "at"}, for the dashboard
 
     def state(self, name):
@@ -244,8 +246,21 @@ class Jarvis:
 
     def _said(self, text):
         self.chat("jarvis", text)
+        if self._private:
+            return
         self.recent.append("JARVIS said: %s" % text)
         self.talk.append("JARVIS said: %s" % text)
+
+    def keep_private(self):
+        """The request being handled is private (a secret, a private note): it and what JARVIS says about it
+        are left out of the lines Claude sees next time, and out of "where was I"."""
+        self._private = True
+        for log in (self.recent, self.talk):
+            lines = list(log)
+            last = max((i for i, line in enumerate(lines) if line.startswith("User: ")), default=None)
+            for _ in range(len(lines) - last if last is not None else 0):
+                log.pop()
+        self.skills.where_was_i.unlog()
 
     def chat(self, who, text):
         if self.ui:
@@ -333,6 +348,7 @@ class Jarvis:
             return self._slash(raw)
 
         self.memory.seen()
+        self._private = False
         text = clean(raw, self.names)
         if not text:
             self.speaker.say(["Yes?", "I'm listening.", "Yeah, what's up?", "Go ahead."])
@@ -447,6 +463,8 @@ class Jarvis:
             return True
         if self._unsure(text):
             return True
+        if self.skills.notes.answer(text):  # "where did I park": a note answers it, no Claude needed
+            return True
         self._miss(text, "claude" if self.mode != "sys" else "unknown")
         if self.mode == "sys":
             self.speaker.say(["Sorry, that one's not on my list, and I can't ask Claude in system mode.",
@@ -514,7 +532,7 @@ class Jarvis:
             self.speaker.say(line)
 
         try:
-            known = self.projects.context(text)
+            known = " ".join(k for k in (self.projects.context(text), self.skills.notes.for_claude(text)) if k)
             answer = self.claude.ask(text + ("\n\n[%s]" % known if known else ""), recent, on_say=speak_early,
                                      image=image, about=self._about())
         except ClaudeError as e:
@@ -566,6 +584,8 @@ class Jarvis:
                     self.recent.append("Command output: %s" % out)
         if answer["save"]:
             self._save(answer["save"], answer["command"])
+        if answer["remember"]:
+            self.skills.notes.offer(answer["remember"])
         if answer["suggest"]:
             self._suggest(answer["suggest"])
         if isinstance(answer["show"], dict):

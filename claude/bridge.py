@@ -291,7 +291,7 @@ _SAY = re.compile(r'"say"\s*:\s*"((?:[^"\\]|\\.)*)"')
 def _parse_answer(text):
     answer = {"say": "", "details": "", "command": "", "run_now": False, "output": False, "save": None,
               "steps": None, "suggest": None, "fix": None,
-              "misheard": None, "show": None, "do": None}
+              "misheard": None, "show": None, "do": None, "remember": None}
     m = re.search(r"\{.*\}", text, re.DOTALL)
     try:
         data = json.loads(m.group(0)) if m else None
