@@ -516,8 +516,8 @@
 "what's the hostname": "command:computer_name"
 "show me the bin": "command:open_trash"
 "clear the recycle bin": "command:empty_trash"
-"delete old.txt": "command:delete_file"
-"remove the file notes.txt": "command:delete_file"
+"delete old.txt": "skill:trash"
+"remove the file notes.txt": "skill:trash"
 "do not disturb on": "command:dnd_on"
 "do not disturb off": "command:dnd_off"
 "turn off do not disturb": "skill:end_focus"
@@ -982,3 +982,32 @@
 "what are you up to": persona
 "tell me about jarvis": skill:about_project
 "what do you remember about the nano": skill:recall
+# File intelligence (skills/files.py, skills/documents.py, skills/organise.py)
+"find pdfs from last week": skill:by_kind
+"show my spreadsheets in documents": skill:by_kind
+"find .py files from yesterday in projects": skill:by_kind
+"show the zip files in downloads": skill:by_kind
+"what files did i change today": skill:changed
+"which files have i edited this week in projects": skill:changed
+"find my offer letter": skill:find_file
+"summarise this pdf": skill:summarise
+"summarise ~/Downloads/Documents/Deployment Guide.docx": skill:summarise
+"what's in budget.xlsx": skill:summarise
+"what does my resume say about python": skill:question
+"in this document, what's the deadline": skill:question
+"what's the total in invoice.pdf": skill:question_after
+"summarise the pdfs in downloads": skill:many
+"summarise what i downloaded today": skill:downloads
+"compare offer.pdf and offer_signed.pdf": skill:compare
+"go through this file with claude": skill:with_claude
+"make a folder called invoices in documents": skill:mkdir
+"rename this file to final report": skill:rename
+"move resume.pdf to documents": skill:move
+"put old.txt in the trash": skill:trash
+"tidy my downloads": skill:tidy
+"find duplicate files in downloads": skill:duplicates
+"any duplicates on my desktop": skill:duplicates
+"what's the weather in delhi": claude
+"delete the reading layout": skill:delete
+"put this on the left": skill:snap
+"what's in the file menu": skill:list_controls

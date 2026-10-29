@@ -101,11 +101,15 @@ ABILITIES = "\n  ".join((
     "\"next tab\", \"go back\", \"refresh the page\", \"scroll down\", \"zoom in\"",
     "media: \"pause\", \"play\", \"next song\", \"previous song\", \"what's playing\"",
     "clipboard: \"what's on my clipboard\"",
-    "files: \"find my <file>\", \"open the latest download\", \"open the latest file in documents\"",
+    "files: \"find my <file>\", \"open the latest download\", \"open the latest file in documents\", \"find pdfs from "
+    "last week\", \"what files did I change today\", \"summarise <file or this pdf>\", \"what does <file> say about X\", "
+    "\"summarise the pdfs in downloads\", \"compare <file> and <file>\", \"go through <file> with claude\", \"make a "
+    "folder called X in documents\", \"rename <file> to Y\", \"move <file> to <folder>\", \"delete <file>\" (to the "
+    "Trash), \"tidy my downloads\", \"find duplicate files in downloads\", \"undo that\"",
     "jetson nano: \"is the nano up\", \"restart the nano link\", \"switch to the nano\", \"run <command> on the nano\"",
     "projects: \"open <project> project\", \"run <project>\", \"stop <project>\", \"run the tests in <project>\", "
     "\"ask claude to <task> in <project> project\", \"git status of <project>\"",
-    "itself: \"status\", \"stop\" (stop talking), \"open claude\", \"show chat\", \"do that again\", \"undo that\" (reverses the last setting)",
+    "itself: \"status\", \"stop\" (stop talking), \"open claude\", \"show chat\", \"do that again\", \"undo that\" (reverses the last setting or file change)",
     "cards: \"show that again\", \"close the card\", \"read it to me\", \"copy that\", \"save that\", "
     "\"show the previous card\", \"pin it\", \"unpin\", \"the second one\" (a choice), \"open the first link\"",
     "timers: \"set a timer for 10 minutes for <x>\", \"cancel the timer\"",
@@ -196,7 +200,7 @@ class Jarvis:
         self.warned = {}  # heads-up key -> when it was last mentioned
         self.last_request = None  # for "do that again"
         self.last_app = None  # process of the last app opened, for "close it"
-        self.last_undo = None  # saved command that reverses the last one, for "undo that"
+        self.last_undo = None  # saved command (or a skill's function) that reverses the last one, for "undo that"
         self.context = Context()  # what JARVIS just did, for "a bit more", "make it 70", "and firefox too"
         self._text = ""
         self._splitting = False  # handling the parts of "X and Y" one by one (they aren't split again)
@@ -923,6 +927,11 @@ class Jarvis:
         return True
 
     def _undo(self):
+        if callable(self.last_undo):  # a skill's own way back (files moved, renamed, put in the Trash)
+            reverse, self.last_undo = self.last_undo, None
+            self.heard("undo", "reverses the last change")
+            reverse()
+            return True
         cmd = next((c for c in self.registry.commands if c["name"] == self.last_undo), None)
         if not cmd:
             self.speaker.say(["Sorry, I can't undo that one.", "Hmm, there's nothing I can undo right now."])

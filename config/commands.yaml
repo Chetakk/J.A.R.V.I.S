@@ -501,13 +501,6 @@ commands:
     ask: "Empty the trash? Those files will be gone for good."
     reply: "Trash emptied"
 
-  # --- files ---
-  - name: delete_file
-    say: ["delete {file}", "remove {file}", "delete file {file}"]
-    run: "rm {file}"
-    risk: manual
-    reply: "I'd rather not delete files myself, but the command's ready in your terminal"
-
   - name: peripheral_battery
     say: [mouse battery, keyboard battery, how is my mouse battery]
     run: upower --dump | grep -E -i "model|percentage|state"

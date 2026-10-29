@@ -4,7 +4,8 @@ The order matters: the first skill whose phrase matches (and doesn't hand it on)
 ("the second one" is about the card on screen), then the instant local extras, then the rest; the day
 tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
 and the screen ("what's this page about" in a browser reads the page itself); copying between apps before the
-clipboard ("summarise my clipboard and put it in Slack"); "everything about X" before projects and notes
+clipboard ("summarise my clipboard and put it in Slack"); reading files before the browser agent ("summarise
+resume.pdf" isn't a website); "everything about X" before projects and notes
 (their "tell me about" / "what do you remember about" would take it); clicking in a window and window focus go last.
 """
 from skills.browser_tabs import BrowserTabs
@@ -18,6 +19,7 @@ from skills.daytracker import DayTracker
 from skills.dashboard import Dashboard
 from skills.dev import Dev
 from skills.dictation import Dictation
+from skills.documents import Documents
 from skills.files import Files
 from skills.focus_mode import FocusMode
 from skills.frozen import Frozen
@@ -27,6 +29,7 @@ from skills.maths import Maths
 from skills.media import Media
 from skills.nano import Nano
 from skills.notes import Notes
+from skills.organise import Organise
 from skills.proactive import Proactive
 from skills.projects import Projects
 from skills.reading import Reading
@@ -47,9 +50,9 @@ ORDER = [
     ("clipboard_history", ClipboardHistory),
     ("status", Status), ("dashboard", Dashboard), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
-    ("troubleshoot", Troubleshoot), ("web", Web), ("projects", Projects), ("screen", Screen),
+    ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("copy_between", CopyBetween), ("clipboard", Clipboard),
-    ("notes", Notes), ("files", Files),
+    ("notes", Notes), ("organise", Organise), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]
 
