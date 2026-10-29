@@ -230,7 +230,7 @@
 "look at my screen": skill:screen
 "what am i looking at": skill:screen
 "explain this error": skill:screen
-"can you read this page": skill:screen
+"can you read this page": skill:read_window
 "what did i just copy": skill:read_clipboard
 "translate my clipboard to hindi": skill:clipboard_job
 "make a note that the meeting moved to friday": skill:remember
@@ -768,3 +768,37 @@
 "unmute yourself": "slash:/mute"
 "reload your settings": "slash:/reload"
 "list your commands": "slash:/list"
+# window layouts
+"arrange my coding windows": skill:apply
+"set up my coding layout": skill:apply
+"coding layout": skill:apply
+"arrange my windows": skill:apply
+"switch to my coding layout": skill:apply
+"save this layout as reading": skill:save
+"save this layout": skill:save
+"list my layouts": skill:list_layouts
+"delete the reading layout": skill:delete
+"put chrome on the left": skill:snap
+# downloads by time
+"find the file I downloaded this morning": skill:downloaded_one
+"what did I download today": skill:downloaded
+"open the file I downloaded yesterday": skill:downloaded_one
+"open the pdf I downloaded this morning": skill:downloaded_one
+"what did i download yesterday": skill:downloaded
+"show me my downloads from this week": skill:downloaded
+"where's the zip I downloaded": skill:downloaded_one
+"open file ~/Downloads/x.pdf": skill:open_path
+# reading a window aloud
+"read this window aloud": skill:read_window
+"read this window": skill:read_window
+"read the terminal out loud": skill:read_window
+"read this aloud": skill:read_window
+# the project from yesterday
+"open the project I was working on yesterday": skill:last_project
+"open my last project": skill:last_project
+"open yesterday's project": skill:last_project
+"resume the project I was working on": skill:last_project
+"get back to my last project": skill:last_project
+"continue where I left off": skill:where_was_i
+"open the code I was working on yesterday": skill:last_project
+"open code": "app:open Visual Studio Code"
