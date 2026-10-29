@@ -30,9 +30,11 @@ class Organise(Skill):
             (r"(?:make|create|add)(?: me)? (?:a )?(?:new )?folder (?:called |named )?[\"']?(.+?)[\"']?"
              r"(?: (?:in|on|inside|under) %s)?" % FOLDER_RE, self.mkdir),
             (r"rename (.+?) (?:to|as) [\"']?(.+?)[\"']?", self.rename),
-            (r"(?:move|put|throw) (.+?) (?:in|into|to) the (?:trash|bin|recycle bin)|(?:delete|trash|remove|"
-             r"throw away|get rid of) (.+?)(?: (?:in|to|into) the (?:trash|bin))?", self.trash),
-            (r"(?:move|put) (.+?) (?:in|into|to) (?:a )?(new folder (?:called|named) .+|.+?)(?: folder)?", self.move),
+            (r"(?:move|put|throw) (.+?) (?:in|into|to) the (?:trash|bin|recycle bin|rubbish(?: bin)?)|(?:delete|trash|"
+             r"remove|throw away|get rid of) (.+?)(?: (?:in|to|into) the (?:trash|bin|rubbish))?", self.trash),
+            # "move the terminal to the left" is a window (skills/windows.py), not a folder called "left"
+            (r"(?:move|put) (.+?) (?:in|into|to) (?:a )?(?!(?:the )?(?:left|right)(?: side| half)?$)"
+             r"(new folder (?:called|named) .+|.+?)(?: folder)?", self.move),
             (r"(?:tidy|tidy up|organi[sz]e|clean up|sort(?: out)?) (?:my |the )?(downloads|desktop)(?: folder)?",
              self.tidy),
             (r"(?:find|show|any|are there(?: any)?|check for|look for) (?:the )?duplicates?(?: files)?"
