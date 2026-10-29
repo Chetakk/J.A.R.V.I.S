@@ -1068,3 +1068,18 @@
 "lower my microphone": skill:mic_volume
 "mute my mic": command:mute_mic
 "switch to the github tab": skill:find_tab
+# Notifications (skills/notifications.py), in memory only
+"any new notifications": skill:read
+"read my notifications": skill:read
+"do i have any notifications": skill:read
+"what notifications did i miss": skill:read
+"show me my recent notifications": skill:read
+"summarise my notifications": skill:read
+"what was that notification": skill:last
+"read the last notification again": skill:last
+"notifications from slack": skill:from_app
+"read my gmail notifications": skill:from_app
+"what did slack send me": skill:from_app
+"forget my notifications": skill:forget
+"mute notifications": command:dnd_on
+"why did that notification appear": skill:why

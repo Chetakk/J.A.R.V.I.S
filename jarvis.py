@@ -1156,14 +1156,17 @@ def run_loop(jarvis, has_ui):
 
 
 def watch(jarvis):
-    """Background: reminders when they're due; crashed projects; the morning briefing; every 2 minutes, heads-ups
-    and habit offers (skills/proactive.py keeps why each was said, and holds them in focus mode and quiet hours)."""
+    """Background: the notification reader; reminders when they're due; crashed projects; the morning briefing;
+    every 2 minutes, heads-ups and habit offers (skills/proactive.py keeps why each was said, and holds them in focus
+    mode and quiet hours)."""
     tell = jarvis.skills.proactive
     tick = 0
+    jarvis.skills.notifications.watch()
     while True:
         time.sleep(10)
         tick += 1
         try:
+            jarvis.skills.notifications.watch()  # restarts the notification reader if it stopped
             for reminder in jarvis.memory.due_reminders():
                 line = persona.reminder_line(reminder, jarvis.settings.get("user_name"))
                 tell.note("reminder", line, "You asked me to remind you, for %s." % time.strftime(
