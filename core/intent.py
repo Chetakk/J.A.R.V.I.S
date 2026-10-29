@@ -45,7 +45,8 @@ class WordPiece:
 
 
 class IntentMatcher:
-    def __init__(self, path, threshold=0.72, margin=0.03):
+    def __init__(self, path, threshold=0.72, margin=0.03, extra=None):
+        """extra: more {phrase: [other wordings]}, e.g. the command list's own "say" phrases."""
         import onnxruntime as ort
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 2
@@ -55,6 +56,8 @@ class IntentMatcher:
         self.threshold, self.margin = threshold, margin
         with open(path, encoding="utf-8") as f:
             intents = yaml.safe_load(f) or {}
+        for target, says in (extra or {}).items():
+            intents[target] = list(intents.get(target) or []) + list(says)
         self.targets, examples = [], []
         for target, says in intents.items():
             for s in [target] + list(says or []):

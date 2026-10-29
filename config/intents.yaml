@@ -30,3 +30,7 @@ open claude: [i want to talk to claude, bring up claude code, start claude]
 show chat: [open the chat, show me the conversation, show the chat window]
 hide chat: [close the chat, get rid of the chat, hide the conversation]
 close the card: [close it, get rid of that card, hide the card, dismiss that]
+# Saved commands (config/commands.yaml) are added automatically; extra wordings for them go here too.
+volume up: [turn the sound up, make it louder, i can't hear it, raise the volume]
+volume down: [turn the sound down, make it quieter, it's too loud, lower the volume]
+dark mode: [make everything dark, switch to the dark look, my eyes hurt]

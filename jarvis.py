@@ -103,6 +103,16 @@ def worth_asking(text, names):
 YES = re.compile(r"^\W*(y|yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|correct)\b", re.IGNORECASE)
 
 
+def command_phrases(registry):
+    """{first phrase: other phrases} for each command without {slots}; the first one runs it exactly."""
+    out = {}
+    for cmd in registry.commands:
+        says = [p for p in cmd.get("say") or [] if "{" not in p]
+        if says:
+            out[says[0]] = says[1:]
+    return out
+
+
 class Jarvis:
     def __init__(self, inbox):
         self.inbox = inbox  # queue of ("text" | "voice" | "follow" | "eof" | "quit", str) from keyboard, mic and UI
@@ -117,12 +127,6 @@ class Jarvis:
         self.executor = Executor(self.safety, self.speaker, self.settings, self.ask)
         self.whisper_port = int((self.settings.get("stt") or {}).get("port", 8178))
         self.skills = Skills(self)  # stop, status, screen, tabs, clipboard, files, windows, media, notes, nano, git
-        self.intents = None  # meaning matcher: other wordings of known phrases, before Claude
-        try:
-            cfg = self.settings.get("intents") or {}
-            self.intents = IntentMatcher(os.path.join(CONFIG, "intents.yaml"), cfg.get("threshold", 0.72))
-        except Exception as e:
-            print("[intent] meaning matcher off: %r" % e)
         self.mode = self.settings.get("mode", "agent")
         self.memory = persona.Memory()
         self.warned = {}  # heads-up key -> when it was last mentioned
@@ -160,6 +164,13 @@ class Jarvis:
         self.names = [n.lower() for n in self.settings.get("names") or [self.name]]
         self.safety = Safety(os.path.join(CONFIG, "safety.yaml"))
         self.registry = Registry(os.path.join(CONFIG, "commands.yaml"))
+        self.intents = None  # meaning matcher: other wordings of known phrases, before Claude
+        try:
+            cfg = self.settings.get("intents") or {}
+            self.intents = IntentMatcher(os.path.join(CONFIG, "intents.yaml"), cfg.get("threshold", 0.72),
+                                         extra=command_phrases(self.registry))
+        except Exception as e:
+            print("[intent] meaning matcher off: %r" % e)
         self.browser = Browser(self.registry)
         self.claude = Claude(self.settings.get("claude") or {}, self.name, self.settings.get("user_name") or "the user")
         if hasattr(self, "executor"):
