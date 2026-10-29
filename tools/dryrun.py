@@ -64,6 +64,8 @@ class DryJarvis:
             fn = getattr(obj, name)
             if callable(fn) and not name.startswith("_") and name != "handle":
                 setattr(obj, name, lambda *a, _n=name, **k: rec((kind, _n)) or True)
+        if obj is self.j.skills.reading:  # nothing is being read in a dry run: "continue" is the music's
+            obj.rest = obj.summarise = lambda *a, **k: False
         # Skills that hand non-matches on at run time: the same read-only lookup decides here too.
         projects = getattr(obj, "projects", None)
         find = projects and (lambda m: projects.find(_first(m)) or len(projects.candidates(_first(m))) > 1)  # as _find

@@ -92,7 +92,11 @@ class Cards(Skill):
         card = self._card()
         if not card:
             return False
-        self.say(plain(card) or "There's only a picture on it.")
+        text = plain(card)
+        if not text:
+            self.say("There's only a picture on it.")
+            return
+        self.j.skills.reading.long(text)  # the start of a long one; "read the rest" / "summarise it"
 
     def copy(self, m):
         card = self._card()

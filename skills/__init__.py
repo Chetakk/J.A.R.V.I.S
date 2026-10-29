@@ -22,6 +22,7 @@ from skills.media import Media
 from skills.nano import Nano
 from skills.notes import Notes
 from skills.projects import Projects
+from skills.reading import Reading
 from skills.screen import Screen
 from skills.slow_computer import SlowComputer
 from skills.status import Status
@@ -32,8 +33,8 @@ from skills.where_was_i import WhereWasI
 from skills.windows import Windows
 
 ORDER = [
-    ("cards", Cards), ("dictation", Dictation), ("voice_prefs", VoicePrefs), ("maths", Maths),
-    ("focus_mode", FocusMode),
+    ("cards", Cards), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
+    ("maths", Maths), ("focus_mode", FocusMode),
     ("slow_computer", SlowComputer), ("where_was_i", WhereWasI), ("clipboard_history", ClipboardHistory),
     ("status", Status), ("checks", Checks), ("daytracker", DayTracker), ("todos", Todos),
     ("troubleshoot", Troubleshoot), ("projects", Projects), ("screen", Screen),

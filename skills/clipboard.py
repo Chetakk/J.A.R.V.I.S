@@ -22,8 +22,7 @@ class Clipboard(Skill):
             self.say("You copied: %s" % text)
         else:
             self.j.chat("sys", "clipboard:\n" + text[:3000])
-            self.j.show({"title": "Clipboard", "text": "```\n%s\n```" % text[:3000]})
-            self.say("It's %d characters; I've put it in the chat. It starts with: %s" % (len(text), text[:80]))
+            self.j.skills.reading.long(text, "Clipboard")
 
     def clipboard_job(self, m):
         text = clipboard().strip()

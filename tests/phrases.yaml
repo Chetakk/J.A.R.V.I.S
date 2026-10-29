@@ -889,3 +889,10 @@
 "you can talk again": skill:quiet
 "quiet mode off": skill:quiet
 "speed up the video": claude
+
+# long text: with nothing being read these go where they went before
+"continue": skill:media
+"go on": claude
+"summarise it": claude
+"summarise my clipboard": skill:clipboard_job
+"read it to me": card:read

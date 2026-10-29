@@ -49,6 +49,11 @@ speech:
   # Private mode ("headphones only"): Bluetooth or named headphones when they're connected, else this output
   # (the headphone jack, which can't tell whether anything is plugged in).
   private_sink: alsa_output.platform-sound.analog-stereo
+  # Long text read aloud (a card, a window, the clipboard): up to read_words is just said; longer, the start is
+  # said and all of it goes on a card ("read the rest", "summarise it"). long_text: summary = Claude sums it
+  # up straight away instead (a few seconds slower).
+  read_words: 60
+  long_text: start
 
 stt:                       # speech-to-text: whisper.cpp server on the GPU
   server_bin: ~/.local/share/jarvis/whisper.cpp/build/bin/whisper-server

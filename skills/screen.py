@@ -8,7 +8,7 @@ from claude.bridge import WORKSPACE
 from skills.base import Skill
 from system import accessibility, desktop
 
-SPEAK_WORDS = 70  # longer than this: the start (or a terminal's end) is spoken, all of it goes on a card
+SPEAK_WORDS = 70  # longer than this: a terminal's end is spoken, all of it goes on a card
 
 
 class Screen(Skill):
@@ -44,14 +44,14 @@ class Screen(Skill):
             self.j._ask_claude("Read out the main text of the front window (\"%s\"), word for word if it's short, "
                                "else the important part. No description of the screen." % win.title, image=path)
             return
+        if not terminal:  # the start, all of it on a card; "read the rest" / "summarise it"
+            self.j.skills.reading.long(text, win.title or "This window")
+            return
         if len(words) <= SPEAK_WORDS:
             self.say(text)
             return
-        self.j.show({"title": win.title or "This window", "text": "```\n%s\n```" % text[-6000:] if terminal
-                     else text[:6000]})
-        part = " ".join(words[-SPEAK_WORDS:] if terminal else words[:SPEAK_WORDS])
-        self.say(("The last bit says: %s. The rest is on the card." if terminal
-                  else "%s ... The rest is on the card; say read it to me for all of it.") % part)
+        self.j.show({"title": win.title or "This window", "text": "```\n%s\n```" % text[-6000:]})
+        self.say("The last bit says: %s. The rest is on the card." % " ".join(words[-SPEAK_WORDS:]))
 
 
 def front_window():
