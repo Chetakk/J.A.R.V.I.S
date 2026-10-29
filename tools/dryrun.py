@@ -76,6 +76,8 @@ class DryJarvis:
         projects = getattr(obj, "projects", None)
         find = projects and (lambda m: projects.find(_first(m)) or len(projects.candidates(_first(m))) > 1)  # as _find
         passes = {"run_project": find, "stop_project": find} if find else {}
+        if find and "about_project" in dir(obj):  # "what's github.com about": not a project, handed on
+            passes["about_project"] = lambda m: projects.find(_first(m), strict=True)
         if find and obj is self.j.skills.troubleshoot:  # "why isn't my wifi working": not a project
             passes["why"] = lambda m: J_re.fullmatch(J_troubleshoot.GENERIC, _first(m), J_re.I) or find(m)
         if obj is self.j.skills.controls:  # "click it", "hit me with a joke": handed on
