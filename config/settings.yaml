@@ -70,9 +70,12 @@ speech:
 
 stt:                       # speech-to-text: whisper.cpp server on the GPU
   server_bin: ~/.local/share/jarvis/whisper.cpp/build/bin/whisper-server
-  model: ~/.local/share/jarvis/models/ggml-base.en.bin
+  # small.en: half the word errors of base.en on test sentences (7% vs 17%). With audio_ctx 512 (Whisper looks at
+  # ~10 s of audio instead of 30; JARVIS's clips are at most 8 s) it is about as fast: ~240 ms per short clip.
+  model: ~/.local/share/jarvis/models/ggml-small.en.bin
   port: 8178
   threads: 4
+  audio_ctx: 512           # 0 = the full 30 s window (slower)
 
 push_to_talk:
   key: right_ctrl

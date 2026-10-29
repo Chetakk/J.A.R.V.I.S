@@ -21,6 +21,7 @@ class Whisper:
         self.model = os.path.expanduser(cfg.get("model", "~/.local/share/jarvis/models/ggml-base.en.bin"))
         self.port = int(cfg.get("port", 8178))
         self.threads = int(cfg.get("threads", 4))
+        self.audio_ctx = int(cfg.get("audio_ctx", 0))  # 0 = Whisper's full 30 s window
         self.url = "http://127.0.0.1:%d/inference" % self.port
         self._proc = None
         self.ready = False  # started fine once; from then on the watchdog keeps it running
@@ -39,13 +40,20 @@ class Whisper:
 
     def start(self):
         """Start whisper-server and wait until the model is loaded."""
+        args = [self.server, "-m", self.model, "--host", "127.0.0.1", "--port", str(self.port),
+                "-t", str(self.threads), "-nt"] + (["-ac", str(self.audio_ctx)] if self.audio_ctx else [])
         if self._ping():
-            self.ready = True
-            return True
+            # One left running by an earlier JARVIS: reused only if it runs these settings (else a model change
+            # in settings.yaml would never take effect).
+            if subprocess.call(["pgrep", "-xf", " ".join(args)], stdout=subprocess.DEVNULL) == 0:
+                self.ready = True
+                return True
+            subprocess.call(["pkill", "-f", "%s -m .* --port %d " % (self.server, self.port)],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(0.5)
         if not self.available:
             return False
-        self._proc = subprocess.Popen([self.server, "-m", self.model, "--host", "127.0.0.1", "--port", str(self.port),
-                                       "-t", str(self.threads), "-nt"],
+        self._proc = subprocess.Popen(args,
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         deadline = time.time() + 30
         while time.time() < deadline:
