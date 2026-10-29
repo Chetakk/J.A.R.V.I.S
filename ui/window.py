@@ -28,7 +28,7 @@ PANEL_W, PANEL_H = 390, 500
 CHAT_KEEP = 200  # messages kept in the panel
 
 CSS = b"""
-.panel { background-color: rgba(14, 14, 16, 0.92); border-radius: 16px;
+.panel { background-color: rgba(14, 14, 16, 0.985); border-radius: 16px;
          border: 1px solid rgba(255, 255, 255, 0.12); }
 .panel * { font-size: 11pt; }
 .panel scrolledwindow, .panel viewport, .panel list { background-color: transparent; }
@@ -203,8 +203,8 @@ class UI:
 
         # A dark glass ball with a soft sheen across the top.
         grad = cairo.RadialGradient(cx, cy - r * 0.35, 0, cx, cy, r)
-        grad.add_color_stop_rgba(0, 0.24, 0.24, 0.26, 0.78)
-        grad.add_color_stop_rgba(1, 0.03, 0.03, 0.04, 0.68)
+        grad.add_color_stop_rgba(0, 0.24, 0.24, 0.26, 0.95)
+        grad.add_color_stop_rgba(1, 0.03, 0.03, 0.04, 0.90)
         cr.arc(cx, cy, r, 0, tau)
         cr.set_source(grad)
         cr.fill()
