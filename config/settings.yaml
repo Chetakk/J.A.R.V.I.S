@@ -26,6 +26,10 @@ heads_up:
   cpu: 90             # percent, averaged over the 2 minutes since the last check
   memory: 90          # percent in use
   temperature: 85     # °C, the hottest sensor (the Jetson slows itself down near 100)
+# Daily briefing (to-dos, reminders, Day Tracker time and goals): by itself once a day, the first time you're
+# around between these hours (not in focus mode or quiet hours). "brief me" any time; also by voice: "turn off
+# the daily briefing" (that wins over this line).
+briefing: {auto: true, from: 5, until: 12}
 # "You usually open VS Code around now. Want me to?" (apps you open at the same hour on 3+ days).
 habits: {enabled: true}
 wake_word:

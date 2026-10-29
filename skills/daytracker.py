@@ -47,10 +47,11 @@ def spoken(secs):
     return " ".join(parts)
 
 
-def totals(state, now=None):
-    """Seconds per category since local midnight: manual entries, detected sessions, and whatever is running."""
+def totals(state, now=None, since=None):
+    """Seconds per category since local midnight (or `since`): manual entries, detected sessions, and whatever
+    is running."""
     now = now or time.time()
-    day = time.mktime(time.localtime(now)[:3] + (0, 0, 0, 0, 0, -1))
+    day = since or time.mktime(time.localtime(now)[:3] + (0, 0, 0, 0, 0, -1))
     spans = [(e["cat"], e["start"] / 1000, e["end"] / 1000)
              for e in (state.get("entries") or []) + (state.get("autoEntries") or [])]
     if state.get("active"):
