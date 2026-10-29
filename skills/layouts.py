@@ -26,7 +26,7 @@ OPENERS = {"vscode": "open vs code", "gnome-terminal": "open terminal", "chrome"
 class Layouts(Skill):
     def patterns(self):
         return [
-            (r"save (?:this|the|my|the current)(?: window)? (?:layout|arrangement|setup|windows)"
+            (r"save (?:this|the|my|the current|a|a new)(?: window)? (?:layout|arrangement|setup|windows)"
              r"(?: as (?:my |the |a )?(.+?)(?: layout)?)?", self.save),
             (r"(?:what|which) layouts? (?:do i have|are there|have i (?:got|saved))|(?:list|show)(?: me)? (?:my |the )?layouts",
              lambda m: self.list_layouts()),
