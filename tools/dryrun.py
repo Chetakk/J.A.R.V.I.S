@@ -40,8 +40,12 @@ class DryJarvis:
         j._close_app = lambda text: self._app(J.apps.CLOSE, text, "close")
         for name in ("seen", "used", "add_reminder", "clear_reminders"):
             setattr(j.memory, name, lambda *a, **k: 0)
+        j.claude.open_terminal = lambda *a, **k: rec(("claude-terminal", "")) or False
+        J.open_in_vscode = lambda *a, **k: rec(("vscode", ""))
+        j.extras._log = lambda text: None  # "where was I" history
         self._stub_rules("skill", j.skills)
         self._stub_rules("card", j.cards)
+        self._stub_rules("extra", j.extras)
         j.extras._log = lambda text: None  # "where was I" history
         self._stub_rules("skill", j.extras)
         j.extras.first = lambda text: False  # not dictating
@@ -65,6 +69,8 @@ class DryJarvis:
         projects = getattr(obj, "projects", None)
         find = projects and (lambda m: projects.find(_first(m)) or len(projects.candidates(_first(m))) > 1)  # as _find
         passes = {"run_project": find, "stop_project": find} if find else {}
+        if kind == "skill":
+            passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_extras.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731
         passes.update({"maths": lambda m: J_extras.calculate(m.group(0)) is not None,
                        "units": lambda m: units(*m.groups()),
@@ -77,7 +83,16 @@ class DryJarvis:
                 rec((kind, name))
                 return True
             return fn
-        obj.rules = [(p, stub(fn.__name__) if fn.__name__ != "<lambda>" else fn) for p, fn in obj.rules]
+        # Lambdas call methods on their own objects (e.g. Todos, DayTracker): stub those too.
+        for _, fn in obj.rules:
+            for cell in (fn.__closure__ or ()) if fn.__name__ == "<lambda>" else ():
+                inner = cell.cell_contents
+                if inner is not obj and hasattr(inner, "__dict__") and not callable(inner):
+                    for name in dir(inner):
+                        if not name.startswith("_") and callable(getattr(inner, name, None)):
+                            setattr(inner, name, lambda *a, _n=name, **k: rec((kind, _n)) or True)
+        obj.rules = [(p, fn if fn.__name__ == "<lambda>" or ".stub." in fn.__qualname__ else stub(fn.__name__))
+                     for p, fn in obj.rules]  # (shared rule lists are stubbed once)
 
     def route(self, text):
         """(result, details) for one phrase."""
@@ -92,7 +107,7 @@ class DryJarvis:
                 return "ignored", "; ".join(notes)
             return "persona", str(said[0])
         kind, value = acts[0]
-        if kind in ("command", "skill", "card", "slash", "app"):
+        if kind in ("command", "skill", "card", "extra", "slash", "app"):
             result = "%s:%s" % (kind, value)
         elif kind == "run":
             result = "browser"

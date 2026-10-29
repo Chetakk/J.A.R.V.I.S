@@ -4,7 +4,7 @@ Running is `biztel run` (biztel-project-builder/cli): a terminal on JARVIS's wor
 backend and frontend and prints their links. While it runs, its state file says which links it serves, so
 JARVIS can tell you ("Avtec HS is up, on port 5173") and stop it again without asking biztel.
 
-config/projects.yaml adds spoken names ("aliases") and leaves folders out ("skip").
+config/projects.yaml adds spoken names ("aliases"), how to say one back ("say_as") and leaves folders out ("skip").
 """
 import difflib
 import json
@@ -75,6 +75,7 @@ class Projects:
         except OSError:
             cfg = {}
         extra = {key(k): [str(a) for a in v or []] for k, v in (cfg.get("aliases") or {}).items()}
+        say_as = {key(k): str(v) for k, v in (cfg.get("say_as") or {}).items()}
         skip = {key(s) for s in cfg.get("skip") or []}
         items = []
         for name in sorted(os.listdir(self.root) if os.path.isdir(self.root) else [], key=str.lower):
@@ -82,7 +83,10 @@ class Projects:
             if name.startswith(".") or not os.path.isdir(path) or key(name) in skip:
                 continue
             title, summary = _readme(path)
-            items.append(Project(name, path, title, summary, _aliases(name, path, title) + extra.get(key(name), [])))
+            aliases = _aliases(name, path, title) + extra.get(key(name), [])
+            if key(name) in say_as:
+                aliases.insert(0, say_as[key(name)])
+            items.append(Project(name, path, title, summary, aliases))
         self.items = items
         return items
 
@@ -101,14 +105,19 @@ class Projects:
         hit = names.get(k)
         if hit and len(hit) == 1:
             return self._pick(next(iter(hit)))
-        if not strict and len(k) >= 3:
-            part = {p for n, ps in names.items() if n.startswith(k) for p in ps}
-            if len(part) == 1:
-                return self._pick(part.pop())
+        part = {p for n, ps in names.items() if len(k) >= 3 and n.startswith(k) for p in ps}
+        if len(part) > 1:
+            return None  # "avtec": avtec-hs or avtec-circlip? candidates() says which
+        if part and not strict:
+            return self._pick(part.pop())
         close = difflib.get_close_matches(k, list(names), n=2, cutoff=0.88 if strict else 0.78)
         if close and len(names[close[0]]) == 1:
             return self._pick(next(iter(names[close[0]])))
         return None
+
+    def get(self, folder):
+        """The project in `folder` (its exact name), without making it the current one."""
+        return next((p for p in self.items if p.name == folder), None)
 
     def candidates(self, spoken):
         """Projects `spoken` could mean, for "did you mean avtec hs or avtec circlip?"."""
@@ -118,6 +127,18 @@ class Projects:
     def _pick(self, p):
         self.current = p
         return p
+
+    def context(self, text):
+        """A line for Claude about the projects `text` names (summary, folder, links if running), or ""."""
+        k = key(text)
+        named = [p for p in self.items if any(len(key(a)) >= 5 and key(a) in k for a in [p.name] + p.aliases)]
+        if not named:
+            return ""
+        live = self.running()
+        return " ".join("Project %s (folder %s): %s%s" % (
+            p.name, p.path, p.summary or "no README",
+            " Running now: %s." % ", ".join(l["url"] for l in live[p.name]["links"]) if p.name in live else "")
+            for p in named[:3])
 
     def recent(self, n=3):
         return sorted(self.items, key=lambda p: -p.touched())[:n]
@@ -205,10 +226,12 @@ def _aliases(name, path, title):
         pass
     if re.fullmatch(r"(?:[A-Za-z]\.)+[A-Za-z]?\.?", name):
         out.append(name.replace(".", "").lower())
+    # The README title when it is the project's name ("Study Buddy" for study-budd), not a sentence
+    # ("What this workspace is"): it then is also how JARVIS says it.
+    if title and len(title.split()) <= 3 and key(title).startswith(key(name)[:5]):
+        out.append(title)
     words = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", re.sub(r"[-_.]+", " ", name)).strip()
     out.append(words.lower())
-    if title and len(title.split()) <= 4 and key(title) != key(name):
-        out.append(title)
     seen, uniq = set(), []
     for a in out:
         if key(a) and key(a) not in seen:
@@ -217,8 +240,27 @@ def _aliases(name, path, title):
     return uniq
 
 
+BOILERPLATE = re.compile(r"^(?:This file provides guidance to Claude|Last updated\b)", re.IGNORECASE)
+
+
 def _readme(path):
-    """(title, one-line summary) from the project's README: the heading and the first real sentence."""
+    """(title, one-line summary) from the project's README: the heading and the first real sentence.
+    A folder with no README of its own uses the one in a folder inside it (Crowning-qc/<the tool>/README.md)."""
+    found = _read_readme(path)
+    if found[1]:
+        return found
+    try:
+        subs = sorted(d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d)) and not d.startswith("."))
+    except OSError:
+        subs = []
+    for d in subs[:8]:
+        inner = _read_readme(os.path.join(path, d))
+        if inner[1]:
+            return inner
+    return found
+
+
+def _read_readme(path):
     for f in READMES:
         try:
             with open(os.path.join(path, f), errors="replace") as fh:
@@ -236,13 +278,14 @@ def _readme(path):
             if s.startswith("#"):
                 if para:
                     break
-                title = title or s.lstrip("#").strip()
+                head = s.lstrip("#").strip()
+                title = title or ("" if head.lower() in (r.lower() for r in READMES) else head)
                 continue
             if not s:
                 if para:
                     break
                 continue
-            if s.startswith(("|", "<", "![", "[!", "---", ">", "- [", "* [")):
+            if s.startswith(("|", "<", "![", "[!", "---", ">", "- [", "* [")) or (not para and BOILERPLATE.match(_plain(s))):
                 continue
             para.append(s)
         summary = _plain(" ".join(para))

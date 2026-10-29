@@ -26,6 +26,8 @@ wake_word:
   # kws:     small CPU keyword model; lighter, but caught only about 13 of 21 of the same recording.
   engine: whisper
   follow_up_seconds: 8     # whisper only: after an answer, the orb stays lit and you can just talk (0 = off)
+  barge_in: any            # whisper only: talking over JARVIS. any = a new request stops it (no name needed
+                           # within a minute of your last one), named = only with the name, off = only "stop"
   threshold: 0.10          # kws only: lower = triggers more easily (and more false alarms)
   boost: 2.0               # kws only: higher = favours the wake phrases more
 
@@ -34,6 +36,7 @@ mode: agent
 
 speech:
   enabled: true
+  output_delay: 0.8        # seconds the speaker lags behind (Bluetooth ~0.3-1 s); JARVIS ignores its own echo that long
   engine: piper            # piper | spd-say
   piper_bin: ~/.local/share/jarvis/piper/piper
   # Other fast voices in the same folder: en_GB-jenny_dioco-medium, en_GB-alan-medium,
@@ -56,17 +59,21 @@ push_to_talk:
   # (e.g. Claude Code's own voice input inside VS Code). Case-insensitive match on the window class
   # (VS Code is "com.microsoft.VSCode").
   pass_through_windows: ["vscode"]
+  # Same, matched against the window title: Claude Code in a terminal and Claude chats in the browser.
+  pass_through_titles: ["claude"]
 
 claude:                    # phase 2
   model: claude-haiku-5-5
   effort: low              # low | medium | high (thinking is off either way, for speed)
   new_after_minutes: 20    # start a fresh conversation after this long without a question
   suggest_every_minutes: 10  # at most one of Claude's own suggestions this often
+  fix_model: claude-sonnet-5-5  # for Claude Code fixing JARVIS's own code ("fix ... in jarvis")
 
 ui:
   enabled: true            # transparent orb + top-right tray icon
   orb: auto                # auto = appears while you're talking to it, fades after; true = always; false = never
   orb_hide_after: 4        # seconds of quiet before the orb hides (auto mode)
+  card_hide_after: 30      # with a card open, orb and card hide together after this many quiet seconds
   chat: false              # show the chat panel at startup (click the orb, or say "show chat")
   show_hearing: true       # list everything speech recognition hears in the chat ("hide what you hear" to stop)
 

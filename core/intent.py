@@ -12,6 +12,8 @@ import unicodedata
 import numpy as np
 import yaml
 
+from core.registry import opposite_direction
+
 MODEL_DIR = os.path.expanduser("~/.local/share/jarvis/models/minilm")
 CACHE = os.path.join(MODEL_DIR, "phrases.npz")
 
@@ -44,6 +46,16 @@ class WordPiece:
                 ids.append(piece)
                 start = end
         return ids[:max_len - 1] + [self.sep]
+
+
+def _value(slot, value):
+    """{when}: "5 pm" -> "at 5 pm", "20 minutes" -> "in 20 minutes" ("tomorrow at 9 am" stays)."""
+    value = value.strip()
+    if slot != "when" or re.match(r"^(?:in|at|today|tonight|tomorrow)\b", value, re.IGNORECASE):
+        return value
+    if re.search(r"\d\s*(?:[ap]\.?\s?m\b|:\d)|\b(?:noon|midnight|o'?clock)\b", value, re.IGNORECASE):
+        return "at " + value
+    return "in " + value
 
 
 def template_regex(wording):
@@ -114,13 +126,15 @@ class IntentMatcher:
         for regex, target in self.templates:
             m = regex.match(text.strip().rstrip("?.!"))
             if m:
-                return re.sub(r"\{(\w+)\}", lambda s: m.group(s.group(1)).strip(), target)
+                return re.sub(r"\{(\w+)\}", lambda s: _value(s.group(1), m.group(s.group(1))), target)
         return None
 
     def match(self, text):
         """(known phrase, score), or (None, best score) when nothing is close enough."""
         scores = self.matrix @ self.embed([text])[0]
-        order = np.argsort(-scores)
+        order = [i for i in np.argsort(-scores) if not opposite_direction(text, self.targets[i])]
+        if not order:
+            return None, 0.0
         best = order[0]
         # The runner-up must be clearly worse unless it points at the same phrase.
         rival = next((i for i in order[1:] if self.targets[i] != self.targets[best]), None)

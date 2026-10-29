@@ -1,0 +1,30 @@
+# Your projects (folders in ~/Projects): extra spoken names, and folders JARVIS leaves out.
+# JARVIS already knows each folder's name said with spaces ("avtec hs", "upe blockline"),
+# the name in its project.json, and its README title; add what you actually say.
+#
+# Running them is `biztel run` — how each one runs: `biztel projects`; fix one in ~/.config/biztel/run.json.
+
+aliases:
+  AI-Supervisior-fronend: [ai supervisor, ai supervisor frontend, supervisor frontend]
+  avtec-hs: [hub sleeve, avtec hub sleeve, hs station]
+  avtec-circlip: [avtec circlip, circlip station]
+  Oring: [o ring, o-ring]
+  study-budd: [study buddy, study bud]
+  ProductVT: [product vt, product v t]
+  J.A.R.V.I.S: [jarvis, yourself]
+  biztel-project-builder: [project builder, biztel builder]
+  BiztelAI Platform: [platform, biztel platform, vision intel platform]
+
+skip: [temp]
+
+# How JARVIS says a project's name back (default: project.json's name, the README title, or the folder).
+say_as:
+  ProductVT: Product V T
+  UPE-Stations: U P E Stations
+  UPE-blockline: U P E blockline
+  AI-Supervisior-fronend: AI Supervisor frontend
+  Oring: O-ring
+  avtec-circlip: Avtec Circlip
+  J.A.R.V.I.S: Jarvis
+  BiztelAI Platform: Biztel AI Platform
+  vertex-camera: Vertex Camera

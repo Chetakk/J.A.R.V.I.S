@@ -10,6 +10,7 @@
 # (rm, sudo, dd, redirects with >, ...) to manual, whatever this file says.
 
 auto:
+  - jarvis              # tools/jarvis: say / show a card / do a JARVIS phrase
   - xdg-open
   - google-chrome
   - firefox

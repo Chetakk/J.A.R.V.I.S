@@ -62,6 +62,14 @@ class Apps:
                 names += ALIASES.get(app["name"].lower(), [])
                 for n in names:
                     self.by_name.setdefault(n, app)
+        # "the music player": an app's description, when only one app has it.
+        generic = {}
+        for app in self.apps:
+            if app["generic"]:
+                generic.setdefault(app["generic"].lower(), []).append(app)
+        for g, same in generic.items():
+            if len(same) == 1:
+                self.by_name.setdefault(g, same[0])
 
     def find(self, name):
         name = name.lower().strip()

@@ -9,6 +9,16 @@ from core.speech import pick
 
 FUZZY_CUTOFF = 0.82
 _SLOT = re.compile(r"\{(\w+)\}")
+# "turn on airplane mode" is one letter away from "turn off airplane mode": never match across these.
+_OPPOSITES = [("on", "off"), ("up", "down"), ("enable", "disable"), ("open", "close"), ("show", "hide"),
+              ("start", "stop"), ("louder", "quieter"), ("brighter", "darker"), ("in", "out"), ("max", "min"),
+              ("mute", "unmute"), ("connect", "disconnect"), ("lock", "unlock"), ("next", "previous")]
+
+
+def opposite_direction(said, phrase):
+    """True if `phrase` goes the other way from what was said ("on" said, "off" in the phrase)."""
+    a, b = set(re.findall(r"[a-z]+", said.lower())), set(re.findall(r"[a-z]+", phrase.lower()))
+    return any((x in a and y in b and y not in a) or (y in a and x in b and x not in a) for x, y in _OPPOSITES)
 _GREETING = r"(?:hey|hello|hi|ok|okay)"
 _TRAILING_FILLER = re.compile(r"[\s,]*(?:please|for me|now)?[\s.!?]*$", re.IGNORECASE)
 
@@ -101,7 +111,8 @@ class Registry:
         return None
 
     def match_fuzzy(self, text):
-        best = difflib.get_close_matches(text.lower(), self._exact.keys(), n=1, cutoff=FUZZY_CUTOFF)
+        best = [p for p in difflib.get_close_matches(text.lower(), self._exact.keys(), n=5, cutoff=FUZZY_CUTOFF)
+                if not opposite_direction(text, p)]
         return Match(self._exact[best[0]], {}) if best else None
 
     def has_name(self, name):

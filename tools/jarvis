@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Let any Claude (the Claude terminal, a fix task, VS Code) use the running JARVIS:
+
+  jarvis say "text"                       speak it in JARVIS's voice
+  jarvis show "Title" "markdown"          put a card on screen (markdown may also come on stdin)
+  jarvis show "Title" --image /path.png   ...with a picture
+    more options: --id NAME (update that card in place: progress), --choice "phrase" (a button; repeat it),
+    --refresh "command" --every 5 (keep the card live; {output} in the markdown is the latest output)
+  jarvis do "phrase"                      have JARVIS do one of its own abilities, as if the user said it
+
+Card markdown: # heading, - bullets (indent to nest), 1. numbered, - [ ] / - [x] checklists, | table |, ``` blocks, > quote, --- divider, **bold**, *italic*, `code`, [links](https://...).
+"""
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+from core.speech import INBOX, speak_via_jarvis  # noqa: E402
+from core.terminal import RUN_DIR  # noqa: E402
+
+ABILITIES = os.path.join(RUN_DIR, "abilities.txt")  # written by JARVIS at start: phrases "do" understands
+
+MAX = 3500  # one write to the pipe stays whole below 4 KB
+
+
+def send(message):
+    line = json.dumps(message)
+    if len(line) > MAX:
+        sys.exit("jarvis: too long for one card, keep it under about %d characters" % (MAX - 200))
+    try:
+        fd = os.open(INBOX, os.O_WRONLY | os.O_NONBLOCK)
+    except OSError:
+        sys.exit("jarvis: JARVIS isn't running")
+    os.write(fd, (line + "\n").encode())
+    os.close(fd)
+
+
+def main(args):
+    if len(args) < 2 or args[0] not in ("say", "show", "do"):
+        try:
+            with open(ABILITIES) as f:
+                sys.exit(__doc__ + "\nPhrases for \"do\":\n  " + f.read())
+        except OSError:
+            sys.exit(__doc__)
+    if args[0] == "say":
+        speak_via_jarvis(" ".join(args[1:]))  # speaks even when JARVIS isn't running
+    elif args[0] == "do":
+        send({"do": " ".join(args[1:])})
+    else:
+        title, rest, image = args[1], args[2:], ""
+        options = {"--image": [], "--id": [], "--choice": [], "--refresh": [], "--every": []}
+        while any(o in rest for o in options):
+            i = next(n for n, a in enumerate(rest) if a in options)
+            options[rest[i]].append(rest[i + 1] if i + 1 < len(rest) else "")
+            rest = rest[:i] + rest[i + 2:]
+        image = os.path.abspath(options["--image"][-1]) if options["--image"] else ""
+        text = " ".join(rest) if rest else ("" if sys.stdin.isatty() else sys.stdin.read())
+        text = text.replace("\\n", "\n")  # a written-out \n works as a line break too
+        card = {"title": title, "text": text.strip()[:MAX], "image": image, "choices": options["--choice"]}
+        if options["--id"]:
+            card["id"] = options["--id"][-1]
+        if options["--refresh"]:
+            card["refresh"] = {"command": options["--refresh"][-1], "every": float((options["--every"] or [5])[-1])}
+        send({"show": card})
+    print("ok")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

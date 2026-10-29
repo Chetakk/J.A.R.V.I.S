@@ -10,6 +10,7 @@ import os
 import queue
 import random
 import re
+import shlex
 import sys
 import threading
 import time
@@ -27,7 +28,10 @@ from core.browser import Browser
 from core.claude_bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from core.skills import Skills
+from core.extras import Extras
+from core.card_actions import CardActions
 from core.listen import PushToTalk
+from core.projects import Projects
 from core.apps import Apps
 from core.intent import IntentMatcher
 from core.registry import Registry, clean
@@ -62,7 +66,11 @@ Built-in skills (core/skills.py): "stop", "status", "what's on my screen", "clos
 "fix the grammar in what I copied", "remember that ...", "what did I ask you to remember", "find my resume",
 "open the latest download", "maximise", "move this to workspace 2", "put chrome on the left", "switch to vs code",
 "is the nano up", "run uptime on the nano", "git status of study buddy", "open the study buddy project",
-"run the tests in jarvis", "ask claude to <task> in the <name> project"."""
+"run the tests in jarvis", "ask claude to <task> in the <name> project".
+Projects (~/Projects, core/projects.py; spoken names in config/projects.yaml): "run avtec hs" (biztel run, in a
+terminal), "stop avtec hs", "what's running", "links for avtec hs", "open avtec hs in the browser", "biztel build",
+"what's study buddy about", "list my projects", "what was I working on", "note for avtec hs: <text>",
+"notes for avtec hs", "what's pending", "refresh projects". "run it" / "its links" = the project you last named."""
 
 OPEN_CLAUDE = {"open claude", "open claude terminal", "open claude code", "talk to claude"}
 OPEN_CLAUDE_VSCODE = {"open claude in vs code", "open claude in vscode", "open claude code in vs code",
@@ -73,21 +81,51 @@ CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hea
                 "show chat": "/chat on", "open chat": "/chat on", "show the chat": "/chat on",
                 "hide chat": "/chat off", "close chat": "/chat off", "hide the chat": "/chat off",
                 "show orb": "/orb on", "hide orb": "/orb off",
+                "show that again": "/card on", "show the card": "/card on", "show it again": "/card on",
+                "close the card": "/card off", "hide the card": "/card off", "close card": "/card off",
+                "hide that": "/card off",
                 "go to your workspace": "/desk", "take me to your workspace": "/desk", "go to jarvis workspace": "/desk"}
 
 
-# Said in a follow-up (no name): only these go to Claude; other chatter ("moving on") is ignored.
-REQUEST = re.compile(r"^\W*(please |hey |so |and |also |ok |okay )?(can you |could you |would you |will you )?"
-                     r"(what|what's|whats|when|where|who|whose|why|how|which|is|are|am|was|were|do|does|did|can|"
-                     r"could|would|will|should|shall|tell|give|show|find|search|look|open|close|launch|start|"
-                     r"stop|play|pause|resume|turn|set|make|create|write|read|check|remind|add|remove|delete|"
-                     r"explain|define|translate|calculate|go|take|switch|run|send|help|i want|i need|let's|lets)\b",
-                     re.IGNORECASE)
+
+# JARVIS's built-in abilities, for Claude's "do" field (sites, searches and saved commands are added from the YAML).
+ABILITIES = "\n  ".join((
+    "reminders: \"remind me in 10 minutes to <x>\", \"remind me at 5 pm to <x>\", \"what are my reminders\", "
+    "\"clear my reminders\"",
+    "notes: \"remember that <x>\", \"what do you remember about <x>\", \"forget <x>\"",
+    "windows: \"switch to <app>\", \"go to workspace <n>\", \"move this to workspace <n>\", \"maximize <app>\", "
+    "\"minimize <app>\", \"put <app> on the left|right\", \"close this window\", \"close <app>\"",
+    "browser tabs: \"switch to the <name> tab\", \"close this tab\", \"new tab\", \"reopen the last tab\", "
+    "\"next tab\", \"go back\", \"refresh the page\", \"scroll down\", \"zoom in\"",
+    "media: \"pause\", \"play\", \"next song\", \"previous song\", \"what's playing\"",
+    "clipboard: \"what's on my clipboard\"",
+    "files: \"find my <file>\", \"open the latest download\", \"open the latest file in documents\"",
+    "jetson nano: \"is the nano up\", \"restart the nano link\", \"switch to the nano\", \"run <command> on the nano\"",
+    "projects: \"open <project> project\", \"run <project>\", \"stop <project>\", \"run the tests in <project>\", "
+    "\"ask claude to <task> in <project> project\", \"git status of <project>\"",
+    "itself: \"status\", \"stop\" (stop talking), \"open claude\", \"show chat\", \"do that again\", \"undo that\" (reverses the last setting)",
+    "cards: \"show that again\", \"close the card\", \"read it to me\", \"copy that\", \"save that\", "
+    "\"show the previous card\", \"pin it\", \"unpin\", \"the second one\" (a choice), \"open the first link\"",
+    "timers: \"set a timer for 10 minutes for <x>\", \"cancel the timer\"",
+    "typing: \"type <text>\" (into the focused window), \"start dictation\" ... \"stop dictation\"",
+    "maths and units (instant): \"what's 18% of 2400\", \"50 miles in km\", \"100 fahrenheit in celsius\"",
+    "focus: \"focus for 45 minutes\" (no heads-ups or notifications), \"stop focusing\", \"how long left on focus\"",
+    "computer: \"what's slowing my computer\" (top CPU/memory users, offers to close one), \"where was I\"",
+    "clipboard history: \"paste the thing I copied before\", \"paste number 3\", \"clipboard history\""))
+
+# What Claude Code gets when asked to change JARVIS itself ("fix ... in jarvis").
+FIX_PROMPT = ("You're changing JARVIS itself: the voice assistant in this folder (start at jarvis.py; settings and "
+              "commands are in config/). It is running right now and picks up code changes after a restart. Keep "
+              "the change small and in the style of the code around it, keep it light and fast, check that the "
+              "files still compile, and say if JARVIS needs a restart.\n\nTask: %s")
+
+FIX_ASKED = re.compile(r"\b(?:fix|change|improve|update|make (?:it|you|yourself)|add|remove|stop|don't|do not|"
+                       r"should(?:n't)?|teach|set (?:it|yourself))\b", re.IGNORECASE)
 
 # Words that alone don't make a request: "is", "put that", "what the", "okay okay" are mishearings, not questions.
 FILLER = set("""a an the and but or so is it it's its that this those these what what's whats up um uh hmm
 huh oh ok okay yeah yes no yep nope well like just i i'm me you your we put get got go do did be been was
-there here then now hey hi hello right sure fine good""".split())
+there here then now hey hi hello right sure fine good why how when where who which""".split())
 CODE = re.compile(r"[{}=;<>`$\\]|\b(?:import|def|return|sys\.\w+)\b")
 
 
@@ -123,11 +161,15 @@ class Jarvis:
         self.show_hearing = bool((self.settings.get("ui") or {}).get("show_hearing", True))
         self.speaker = Speaker(self.settings.get("speech") or {})
         self.speaker.on_say = self._said
+        self.speaker.on_message = lambda msg: self.inbox.put(("ctl", msg))  # handled on the main loop
         self.speaker.quiet = lambda: persona.quiet_hours(self.settings)
         self.speaker.quiet_volume = (self.settings.get("quiet_hours") or {}).get("volume", 40)
         self.executor = Executor(self.safety, self.speaker, self.settings, self.ask)
         self.whisper_port = int((self.settings.get("stt") or {}).get("port", 8178))
-        self.skills = Skills(self)  # stop, status, screen, tabs, clipboard, files, windows, media, notes, nano, git
+        self.projects = Projects()  # ~/Projects: names, READMEs; running them is biztel run
+        self.cards = CardActions(self)  # "the second one", "read it to me", "pin it", timers, live cards
+        self.skills = Skills(self)  # stop, status, projects, screen, tabs, clipboard, files, windows, media, notes, nano, git
+        self.extras = Extras(self)  # dictation, maths and units, focus mode, slow computer, where was I, clipboard history
         self.mode = self.settings.get("mode", "agent")
         self.memory = persona.Memory()
         self.warned = {}  # heads-up key -> when it was last mentioned
@@ -135,11 +177,13 @@ class Jarvis:
         self.last_app = None  # process of the last app opened, for "close it"
         self.last_undo = None  # saved command that reverses the last one, for "undo that"
         self.handling_since = None  # when the request being handled started (the watchdog restarts a stuck one)
+        self._rewording = False  # handling a phrase the meaning matcher rewrote; it isn't rewritten again
         self.whisper = self.wake = None
         self.ignored = False  # last follow-up was chatter, not a request
         self.follow_up = lambda: None  # wake word: listen once more without the name (set by start_voice)
         self.recent = deque(maxlen=8)  # what happened without Claude since its last answer, passed on next time
         self.source = "text"  # how the current request came in: text / voice / follow
+        self.from_claude = False  # handling one of Claude's "do" phrases: never send it back to Claude
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
 
     def state(self, name):
@@ -177,7 +221,8 @@ class Jarvis:
         except Exception as e:
             print("[intent] meaning matcher off: %r" % e)
         self.browser = Browser(self.registry)
-        self.claude = Claude(self.settings.get("claude") or {}, self.name, self.settings.get("user_name") or "the user")
+        self.claude = Claude(self.settings.get("claude") or {}, self.name, self.settings.get("user_name") or "the user",
+                             self._abilities())
         if hasattr(self, "executor"):
             self.executor.safety = self.safety
 
@@ -230,10 +275,7 @@ class Jarvis:
             return self._undo()
         if low in CHAT_PHRASES:
             return self._slash(CHAT_PHRASES[low])
-        if self._personal(text) or self.skills.handle(text):
-            return True
-        self.last_request = text
-        if low in OPEN_CLAUDE:
+        if low in OPEN_CLAUDE:  # before the skills: "open claude in vs code" isn't a project
             if self.claude.open_terminal():
                 self.speaker.say(["Claude's already open, here it is.", "Here's Claude."])
             else:
@@ -248,8 +290,17 @@ class Jarvis:
             open_in_vscode(m.group(1))
             self.speaker.say(["Done, I've passed that to Claude in VS Code.", "Okay, Claude in VS Code has it."])
             return True
+        if (self.extras.first(text) or self._personal(text) or self.cards.handle(text) or self.extras.handle(text)
+                or self.skills.handle(text)):
+            return True
+        self.last_request = text
 
-        # 1. Exact command, 2. an installed app, 3. browser phrase, 4. close-enough command, 5. Claude.
+        # 1. Other wording with a value ("put milk on my to-do list"), 2. exact command, 3. an installed app,
+        # 4. browser phrase, 5. same meaning in other words, 6. close-enough spelling, 7. Claude.
+        phrase = self.intents.fill(text) if self.intents and not self._rewording else None
+        if phrase:
+            self.heard(text, "means \"%s\"" % phrase)
+            return self._reword(phrase)
         if self._close_app(text):  # before the command list, whose "close {app}" can't find real process names
             return True
         match = self.registry.match_exact(text)
@@ -264,31 +315,30 @@ class Jarvis:
                 self.last_app = run.get("process") or os.path.basename(run["run"].split()[0])
             self.executor.run(action.shell(self.registry.browsers), reply=[p % action.description for p in ("Opening %s", "Sure, opening %s", "Okay, pulling up %s")])
             return True
+        # Same meaning, other words: rewritten to a phrase JARVIS knows, then handled again.
+        phrase, score = self.intents.match(text) if self.intents and not self._rewording else (None, 0)
+        if phrase:
+            self.heard(text, "means \"%s\" (%.2f)" % (phrase, score))
+            return self._reword(phrase)
         match = self.registry.match_fuzzy(text)
         if match:
             return self._run_match(match)
-        if self.intents and not getattr(self, "_rewording", False):
-            phrase = self.intents.fill(text)
-            if phrase:
-                self.heard(text, "means \"%s\"" % phrase)
-            else:
-                phrase, score = self.intents.match(text)
-                if phrase:
-                    self.heard(text, "means \"%s\" (%.2f)" % (phrase, score))
-            if phrase:
-                self._rewording = True
-                try:
-                    return self.handle(phrase)
-                finally:
-                    self._rewording = False
 
-        if follow_up and not (REQUEST.match(text) or text.rstrip().endswith("?")):
-            self.heard(text, "ignored (follow-up that isn't a question or request)")
+        # In a conversation (a follow-up, no name needed) everything you say is meant for JARVIS, so it
+        # goes through like any request. Only empty noise ("uh", a cough) is dropped, quietly.
+        if follow_up and not worth_asking(text, self.names):
+            self.heard(text, "ignored (just noise)")
+            self.recent.append("JARVIS ignored that (just noise)")
             self.ignored = True
+            return True
+        if self.from_claude:
+            self.heard(text, "Claude's \"do\" phrase matched nothing; skipped")
+            self._miss(text, "claude-do")
             return True
         if not worth_asking(text, self.names):
             self.heard(text, "ignored (too short or unclear to ask Claude)")
             self._miss(text, "unclear")
+            self.recent.append("JARVIS ignored that (too short or unclear)")
             self.speaker.say(["Sorry, I didn't catch that.", "Sorry, could you say that again?"])
             return True
         self._miss(text, "claude" if self.mode != "sys" else "unknown")
@@ -313,34 +363,17 @@ class Jarvis:
         elif persona.WHAT_DID_YOU_SAY.match(text):
             self.speaker.say(self.speaker.last or "I haven't said anything yet.")
         elif persona.CLOSE_IT.match(text):
-            if self.last_app:
+            if self.ui and self.ui.card_visible():
+                self.ui.close_card()  # the card on screen is the likeliest "it"
+            elif self.last_app:
                 return self.handle("close %s" % self.last_app)
             self.speaker.say("Sorry, I'm not sure what to close. Tell me the app's name.")
-        elif persona.LIST_REMINDERS.match(text):
-            reminders = self.memory.reminders()
-            if not reminders:
-                self.speaker.say(["You don't have any reminders.", "No reminders right now."])
-            else:
-                self.speaker.say("You have %d: %s." % (len(reminders), "; ".join(
-                    "%s %s at %s" % (r["kind"], r["what"], time.strftime("%-I:%M %p", time.localtime(r["due"])))
-                    for r in reminders)))
-        elif persona.CLEAR_REMINDERS.match(text):
-            count = self.memory.clear_reminders()
-            self.speaker.say("Okay, cleared %d reminder%s." % (count, "" if count == 1 else "s") if count
-                             else "There weren't any reminders.")
         else:
-            reminder = persona.parse_reminder(text)
-            if reminder == "no time":
-                self.speaker.say("Sure, when? Say something like, remind me in 10 minutes to stretch.")
-            elif reminder:
-                self.memory.add_reminder(reminder)
-                self.speaker.say(["Okay, I'll remind you %s %s %s." % (reminder["when"], reminder["kind"], reminder["what"]),
-                                  "Got it, %s." % reminder["when"]])
-            else:
-                reply = persona.small_talk(text, user, self.name, self.names)
-                if not reply:
-                    return False
-                self.speaker.say(reply)
+            # Reminders live in the day tracker now (core/todos.py, through the skills).
+            reply = persona.small_talk(text, user, self.name, self.names)
+            if not reply:
+                return False
+            self.speaker.say(reply)
         return True
 
     def offer(self, name):
@@ -375,7 +408,9 @@ class Jarvis:
             self.speaker.say(line)
 
         try:
-            answer = self.claude.ask(text, recent, on_say=speak_early, image=image, about=self._about())
+            known = self.projects.context(text)
+            answer = self.claude.ask(text + ("\n\n[%s]" % known if known else ""), recent, on_say=speak_early,
+                                     image=image, about=self._about())
         except ClaudeError as e:
             self.speaker.say("Sorry, I ran into a problem: %s." % str(e).rstrip("."))
             return
@@ -393,8 +428,15 @@ class Jarvis:
             # Claude chained commands anyway: run them as separate steps, so each can be checked and stopped.
             answer["steps"] = [{"command": part.strip()} for part in answer["command"].split(" && ")]
             answer["command"] = ""
+        for phrase in (answer["do"] if isinstance(answer["do"], list) else [])[:5]:
+            self.chat("sys", "do: %s" % phrase)
+            self.from_claude = True
+            try:
+                self.handle(str(phrase))
+            finally:
+                self.from_claude = False
         if answer["steps"]:
-            self._run_steps(answer["steps"])
+            self._run_steps(answer["steps"], text)
         if answer["details"]:
             print("  " + str(answer["details"]).replace("\n", "\n  "))
             self.chat("claude", str(answer["details"]))
@@ -406,15 +448,58 @@ class Jarvis:
                 out = self.executor.run(command, reply=["Done.", "All done.", "There you go."],
                                         output=bool(answer["output"]),
                                         question=["Want me to run it?", "Should I go ahead and run it?"],
-                                        on_output=lambda o: o if 0 < len(o) <= 120 else pick(
-                                            ["That's a long one, so I've put it on screen.",
-                                             "Here you go, it's on your screen."]))
+                                        on_output=lambda o: o if 0 < len(o) <= 120 else "")
                 if out and len(out) > 120:
                     print("  " + out.replace("\n", "\n  "))
+                    self._read_out(text, command, out)
+                elif out:
+                    self.recent.append("Command output: %s" % out)
         if answer["save"]:
             self._save(answer["save"])
         if answer["suggest"]:
             self._suggest(answer["suggest"])
+        if isinstance(answer["show"], dict):
+            self.show(answer["show"])
+        misheard = answer["misheard"]
+        if isinstance(misheard, dict) and misheard.get("meant"):
+            self.chat("sys", "misheard: \u201c%s\u201d, probably \u201c%s\u201d" % (misheard.get("heard") or text,
+                                                                               misheard["meant"]))
+        if answer["fix"]:
+            # Fix straight away only if you asked for a change; a complaint gets asked about first.
+            if FIX_ASKED.search(text) or self.ask(["Want me to get that fixed?", "Shall I have Claude fix that?"]):
+                self._fix_jarvis(answer["fix"])
+            else:
+                self.speaker.say(["Okay, I'll leave it as it is.", "Sure, no fix for now."])
+
+    def _fix_jarvis(self, fix):
+        """You asked for a change to JARVIS itself: Claude Code does it in this project, in a terminal for
+        a small fix or in VS Code for a big one. Edits still go through the safety hook."""
+        if not isinstance(fix, dict) or not str(fix.get("task") or "").strip():
+            return
+        task = FIX_PROMPT % str(fix["task"]).strip()
+        self.chat("sys", "fix for %s (%s): %s" % (self.name, fix.get("size") or "small", fix["task"]))
+        if fix.get("size") == "big":
+            self.executor.run("code %s" % shlex.quote(HERE), reply="", window=True)
+            threading.Timer(3, open_in_vscode, [task]).start()  # give VS Code time to open the project first
+            self.speaker.say("That's a bigger job, so I've opened my project in VS Code with Claude on it.")
+        else:
+            self.claude.open_terminal(cwd=HERE, prompt=task,
+                                      model=(self.settings.get("claude") or {}).get("fix_model"))
+            self.speaker.say("Claude's fixing that in a terminal. Restart me when it's done.")
+
+    def _abilities(self):
+        """What JARVIS itself understands, for Claude's "do" (built into its system prompt)."""
+        reg = self.registry
+        searchable = [site for site, info in reg.sites.items() if info.get("search")]
+        saved = [c["say"][0] for c in reg.commands if c.get("say")]
+        return "\n  ".join(line for line in (
+            ABILITIES,
+            "sites: \"open <site>\" (several: \"open gmail and youtube\"), add \"in chrome\"/\"in firefox\": %s"
+            % ", ".join(reg.sites),
+            "search: \"search <site> for <thing>\" on %s; \"google <thing>\"" % ", ".join(searchable),
+            "tab groups: \"open my <group> tabs\": %s" % ", ".join(reg.tab_groups) if reg.tab_groups else "",
+            "saved commands (exact phrases): %s" % "; ".join(saved),
+        ) if line)
 
     def _about(self):
         """The line that tells Claude who is asking, how, and how much it's been used today."""
@@ -429,34 +514,92 @@ class Jarvis:
             self.name, usage["questions"], round(usage["tokens"] / 1000)))
         return " | ".join(parts)
 
+    def control(self, msg):
+        """A message from tools/jarvis (the Claude terminal, a fix task, VS Code): show a card or do a phrase."""
+        if isinstance(msg.get("show"), dict):
+            self.show(msg["show"])
+        elif msg.get("do"):
+            self.chat("sys", "Claude asked: %s" % msg["do"])
+            self.from_claude = True  # never bounce it back to Claude
+            try:
+                self.handle(str(msg["do"]))
+            finally:
+                self.from_claude = False
+
+    def show(self, card):
+        """Put a card on screen: {"title", "text" (markdown), "image", "choices", "id", "refresh"} (see core/card.py)."""
+        if not (card.get("text") or card.get("image") or card.get("choices")):
+            return
+        if self.ui:
+            if card.get("refresh"):
+                self.cards.live(card)  # shows it, then keeps it up to date
+            else:
+                self.ui.show_card(card)
+        else:
+            print("  [card] %s\n  %s" % (card.get("title") or "", str(card.get("text") or "").replace("\n", "\n  ")))
+
+    def _read_out(self, request, command, out):
+        """Long output: Claude picks out what you asked for and says it, instead of "it's on your screen"."""
+        self.chat("sys", out[-1500:])
+        self.state("claude")
+        user = self.settings.get("user_name") or "the user"
+        try:
+            answer = self.claude.ask(
+                "Your command ran: %s\nIts output:\n%s\n\nIn \"say\", tell %s what they asked for (\"%s\") from "
+                "this output, with the actual numbers or names. If a small table or list would help them see it, "
+                "put it in \"show\". Leave every other field empty or null."
+                % (command, out[-3000:], user, request), about=self._about())
+        except ClaudeError:
+            self.speaker.say(["That's a long one, so I've put it on screen.", "Here you go, it's on your screen."])
+            return
+        finally:
+            self.recent.clear()
+            self.state("thinking")
+        self.speaker.say(answer["say"] or "It's on your screen.")
+        self.show(answer["show"] if isinstance(answer["show"], dict) else
+                  {"title": command, "text": "```\n%s\n```" % out[-3000:]})
+        if answer["details"]:
+            self.chat("claude", str(answer["details"]))
+
     def _suggest(self, suggest):
-        """Pass on Claude's own recommendation: a tip, or a yes/no offer that runs a command."""
+        """Pass on Claude's own recommendation: a tip, or a yes/no offer that runs a command or fixes JARVIS."""
         if not isinstance(suggest, dict) or not str(suggest.get("say") or "").strip():
             return
         gap = (self.settings.get("claude") or {}).get("suggest_every_minutes", 10) * 60
-        if time.time() - self.last_suggest < gap:
+        if time.time() - self.last_suggest < gap or self.extras.focusing():
             return
         self.last_suggest = time.time()
         say, command = str(suggest["say"]).strip(), str(suggest.get("command") or "").strip()
-        self.chat("sys", "suggestion: %s%s" % (say, "  (command: %s)" % command if command else ""))
-        if not command:
+        fix = suggest.get("fix") if isinstance(suggest.get("fix"), dict) else None
+        self.chat("sys", "suggestion: %s%s" % (say, "  (command: %s)" % command if command else
+                                                "  (fix: %s)" % fix.get("task") if fix else ""))
+        if fix:
+            if self.ask(say):
+                self._fix_jarvis(fix)
+            else:
+                self.speaker.say(["Okay, I'll leave it as it is.", "Sure, no fix for now."])
+        elif not command:
             self.speaker.say(say)
         elif self.ask(say):
             self.executor.run(command, reply=["Done.", "There you go."], output=True)
         else:
             self.speaker.say(["Okay, no worries.", "Sure, never mind."])
 
-    def _run_steps(self, steps):
+    def _run_steps(self, steps, request=""):
         """Agent mode: run Claude's multi-step plan in order. Every step goes through the safety rules;
         the plan stops at the first step that fails, is refused, or has to be run by hand."""
         steps = [s for s in steps if isinstance(s, dict) and str(s.get("command") or "").strip()][:10]
         if not steps:
             return
-        self.chat("sys", "plan:\n" + "\n".join("%d. %s" % (i + 1, s["command"]) for i, s in enumerate(steps)))
-        if len(steps) > 1 and not self.ask("That's %d steps; I've put them in the chat. Shall I go ahead?"
+        plan = "\n".join("%d. %s" % (i + 1, s["command"]) for i, s in enumerate(steps))
+        self.chat("sys", "plan:\n" + plan)
+        if len(steps) > 1:
+            self.show({"title": "Plan: %d steps" % len(steps), "text": "```\n%s\n```" % plan})
+        if len(steps) > 1 and not self.ask("That's %d steps; they're on your screen. Shall I go ahead?"
                                            % len(steps)):
             self.speaker.say(["Okay, I won't.", "No problem, cancelled."])
             return
+        outputs = []
         for i, step in enumerate(steps):
             command = str(step["command"]).strip()
             if step.get("say"):
@@ -466,14 +609,20 @@ class Jarvis:
                                     question=["Step %d: run %s?" % (i + 1, command.split()[0])])
             if out:
                 self.chat("sys", out[-600:])
+                self.recent.append("Step %d output: %s" % (i + 1, out[-600:]))
+                if step.get("output"):
+                    outputs.append("$ %s\n%s" % (command, out[-1500:]))
             if not self.executor.ok:
                 self.speaker.say("I stopped at step %d of %d%s." % (
                     i + 1, len(steps), ", it didn't work" if out else ""))
                 return
-        self.speaker.say(["All %d steps done." % len(steps), "Done, that's everything."])
+        if outputs:  # the plan was there to find something out: Claude reads it out and shows it
+            self._read_out(request, " ; ".join(str(s["command"]) for s in steps), "\n\n".join(outputs))
+        else:
+            self.speaker.say(["All %d steps done." % len(steps), "Done, that's everything."])
 
     def _save(self, save):
-        """Add Claude's suggested shortcut to commands.yaml and say how to use it (it decides what's worth it)."""
+        """Offer to add Claude's suggested shortcut to commands.yaml; it's only saved if you say yes."""
         try:
             name = re.sub(r"\W+", "_", str(save["name"]).lower()).strip("_")
             phrases = [str(p).lower().strip() for p in save["phrases"] if str(p).strip()]
@@ -489,8 +638,12 @@ class Jarvis:
         if self.safety.classify(re.sub(r"\{(\w+)\}", r"\1", run))[0] == MANUAL:
             return  # JARVIS could never run it itself, so it isn't worth a shortcut.
         print("  save as: %s  (say: %s)  run: %s" % (name, " | ".join(phrases), run))
-        self.registry.add(name, phrases, run, str(save.get("reply") or "Done"), bool(save.get("output")))
         phrase = re.sub(r"\{\w+\}", "something", phrases[0])
+        self.chat("sys", "suggested command %s: %s\nrun: %s" % (name, " | ".join(phrases), run))
+        if not self.ask('Want me to remember "%s" for next time?' % phrase):
+            self.speaker.say(["Okay, I won't save it.", "No problem, not saved."])
+            return
+        self.registry.add(name, phrases, run, str(save.get("reply") or "Done"), bool(save.get("output")))
         self.chat("sys", "saved command %s: %s" % (name, " | ".join(phrases)))
         self.speaker.say(['I\'ve saved that. Next time just say "%s".' % phrase,
                           'Saved. Just say "%s" next time.' % phrase])
@@ -510,6 +663,13 @@ class Jarvis:
         if self.executor.ok:
             self.last_undo = undo.opposite(match.name)
         return True
+
+    def _reword(self, phrase):
+        self._rewording = True  # one rewrite only: the new phrase isn't rewritten again
+        try:
+            return self.handle(phrase)
+        finally:
+            self._rewording = False
 
     def _open_app(self, text):
         m = apps.OPEN.match(text)
@@ -563,6 +723,7 @@ class Jarvis:
             print("  tab groups: %s" % ", ".join(self.registry.tab_groups))
         elif cmd == "/reload":
             self.load()
+            self.projects.refresh()
             self.speaker.say(["Okay, I've reloaded everything.", "All refreshed."])
         elif cmd == "/new":
             self.claude.new_session()
@@ -585,6 +746,13 @@ class Jarvis:
                 self.ui.show_chat(on)
             else:
                 self.ui.show_orb(on)
+        elif cmd == "/card":
+            if not self.ui:
+                print("  The UI isn't running.")
+            elif arg.strip().lower() == "off":
+                self.ui.close_card()
+            else:
+                self.ui.show_card()  # the last card again
         elif cmd == "/desk":
             desktop.go_to_jarvis_workspace()
         elif cmd == "/status":
@@ -643,9 +811,10 @@ def start_voice(jarvis, whisper):
         def on_text(text, follow_up):
             jarvis.state("thinking")
             jarvis.inbox.put(("follow" if follow_up else "voice", text))
-        wake = WhisperWake(jarvis.names, whisper, on_text, on_wake=on_listen, is_busy=busy, on_heard=jarvis.heard,
+        wake = WhisperWake(jarvis.names, whisper, on_text, on_wake=on_listen, is_busy=busy, is_echo=jarvis.speaker.is_echo, on_heard=jarvis.heard,
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
-                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)))
+                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)),
+                           is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"))
         wake.start()
         jarvis.wake = wake
         jarvis.follow_up = wake.follow_up
@@ -676,6 +845,10 @@ def run_loop(jarvis, has_ui):
         if kind == "offer":
             print()
             jarvis.offer(line)
+            continue
+        if kind == "ctl":  # another Claude, via tools/jarvis
+            print()
+            jarvis.control(line)
             continue
         if kind == "follow":
             print(line)
@@ -711,7 +884,7 @@ def watch(jarvis):
         try:
             for reminder in jarvis.memory.due_reminders():
                 jarvis.inbox.put(("say", persona.reminder_line(reminder, jarvis.settings.get("user_name"))))
-            if tick % 12:
+            if tick % 12 or jarvis.extras.focusing():  # focus mode: no heads-ups or habit offers
                 continue
             for key, line in persona.heads_ups(jarvis.settings):
                 if time.time() - jarvis.warned.get(key, 0) > 2 * 3600:
@@ -750,6 +923,8 @@ def main():
         jarvis.ui = UI(ui_cfg, on_text=lambda t: inbox.put(("text", t)),
                        on_command=lambda c: inbox.put(("quit", "") if c == "/quit" else ("text", c)),
                        is_speaking=jarvis.speaker.busy)
+        from gi.repository import GLib
+        GLib.idle_add(jarvis.extras.watch_clipboard)  # clipboard history ("paste the thing I copied before")
 
     ups = persona.heads_ups(jarvis.settings)[:2]
     for key, _ in ups:

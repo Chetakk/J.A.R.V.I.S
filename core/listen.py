@@ -25,6 +25,20 @@ def active_window_class():
         return ()
 
 
+def active_window_title():
+    """Title of the focused window (browser tab, terminal title); empty string if unknown."""
+    try:
+        from Xlib import X, display
+        d = display.Display()
+        root = d.screen().root
+        win_id = root.get_full_property(d.intern_atom("_NET_ACTIVE_WINDOW"), X.AnyPropertyType).value[0]
+        prop = d.create_resource_object("window", win_id).get_full_property(d.intern_atom("_NET_WM_NAME"), 0)
+        d.close()
+        return prop.value.decode("utf-8", "ignore") if prop else ""
+    except Exception:
+        return ""
+
+
 def beep(freq=880, seconds=0.08):
     """A short tone so you know JARVIS is listening. Never blocks and never raises."""
     def play():
@@ -76,6 +90,7 @@ class PushToTalk:
         side = "_r" if cfg.get("key", "right_ctrl").startswith("right_") else "_l"
         self.key = getattr(keyboard.Key, key_name + side, None) or getattr(keyboard.Key, key_name)
         self.pass_through = [w.lower() for w in cfg.get("pass_through_windows") or []]
+        self.pass_through_titles = [w.lower() for w in cfg.get("pass_through_titles") or []]
         self.on_audio = on_audio
         self.on_listen = on_listen or (lambda active: None)
         self.recorder = Recorder()
@@ -132,7 +147,10 @@ class PushToTalk:
 
     def _focused_app_wants_key(self):
         classes = [c.lower() for c in active_window_class()]
-        return any(p in c for p in self.pass_through for c in classes)
+        if any(p in c for p in self.pass_through for c in classes):
+            return True
+        title = active_window_title().lower() if self.pass_through_titles else ""
+        return any(t in title for t in self.pass_through_titles)
 
     def _release(self, key):
         if key == self.key and self.recording:

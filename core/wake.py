@@ -28,6 +28,7 @@ MODELS = os.path.expanduser("~/.local/share/jarvis/models")
 KWS_DIR = os.path.join(MODELS, "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01")
 KWS_FILES = "epoch-12-avg-2-chunk-16-left-64.int8.onnx"
 VAD_WINDOW = 512
+VAD_TAIL = 0.5  # silence the voice detector waits for before ending a bit of speech
 
 
 class WakeWord:
@@ -163,8 +164,9 @@ class WhisperWake:
     """Wakes on any of `names` heard by Whisper. on_text(command, follow_up) gets what to do (follow_up:
     said without the name, after an answer); on_wake(True/False) reports listening state, like WakeWord."""
 
-    def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=6,
-                 on_heard=None, follow_seconds=8, on_stop=None):
+    def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
+                 is_echo=None,
+                 on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any"):
         self.names = names
         self.whisper = whisper
         self.on_text = on_text
@@ -173,10 +175,16 @@ class WhisperWake:
         # on_heard(text, outcome): everything speech recognition heard, for checking it in the chat panel.
         self.on_heard = on_heard or (lambda text, outcome: None)
         self.is_busy = is_busy or (lambda: False)
+        self.is_echo = is_echo or (lambda text, started: False)  # (heard text, start time) -> own voice?
+        # Talking over JARVIS: "any" = a new request stops it (no name needed in a conversation),
+        # "named" = only with the name, "off" = only "stop". is_talking: JARVIS speaking (not push-to-talk).
+        self.is_talking = is_talking or self.is_busy
+        self.barge_in = barge_in
+        self.last_request = 0.0  # when a command was last passed on: within a minute, it's a conversation
+        self.mic, self.audio_at = None, time.time()  # for the watchdog: a mic that stops delivering is reopened
         self.max_seconds = max_seconds    # longer speech is conversation, not a wake phrase
         self.wait_seconds = wait_seconds  # after "EV?" alone, how long to wait for the command
         self.follow_seconds = follow_seconds  # after an answer, how long to listen without the name
-        self.mic, self.audio_at = None, time.time()  # for the watchdog: a mic that stops delivering is reopened
         self.waiting_until = 0.0
         self.following = False  # the current wait is a follow-up (after an answer), not after "EV?"
         vad_cfg = sherpa_onnx.VadModelConfig()
@@ -233,23 +241,24 @@ class WhisperWake:
         for seg in self._segments(mic):
             seconds = len(seg) / RATE
             if self.is_busy():
-                # Only a short "stop" / "EV, be quiet" gets through while JARVIS is talking.
-                if seconds <= 2.5 and self.on_stop:
-                    text = self.whisper.transcribe((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes())
-                    named, rest = split_name(text, self.names)
-                    if text and INTERRUPT.match(rest if named else text):
-                        self.on_heard(text, "stopped talking")
-                        self.on_stop()
-                        continue
+                if self.is_talking() and self.on_stop and seconds <= self.max_seconds and self._barge_in(seg, seconds):
+                    continue
                 self.on_heard("", "skipped %.1f s of speech (JARVIS was talking or push-to-talk was on)" % seconds)
                 continue
-            waiting = time.time() < self.waiting_until
+            started = time.time() - seconds - VAD_TAIL  # roughly when this bit of speech began
+            # Counted from when you STARTED talking, so a long command after "EV" isn't cut off.
+            waiting = started <= self.waiting_until
             if seconds > self.max_seconds and not waiting:
                 self.on_heard("", "skipped %.0f s of long talk (not a call)" % seconds)
                 continue
             text = self.whisper.transcribe((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes())
             if not text:
                 self.on_heard("", "couldn't make out words (%.1f s)" % seconds)
+                continue
+            # JARVIS's own voice coming back from the speaker (e.g. the tail of a Bluetooth delay).
+            # Saying the name always gets through, in case you repeat its words on purpose.
+            if self.is_echo(text, started) and not split_name(text, self.names)[0]:
+                self.on_heard(text, "ignored (my own voice)")
                 continue
             if waiting:
                 named, command = split_name(text, self.names)
@@ -265,6 +274,7 @@ class WhisperWake:
                 beep(660)
                 print("[wake] command: %r" % command)
                 self.on_heard(text, "follow-up" if self.following and not named else "command")
+                self.last_request = time.time()
                 self.on_text(command, self.following and not named)
                 continue
             named, command = split_name(text, self.names)
@@ -276,12 +286,57 @@ class WhisperWake:
             if command:
                 self.on_heard(text, "woke, command: %s" % command)
                 beep(660)
+                self.last_request = time.time()
                 self.on_text(command, False)
             else:
                 self.on_heard(text, "woke; say the command")
                 beep()  # "EV?" on its own: listen for the command next
                 self.following = False
                 self._wait(self.wait_seconds)
+
+    def _barge_in(self, seg, seconds):
+        """Speech while JARVIS is talking: True if it was for JARVIS (it stops talking and handles it)."""
+        if seconds > 2.5 and self.barge_in == "off":
+            return False
+        text = self.whisper.transcribe((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes())
+        if not text:
+            return False
+        named, rest = split_name(text, self.names)
+        if INTERRUPT.match(rest if named else text):
+            self.on_heard(text, "stopped talking")
+            self.on_stop()
+            return True
+        if self.barge_in == "off":
+            return False
+        started = time.time() - seconds - VAD_TAIL
+        echo = self.is_echo(text, started)
+        if named and not echo:  # (an echo of JARVIS saying its own name mustn't interrupt it)
+            self.on_stop()
+            self.on_wake(True)
+            if rest:
+                self._pass_on(text, rest, False, "interrupted, command: %s" % rest)
+            else:
+                self.on_heard(text, "interrupted; say the command")
+                beep()
+                self.following = False
+                self._wait(self.wait_seconds)
+            return True
+        if (self.barge_in == "any" and time.time() - self.last_request < 60
+                and not echo):
+            self.on_stop()
+            self._pass_on(text, text, True, "interrupted, follow-up")
+            return True
+        self.on_heard(text, "ignored while talking (%s)" % ("my own voice" if echo
+                                                            else "no name, not in a conversation"))
+        return True
+
+    def _pass_on(self, heard, command, follow_up, outcome):
+        self.waiting_until = 0.0
+        beep(660)
+        print("[wake] command: %r" % command)
+        self.on_heard(heard, outcome)
+        self.last_request = time.time()
+        self.on_text(command, follow_up)
 
     def follow_up(self):
         """After an answer (or a yes/no question): once JARVIS stops talking, listen for the next request
@@ -301,11 +356,22 @@ class WhisperWake:
         self.waiting_until = until = time.time() + seconds
         threading.Timer(seconds + 0.3, self._expire, args=(until,)).start()
 
-    def _expire(self, until):
-        if self.waiting_until == until:  # still waiting: nothing was said after the name
-            self.waiting_until = 0.0
-            print("[wake] nothing said; back to waiting for the name")
-            self.on_wake(False)
+    def _expire(self, until, was_talking=False):
+        if self.waiting_until != until:
+            return  # the command (or a new wait) already came
+        if self.vad.is_speech_detected():
+            # You're still talking: keep the window open until you finish.
+            threading.Timer(0.5, self._expire, args=(until, True)).start()
+            return
+        if was_talking:
+            # You just stopped: the voice detector hands the sentence over after a short silence, so
+            # give it a moment to arrive before closing the window.
+            threading.Timer(VAD_TAIL + 0.7, self._expire, args=(until, False)).start()
+            return
+        # Still waiting, and nothing was said after the name.
+        self.waiting_until = 0.0
+        print("[wake] nothing said; back to waiting for the name")
+        self.on_wake(False)
 
 
 def record_until_silence(vad, mic, max_seconds):

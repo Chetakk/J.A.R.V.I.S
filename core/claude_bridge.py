@@ -31,6 +31,15 @@ VOICE_PROMPT = (
     "that starts with 'SAY:' followed by one or two short, plain, conversational sentences summarizing what "
     "you did or found, written to be read aloud: no markdown, code, file paths, URLs or symbols. For long "
     "tasks, summarize the outcome and anything the user needs to do next.")
+# How any Claude reaches the running JARVIS (tools/jarvis, on the PATH as `jarvis`).
+JARVIS_TOOL = (
+    "You can also use JARVIS through the `jarvis` shell command: `jarvis show \"Title\" \"markdown\"` puts a card on "
+    "the user's screen until they close it (# heading, - bullets (indent to nest), 1. numbered, - [ ] / - [x] "
+    "checklists, | table |, ``` blocks, > quote, --- divider, **bold**, *italic*, `code`, [links](https://...); "
+    "--image /path.png adds a picture, --choice \"phrase\" adds a button, --id NAME updates that card in place for "
+    "progress, --refresh \"command\" --every 5 keeps it live), `jarvis say \"text\"` speaks a short update mid-task, "
+    "and `jarvis do \"phrase\"` has JARVIS do one of its own abilities as if the user said it. Show things worth "
+    "seeing (results, tables, links, steps), speak short things, and keep the final SAY line for the summary.")
 
 
 # Thinking only adds delay for these short answers; non-essential traffic is the background call
@@ -43,16 +52,23 @@ class ClaudeError(Exception):
 
 
 class Claude:
-    def __init__(self, cfg, name="Jarvis", user="the user"):
+    def __init__(self, cfg, name="Jarvis", user="the user", abilities=""):
         self.model = cfg.get("model", "claude-haiku-5-5")
         self.timeout = cfg.get("timeout", 60)
         self.effort = cfg.get("effort", "low")
         self.idle = cfg.get("new_after_minutes", 20) * 60  # quiet this long -> next question starts fresh
         self.bin = shutil.which("claude")
         with open(PROMPT_FILE) as f:
-            self.prompt = f.read().replace("{name}", name).replace("{user}", user)
+            self.prompt = f.read().replace("{abilities}", abilities).replace("{name}", name).replace("{user}", user)
         self.session_file = os.path.join(STATE_DIR, "claude_session")
         self.usage_file = os.path.join(STATE_DIR, "claude_usage.json")
+        self.abilities = abilities
+        try:  # for `jarvis` (tools/jarvis) to list, so Claude in VS Code can find them too
+            os.makedirs(RUN_DIR, mode=0o700, exist_ok=True)
+            with open(os.path.join(RUN_DIR, "abilities.txt"), "w") as f:
+                f.write(abilities + "\n")
+        except OSError:
+            pass
         os.makedirs(WORKSPACE, exist_ok=True)
 
     @property
@@ -113,7 +129,8 @@ class Claude:
                 "\n".join("- " + line for line in recent), text)
         if image:
             text = ("A screenshot of the user's screen is in the file %s in the current folder. Look at it with "
-                    "the Read tool first, then answer.\n\nUser says: %s" % (os.path.basename(image), text))
+                    "the Read tool first, then answer. To show it to them on a card, use \"image\": \"%s\" in "
+                    "\"show\".\n\nUser says: %s" % (os.path.basename(image), image, text))
         if about:
             text = "[%s]\n%s" % (about, text)
         args = [self.bin, "-p", text, "--model", self.model, "--tools", "Read" if image else "",
@@ -189,7 +206,7 @@ class Claude:
             raise ClaudeError(out.get("result") or "Claude returned an error")
         return out.get("result", "").strip()
 
-    def open_terminal(self, cwd=None, prompt=None):
+    def open_terminal(self, cwd=None, prompt=None, model=None):
         """Bring up the Claude terminal if Claude is still running in it; else open one, continuing a copy
         of JARVIS's conversation. Returns True if an existing one was brought up.
 
@@ -210,7 +227,8 @@ class Claude:
                                          "Stop": [{"hooks": hook}],
                                          "UserPromptSubmit": [{"hooks": hook}],
                                          "Notification": [{"hooks": hook}]}})
-        args = ["claude", "--model", self.model, "--settings", settings, "--append-system-prompt", VOICE_PROMPT]
+        args = ["claude", "--model", model or self.model, "--settings", settings, "--append-system-prompt",
+                "%s\n\n%s Phrases for `jarvis do`:\n  %s" % (VOICE_PROMPT, JARVIS_TOOL, self.abilities)]
         if not task and self.session:
             args += ["--resume", self.session, "--fork-session"]
         if prompt:
@@ -235,7 +253,7 @@ def open_in_vscode(prompt=None):
     """Open the Claude Code panel in VS Code, optionally starting it with `prompt`."""
     url = "vscode://anthropic.claude-code/open"
     if prompt:
-        url += "?prompt=" + quote(prompt)
+        url += "?prompt=" + quote("%s\n\n(%s Run `jarvis` alone to see the phrases.)" % (prompt, JARVIS_TOOL))
     desktop.go_to_jarvis_workspace()
     subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      start_new_session=True)
@@ -246,7 +264,8 @@ _SAY = re.compile(r'"say"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 def _parse_answer(text):
     answer = {"say": "", "details": "", "command": "", "run_now": False, "output": False, "save": None,
-              "steps": None, "suggest": None}
+              "steps": None, "suggest": None, "fix": None,
+              "misheard": None, "show": None, "do": None}
     m = re.search(r"\{.*\}", text, re.DOTALL)
     try:
         data = json.loads(m.group(0)) if m else None

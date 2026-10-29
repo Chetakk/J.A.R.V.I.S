@@ -81,9 +81,12 @@ class UI:
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.orb_mode = cfg.get("orb", "auto")  # "auto" | True | False
         self.orb_hide_after = float(cfg.get("orb_hide_after", 4))
+        self.card_hide_after = float(cfg.get("card_hide_after", 30))  # with a card open, both go after this
         self._quiet_since = None
         self._build_orb()
         self._build_panel()
+        from core.card import Card  # needs the names above, so imported here
+        self.card = Card(lambda: self._orb_xy, self.panel.get_visible, self.on_command)  # a choice = said it
         self._build_tray()
         if self.orb_mode is True:
             self.orb.show_all()
@@ -104,6 +107,33 @@ class UI:
 
     def show_orb(self, on=None):
         GLib.idle_add(self._set_orb, on)
+
+    def show_card(self, card=None):
+        """Show a card ({"title", "text" markdown, "image" path}); None shows the last one again."""
+        def show():
+            self._quiet_since = None  # full time on screen; live cards and timers stay while they update
+            return self.card.show(card)
+        GLib.idle_add(show)
+
+    def close_card(self):
+        GLib.idle_add(self.card.close)
+
+    def card_visible(self):
+        return self.card.visible
+
+    def current_card(self):
+        """The card on screen (or last shown), or None."""
+        return self.card.last
+
+    def card_step(self, delta):
+        """-1: the previous card from the history, +1: the next one."""
+        GLib.idle_add(self.card.step, delta)
+
+    def pin_card(self):
+        GLib.idle_add(self.card.pin)
+
+    def unpin_cards(self):
+        GLib.idle_add(self.card.unpin_all)
 
     def run(self):
         Gtk.main()
@@ -246,6 +276,7 @@ class UI:
             GLib.timeout_add(800, self._save_pos)
         if self.panel.get_visible():
             self._place_panel()
+        self.card._place()
         return False
 
     # --- chat panel ---
@@ -309,6 +340,8 @@ class UI:
             self.entry.grab_focus()
         else:
             self.panel.hide()
+        if hasattr(self, "card"):
+            self.card._place()  # it sits beside the chat while that's open
         if hasattr(self, "chat_item"):
             self.chat_item.handler_block_by_func(self._menu_chat)
             self.chat_item.set_active(on)
@@ -323,17 +356,23 @@ class UI:
         return False
 
     def _auto_orb(self, active):
-        """Auto mode: show the orb while JARVIS is busy (or the chat is open); hide it after a quiet spell."""
+        """Auto mode: show the orb while JARVIS is busy (or the chat is open); hide it after a quiet spell.
+        The card goes with it (pinned copies stay); while a card is open the quiet spell is longer, to read it."""
         if self.orb_mode != "auto":
             return
+        card = hasattr(self, "card") and self.card.visible
         if active or self.panel.get_visible():
             self._quiet_since = None
             if not self.orb.get_visible():
                 self.orb.show_all()
-        elif self.orb.get_visible():
+        elif self.orb.get_visible() or card:
+            if not self.orb.get_visible():
+                self.orb.show_all()  # a card appeared while it was quiet (e.g. from the Claude terminal)
             self._quiet_since = self._quiet_since or time.time()
-            if time.time() - self._quiet_since >= self.orb_hide_after:
+            if time.time() - self._quiet_since >= (self.card_hide_after if card else self.orb_hide_after):
                 self.orb.hide()
+                if card:
+                    self.card.close()
                 self._quiet_since = None
 
     def _entry_send(self, entry):

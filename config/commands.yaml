@@ -507,3 +507,9 @@ commands:
     run: "rm {file}"
     risk: manual
     reply: "I'd rather not delete files myself, but the command's ready in your terminal"
+
+  - name: peripheral_battery
+    say: [mouse battery, keyboard battery, how is my mouse battery]
+    run: upower --dump | grep -E -i "model|percentage|state"
+    reply: Here is what I found for your devices.
+    output: true

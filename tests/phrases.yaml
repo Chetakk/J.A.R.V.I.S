@@ -93,3 +93,28 @@
 "get rid of the calculator": "app:close Calculator"
 "make it 40 percent": command:set_volume
 "join home wifi": command:wifi_connect
+"open rhythmbox": "app:open Rhythmbox"
+"open the music player": "app:open Rhythmbox"
+"launch writer": "app:open LibreOffice Writer"
+"open the spreadsheet": "app:open LibreOffice Calc"
+"close vs code": "app:close Visual Studio Code"
+"play solitaire": "app:open AisleRiot Solitaire"
+"run the jarvis project": skill:run_project
+# extras (core/extras.py)
+"type: see you at five": skill:type_text
+"start dictation": skill:start_dictation
+"what's 18% of 2400": skill:maths
+"what is 12 times 7": skill:maths
+"50 miles in km": skill:units
+"how many feet in 3 metres": skill:units_how_many
+"convert 100 fahrenheit to celsius": skill:units
+"10 dollars in euros": claude
+"focus for 45 minutes": skill:focus
+"do not disturb": skill:focus
+"stop focusing": skill:end_focus
+"what's slowing my computer": skill:slow
+"why is my computer so slow": skill:slow
+"where was i": skill:where_was_i
+"paste the thing i copied before": skill:paste_copy
+"paste number 3": skill:paste_copy
+"clipboard history": skill:copy_history
