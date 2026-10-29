@@ -1247,3 +1247,23 @@
 "show me my files i changed today": skill:changed
 "open the file menu and click zoom in": skill:choose
 "what is left to do": skill:pending
+
+# went to Claude before (tools/variants.py --check, 2026-10-30)
+"sign in to github with the browser agent": skill:show_agent
+"log into amazon on the agent browser": skill:show_agent
+"let me take over the browser agent": skill:show_agent
+"bring up the agent browser": skill:show_agent
+"save this page to bookmarks": skill:bookmark_this
+"add a bookmark": skill:bookmark_this
+"bookmark it": skill:bookmark_this
+"attach resume.pdf to this form": skill:browse
+"upload my resume onto this page": skill:browse
+"reopen the project i worked on yesterday": skill:last_project
+"load my code i was working on last time": skill:last_project
+"bring up the project i was on before": skill:last_project
+"show me my recent tasks": skill:history
+"which tasks did you run": skill:history
+"how far along is the task": skill:status
+"turn the cpu alerts on": skill:unmute
+"switch the disk warnings back on": skill:unmute
+"start the cpu alerts again": skill:unmute
