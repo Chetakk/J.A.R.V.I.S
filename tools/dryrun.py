@@ -20,6 +20,7 @@ import yaml  # noqa: E402
 
 import jarvis as J  # noqa: E402
 from skills import controls as J_controls  # noqa: E402
+from skills import copy_between as J_copy  # noqa: E402
 from skills import frozen as J_frozen  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
 from skills import troubleshoot as J_troubleshoot  # noqa: E402
@@ -79,6 +80,8 @@ class DryJarvis:
         if obj is self.j.skills.frozen:  # "the build is stuck": not a window, handed on
             passes["about"] = lambda m: J_frozen.target(m.group(1)) is not None
             passes["force"] = lambda m: J_frozen.target(m.group(1) or m.group(2)) not in (None, J_frozen.ALL)
+        if obj is self.j.skills.copy_between:  # "send this to my phone": no such window or app, handed on
+            passes["move"] = passes["transform"] = lambda m: any(J_copy.target(self.j, m.group("to")))
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

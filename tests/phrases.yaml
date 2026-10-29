@@ -906,6 +906,17 @@
 "it's frozen": skill:about
 "force quit this": skill:force
 "the build is stuck": claude
+# Copying between apps (skills/copy_between.py)
+"copy this into the terminal": skill:move
+"paste my clipboard into vs code": skill:move
+"copy the link into the terminal": skill:move
+"copy the error from the terminal into vs code": skill:move
+"copy this window into vs code": skill:move
+"summarise this and put it in vs code": skill:transform
+"translate my clipboard to hindi and paste it into the terminal": skill:transform
+"send this to my phone": claude
+"copy this to workspace 2": claude
+"put this on the left": skill:snap
 # Browser agent (skills/web.py)
 "summarise this page": skill:page
 "what's this page about": skill:page

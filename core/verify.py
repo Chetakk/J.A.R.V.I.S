@@ -77,9 +77,9 @@ class Pixels:
         self.image = _grab(self.geometry)
         self.windows = windows_now()
 
-    def report(self):
+    def report(self, least=None):
         """(ok, what) a moment after an action in the window: True when something on screen changed,
-        None when nothing did (it may still have worked: "copy" shows nothing)."""
+        None when nothing did (it may still have worked: "copy" shows nothing). least: see changed()."""
         time.sleep(0.6)
         now = windows_now()
         new = [t for i, t in now.items() if i not in self.windows]
@@ -88,7 +88,7 @@ class Pixels:
         title = now.get(self.window.id)
         if title is not None and title != self.windows.get(self.window.id):
             return True, "the window changed to %s" % title
-        if self.changed():
+        if self.changed(least=least):
             return True, "the window changed"
         return None, "nothing changed on screen"
 
@@ -96,9 +96,10 @@ class Pixels:
         """True if the window moved or changed size since (then a picked spot is in the wrong place)."""
         return desktop.geometry(self.window) != self.geometry
 
-    def changed(self, share=0.002):
-        """True if more than `share` of the window's pixels changed (a blinking cursor doesn't count),
-        None if it couldn't be read."""
+    def changed(self, share=0.002, least=None):
+        """True if more than `share` of the window's pixels changed (a blinking cursor doesn't count), or more
+        than `least` pixels (of the half-size image: a few pasted words in a big window), None if it couldn't be
+        read."""
         after = _grab(desktop.geometry(self.window) or self.geometry)
         if self.image is None or after is None:
             return None
@@ -106,7 +107,8 @@ class Pixels:
             return True
         from PIL import ImageChops
         diff = ImageChops.difference(self.image, after).convert("L").point(lambda v: 255 if v > 24 else 0)
-        return diff.histogram()[255] > share * after.size[0] * after.size[1]
+        limit = share * after.size[0] * after.size[1]
+        return diff.histogram()[255] > (min(limit, least) if least else limit)
 
 
 def _grab(geometry):
