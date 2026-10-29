@@ -1,6 +1,5 @@
 """Windows and workspaces: switch workspace, move, maximise, snap left/right, close, focus an app."""
 import re
-import time
 
 from skills.base import Skill
 from system import desktop
@@ -58,9 +57,7 @@ class Windows(Skill):
         win = desktop.find_window(m.group(1)) if m.group(1) else desktop.active_window()
         if not win:
             return False
-        desktop.focus(win)
-        time.sleep(0.3)
-        desktop.keys("super+%s" % ("Left" if m.group(2).lower() == "left" else "Right"))
+        desktop.place(win, m.group(2).lower())
 
     def focus(self, m):
         target = m.group(1).strip()

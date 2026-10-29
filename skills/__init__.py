@@ -13,6 +13,7 @@ from skills.dev import Dev
 from skills.dictation import Dictation
 from skills.files import Files
 from skills.focus_mode import FocusMode
+from skills.layouts import Layouts
 from skills.maths import Maths
 from skills.media import Media
 from skills.nano import Nano
@@ -30,7 +31,7 @@ ORDER = [
     ("slow_computer", SlowComputer), ("where_was_i", WhereWasI), ("clipboard_history", ClipboardHistory),
     ("status", Status), ("daytracker", DayTracker), ("todos", Todos), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("clipboard", Clipboard), ("notes", Notes), ("files", Files),
-    ("nano", Nano), ("windows", Windows), ("dev", Dev),
+    ("nano", Nano), ("layouts", Layouts), ("windows", Windows), ("dev", Dev),
 ]
 
 

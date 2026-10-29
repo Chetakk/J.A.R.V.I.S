@@ -1,0 +1,14 @@
+# Window layouts: "arrange my coding windows", "coding layout", "set up my coding windows".
+# "save this layout as <name>" saves the windows on the workspace you're on (kept in
+# ~/.local/share/jarvis/layouts.json, which wins over this file by name).
+#
+#   workspace: which one (left out: the one you're on)
+#   app:   words in the window's app name or title (like "find_window": "code", "terminal", "chrome")
+#   open:  a phrase from commands.yaml that opens it when it isn't open yet
+#   place: left, right or max
+#   aliases: other names for the layout
+coding:
+  aliases: [code, programming, development, dev, work]
+  windows:
+    - {app: code, open: open vs code, place: left}
+    - {app: terminal, open: open terminal, place: right}

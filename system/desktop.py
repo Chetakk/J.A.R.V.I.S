@@ -144,6 +144,102 @@ def close_window(window):
     _act("_NET_CLOSE_WINDOW", window.id, [X.CurrentTime, 2])
 
 
+def current_workspace():
+    """The workspace you're on (1-based)."""
+    try:
+        d = display.Display()
+        n = (_prop(d, d.screen().root, "_NET_CURRENT_DESKTOP") or [0])[0]
+        d.close()
+        return n + 1
+    except Exception:
+        return 1
+
+
+def pid(window):
+    try:
+        d = display.Display()
+        p = _prop(d, d.create_resource_object("window", window.id), "_NET_WM_PID")
+        d.close()
+        return p[0] if p else None
+    except Exception:
+        return None
+
+
+def geometry(window):
+    """(x, y, width, height) on screen, or None if the window is gone."""
+    try:
+        d = display.Display()
+        win = d.create_resource_object("window", window.id)
+        g = win.get_geometry()
+        pos = win.translate_coords(d.screen().root, 0, 0)
+        d.close()
+        return -pos.x, -pos.y, g.width, g.height
+    except Exception:
+        return None
+
+
+def workarea():
+    """(x, y, width, height) of the screen without panels and docks."""
+    try:
+        d = display.Display()
+        root = d.screen().root
+        area = _prop(d, root, "_NET_WORKAREA")
+        size = (0, 0, root.get_geometry().width, root.get_geometry().height)
+        d.close()
+        return tuple(area[:4]) if area is not None and len(area) >= 4 else size
+    except Exception:
+        return 0, 0, 1920, 1080
+
+
+def tiling():
+    """Pop Shell is tiling windows itself: placing them means swapping tiles, not setting their size."""
+    import subprocess
+    try:
+        on = subprocess.run(["dconf", "read", "/org/gnome/shell/extensions/pop-shell/tile-by-default"],
+                            capture_output=True, text=True, timeout=2).stdout.strip()
+        exts = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"],
+                              capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return on == "true" and "pop-shell" in exts
+
+
+def move_resize(window, x, y, w, h):
+    _act("_NET_MOVERESIZE_WINDOW", window.id, [(0xF << 8) | (2 << 12), x, y, w, h])
+
+
+def place(window, where):
+    """Put `window` on the left or right half, or maximise it ("left", "right", "max")."""
+    import time
+    if where == "max":
+        set_state(window, 1, "_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ")
+        return
+    set_state(window, 0, "_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ")
+    if tiling():
+        # Pop Shell: Super+Arrow only moves the focus. Swapping a tile is its adjust mode:
+        # Super+Enter, Ctrl+Arrow, Enter.
+        focus(window)
+        time.sleep(0.3)
+        for combo in ("super+Return", "ctrl+%s" % ("Left" if where == "left" else "Right"), "Return"):
+            keys(combo)
+            time.sleep(0.15)
+        return
+    x, y, w, h = workarea()
+    half = w // 2
+    move_resize(window, x if where == "left" else x + half, y, half, h)
+
+
+def side(window):
+    """Where `window` is now: "left", "right" or "max" (None if it's gone)."""
+    g = geometry(window)
+    if not g:
+        return None
+    ax, _, aw, _ = workarea()
+    if g[2] >= aw * 0.8:
+        return "max"
+    return "left" if g[0] + g[2] / 2 < ax + aw / 2 else "right"
+
+
 _MODS = {"ctrl": "Control_L", "shift": "Shift_L", "alt": "Alt_L", "super": "Super_L"}
 
 
