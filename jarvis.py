@@ -665,6 +665,21 @@ class Jarvis:
             self.last_undo = undo.opposite(match.name)
         return True
 
+    def vocabulary(self):
+        """Words to help speech recognition with commands: JARVIS's own, your projects, unusual app names."""
+        try:
+            with open("/usr/share/dict/words") as f:
+                common = {w.strip().lower() for w in f}
+        except OSError:
+            common = set()
+        # Short app names with a word Whisper wouldn't know. Not web apps (WhatsApp, Spotify): they're said
+        # like sites, and "WhatsApp" in the hint turned "what's on my to-do list" into "Huatson my to-do list".
+        apps = [a["name"] for a in self.apps.apps
+                if a["process"] and len(a["name"].split()) <= 2 and not re.search(r"\d|[^\w\s-]", a["name"])
+                and any(w not in common for w in re.findall(r"[a-z]+", a["name"].lower()))]
+        return (["To-do list", "Reminder", "Timer", "Workspace", "Jetson Nano", "biztel", "Claude"]
+                + [p.spoken for p in self.projects.items] + apps)
+
     def _reword(self, phrase):
         self._rewording = True  # one rewrite only: the new phrase isn't rewritten again
         try:
@@ -780,6 +795,7 @@ def read_keyboard(inbox):
 def start_voice(jarvis, whisper):
     """Load Whisper (on the GPU) and enable push-to-talk; runs in the background at startup."""
     whisper.set_names(jarvis.names)
+    whisper.set_vocabulary(jarvis.vocabulary())
     if not whisper.start():
         print("[voice] Whisper isn't available yet; push-to-talk is off. Typing still works.")
         jarvis.rest = "off"
@@ -789,7 +805,7 @@ def start_voice(jarvis, whisper):
     def on_audio(pcm):
         jarvis.state("thinking")
         try:
-            text = whisper.transcribe(pcm)
+            text = whisper.transcribe(pcm, command=True)
             jarvis.heard(text, "push-to-talk") if text else jarvis.heard("", "push-to-talk: couldn't make out words")
             jarvis.inbox.put(("voice", text))
         except Exception as e:

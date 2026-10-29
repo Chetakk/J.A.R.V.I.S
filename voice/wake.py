@@ -251,7 +251,8 @@ class WhisperWake:
             if seconds > self.max_seconds and not waiting:
                 self.on_heard("", "skipped %.0f s of long talk (not a call)" % seconds)
                 continue
-            text = self.whisper.transcribe((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes())
+            pcm = (np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes()
+            text = self.whisper.transcribe(pcm, command=waiting)  # waiting: it's the command itself
             if not text:
                 self.on_heard("", "couldn't make out words (%.1f s)" % seconds)
                 continue
@@ -281,6 +282,8 @@ class WhisperWake:
             if not named:
                 self.on_heard(text, "ignored (no name at the start or end)")
                 continue
+            if command:
+                command = self._command_again(pcm, command)
             print("[wake] heard %r" % text)
             self.on_wake(True)
             if command:
@@ -314,6 +317,7 @@ class WhisperWake:
             self.on_stop()
             self.on_wake(True)
             if rest:
+                rest = self._command_again((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes(), rest)
                 self._pass_on(text, rest, False, "interrupted, command: %s" % rest)
             else:
                 self.on_heard(text, "interrupted; say the command")
@@ -329,6 +333,15 @@ class WhisperWake:
         self.on_heard(text, "ignored while talking (%s)" % ("my own voice" if echo
                                                             else "no name, not in a conversation"))
         return True
+
+    def _command_again(self, pcm, command):
+        """"EV, run avtec hs" in one breath was heard with the names-only hint (tuned for waking): hear it
+        again with JARVIS's vocabulary for the command part (~0.3 s). Keeps the first try if that fails."""
+        try:
+            named, again = split_name(self.whisper.transcribe(pcm, command=True), self.names)
+        except Exception:
+            return command
+        return again if named and again else command
 
     def _pass_on(self, heard, command, follow_up, outcome):
         self.waiting_until = 0.0

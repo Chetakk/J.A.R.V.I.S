@@ -25,6 +25,7 @@ class Whisper:
         self._proc = None
         self.ready = False  # started fine once; from then on the watchdog keeps it running
         self.hint = ""  # set_names() fills this
+        self.command_hint = ""  # set_vocabulary(): the names plus JARVIS's own words, for commands
 
     def set_names(self, names):
         """Tell Whisper the assistant's names, e.g. "Jarvis. EV. Hey Jarvis. Hey EV."."""
@@ -66,11 +67,18 @@ class Whisper:
             subprocess.call(["pkill", "-f", "%s -m %s" % (self.server, self.model)],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    def transcribe(self, pcm):
-        """16 kHz mono 16-bit PCM in, text out ("" if nothing was said)."""
+    def set_vocabulary(self, words):
+        """Words commands use that Whisper would otherwise mishear ("Rhythmbox", not "rhythm box";
+        "avtec-hs", not "ATECHS"). Only for commands: the wake check keeps its tested names-only hint."""
+        words = [w for w in dict.fromkeys(words) if w][:60]  # Whisper reads at most ~224 tokens of prompt
+        self.command_hint = (self.hint + " " + " ".join("%s." % w for w in words)).strip()
+
+    def transcribe(self, pcm, command=False):
+        """16 kHz mono 16-bit PCM in, text out ("" if nothing was said).
+        command=True: it's a request (push-to-talk, or after the name), so JARVIS's vocabulary helps."""
         if _peak(pcm) < MIN_PEAK:
             return ""  # Too quiet to contain speech; Whisper would invent words.
-        return _clean(self._request(pcm, self.hint))
+        return _clean(self._request(pcm, (self.command_hint or self.hint) if command else self.hint))
 
     def _request(self, pcm, prompt=""):
         wav = io.BytesIO()

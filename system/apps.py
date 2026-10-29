@@ -49,6 +49,10 @@ def _read(path):
             and "firefox" not in e.get("Name").lower() else PROCESS.get(exe, exe)[:15]}
 
 
+def _squash(name):
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
 class Apps:
     def __init__(self):
         self.apps, self.by_name = [], {}
@@ -76,7 +80,16 @@ class Apps:
         if name in self.by_name:
             return self.by_name[name]
         close = difflib.get_close_matches(name, self.by_name.keys(), n=1, cutoff=0.85)
-        return self.by_name[close[0]] if close else None
+        if close:
+            return self.by_name[close[0]]
+        # Misheard names, compared without spaces: "rhythm box", "rustisk", "shut will", "thunder bird".
+        # On the installed apps, real misses scored 0.75+ and unrelated names 0.67 or less.
+        said = _squash(name)
+        if len(said) < 5:
+            return None
+        squashed = {_squash(n): app for n, app in self.by_name.items() if len(_squash(n)) >= 5}
+        close = difflib.get_close_matches(said, squashed.keys(), n=1, cutoff=0.75)
+        return squashed[close[0]] if close else None
 
     def intents(self):
         """{"open <app>": [other ways of asking for it]} for the meaning matcher."""
