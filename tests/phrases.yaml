@@ -1083,3 +1083,18 @@
 "forget my notifications": skill:forget
 "mute notifications": command:dnd_on
 "why did that notification appear": skill:why
+# Display settings (skills/display.py), with auto-revert
+"what's my screen resolution": skill:info
+"what resolution is my monitor": skill:info
+"what screens are connected": skill:info
+"what's the refresh rate": skill:info
+"set the resolution to 1280 by 720": skill:resolution
+"change my screen resolution to 1080p": skill:resolution
+"set the display to 1920x1080": skill:resolution
+"change the refresh rate to 60": skill:refresh
+"use the highest refresh rate": skill:refresh
+"use the recommended resolution": skill:recommended
+"reset the screen resolution": skill:recommended
+"rotate screen left": command:rotate_left
+"dim the screen": command:brightness_low
+"what's on my screen": skill:screen

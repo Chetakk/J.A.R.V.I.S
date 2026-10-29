@@ -23,6 +23,7 @@ from skills.daytracker import DayTracker
 from skills.dashboard import Dashboard
 from skills.dev import Dev
 from skills.dictation import Dictation
+from skills.display import Display
 from skills.documents import Documents
 from skills.files import Files
 from skills.focus_mode import FocusMode
@@ -57,7 +58,7 @@ ORDER = [
     ("status", Status), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
     ("network", Network), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
-    ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("copy_between", CopyBetween), ("clipboard", Clipboard),
+    ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]
