@@ -49,15 +49,16 @@ class Tasks(Skill):
             (r"(?:pause|hold|wait with|hold off on|pause on) %s|pause it there" % task, lambda m: self.pause()),
             (r"(?:stop|cancel|abort|end|drop|forget about) %s" % task, lambda m: self.stop()),
             (r"(?:how(?:'s| is) %s going|%s status|what(?:'s| is) left (?:on|in|of) %s|where (?:are you|is it) "
-             r"(?:up to|at) (?:with|on) %s|show (?:me )?%s(?: card)?)" % (task, task, task, task, task),
+             r"(?:up to|at) (?:with|on) %s|show (?:me )?%s(?: card)?|how far (?:along )?is %s(?: along)?|is %s (?:done|finished)(?: yet)?)"
+             % (task, task, task, task, task, task, task),
              lambda m: self.status()),
             (r"skip (?:that|this|the|the current|the failed) step", lambda m: self.skip()),
             (r"(?:try|run|do) (?:that|this|the|the failed) step again|retry (?:that|this|the) step",
              lambda m: self.retry()),
             (r"(?:hand|give|pass|send) %s (?:over )?to claude(?: code)?|(?:let|have) claude code (?:do|finish) %s"
              % (task, task), lambda m: self.hand_over()),
-            (r"what tasks (?:did you do|have you done)(?: today)?|(?:show |list )?(?:my |your )?(?:recent |past |last )"
-             r"tasks|task history", lambda m: self.history()),
+            (r"(?:what|which) tasks (?:did you (?:do|run)|have you (?:done|run))(?: today)?|(?:(?:show|list)(?: me)? )?"
+             r"(?:the |my |your )?(?:recent|past|last|old|previous|earlier) tasks|task history", lambda m: self.history()),
         ]
 
     # --- starting one ---
