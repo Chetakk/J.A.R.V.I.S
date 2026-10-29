@@ -12,13 +12,16 @@ DETAILED = r"(?:be |answer )more detailed|(?:give me |use )?(?:more )?detailed a
 NORMAL = r"(?:normal|regular|usual) answers|answer normally|(?:normal|regular|usual) amount of detail"
 PRIVATE_ON = r"(?:turn on |switch on |go into |use )?(?:private|headphones?(?: only)?|headset) mode(?: on)?|" \
              r"(?:only )?(?:speak|talk) (?:only )?(?:in|through|on|into|to) (?:my )?(?:headphones|headset|" \
-             r"earphones|earbuds)(?: only)?|headphones only|only (?:through|in|on) (?:my )?headphones"
+             r"earphones|earbuds)(?: only)?|headphones only|only (?:through|in|on) (?:my )?headphones|" \
+             r"(?:speak|talk) privately"
 PRIVATE_OFF = r"(?:turn off |switch off |stop |end |leave |exit )(?:private|headphones?|headset) mode|" \
               r"(?:private|headphones?|headset) mode off|(?:use|back to|go back to|talk through|speak through|" \
               r"switch (?:back )?to) (?:the )?speakers?(?: again)?"
 QUIET_ON = r"(?:turn on |switch on |go into |use )?(?:quiet|silent|text|cards?) (?:mode|only)(?: on)?|" \
            r"(?:don'?t|do not) (?:talk|speak)(?: out loud)?(?: for a while| any ?more| now)?|mute yourself|" \
-           r"turn (?:off )?your (?:voice|speech)(?: off)?|just (?:write|type)(?: it)?(?: down)?"
+           r"turn (?:off )?your (?:voice|speech)(?: off)?|(?:just|only) (?:write|type)(?: it)?(?: down| in the chat)?|" \
+           r"(?:go|switch)(?: in)?(?: ?to)? (?:quiet|silent) mode|(?:stay|keep) quiet(?: for a while)?|no (?:more )?talking|" \
+           r"(?:don'?t|do not) say anything(?: out loud)?|(?:shut up|hush) for a while"
 QUIET_OFF = r"(?:turn off |switch off |stop |end |leave |exit )(?:quiet|silent|text) mode|" \
             r"(?:quiet|silent|text) mode off|(?:you can )?(?:talk|speak) (?:again|out loud(?: again)?)|" \
             r"unmute yourself|turn (?:on )?your (?:voice|speech)(?: on)?"
