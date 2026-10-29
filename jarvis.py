@@ -22,7 +22,7 @@ try:
 except ImportError:
     pass
 
-from core import desktop, persona
+from core import desktop, persona, undo
 from core.browser import Browser
 from core.claude_bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
@@ -132,6 +132,7 @@ class Jarvis:
         self.warned = {}  # heads-up key -> when it was last mentioned
         self.last_request = None  # for "do that again"
         self.last_app = None  # process of the last app opened, for "close it"
+        self.last_undo = None  # saved command that reverses the last one, for "undo that"
         self.ignored = False  # last follow-up was chatter, not a request
         self.follow_up = lambda: None  # wake word: listen once more without the name (set by start_voice)
         self.recent = deque(maxlen=8)  # what happened without Claude since its last answer, passed on next time
@@ -221,6 +222,8 @@ class Jarvis:
 
         self.recent.append("User: %s" % text)
         low = text.lower()
+        if undo.UNDO.match(text):
+            return self._undo()
         if low in CHAT_PHRASES:
             return self._slash(CHAT_PHRASES[low])
         if self._personal(text) or self.skills.handle(text):
@@ -485,7 +488,18 @@ class Jarvis:
                           question=match.fill(cmd.get("ask")),
                           declared=cmd.get("risk"), window=cmd.get("window", False),
                           on_output=lambda out: match.reply(out))
+        if self.executor.ok:
+            self.last_undo = undo.opposite(match.name)
         return True
+
+    def _undo(self):
+        cmd = next((c for c in self.registry.commands if c["name"] == self.last_undo), None)
+        if not cmd:
+            self.speaker.say(["Sorry, I can't undo that one.", "Hmm, there's nothing I can undo right now."])
+            return True
+        self.last_undo = None
+        self.heard("undo", "runs %s" % cmd["name"])
+        return self._run_match(self.registry.match_exact(cmd["say"][0]))
 
     def _slash(self, raw):
         cmd, _, arg = raw.partition(" ")
