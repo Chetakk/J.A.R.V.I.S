@@ -1,0 +1,88 @@
+# JARVIS settings. Edit freely; restart JARVIS to apply.
+
+assistant_name: Jarvis
+# Names the assistant answers to: any of these wakes it up (with or without "hey", "hello", "ok"),
+# and is stripped from the start of what you say. Add or rename freely.
+names: ["jarvis", "ev", "e v", "evie", "eevee"]
+# Spoken greeting when it starts: one is picked at random. {daypart} = morning / afternoon / evening.
+greeting:
+  - "Good {daypart}! I'm up and ready."
+  - "Hey, good {daypart}. What can I do for you?"
+  - "I'm online. What are we working on today?"
+  - "Hi there, ready when you are."
+  - "Hey {name}, good {daypart}."
+# What JARVIS calls you, now and then ("Done, Chetak."). Remove to never use a name.
+user_name: Chetak
+# Quiet hours: softer voice (volume in percent) and the shortest version of each reply.
+quiet_hours: {enabled: true, start: 23, end: 7, volume: 40}
+# Heads-ups JARVIS mentions by itself (at startup, then at most every 2 hours each).
+heads_up: {disk: true, battery: true}
+# "You usually open VS Code around now. Want me to?" (apps you open at the same hour on 3+ days).
+habits: {enabled: true}
+wake_word:
+  enabled: true
+  # whisper: Whisper (GPU) checks each short bit of speech for a name. On the user's own voice it
+  #          heard 19 of 21 "EV"/"Jarvis" (with a name hint), and "EV, open YouTube" runs in one go.
+  # kws:     small CPU keyword model; lighter, but caught only about 13 of 21 of the same recording.
+  engine: whisper
+  follow_up_seconds: 8     # whisper only: after an answer, the orb stays lit and you can just talk (0 = off)
+  threshold: 0.10          # kws only: lower = triggers more easily (and more false alarms)
+  boost: 2.0               # kws only: higher = favours the wake phrases more
+
+# Starting mode: "agent" (command list, then Claude) or "sys" (command list only).
+mode: agent
+
+speech:
+  enabled: true
+  engine: piper            # piper | spd-say
+  piper_bin: ~/.local/share/jarvis/piper/piper
+  # Other fast voices in the same folder: en_GB-jenny_dioco-medium, en_GB-alan-medium,
+  # en_GB-northern_english_male-medium, en_US-hfc_male-medium, en_US-joe-medium
+  voice: ~/.local/share/jarvis/voices/en_US-lessac-medium.onnx
+  length_scale: 1.05       # >1 slower, <1 faster
+  noise_scale: 0.75        # more = more expressive (default 0.667)
+  noise_w: 0.9             # more = more varied rhythm (default 0.8)
+  sentence_silence: 0.25   # pause between sentences, seconds
+
+stt:                       # speech-to-text: whisper.cpp server on the GPU
+  server_bin: ~/.local/share/jarvis/whisper.cpp/build/bin/whisper-server
+  model: ~/.local/share/jarvis/models/ggml-base.en.bin
+  port: 8178
+  threads: 4
+
+push_to_talk:
+  key: right_ctrl
+  # When one of these windows is focused, the key is left to that app instead of JARVIS
+  # (e.g. Claude Code's own voice input inside VS Code). Case-insensitive match on the window class
+  # (VS Code is "com.microsoft.VSCode").
+  pass_through_windows: ["vscode"]
+
+claude:                    # phase 2
+  model: claude-haiku-5-5
+  effort: low              # low | medium | high (thinking is off either way, for speed)
+  new_after_minutes: 20    # start a fresh conversation after this long without a question
+  suggest_every_minutes: 10  # at most one of Claude's own suggestions this often
+
+ui:
+  enabled: true            # transparent orb + top-right tray icon
+  orb: auto                # auto = appears while you're talking to it, fades after; true = always; false = never
+  orb_hide_after: 4        # seconds of quiet before the orb hides (auto mode)
+  chat: false              # show the chat panel at startup (click the orb, or say "show chat")
+  show_hearing: true       # list everything speech recognition hears in the chat ("hide what you hear" to stop)
+
+workspace:
+  enabled: true            # new windows JARVIS opens go to this workspace, and it takes you there
+  number: 5
+
+# Seconds to wait for a yes/no before cancelling a "confirm" command.
+confirm_timeout: 8
+
+# Terminal used for "manual" commands. {script} is replaced by the JARVIS terminal script.
+terminal: 'gnome-terminal --title "JARVIS: manual commands" -- {script}'
+
+# Jetson Nano ("EV, is the Nano up?", "restart the Nano link", "run uptime on the Nano").
+nano:
+  host: 192.168.50.10
+  user: biztel-nano
+  key: ~/.ssh/boisys_nano
+  service: nano-kvm.service

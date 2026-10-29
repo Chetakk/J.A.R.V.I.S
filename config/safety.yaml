@@ -1,0 +1,102 @@
+# Which programs JARVIS may run, and how.
+#   auto    - runs immediately
+#   confirm - JARVIS asks "yes/no" first
+#   manual  - never run by JARVIS; shown pre-typed in the JARVIS terminal for you to run
+#
+# Entries match the start of each command; the longest match wins
+# ("systemctl poweroff" beats "systemctl").
+# Anything not listed is treated as "confirm".
+# A built-in blocklist in core/safety.py always forces dangerous commands
+# (rm, sudo, dd, redirects with >, ...) to manual, whatever this file says.
+
+auto:
+  - xdg-open
+  - google-chrome
+  - firefox
+  - code
+  - nautilus
+  - gnome-terminal
+  - gnome-control-center
+  - gnome-calculator
+  - gnome-system-monitor
+  - gedit
+  - gnome-screenshot
+  - pactl
+  - amixer
+  - xclip
+  - df
+  - free
+  - date
+  - uptime
+  - hostname
+  - whoami
+  - uname
+  - ls
+  - pwd
+  - echo
+  - head
+  - tail
+  - grep
+  - wc
+  - sort
+  - cut
+  - awk
+  - nproc
+  - find      # -delete / -exec are always forced to manual by core/safety.py
+  - cat
+  - which
+  - file
+  - stat
+  - du
+  - lsblk
+  - ps
+  - pgrep
+  - tegrastats
+  - xrandr
+  - xset
+  - nmcli radio
+  - nmcli con up
+  - nmcli con down Hotspot
+  - nmcli -t -f active,ssid dev wifi
+  - nmcli -t -f SSID dev wifi list
+  - bluetoothctl power on
+  - bluetoothctl paired-devices
+  - nvpmodel -q
+  - top -bn1
+  - ping -c2
+  - paste
+  - timedatectl show
+  - lsusb
+  # Only these desktop settings change without asking (any other gsettings change asks):
+  - gsettings get
+  - gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled
+  - gsettings set org.gnome.desktop.interface gtk-theme
+  - gsettings set org.gnome.desktop.interface color-scheme
+  - gsettings set org.gnome.desktop.interface text-scaling-factor
+  - gsettings set org.gnome.desktop.notifications show-banners
+
+confirm:
+  - gsettings            # can change any desktop setting (even turn off the lock screen), so ask
+  - pkill
+  - mkdir
+  - touch
+  - loginctl lock-session
+  - systemctl poweroff
+  - systemctl reboot
+  - systemctl suspend
+  - gnome-session-quit
+  - gio trash
+  - bluetoothctl power off
+
+manual:
+  - rm
+  - mv
+  - cp
+  - sudo
+  - apt
+  - kill
+  - chmod
+  - chown
+  - dd
+  - mkfs
+  - systemctl

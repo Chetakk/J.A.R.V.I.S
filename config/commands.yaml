@@ -1,0 +1,509 @@
+# JARVIS command list.
+#
+# Each command:
+#   name:    unique id
+#   say:     phrases that trigger it; {slot} captures part of what you said
+#   run:     shell command; slot values are shell-quoted before they are inserted
+#   reply:   what JARVIS says back (or a list, one picked at random); may use slots and {output}
+#   ask:     optional yes/no question for confirm-level commands; may use slots
+#   output:  true = capture the command's output (for {output} and printing)
+#   risk:    optional auto / confirm / manual; can only make safety.yaml stricter
+#   window:  true = opens a new app window, so JARVIS goes to its workspace first
+#   process: process name for "close it" after opening (default: the program's name; "" = can't close)
+#
+# Browser phrases ("open youtube in chrome", "search youtube for X", "open my work tabs")
+# are built in and use the browsers / sites / tab_groups sections below.
+
+browsers:
+  chrome:  {run: google-chrome, process: chrome, aliases: [chrome, google chrome]}
+  firefox: {run: firefox, aliases: [firefox, mozilla, mozilla firefox]}
+
+sites:
+  google:   {url: "https://www.google.com", search: "https://www.google.com/search?q={q}"}
+  youtube:  {url: "https://www.youtube.com", search: "https://www.youtube.com/results?search_query={q}"}
+  gmail:    {url: "https://mail.google.com"}
+  github:   {url: "https://github.com", search: "https://github.com/search?q={q}"}
+  chatgpt:  {url: "https://chatgpt.com"}
+  claude:   {url: "https://claude.ai"}
+  claude code: {url: "https://claude.ai/code"}
+  whatsapp: {url: "https://web.whatsapp.com"}
+  maps:     {url: "https://maps.google.com", search: "https://www.google.com/maps/search/{q}"}
+  wikipedia: {url: "https://en.wikipedia.org", search: "https://en.wikipedia.org/w/index.php?search={q}"}
+  amazon:   {url: "https://www.amazon.in", search: "https://www.amazon.in/s?k={q}"}
+  spotify:  {url: "https://open.spotify.com"}
+  linkedin: {url: "https://www.linkedin.com"}
+
+tab_groups:
+  work:  [gmail, github]
+  music: [youtube, spotify]
+
+commands:
+  # --- apps ---
+  - name: open_terminal
+    say: [open terminal, launch terminal, new terminal]
+    run: gnome-terminal
+    window: true
+    process: ""
+    reply: ["Opening a terminal", "Sure, here's a terminal"]
+
+  - name: open_files
+    say: [open files, open file manager, open home folder, open nautilus]
+    run: nautilus ~
+    window: true
+    reply: ["Opening your files", "Sure, here are your files"]
+
+  - name: open_downloads
+    say: [open downloads, open downloads folder, show downloads]
+    run: xdg-open ~/Downloads
+    window: true
+    process: ""
+    reply: ["Opening your Downloads", "Here's your Downloads folder"]
+
+  - name: open_documents
+    say: [open documents, open documents folder]
+    run: xdg-open ~/Documents
+    window: true
+    process: ""
+    reply: ["Opening your Documents", "Here's your Documents folder"]
+
+  - name: open_desktop_folder
+    say: [open desktop folder]
+    run: xdg-open ~/Desktop
+    window: true
+    process: ""
+    reply: ["Opening the Desktop folder", "Here's your Desktop folder"]
+
+  - name: open_pictures
+    say: [open pictures, open pictures folder, open screenshots]
+    run: xdg-open ~/Pictures
+    window: true
+    process: ""
+    reply: ["Opening your Pictures", "Here are your pictures"]
+
+  - name: open_vscode
+    say: [open vs code, open vscode, open code editor, launch vs code]
+    run: code
+    window: true
+    reply: ["Opening VS Code", "Sure, VS Code is on its way"]
+
+  - name: open_chrome
+    say: [open chrome, launch chrome, open google chrome]
+    run: google-chrome
+    window: true
+    process: chrome
+    reply: ["Opening Chrome", "Sure, firing up Chrome"]
+
+  - name: open_firefox
+    say: [open firefox, launch firefox]
+    run: firefox
+    window: true
+    reply: ["Opening Firefox", "Sure, firing up Firefox"]
+
+  - name: open_settings
+    say: [open settings, open system settings]
+    run: gnome-control-center
+    window: true
+    reply: ["Opening settings", "Here are your settings"]
+
+  - name: open_calculator
+    say: [open calculator, calculator]
+    run: gnome-calculator
+    window: true
+    reply: ["Opening the calculator", "Here's the calculator"]
+
+  - name: open_text_editor
+    say: [open text editor, open gedit, open notepad]
+    run: gedit
+    window: true
+    reply: ["Opening the text editor", "Here's a text editor"]
+
+  - name: open_system_monitor
+    say: [open system monitor, open task manager]
+    run: gnome-system-monitor
+    window: true
+    reply: ["Opening the system monitor", "Let's see what's running"]
+
+  - name: close_app
+    say: ["close {app}", "quit {app}", "kill {app}"]
+    run: "pkill -x {app}"
+    reply: ["Okay, closed {app}", "Done, {app} is closed"]
+    ask: "Close {app}? Anything unsaved will be lost."
+
+  # --- sound ---
+  - name: volume_up
+    say: [volume up, increase volume, louder, turn it up]
+    run: pactl set-sink-volume @DEFAULT_SINK@ +10%
+    reply: ["Got it", "Okay", "Louder"]
+
+  - name: volume_down
+    say: [volume down, decrease volume, quieter, turn it down]
+    run: pactl set-sink-volume @DEFAULT_SINK@ -10%
+    reply: ["Got it", "Okay", "Quieter"]
+
+  - name: set_volume
+    say: ["set volume to {level}", "volume {level}", "set volume to {level} percent"]
+    run: "pactl set-sink-volume @DEFAULT_SINK@ {level}%"
+    reply: ["Okay, {level} percent", "Got it, {level}"]
+
+  - name: mute
+    say: [mute, unmute, toggle mute, mute sound]
+    run: pactl set-sink-mute @DEFAULT_SINK@ toggle
+    reply: ["Got it", "Okay"]
+
+  - name: mute_mic
+    say: [mute microphone, unmute microphone, mute mic, unmute mic, toggle microphone]
+    run: pactl set-source-mute @DEFAULT_SOURCE@ toggle
+    risk: confirm
+    ask: "Toggle the microphone? If it goes off I won't hear you until you unmute it."
+    reply: ["Microphone toggled", "Done, mic toggled"]
+
+  - name: audio_to_echo
+    say: [switch audio to echo dot, use echo dot, play on echo dot, use the echo]
+    run: pactl set-default-sink bluez_sink.68_B6_91_94_2A_43.a2dp_sink
+    reply: ["Sound is going to the Echo Dot", "Switched to the Echo Dot"]
+
+  - name: audio_to_usb
+    say: [switch audio to usb speaker, use usb speaker, use the usb audio]
+    run: pactl set-default-sink alsa_output.usb-Generic_AB13X_USB_Audio_20210726905926-00.analog-stereo
+    reply: ["Sound is going to the USB speaker", "Switched to the USB speaker"]
+
+  - name: audio_to_jack
+    say: [switch audio to headphones, use headphones, use the headphone jack]
+    run: pactl set-default-sink alsa_output.platform-sound.analog-stereo
+    reply: ["Sound is going to the headphone jack", "Switched to headphones"]
+
+  # --- screen ---
+  - name: screenshot
+    say: [take a screenshot, take screenshot, screenshot]
+    run: gnome-screenshot
+    reply: ["Got it, it's saved in Pictures", "Screenshot taken, it's in Pictures"]
+
+  - name: screenshot_area
+    say: [screenshot area, screenshot a region, take a screenshot of an area]
+    run: gnome-screenshot -a
+    reply: ["Okay, drag to select the area", "Go ahead and pick the area"]
+
+  - name: lock_screen
+    say: [lock screen, lock the screen, lock my computer]
+    run: loginctl lock-session
+    reply: ["Locking the screen", "Locking up, see you soon"]
+    ask: "Lock the screen now?"
+
+  - name: screenshot_window
+    say: [screenshot window, screenshot this window, take a screenshot of the window]
+    run: gnome-screenshot -w
+    reply: ["Got the window, it's in Pictures", "Window screenshot saved in Pictures"]
+
+  # Brightness is software dimming (xrandr): the HDMI monitor has no backlight control here.
+  - name: brightness_full
+    say: [brightness full, full brightness, max brightness, brightness 100]
+    run: xrandr --output HDMI-0 --brightness 1.0
+    reply: ["Full brightness", "Brightness at maximum"]
+
+  - name: brightness_high
+    say: [brightness high, brightness 80]
+    run: xrandr --output HDMI-0 --brightness 0.8
+    reply: "Brightness at 80 percent"
+
+  - name: brightness_medium
+    say: [brightness medium, brightness half, half brightness, brightness 60]
+    run: xrandr --output HDMI-0 --brightness 0.6
+    reply: "Brightness at 60 percent"
+
+  - name: brightness_low
+    say: [brightness low, dim the screen, low brightness, brightness 40]
+    run: xrandr --output HDMI-0 --brightness 0.4
+    reply: ["Dimmed the screen", "Brightness at 40 percent"]
+
+  - name: night_light_on
+    say: [night light on, turn on night light, enable night light]
+    run: >-
+      gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-automatic false &&
+      gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-from 0.0 &&
+      gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-to 23.99 &&
+      gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
+    reply: ["Night light is on", "Warming up the screen"]
+
+  - name: night_light_off
+    say: [night light off, turn off night light, disable night light]
+    run: gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled false
+    reply: "Night light is off"
+
+  - name: dark_mode
+    say: [dark mode, dark theme, turn on dark mode]
+    run: gsettings set org.gnome.desktop.interface gtk-theme Nordic
+    reply: ["Dark mode on", "Going dark"]
+
+  - name: light_mode
+    say: [light mode, light theme, turn off dark mode]
+    run: gsettings set org.gnome.desktop.interface gtk-theme Yaru-light
+    reply: "Light mode on"
+
+  - name: text_bigger
+    say: [bigger text, make text bigger, increase text size, large text]
+    run: gsettings set org.gnome.desktop.interface text-scaling-factor 1.25
+    reply: "Text is bigger now"
+
+  - name: text_normal
+    say: [normal text, normal text size, reset text size]
+    run: gsettings set org.gnome.desktop.interface text-scaling-factor 1.0
+    reply: "Text size is back to normal"
+
+  - name: screen_off
+    say: [screen off, turn off the screen, turn off display]
+    run: xset dpms force off
+    reply: ["Screen off. Move the mouse to wake it", "Turning off the display"]
+
+  - name: rotate_normal
+    say: [rotate screen normal, reset screen rotation]
+    run: xrandr --output HDMI-0 --rotate normal
+    reply: "Screen rotation reset"
+
+  - name: rotate_left
+    say: [rotate screen left, portrait mode]
+    run: xrandr --output HDMI-0 --rotate left
+    risk: confirm
+    ask: "Rotate the screen? Say rotate screen normal to undo."
+    reply: "Rotated the screen"
+
+  - name: dnd_on
+    say: [do not disturb, do not disturb on, turn on do not disturb, mute notifications]
+    run: gsettings set org.gnome.desktop.notifications show-banners false
+    reply: ["Do not disturb is on", "Notifications muted"]
+
+  - name: dnd_off
+    say: [do not disturb off, turn off do not disturb, unmute notifications]
+    run: gsettings set org.gnome.desktop.notifications show-banners true
+    reply: "Notifications are back on"
+
+  # --- wifi & network ---
+  - name: wifi_on
+    say: [wifi on, turn on wifi, enable wifi]
+    run: nmcli radio wifi on
+    reply: ["Wi-Fi is on", "Turning Wi-Fi on"]
+
+  - name: wifi_off
+    say: [wifi off, turn off wifi, disable wifi]
+    run: nmcli radio wifi off
+    risk: confirm
+    ask: "Turn Wi-Fi off? You'll lose internet unless the cable is plugged in."
+    reply: "Wi-Fi is off"
+
+  - name: wifi_status
+    say: [which wifi am i on, what wifi am i connected to, wifi status, current wifi]
+    run: "nmcli -t -f active,ssid dev wifi | awk -F: '$1==\"yes\"{print $2}'"
+    output: true
+    reply: ["You're on {output}", "Connected to {output}"]
+
+  - name: wifi_list
+    say: [list wifi networks, scan wifi, show wifi networks, what wifi networks are there]
+    run: "nmcli -t -f SSID dev wifi list | awk 'NF && !seen[$0]++' | head -5 | paste -sd,"
+    output: true
+    reply: "I can see {output}"
+
+  - name: wifi_connect
+    say: ["connect to wifi {network}", "connect wifi {network}", "switch wifi to {network}"]
+    run: "nmcli con up id {network}"
+    reply: ["Connecting to {network}", "Switching to {network}"]
+
+  - name: wifi_disconnect
+    say: [disconnect wifi, disconnect from wifi]
+    run: nmcli dev disconnect wlan0
+    risk: confirm
+    ask: "Disconnect from Wi-Fi?"
+    reply: "Disconnected from Wi-Fi"
+
+  - name: hotspot_on
+    say: [hotspot on, turn on hotspot, start hotspot]
+    run: nmcli dev wifi hotspot ifname wlan0 ssid Jarvis password jarvis1234
+    risk: confirm
+    ask: "Start a hotspot? This drops your current Wi-Fi connection."
+    reply: "Hotspot Jarvis is on, password jarvis 1 2 3 4"
+
+  - name: hotspot_off
+    say: [hotspot off, turn off hotspot, stop hotspot]
+    run: nmcli con down Hotspot
+    reply: "Hotspot is off"
+
+  - name: airplane_on
+    say: [airplane mode, airplane mode on, flight mode]
+    run: nmcli radio all off
+    risk: confirm
+    ask: "Airplane mode turns off Wi-Fi, and the Echo Dot may drop too. Go ahead?"
+    reply: "Airplane mode on"
+
+  - name: airplane_off
+    say: [airplane mode off, turn off airplane mode, flight mode off]
+    run: nmcli radio all on
+    reply: "Airplane mode off, radios are back on"
+
+  - name: internet_check
+    say: [am i online, check internet, is the internet working, internet status]
+    run: ping -c2 -W2 8.8.8.8 >/dev/null 2>&1 && echo online || echo offline
+    output: true
+    reply: ["You're {output}", "Looks like you're {output}"]
+
+  # --- bluetooth ---
+  - name: bluetooth_on
+    say: [bluetooth on, turn on bluetooth, enable bluetooth]
+    run: bluetoothctl power on
+    reply: "Bluetooth is on"
+
+  - name: bluetooth_off
+    say: [bluetooth off, turn off bluetooth, disable bluetooth]
+    run: bluetoothctl power off
+    risk: confirm
+    ask: "Turn Bluetooth off? The Echo Dot will disconnect and I'll go quiet."
+    reply: "Bluetooth is off"
+
+  - name: bluetooth_devices
+    say: [bluetooth devices, paired devices, list bluetooth devices, show bluetooth devices]
+    run: "bluetoothctl paired-devices | cut -d' ' -f3- | paste -sd,"
+    output: true
+    reply: "Paired devices: {output}"
+
+  # --- power ---
+  - name: shutdown
+    say: [shut down, shutdown, power off, turn off the computer]
+    run: systemctl poweroff
+    reply: ["Shutting down. See you later", "Okay, powering off. Bye for now"]
+    ask: "Are you sure you want me to shut down?"
+
+  - name: reboot
+    say: [reboot, restart, restart the computer]
+    run: systemctl reboot
+    reply: ["Restarting, be right back", "Okay, restarting now"]
+    ask: "Restart the computer now?"
+
+  - name: suspend
+    say: [suspend, sleep, go to sleep]
+    run: systemctl suspend
+    reply: ["Going to sleep. Wake me when you need me", "Okay, suspending now"]
+    ask: "Put the computer to sleep?"
+
+  - name: log_out
+    say: [log out, sign out, log me out]
+    run: gnome-session-quit --logout --no-prompt
+    risk: confirm
+    ask: "Log out now? Unsaved work will be lost."
+    reply: "Logging out"
+
+  - name: power_mode
+    say: [power mode, what power mode, which power mode, current power mode]
+    run: "nvpmodel -q 2>/dev/null | head -1 | cut -d: -f2"
+    output: true
+    reply: "You're in {output} mode"
+
+  # These need sudo, so they always go to the terminal for you to run.
+  - name: power_max
+    say: [max power mode, maxn mode, full power mode]
+    run: sudo nvpmodel -m 0
+    reply: "Switching to max power"
+
+  - name: power_low
+    say: [low power mode, power saving mode, 10 watt mode]
+    run: sudo nvpmodel -m 1
+    reply: "Switching to 10 watt mode"
+
+  - name: power_normal
+    say: [normal power mode, 25 watt mode]
+    run: sudo nvpmodel -m 3
+    reply: "Switching to 25 watt mode"
+
+  - name: jetson_clocks
+    say: [max performance, boost clocks, jetson clocks, full speed]
+    run: sudo jetson_clocks
+    reply: "Clocks maxed"
+
+  - name: fan_max
+    say: [fan max, fan full speed, cool down]
+    run: sudo jetson_clocks --fan
+    reply: "Fan at full speed"
+
+  # --- info ---
+  - name: time
+    say: [what time is it, time, tell me the time, what's the time]
+    run: date '+%-I:%M %p'
+    output: true
+    reply: ["It's {output}", "It's {output} right now"]
+
+  - name: date
+    say: [what's the date, what is the date, today's date, what day is it]
+    run: date '+%A, %-d %B %Y'
+    output: true
+    reply: ["Today is {output}", "It's {output}"]
+
+  - name: disk_space
+    say: [disk space, check disk space, how much space is left, free space]
+    run: df -h / --output=avail | tail -1
+    output: true
+    reply: ["You've got {output} free on the main disk", "There's {output} left on the main disk"]
+
+  - name: memory
+    say: [memory usage, how much memory, ram usage, check memory]
+    run: free -h | awk '/Mem/ {print $7}'
+    output: true
+    reply: ["You've got {output} of memory free", "{output} of memory available right now"]
+
+  - name: ip_address
+    say: [ip address, what's my ip, what is my ip address]
+    run: hostname -I | cut -d' ' -f1
+    output: true
+    reply: ["Your IP address is {output}", "You're on {output}"]
+
+  - name: uptime
+    say: [uptime, how long has the computer been on]
+    run: uptime -p
+    output: true
+    reply: "The computer's been {output}"
+
+  - name: cpu_temp
+    say: [temperature, cpu temperature, how hot is it, how hot is the computer]
+    run: "awk '{printf \"%d degrees\", $1/1000}' /sys/class/thermal/thermal_zone0/temp"
+    output: true
+    reply: ["The CPU is at {output}", "CPU temperature is {output}"]
+
+  - name: gpu_temp
+    say: [gpu temperature, how hot is the gpu]
+    run: "awk '{printf \"%d degrees\", $1/1000}' /sys/class/thermal/thermal_zone1/temp"
+    output: true
+    reply: "The GPU is at {output}"
+
+  - name: cpu_usage
+    say: [cpu usage, how busy is the cpu, processor usage]
+    run: "top -bn1 | awk '/Cpu\\(s\\)/ {printf \"%d percent\", 100-$8}'"
+    output: true
+    reply: "The CPU is at {output}"
+
+  - name: timezone
+    say: [what's my time zone, time zone, which time zone]
+    run: timedatectl show -p Timezone --value
+    output: true
+    reply: "Your time zone is {output}"
+
+  - name: computer_name
+    say: [computer name, what's the computer name, hostname]
+    run: hostname
+    output: true
+    reply: "This computer is called {output}"
+
+  # --- files ---
+  - name: open_trash
+    say: [open trash, show trash, open recycle bin]
+    run: nautilus trash:///
+    window: true
+    reply: "Here's the trash"
+
+  - name: empty_trash
+    say: [empty trash, empty the trash, empty recycle bin]
+    run: gio trash --empty
+    risk: confirm
+    ask: "Empty the trash? Those files will be gone for good."
+    reply: "Trash emptied"
+
+  # --- files ---
+  - name: delete_file
+    say: ["delete {file}", "remove {file}", "delete file {file}"]
+    run: "rm {file}"
+    risk: manual
+    reply: "I'd rather not delete files myself, but the command's ready in your terminal"
