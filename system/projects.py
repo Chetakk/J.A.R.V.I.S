@@ -254,7 +254,9 @@ def _aliases(name, path, title):
     return uniq
 
 
-BOILERPLATE = re.compile(r"^(?:This file provides guidance to Claude|Last updated\b)", re.IGNORECASE)
+BOILERPLATE = re.compile(r"^(?:This file provides guidance to Claude|Last updated\b|Companion documents?\b)", re.IGNORECASE)
+# A section that says what the project is ("## 1. What this is"): its first paragraph beats the opening one.
+WHAT_IT_IS = re.compile(r"^(?:\d+\.\s*)?(?:what (?:this|it) is|overview|about)\b", re.IGNORECASE)
 
 
 def _readme(path):
@@ -275,39 +277,59 @@ def _readme(path):
 
 
 def _read_readme(path):
+    try:
+        present = {f.lower(): f for f in os.listdir(path)}  # context.md as well as CONTEXT.md
+    except OSError:
+        present = {}
     for f in READMES:
         try:
-            with open(os.path.join(path, f), errors="replace") as fh:
+            with open(os.path.join(path, present.get(f.lower(), f)), errors="replace") as fh:
                 text = fh.read(6000)
         except OSError:
             continue
-        title, para, in_code = "", [], False
-        for line in text.splitlines():
+        title, head, first, what, para, in_code, in_comment = "", "", "", "", [], False, False
+        for line in text.splitlines() + [""]:
             s = line.strip()
+            if in_comment:
+                in_comment = "-->" not in s
+                continue
+            if s.startswith("<!--"):
+                in_comment = "-->" not in s
+                continue
             if s.startswith("```"):
                 in_code = not in_code
                 continue
             if in_code:
                 continue
-            if s.startswith("#"):
+            if s.startswith("#") or not s:
                 if para:
-                    break
-                head = s.lstrip("#").strip()
-                title = title or ("" if head.lower() in (r.lower() for r in READMES) else head)
-                continue
-            if not s:
-                if para:
-                    break
+                    first = first or " ".join(para)
+                    if WHAT_IT_IS.match(head):
+                        what = " ".join(para)
+                        break
+                    para = []
+                if s:
+                    head = _plain(s.lstrip("#").strip())
+                    if not title and not first:
+                        title = "" if head.lower() in (r.lower() for r in READMES) else head
                 continue
             if s.startswith(("|", "<", "![", "[!", "---", ">", "- [", "* [")) or (not para and BOILERPLATE.match(_plain(s))):
                 continue
             para.append(s)
-        summary = _plain(" ".join(para))
-        summary = re.split(r"(?<=[.!?])\s", summary)[0][:220] if summary else ""
-        return _plain(title), summary
+        return _plain(title), _sentences(_plain(what or first))
     return "", ""
 
 
+def _sentences(text, short=60, cap=220):
+    """The first sentence, and the next ones too while it's under `short` characters ("A personal study tracker.")."""
+    out = ""
+    for s in re.split(r"(?<=[.!?])\s", text) if text else []:
+        if out and (len(out) >= short or len(out) + 1 + len(s) > cap):
+            break
+        out = (out + " " + s).strip()
+    return out[:cap]
+
+
 def _plain(md):
-    md = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", md)
+    md = re.sub(r"<[^>]+>", "", re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", md))
     return re.sub(r"[`*_]{1,3}", "", md).strip()
