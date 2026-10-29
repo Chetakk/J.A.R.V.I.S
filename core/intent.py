@@ -16,6 +16,13 @@ from core.registry import opposite_direction
 
 MODEL_DIR = os.path.expanduser("~/.local/share/jarvis/models/minilm")
 CACHE = os.path.join(MODEL_DIR, "phrases.npz")
+# A small embedding model scores by topic, not by action: "make me a reminder" sits right next to "what are my
+# reminders". So a request that does something never becomes a phrase that only asks something.
+DOING = re.compile(r"^(?:(?:i want you to|i need you to|i'd like you to|i want to|i need to|i'd like to|please|just|"
+                   r"go ahead and|let's) )?(?:set|add|make|create|start|new|put|save|schedule|book|write|record|change|"
+                   r"switch|adjust|connect|join|install|remind|(?:give|get) me an?|(?:i'd like|i want|i need) an?)\b", re.I)
+ASKING = re.compile(r"^(?:what|what's|which|how|show|list|read|tell me|any|is|am|are|where|when|who|did|do i|does|"
+                    r"has|have i)\b", re.I)
 
 
 class WordPiece:
@@ -50,6 +57,11 @@ class WordPiece:
 
 def _norm(text):
     return " ".join(re.findall(r"[\w']+|:", text.lower()))
+
+
+def wrong_kind(said, phrase):
+    """True if `said` asks to do something and `phrase` only asks a question ("add a todo" / "what's on my todo list")."""
+    return bool(DOING.match(said)) and bool(ASKING.match(phrase))
 
 
 def _value(slot, value):
@@ -173,12 +185,17 @@ class IntentMatcher:
                 return re.sub(r"\{(\w+)\}", lambda s: _value(s.group(1), m.group(s.group(1))), target)
         return None
 
+    @staticmethod
+    def _against(text, phrase):
+        """`phrase` goes the other way ("on" said, "off" in it), or only asks when you asked to do something."""
+        return opposite_direction(text, phrase) or wrong_kind(text, phrase)
+
     def candidates(self, text, n=2):
         """The n best different phrases for `text`, as [(phrase, score)] (going the same way as what was said)."""
         scores = self.matrix @ self.embed([text])[0]
         out = []
         for i in np.argsort(-scores):
-            if self.targets[i] not in [t for t, _ in out] and not opposite_direction(text, self.targets[i]):
+            if self.targets[i] not in [t for t, _ in out] and not self._against(text, self.targets[i]):
                 out.append((self.targets[i], float(scores[i])))
                 if len(out) == n:
                     break
@@ -187,7 +204,7 @@ class IntentMatcher:
     def match(self, text):
         """(known phrase, score), or (None, best score) when nothing is close enough."""
         scores = self.matrix @ self.embed([text])[0]
-        order = [i for i in np.argsort(-scores) if not opposite_direction(text, self.targets[i])]
+        order = [i for i in np.argsort(-scores) if not self._against(text, self.targets[i])]
         if not order:
             return None, 0.0
         best = order[0]

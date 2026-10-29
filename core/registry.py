@@ -15,7 +15,8 @@ SLOT_PATTERNS = {"level": r"\d{1,3}"}
 _OPPOSITES = [("on", "off"), ("up", "down"), ("enable", "disable"), ("open", "close"), ("show", "hide"),
               ("start", "stop"), ("louder", "quieter"), ("brighter", "darker"), ("in", "out"), ("max", "min"),
               ("mute", "unmute"), ("connect", "disconnect"), ("lock", "unlock"), ("next", "previous"),
-              ("start", "end"), ("begin", "end"), ("start", "finish")]
+              ("start", "end"), ("begin", "end"), ("start", "finish"), ("record", "screenshot"),
+              ("copy", "move")]
 
 
 def opposite_direction(said, phrase):
