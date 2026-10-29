@@ -1267,3 +1267,23 @@
 "turn the cpu alerts on": skill:unmute
 "switch the disk warnings back on": skill:unmute
 "start the cpu alerts again": skill:unmute
+"end chrome": "app:close Google Chrome"
+"kill this stuck window": skill:force
+"the program is frozen": skill:about
+"this app seems stuck": skill:about
+"chrome froze": skill:about
+"talk privately": skill:private
+"stay quiet": skill:quiet
+"don't say anything out loud": skill:quiet
+"clear the chat": skill:forget_conversation
+"wipe our conversation": skill:forget_conversation
+"what's in my recipes bookmarks folder": skill:bookmarks
+"show the bookmarks in the work folder": skill:bookmarks
+"fill out this form here": skill:browse
+"fill in the form on this page": skill:browse
+"complete the signup form for me": skill:browse
+"show me your memories": skill:about_me
+"what have you saved about me": skill:about_me
+"find sources on whisper models": skill:research
+"do some research on the best usb mic": skill:research
+"start a deep research on edge ai chips": skill:deep_research
