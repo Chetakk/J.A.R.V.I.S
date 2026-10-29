@@ -260,9 +260,14 @@ class Jarvis:
         if match:
             return self._run_match(match)
         if self.intents and not getattr(self, "_rewording", False):
-            phrase, score = self.intents.match(text)
+            phrase = self.intents.fill(text)
             if phrase:
-                self.heard(text, "means \"%s\" (%.2f)" % (phrase, score))
+                self.heard(text, "means \"%s\"" % phrase)
+            else:
+                phrase, score = self.intents.match(text)
+                if phrase:
+                    self.heard(text, "means \"%s\" (%.2f)" % (phrase, score))
+            if phrase:
                 self._rewording = True
                 try:
                     return self.handle(phrase)

@@ -34,3 +34,7 @@ close the card: [close it, get rid of that card, hide the card, dismiss that]
 volume up: [turn the sound up, make it louder, i can't hear it, raise the volume]
 volume down: [turn the sound down, make it quieter, it's too loud, lower the volume]
 dark mode: [make everything dark, switch to the dark look, my eyes hurt]
+# With a {value}: other wordings are matched word for word, and the value is carried over.
+"close {app}": ["shut {app}", "shut down {app}", "exit {app}", "get rid of {app}", "stop {app} app", "close down {app}", "shut {app} down"]
+"set volume to {level}": ["make it {level} percent", "volume at {level}", "put the volume at {level}", "turn the volume to {level}", "volume to {level} percent", "set the sound to {level}"]
+"connect to wifi {network}": ["join {network} wifi", "get on {network} wifi", "use the {network} network", "connect to {network}", "switch to {network} wifi"]

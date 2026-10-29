@@ -89,3 +89,7 @@
 "uh": ignored
 "kill the music": skill:media
 "undo that": persona
+"shut chrome": command:close_app
+"get rid of the calculator": command:close_app
+"make it 40 percent": command:set_volume
+"join home wifi": command:wifi_connect

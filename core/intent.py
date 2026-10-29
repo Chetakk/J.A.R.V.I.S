@@ -44,6 +44,13 @@ class WordPiece:
         return ids[:max_len - 1] + [self.sep]
 
 
+def template_regex(wording):
+    """"shut {app} down" -> ^shut (?P<app>.+?) down$; a stray "the"/"my" before the value is dropped."""
+    parts = re.split(r"\{(\w+)\}", wording)
+    pattern = "".join(re.escape(p) if i % 2 == 0 else "(?:the |my )?(?P<%s>.+?)" % p for i, p in enumerate(parts))
+    return re.compile("^%s$" % pattern, re.IGNORECASE)
+
+
 class IntentMatcher:
     def __init__(self, path, threshold=0.72, margin=0.03, extra=None):
         """extra: more {phrase: [other wordings]}, e.g. the command list's own "say" phrases."""
@@ -59,10 +66,16 @@ class IntentMatcher:
         for target, says in (extra or {}).items():
             intents[target] = list(intents.get(target) or []) + list(says)
         self.targets, examples = [], []
+        self.templates = []  # (regex of another wording with {slots}, known phrase with the same {slots})
         for target, says in intents.items():
+            if "{" in target:
+                for s in [target] + list(says or []):
+                    self.templates.append((template_regex(s), target))
+                continue
             for s in [target] + list(says or []):
                 self.targets.append(target)
                 examples.append(s)
+        self.templates.sort(key=lambda t: -len(re.sub(r"\(\?.*?\)", "", t[0].pattern)))  # most fixed words first
         self.matrix = self.embed(examples)
         self.nearest = (None, 0.0)
 
@@ -77,6 +90,14 @@ class IntentMatcher:
                                       "token_type_ids": np.zeros_like(ids)})[0]
         vec = (out * mask[..., None]).sum(1) / mask.sum(1, keepdims=True)
         return vec / np.linalg.norm(vec, axis=1, keepdims=True)
+
+    def fill(self, text):
+        """Another wording with a value in it -> the known phrase with that value ("shut chrome" -> "close chrome")."""
+        for regex, target in self.templates:
+            m = regex.match(text.strip().rstrip("?.!"))
+            if m:
+                return re.sub(r"\{(\w+)\}", lambda s: m.group(s.group(1)).strip(), target)
+        return None
 
     def match(self, text):
         """(known phrase, score), or (None, best score) when nothing is close enough."""
