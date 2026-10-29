@@ -802,3 +802,20 @@
 "continue where I left off": skill:where_was_i
 "open the code I was working on yesterday": skill:last_project
 "open code": "app:open Visual Studio Code"
+
+# two requests in one sentence (the result shown is the first part's), and ones that must stay whole
+"open youtube and turn the volume down": browser
+"turn up the volume and open youtube": command:volume_up
+"close firefox then open rhythmbox": "app:close Firefox"
+"volume down, brightness low and night light on": command:volume_down
+"pause the music and lock the screen": skill:media
+"set volume to 30 and open spotify": command:set_volume
+"open gmail and youtube": browser
+"add bread and milk to my todo list": skill:add
+"remind me in 10 minutes to call raj and send the report": skill:remind_in
+"search for salt and pepper": browser
+"translate rock and roll into hindi": claude
+"volume banana": claude
+"open gmail": browser
+"volume 30 percent": command:set_volume
+"turn the volume down": command:volume_down

@@ -9,6 +9,8 @@ from voice.speech import pick
 
 FUZZY_CUTOFF = 0.82
 _SLOT = re.compile(r"\{(\w+)\}")
+# Slots that only take a certain kind of value ("volume {level}" mustn't take "down, brightness low ...").
+SLOT_PATTERNS = {"level": r"\d{1,3}"}
 # "turn on airplane mode" is one letter away from "turn off airplane mode": never match across these.
 _OPPOSITES = [("on", "off"), ("up", "down"), ("enable", "disable"), ("open", "close"), ("show", "hide"),
               ("start", "stop"), ("louder", "quieter"), ("brighter", "darker"), ("in", "out"), ("max", "min"),
@@ -93,7 +95,7 @@ class Registry:
                 phrase = str(phrase).lower().strip()
                 if _SLOT.search(phrase):
                     parts = _SLOT.split(phrase)
-                    regex = "".join(re.escape(p) if i % 2 == 0 else "(?P<%s>.+?)" % p
+                    regex = "".join(re.escape(p) if i % 2 == 0 else "(?P<%s>%s)" % (p, SLOT_PATTERNS.get(p, ".+?"))
                                     for i, p in enumerate(parts))
                     literal = len(_SLOT.sub("", phrase))
                     self._patterns.append((literal, re.compile("^%s$" % regex, re.IGNORECASE), cmd))

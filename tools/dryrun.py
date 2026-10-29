@@ -34,6 +34,7 @@ class DryJarvis:
         j.executor.run = lambda command, **k: rec(("run", command))
         j._run_match = lambda match: rec(("command", match.command.get("name"))) or True
         j._ask_claude = lambda text, **k: rec(("claude", text))
+        j._answer = lambda question: rec(("asks", question))  # a yes/no or "X, or Y?": no answer comes
         j._slash = lambda raw: rec(("slash", raw)) or True
         j._miss = lambda text, outcome: rec(("miss", outcome))
         j._open_app = lambda text: self._app(J.apps.OPEN, text, "open")
@@ -48,8 +49,7 @@ class DryJarvis:
         j.skills.focusing = lambda: False
 
     def _app(self, pattern, text, verb):
-        m = pattern.match(text)
-        app = m and self.j.apps.find(m.group(1))
+        app, _ = self.j.app_for(pattern, text)
         if app:
             self.log.append(("app", "%s %s" % (verb, app["name"])))
         return bool(app)

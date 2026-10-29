@@ -146,6 +146,7 @@ OPEN_QUESTION = re.compile(r"^(?:who|whom|whose|why|explain|describe|define|comp
                            r"what (?:is|are|was|were|does|do) (?:a|an|the)\b|how (?:do|does|did|can|could|should|"
                            r"would|to)\b)|\b(?:in|at) (?!a\b|the\b|my\b)[a-z]+$|\b(?:yesterday|last (?:week|month|year))\b",
                            re.IGNORECASE)
+SPLIT = re.compile(r",? (?:and then|and also|and after that|after that|then|and) |, ", re.IGNORECASE)
 UNSURE = 0.62  # from here up to the matcher's threshold, a guess is asked about (real questions scored lower)
 YES = re.compile(r"^\W*(y|yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|correct)\b", re.IGNORECASE)
 
@@ -185,6 +186,7 @@ class Jarvis:
         self.last_undo = None  # saved command that reverses the last one, for "undo that"
         self.context = Context()  # what JARVIS just did, for "a bit more", "make it 70", "and firefox too"
         self._text = ""
+        self._splitting = False  # handling the parts of "X and Y" one by one (they aren't split again)
         self.handling_since = None  # when the request being handled started (the watchdog restarts a stuck one)
         self._rewording = False  # handling a phrase the meaning matcher rewrote; it isn't rewritten again
         self.do_missed = False  # Claude's "do" phrase matched nothing (then it isn't learned)
@@ -361,6 +363,18 @@ class Jarvis:
                 run = self.registry.browsers[action.browser]
                 self.last_app = run.get("process") or os.path.basename(run["run"].split()[0])
             self.executor.run(action.shell(self.registry.browsers), reply=[p % action.description for p in ("Opening %s", "Sure, opening %s", "Okay, pulling up %s")])
+            return True
+        # "Open YouTube and turn the volume down": two requests, if each part is understood on its own.
+        # (Before the meaning match, which could take the whole sentence as just one of them.)
+        parts = self._split(text)
+        if parts:
+            self.heard(text, "%d requests: %s" % (len(parts), " / ".join(parts)))
+            self._splitting = True
+            try:
+                for part in parts:
+                    self.handle(part)
+            finally:
+                self._splitting = False
             return True
         # Same meaning, other words: rewritten to a phrase JARVIS knows, then handled again.
         phrase, score = self.intents.match(text) if self.intents and not self._rewording else (None, 0)
@@ -742,7 +756,7 @@ class Jarvis:
         if not self.intents or self._rewording or self.from_claude:
             return False
         (best, score), (other, second) = (self.intents.candidates(text) + [(None, 0.0)] * 2)[:2]
-        if not best or best.startswith("/") or OPEN_QUESTION.search(text):
+        if not best or best.startswith("/") or OPEN_QUESTION.search(text) or len(text.split()) < 2:
             return False
         threshold = (self.settings.get("intents") or {}).get("threshold", 0.72)
         if second >= UNSURE and score - second < 0.06 and not other.startswith("/"):  # two close meanings
@@ -776,6 +790,35 @@ class Jarvis:
         if mode == "ask":
             self.speaker.say(["Got it, I'll remember that.", "Okay, noted for next time."])
 
+    def _split(self, text):
+        """["open youtube", "turn the volume down"] for "open youtube and turn the volume down", or None.
+        Only when every part is understood without Claude: "add bread and milk to my list" is one request."""
+        if self._splitting or self._rewording or self.from_claude:
+            return None
+        parts = [p.strip(" ,.") for p in SPLIT.split(text) if p.strip(" ,.")]
+        if not 2 <= len(parts) <= 4 or not all(self.understands(p) for p in parts):
+            return None
+        return parts
+
+    def understands(self, text):
+        """Would JARVIS handle `text` itself (no Claude)? Checks the same steps as handle(), running nothing."""
+        t = text.strip().rstrip("?.!")
+        low = t.lower()
+        if low in CHAT_PHRASES or low in OPEN_CLAUDE or low in OPEN_CLAUDE_VSCODE or undo.UNDO.match(t):
+            return True
+        if self.intents and (self.intents.early(t) or self.intents.fill(t)):
+            return True
+        if any(pattern.match(t) for skill in self.skills.all for pattern, _ in skill.rules):
+            return True
+        match = self.registry.match_exact(t)
+        if match and not self._not_running(match):
+            return True
+        if self.app_for(apps.OPEN, t)[0] or self.app_for(apps.CLOSE, t)[0]:
+            return True
+        if self.browser.parse(t):
+            return True
+        return bool(self.intents and self.intents.match(t)[0])
+
     def _reword(self, phrase):
         self._rewording = True  # one rewrite only: the new phrase isn't rewritten again
         try:
@@ -789,9 +832,15 @@ class Jarvis:
         app = match.slots.get("app") if match.name == "close_app" else None
         return bool(app) and subprocess.call(["pgrep", "-x", app[:15]], stdout=subprocess.DEVNULL) != 0
 
+    def app_for(self, pattern, text):
+        """(installed app, the name as said) for "open X" / "close X", or (None, None)."""
+        m = pattern.match(text)
+        if not m or m.group(1).lower() in self.registry.sites:
+            return None, None  # "open gmail" is the website (not Thunderbird, which "gmail" sounds like)
+        return self.apps.find(m.group(1)), m.group(1)
+
     def _open_app(self, text):
-        m = apps.OPEN.match(text)
-        app = m and self.apps.find(m.group(1))
+        app, said = self.app_for(apps.OPEN, text)
         if not app:
             return False
         desktop.go_to_jarvis_workspace()
@@ -799,13 +848,12 @@ class Jarvis:
             self.speaker.say("Hmm, %s didn't start." % app["name"])
             return True
         self.last_app = app["process"] or None
-        self.context.done(text, m.group(1))
+        self.context.done(text, said)
         self.speaker.say(["Opening %s." % app["name"], "Sure, here's %s." % app["name"]])
         return True
 
     def _close_app(self, text):
-        m = apps.CLOSE.match(text)
-        app = m and self.apps.find(m.group(1))
+        app, said = self.app_for(apps.CLOSE, text)
         if not app:
             return False
         if not app["process"]:
@@ -816,7 +864,7 @@ class Jarvis:
                           reply=["Okay, closed %s." % app["name"], "Done, %s is closed." % app["name"]],
                           question="Close %s? Anything unsaved will be lost." % app["name"], declared="confirm")
         if self.executor.ok:
-            self.context.done(text, m.group(1))
+            self.context.done(text, said)
         return True
 
     def _undo(self):

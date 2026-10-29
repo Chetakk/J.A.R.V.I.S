@@ -69,13 +69,14 @@ SLOTS = {
     # "20 minutes", "5 pm", "in an hour", "tomorrow at 9 am", "noon"
     "when": r"(?:(?:in|at) )?(?:(?:today|tonight|tomorrow)(?: at)? ?)?(?:%s(?: ?(?:[ap]\.? ?m\.?|minutes?|mins?|"
             r"hours?|hrs?|seconds?|secs?|o'?clock))?|noon|midnight)" % _NUM,
+    "level": r"\d{1,3}",  # a volume or brightness ("set volume to {level}" mustn't take "30 and open spotify")
     "dur": r"%s ?(?:minutes?|mins?|hours?|hrs?|seconds?|secs?)" % _NUM,
     "a": r"-?[\d.,]+", "b": r"-?[\d.,]+",  # sums take numbers only ("add a note to X" isn't one)
     "n": r"first|second|third|fourth|fifth|last|1st|2nd|3rd|4th|5th|one|two|three|four|five|\d",
     # a todo: never "I'm", "it", "that" ("I'm done" isn't a todo)
     "item": r"(?!(?:i'?m|i am|it|that|this|we'?re|you'?re|all|everything)$).+?",
     # an app, never "down ..." ("shut down the computer") or the computer itself
-    "app": r"(?!down\b|off\b|up\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine|wifi|bluetooth|tab|window|"
+    "app": r"(?!down\b|off\b|up\b)(?!.*\b(?:then|and)\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine|wifi|bluetooth|tab|window|"
            r"everything|all|it all)$).+?",
 }
 
