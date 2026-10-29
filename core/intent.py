@@ -86,8 +86,10 @@ SLOTS = {
     "dur": r"%s ?(?:minutes?|mins?|hours?|hrs?|seconds?|secs?)" % _NUM,
     "a": r"-?[\d.,]+", "b": r"-?[\d.,]+",  # sums take numbers only ("add a note to X" isn't one)
     "n": r"first|second|third|fourth|fifth|last|1st|2nd|3rd|4th|5th|one|two|three|four|five|\d",
-    # a todo: never "I'm", "it", "that" ("I'm done" isn't a todo)
-    "item": r"(?!(?:i'?m|i am|it|that|this|we'?re|you'?re|all|everything)$).+?",
+    # a todo: never "I'm", "it", "that" ("I'm done" isn't a todo), nor a question ("is the task done")
+    "item": r"(?!(?:i'?m|i am|it|that|this|we'?re|you'?re|all|everything)$)"
+            r"(?!(?:is|was|are|were|has|have|had|did|does|do|which|what|how|when|where|who|why|will|would|can|could|"
+            r"should)\b).+?",
     # an app, never "down ..." ("shut down the computer") or the computer itself
     "app": r"(?!down\b|off\b|up\b)(?!.*\b(?:then|and)\b)(?!(?:the )?(?:computer|system|jetson|laptop|pc|machine|wifi|bluetooth|tab|window|"
            r"everything|all|it all)$).+?",

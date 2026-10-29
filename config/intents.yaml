@@ -175,3 +175,11 @@ ask for the value:
 mute microphone: [turn off my mic, turn off the mic, unmute my mic, turn my mic back on, turn on my mic]
 focus mode: [start focusing, i need to focus, i want to focus, help me focus, time to focus, focus time, let me concentrate, i need to concentrate]
 open claude in vs code: [ask claude in vs code, ask claude in vscode, talk to claude in vs code]
+
+# --- found by tools/variants.py --check (wrong skill before)
+how's the task going: [is the task done, is the task done yet, is the task finished, has the task finished]
+what tasks did you do: [which tasks have you done, which tasks did you do, what tasks have you done]
+did that work: [was that done, was that successful, did it go through]
+forget my pin: [delete my pin, remove my pin, clear my pin]
+"forget my {what} code": ["delete my {what} code", "remove my {what} code"]
+"forget my {what} password": ["delete my {what} password", "remove my {what} password"]
