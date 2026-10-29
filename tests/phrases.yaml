@@ -1011,3 +1011,17 @@
 "delete the reading layout": skill:delete
 "put this on the left": skill:snap
 "what's in the file menu": skill:list_controls
+"brief me": skill:brief
+"give me my daily briefing": skill:brief
+"morning briefing": skill:brief
+"what's my day look like": skill:brief
+"what does my day look like today": skill:brief
+"what do i have today": skill:brief
+"what do i have on today": skill:brief
+"what's on my plate today": skill:brief
+"what's on the agenda today": skill:brief
+"turn off the daily briefing": skill:set_auto
+"stop the morning briefings": skill:set_auto
+"don't brief me every morning": skill:set_auto
+"how's my day going": skill:summary
+"what's on my todo list": skill:read

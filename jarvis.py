@@ -1110,8 +1110,8 @@ def run_loop(jarvis, has_ui):
 
 
 def watch(jarvis):
-    """Background: reminders when they're due; crashed projects; every 2 minutes, heads-ups and habit offers
-    (skills/proactive.py keeps why each was said, and holds them in focus mode and quiet hours)."""
+    """Background: reminders when they're due; crashed projects; the morning briefing; every 2 minutes, heads-ups
+    and habit offers (skills/proactive.py keeps why each was said, and holds them in focus mode and quiet hours)."""
     tell = jarvis.skills.proactive
     tick = 0
     while True:
@@ -1124,6 +1124,7 @@ def watch(jarvis):
                     "%H:%M", time.localtime(reminder["due"])))
                 jarvis.inbox.put(("say", line))
             tell.watch()
+            jarvis.skills.briefing.watch()
             if tick % 12 or tell.holding():  # focus mode, quiet hours: no heads-ups or habit offers
                 continue
             for key, line, why in persona.heads_ups(jarvis.settings) + tell.resources():

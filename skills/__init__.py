@@ -5,10 +5,12 @@ The order matters: the first skill whose phrase matches (and doesn't hand it on)
 tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
 and the screen ("what's this page about" in a browser reads the page itself); copying between apps before the
 clipboard ("summarise my clipboard and put it in Slack"); reading files before the browser agent ("summarise
-resume.pdf" isn't a website); "everything about X" before projects and notes
+resume.pdf" isn't a website); the briefing before "everything about X" ("what do I have on today"); "everything
+about X" before projects and notes
 (their "tell me about" / "what do you remember about" would take it); clicking in a window and window focus go last.
 """
 from skills.browser_tabs import BrowserTabs
+from skills.briefing import Briefing
 from skills.cards import Cards
 from skills.checks import Checks
 from skills.clipboard import Clipboard
@@ -48,7 +50,7 @@ ORDER = [
     ("maths", Maths), ("focus_mode", FocusMode), ("proactive", Proactive),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
-    ("status", Status), ("dashboard", Dashboard), ("linked", Linked), ("checks", Checks),
+    ("status", Status), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
     ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("copy_between", CopyBetween), ("clipboard", Clipboard),
