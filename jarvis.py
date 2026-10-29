@@ -28,9 +28,7 @@ from system import apps, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
-from core.skills import Skills
-from core.extras import Extras
-from core.card_actions import CardActions
+from skills import Skills
 from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
@@ -62,7 +60,7 @@ HELP = """Commands:
 Anything else is treated as a request, e.g. "open youtube in firefox".
 "open claude" opens Claude Code in a terminal, continuing JARVIS's conversation.
 "open claude in vs code" / "ask claude in vs code to ..." uses the Claude Code panel in VS Code.
-Built-in skills (core/skills.py): "stop", "status", "what's on my screen", "close this tab", "next tab",
+Built-in skills (skills/): "stop", "status", "what's on my screen", "close this tab", "next tab",
 "switch to the youtube tab", "scroll down", "pause", "next song", "what's playing", "what did I copy",
 "fix the grammar in what I copied", "remember that ...", "what did I ask you to remember", "find my resume",
 "open the latest download", "maximise", "move this to workspace 2", "put chrome on the left", "switch to vs code",
@@ -168,9 +166,8 @@ class Jarvis:
         self.executor = Executor(self.safety, self.speaker, self.settings, self.ask)
         self.whisper_port = int((self.settings.get("stt") or {}).get("port", 8178))
         self.projects = Projects()  # ~/Projects: names, READMEs; running them is biztel run
-        self.cards = CardActions(self)  # "the second one", "read it to me", "pin it", timers, live cards
-        self.skills = Skills(self)  # stop, status, projects, screen, tabs, clipboard, files, windows, media, notes, nano, git
-        self.extras = Extras(self)  # dictation, maths and units, focus mode, slow computer, where was I, clipboard history
+        self.skills = Skills(self)  # everything JARVIS does itself: one module per skill in skills/
+        self.cards = self.skills.cards  # "the second one", "read it to me", "pin it", timers, live cards
         self.mode = self.settings.get("mode", "agent")
         self.memory = persona.Memory()
         self.warned = {}  # heads-up key -> when it was last mentioned
@@ -291,8 +288,7 @@ class Jarvis:
             open_in_vscode(m.group(1))
             self.speaker.say(["Done, I've passed that to Claude in VS Code.", "Okay, Claude in VS Code has it."])
             return True
-        if (self.extras.first(text) or self._personal(text) or self.cards.handle(text) or self.extras.handle(text)
-                or self.skills.handle(text)):
+        if self.skills.first(text) or self._personal(text) or self.skills.handle(text):
             return True
         self.last_request = text
 
@@ -370,7 +366,7 @@ class Jarvis:
                 return self.handle("close %s" % self.last_app)
             self.speaker.say("Sorry, I'm not sure what to close. Tell me the app's name.")
         else:
-            # Reminders live in the day tracker now (core/todos.py, through the skills).
+            # Reminders live in the day tracker now (skills/todos.py).
             reply = persona.small_talk(text, user, self.name, self.names)
             if not reply:
                 return False
@@ -567,7 +563,7 @@ class Jarvis:
         if not isinstance(suggest, dict) or not str(suggest.get("say") or "").strip():
             return
         gap = (self.settings.get("claude") or {}).get("suggest_every_minutes", 10) * 60
-        if time.time() - self.last_suggest < gap or self.extras.focusing():
+        if time.time() - self.last_suggest < gap or self.skills.focusing():
             return
         self.last_suggest = time.time()
         say, command = str(suggest["say"]).strip(), str(suggest.get("command") or "").strip()
@@ -757,7 +753,7 @@ class Jarvis:
         elif cmd == "/desk":
             desktop.go_to_jarvis_workspace()
         elif cmd == "/status":
-            self.skills.status()
+            self.skills.status.status()
         elif cmd == "/stop":
             self.speaker.stop()
         elif cmd == "/check":
@@ -885,7 +881,7 @@ def watch(jarvis):
         try:
             for reminder in jarvis.memory.due_reminders():
                 jarvis.inbox.put(("say", persona.reminder_line(reminder, jarvis.settings.get("user_name"))))
-            if tick % 12 or jarvis.extras.focusing():  # focus mode: no heads-ups or habit offers
+            if tick % 12 or jarvis.skills.focusing():  # focus mode: no heads-ups or habit offers
                 continue
             for key, line in persona.heads_ups(jarvis.settings):
                 if time.time() - jarvis.warned.get(key, 0) > 2 * 3600:
@@ -925,7 +921,7 @@ def main():
                        on_command=lambda c: inbox.put(("quit", "") if c == "/quit" else ("text", c)),
                        is_speaking=jarvis.speaker.busy)
         from gi.repository import GLib
-        GLib.idle_add(jarvis.extras.watch_clipboard)  # clipboard history ("paste the thing I copied before")
+        GLib.idle_add(jarvis.skills.clipboard_history.watch_clipboard)  # clipboard history ("paste the thing I copied before")
 
     ups = persona.heads_ups(jarvis.settings)[:2]
     for key, _ in ups:

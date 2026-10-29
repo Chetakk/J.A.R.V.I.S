@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 
+from skills.base import Skill
 from ui.card import choices, links, meter, plain
 from claude.bridge import WORKSPACE
 from core.safety import AUTO
@@ -27,13 +28,14 @@ UNITS = {"second": 1, "sec": 1, "minute": 60, "min": 60, "hour": 3600}
 _AMOUNT = r"(\d+(?:\.\d+)?|half an|a couple of|a few|[a-z]+(?:-[a-z]+)?)\s*(seconds?|secs?|minutes?|mins?|hours?)"
 
 
-class CardActions:
+class Cards(Skill):
     def __init__(self, jarvis):
-        self.j = jarvis
-        self.say = jarvis.speaker.say
         self.timers = {}  # id -> threading.Event that cancels it
         self._ids = itertools.count(1)
-        rules = [
+        super().__init__(jarvis)
+
+    def patterns(self):
+        return [
             (r"(?:pick|choose|select|go with|do|take)?\s*(?:the |option |number )*%s(?: one| option)?" % _NTH,
              self.pick),
             (r"open (?:the )?%s link|open link (?:number )?%s" % (_NTH, _NTH), self.open_link),
@@ -50,23 +52,6 @@ class CardActions:
             (r"%s timer(?: for (.+))?" % _AMOUNT.replace(r"\s*(seconds?", r"[\s-]*(seconds?"), self.timer),
             (r"(?:cancel|stop|clear) (?:the |my |all )?(?:timers?|countdowns?)", self.cancel_timers),
         ]
-        self.rules = [(re.compile("^(?:%s)$" % p, re.IGNORECASE), fn) for p, fn in rules]
-
-    def handle(self, text):
-        """True if this was about the card (or a timer)."""
-        text = text.strip().rstrip("?.!")
-        for pattern, fn in self.rules:
-            m = pattern.match(text)
-            if m:
-                try:
-                    done = fn(m)
-                except Exception as e:  # never take JARVIS down
-                    print("[cards] %s failed: %r" % (getattr(fn, "__name__", "card action"), e))
-                    self.say("Sorry, that didn't work: %s." % e)
-                    return True
-                if done is not False:
-                    return True
-        return False
 
     # --- the card on screen ---
 

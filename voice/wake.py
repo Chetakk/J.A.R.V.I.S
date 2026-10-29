@@ -21,7 +21,7 @@ import sherpa_onnx
 
 from voice.listen import RATE, beep
 from core.registry import _names_regex
-from core.skills import STOP as INTERRUPT  # "stop", "be quiet", "enough"...
+from skills.status import STOP as INTERRUPT  # "stop", "be quiet", "enough"...
 from system.terminal import RUN_DIR
 
 MODELS = os.path.expanduser("~/.local/share/jarvis/models")

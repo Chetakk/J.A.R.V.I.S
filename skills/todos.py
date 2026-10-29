@@ -10,7 +10,8 @@ import re
 import threading
 import time
 
-from core.daytracker import DayTracker, HubDown, new_id, spoken
+from skills.base import Skill
+from skills.daytracker import DayTracker, HubDown, new_id, spoken
 
 TODO = r"(?:to ?-?dos?|todo list|to ?do list|task list|tasks)"
 MAX_READ = 5
@@ -59,15 +60,15 @@ def spoken_time(ts):
     return ("tomorrow at " if t.date() == today + datetime.timedelta(days=1) else t.strftime("%A at ")) + clock
 
 
-class Todos:
-    def __init__(self, say, watch=True):
-        self.say = say
-        self.hub = DayTracker(say)
+class Todos(Skill):
+    def __init__(self, jarvis, watch=True):
+        super().__init__(jarvis)
+        self.hub = DayTracker(jarvis)
         if watch:
             threading.Thread(target=self._watch, daemon=True, name="reminders").start()
 
-    def rules(self):
-        """Phrase patterns for core/skills.py. "what's pending" stays with project notes; these say "todo" or "remind"."""
+    def patterns(self):
+        """"what's pending" stays with project notes; these say "todo" or "remind"."""
         return [
             (r"remind me %s(?: to| about| that)? (.+)|remind me(?: to| about| that)? (.+?) %s" % (IN, IN), self.remind_in),
             (r"remind me %s(?: to| about| that)? (.+)|remind me(?: to| about| that)? (.+?) %s" % (AT, AT), self.remind_at),

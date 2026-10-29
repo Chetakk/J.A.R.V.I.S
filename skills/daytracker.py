@@ -11,6 +11,8 @@ import time
 import urllib.error
 import urllib.request
 
+from skills.base import Skill
+
 HUB = os.environ.get("DAY_TRACKER_URL", "http://localhost:7313")
 # The fields the tracker page owns; PUT /api/state replaces them wholesale.
 PAGE_FIELDS = ("entries", "active", "goals", "breakAfter", "focus", "weeklyGoals", "summaryAt", "todos", "reminders")
@@ -63,12 +65,9 @@ def totals(state, now=None):
     return out
 
 
-class DayTracker:
-    def __init__(self, say):
-        self.say = say
-
-    def rules(self):
-        """Phrase patterns for core/skills.py. They go before the project rules ("start work" isn't a project)."""
+class DayTracker(Skill):
+    def patterns(self):
+        """They go before the project rules ("start work" isn't a project)."""
         c = "(%s)" % CAT_WORDS
         return [
             (r"(?:start|begin|track|log)(?: tracking| logging| timing| a| my| the)* %s(?: timer| session| time)?(?: now)?|"

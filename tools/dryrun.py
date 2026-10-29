@@ -18,7 +18,7 @@ sys.path.insert(0, HERE)
 import yaml  # noqa: E402
 
 import jarvis as J  # noqa: E402
-from core import extras as J_extras  # noqa: E402
+from skills import maths as J_maths  # noqa: E402
 
 PHRASES = os.path.join(HERE, "tests", "phrases.yaml")
 
@@ -42,14 +42,10 @@ class DryJarvis:
             setattr(j.memory, name, lambda *a, **k: 0)
         j.claude.open_terminal = lambda *a, **k: rec(("claude-terminal", "")) or False
         J.open_in_vscode = lambda *a, **k: rec(("vscode", ""))
-        j.extras._log = lambda text: None  # "where was I" history
-        self._stub_rules("skill", j.skills)
-        self._stub_rules("card", j.cards)
-        self._stub_rules("extra", j.extras)
-        j.extras._log = lambda text: None  # "where was I" history
-        self._stub_rules("skill", j.extras)
-        j.extras.first = lambda text: False  # not dictating
-        j.extras.focusing = lambda: False
+        for skill in j.skills.all:
+            self._stub_rules("card" if skill is j.cards else "skill", skill)
+        j.skills.first = lambda text: False  # not dictating; no "where was I" history
+        j.skills.focusing = lambda: False
 
     def _app(self, pattern, text, verb):
         m = pattern.match(text)
@@ -69,10 +65,10 @@ class DryJarvis:
         projects = getattr(obj, "projects", None)
         find = projects and (lambda m: projects.find(_first(m)) or len(projects.candidates(_first(m))) > 1)  # as _find
         passes = {"run_project": find, "stop_project": find} if find else {}
-        if kind == "skill":
+        if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
-        units = lambda a, src, dst: _convertible(a) and J_extras.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731
-        passes.update({"maths": lambda m: J_extras.calculate(m.group(0)) is not None,
+        units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731
+        passes.update({"maths": lambda m: J_maths.calculate(m.group(0)) is not None,
                        "units": lambda m: units(*m.groups()),
                        "units_how_many": lambda m: units(m.group(2), m.group(3), m.group(1))})
 
@@ -122,7 +118,7 @@ def _first(m):
 
 def _convertible(amount):
     try:
-        J_extras._number(amount)
+        J_maths._number(amount)
         return True
     except ValueError:
         return False
