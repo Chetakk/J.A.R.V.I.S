@@ -100,7 +100,7 @@
 "close vs code": "app:close Visual Studio Code"
 "play solitaire": "app:open AisleRiot Solitaire"
 "run the jarvis project": skill:run_project
-# extras (core/extras.py)
+# dictation, maths, focus mode, clipboard history (skills/)
 "type: see you at five": skill:type_text
 "start dictation": skill:start_dictation
 "what's 18% of 2400": skill:maths
