@@ -28,6 +28,7 @@ from core.claude_bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from core.skills import Skills
 from core.listen import PushToTalk
+from core.intent import IntentMatcher
 from core.registry import Registry, clean
 from core.safety import MANUAL, Safety
 from core.speech import Speaker, pick
@@ -116,6 +117,12 @@ class Jarvis:
         self.executor = Executor(self.safety, self.speaker, self.settings, self.ask)
         self.whisper_port = int((self.settings.get("stt") or {}).get("port", 8178))
         self.skills = Skills(self)  # stop, status, screen, tabs, clipboard, files, windows, media, notes, nano, git
+        self.intents = None  # meaning matcher: other wordings of known phrases, before Claude
+        try:
+            cfg = self.settings.get("intents") or {}
+            self.intents = IntentMatcher(os.path.join(CONFIG, "intents.yaml"), cfg.get("threshold", 0.72))
+        except Exception as e:
+            print("[intent] meaning matcher off: %r" % e)
         self.mode = self.settings.get("mode", "agent")
         self.memory = persona.Memory()
         self.warned = {}  # heads-up key -> when it was last mentioned
@@ -238,6 +245,15 @@ class Jarvis:
         match = self.registry.match_fuzzy(text)
         if match:
             return self._run_match(match)
+        if self.intents and not getattr(self, "_rewording", False):
+            phrase, score = self.intents.match(text)
+            if phrase:
+                self.heard(text, "means \"%s\" (%.2f)" % (phrase, score))
+                self._rewording = True
+                try:
+                    return self.handle(phrase)
+                finally:
+                    self._rewording = False
 
         if follow_up and not (REQUEST.match(text) or text.rstrip().endswith("?")):
             self.heard(text, "ignored (follow-up that isn't a question or request)")

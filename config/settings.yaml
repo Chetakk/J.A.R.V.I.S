@@ -86,3 +86,7 @@ nano:
   user: biztel-nano
   key: ~/.ssh/boisys_nano
   service: nano-kvm.service
+
+# Meaning matcher (config/intents.yaml): how close (0-1) another wording must be to run a known phrase.
+intents:
+  threshold: 0.72
