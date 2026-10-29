@@ -28,6 +28,7 @@ from skills.documents import Documents
 from skills.files import Files
 from skills.focus_mode import FocusMode
 from skills.frozen import Frozen
+from skills.install import Install
 from skills.layouts import Layouts
 from skills.linked import Linked
 from skills.maths import Maths
@@ -57,7 +58,7 @@ ORDER = [
     ("clipboard_history", ClipboardHistory),
     ("status", Status), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
-    ("network", Network), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
+    ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),

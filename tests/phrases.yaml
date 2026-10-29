@@ -1109,3 +1109,14 @@
 "to set a reminder": "skill:remind_when"
 "set our timer for two minutes": "card:timer"
 "set up a timer for 3 minutes": "card:timer"
+# Installing software (skills/install.py): looked up locally, sudo / pip always go to the manual terminal
+"install vlc": skill:install
+"can you install the app called gimp for me": skill:install
+"please install obs on my computer": skill:install
+"install the python package requests": skill:pip
+"pip install numpy": skill:pip
+"uninstall gimp": skill:uninstall
+"remove the app vlc": skill:uninstall
+"is ffmpeg installed": skill:check
+"do i have docker installed": skill:check
+"notify me when npm install finishes": skill:when_done
