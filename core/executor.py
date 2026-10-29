@@ -21,24 +21,28 @@ class Executor:
         self.ask = ask  # ask(question) -> bool, by voice or keyboard
         self.user_name = settings.get("user_name")
         self.ok = False  # whether the last run() actually ran
+        self.outcome = ""  # why not: "manual" (left in your terminal), "declined" (you said no), "missing", "timeout"
         self.notify = speaker.say  # a sure failure noticed later (from a thread); JARVIS sets its inbox
 
     def run(self, command, reply="Done", output=False, declared=None, on_output=None, question=None,
-            window=False, timeout=15):
+            window=False, timeout=15, approved=False):
         """Run `command` under the safety rules. Returns the captured output, if any.
 
         window=True: the command opens a new app window, so go to JARVIS's workspace first.
+        approved=True: you already said yes to it (a task's steps, shown on its card): not asked again.
         Afterwards self.ok tells whether it actually ran (and, with output=True, exited successfully);
         verify.last tells, a few seconds later, what came of it.
         """
-        self.ok = False
+        self.ok, self.outcome = False, "ran"
         reply = pick(reply)
         level, reason = self.safety.classify(command, declared)
         if level == MANUAL:
+            self.outcome = "manual"
             self.terminal.send(command, reason)
             self.speaker.say("I'd rather not run that one myself, since %s. I've put it in your terminal for you." % reason)
             return None
-        if level == CONFIRM and not self.ask(question or "%s?" % reply.rstrip(".")):
+        if level == CONFIRM and not approved and not self.ask(question or "%s?" % reply.rstrip(".")):
+            self.outcome = "declined"
             self.speaker.say(["Okay, I won't.", "No problem, cancelled.", "Alright, never mind then."])
             return None
 
@@ -47,6 +51,7 @@ class Executor:
         except (ValueError, IndexError):
             prog = ""
         if prog and not shutil.which(os.path.expanduser(prog)):
+            self.outcome = "missing"
             self.speaker.say("Hmm, I can't find %s on this computer." % prog)
             return None
         if output:
@@ -54,6 +59,7 @@ class Executor:
                 res = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout,
                                      cwd=os.path.expanduser("~"))
             except subprocess.TimeoutExpired:
+                self.outcome = "timeout"
                 self.speaker.say("That was taking too long, so I stopped it.")
                 return None
             self.ok = res.returncode == 0

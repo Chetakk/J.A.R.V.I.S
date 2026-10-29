@@ -19,12 +19,26 @@ class Result:
 
 
 last = None  # the latest Result, for "did that work?"
+_watching = 0  # launches still being watched (their Result isn't in yet)
+_changed = threading.Condition()
 
 
 def record(action, ok, what):
     global last
-    last = Result(action, ok, what)
+    with _changed:
+        last = Result(action, ok, what)
+        _changed.notify_all()
     return last
+
+
+def settled(since, timeout=LAUNCH_SECONDS + 1):
+    """The Result of what was done after `since` (time.time()), waiting while a launch is still being watched;
+    None when nothing was checked."""
+    deadline = time.time() + timeout
+    with _changed:
+        while _watching and time.time() < deadline and not (last and last.at >= since):
+            _changed.wait(max(0.05, deadline - time.time()))
+        return last if last and last.at >= since else None
 
 
 def windows_now():
@@ -36,7 +50,18 @@ def launched(action, proc, before, window, on_fail, errors=None):
     """In a thread: what came of `proc` (a Popen started just after `before` = windows_now(); None when the
     app was started some other way). window: it should open or change a window. on_fail(line) is called only for a sure failure;
     errors() gives its stderr for the message."""
+    global _watching
+
     def watch():
+        global _watching
+        try:
+            _watch()
+        finally:
+            with _changed:
+                _watching -= 1
+                _changed.notify_all()
+
+    def _watch():
         deadline = time.time() + (LAUNCH_SECONDS if window else QUICK_SECONDS)
         while time.time() < deadline:
             time.sleep(0.4)
@@ -64,6 +89,8 @@ def launched(action, proc, before, window, on_fail, errors=None):
             record(action, None, "it's still running")
         else:
             record(action, None, "nothing new showed up on screen" if window else "I couldn't tell")
+    with _changed:
+        _watching += 1
     threading.Thread(target=watch, daemon=True).start()
 
 
