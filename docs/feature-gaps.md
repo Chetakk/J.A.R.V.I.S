@@ -138,15 +138,15 @@ Small additions that **can be done**: "why did the tests fail" (read last `bizte
 | Documents | See 4B | – | – |
 | Compare two document versions | Yes: text diff locally, Claude explains | – | – |
 
-## 10. Proactive 🟡
+## 10. Proactive ✅ (built 2026-10-29)
 
-| Gap | Can be done | Can't / limits | Other options |
+| Gap | Done | Can't / limits | Other options |
 |---|---|---|---|
-| Resource alerts (CPU, disk, temp) | Yes: watchdog exists, add thresholds in settings | – | – |
-| Quiet hours | Yes: settings time range, same as focus mode | – | – |
-| "Why did this notification appear" | Yes: every heads-up carries its reason | – | – |
-| Background job finished | Yes: `biztel run` / task terminals already tracked, add "notify when done" | – | – |
-| Research monitoring | Later, with the browser agent + a schedule | Costs Claude calls each check | – |
+| Resource alerts (CPU, disk, temp) | **Done:** every 2 minutes JARVIS checks the CPU (averaged over the 2 minutes since the last check), memory, the hottest temperature sensor, the disk and batteries, and says the busiest program with it ("Heads up, the CPU has been at 94 percent for the last 2 minutes, mostly chrome"). Thresholds in settings `heads_up` (`cpu: 90`, `memory: 90`, `temperature: 85`, `disk_gb: 3`; 0 turns one off). Each kind is said at most every 2 hours. "Don't warn me about that again" / "stop the cpu alerts" turns a kind off, "turn the cpu alerts back on" turns it back on (skills/proactive.py) | Two-minute checks, so a spike shorter than that isn't reported. The GPU's own load isn't read (only its temperature) | "What's slowing my computer" for the full list and to close one |
+| Quiet hours | **Done:** besides the softer, shorter voice, heads-ups, habit offers and Claude's suggestions now wait during quiet hours, as in focus mode. Events that don't repeat (a project crashing) are kept and said when quiet hours end and you're back ("During quiet hours: ...", more than one also on a card). Things you asked for (reminders, timers, "tell me when this finishes") and "I can't hear you" problems still come through. By voice: "quiet hours from 10 pm to 6 am", "turn off quiet hours", "what are my quiet hours" (kept across restarts, over settings.yaml) | Whole hours only | `quiet_hours: hold: false` keeps only the softer voice |
+| "Why did this notification appear" | **Done:** everything JARVIS brings up by itself keeps its reason: heads-ups, habit offers (which days you did it at this hour), reminders, timers, focus ending, project up or crashed, microphone/speaker problems, Claude's suggestions, a Claude task terminal finishing. "Why did you say that" / "why did that notification appear" says it; after an ordinary answer, "why did you say that" goes on to Claude as before. "Show my recent alerts" / "what did I miss" puts today's on a card with their reasons | Only JARVIS's own heads-ups and notifications, not other apps' | – |
+| Background job finished | **Done:** "tell me when this finishes", "let me know when the build is done", "notify me when npm install finishes". JARVIS finds the command your terminal is busy with (any terminal: GNOME Terminal, VS Code, tmux; several, it asks which), watches it every 2 s and says "npm run build has finished, after 6 minutes", even in focus mode (system/jobs.py). A project under `biztel run` whose part stops by itself is said straight away with its last error ("Heads up, Avtec HS's backend crashed. The last error was: ..."); one you stop isn't. Claude task terminals already said when they're done (their hook) | It can't tell whether the command succeeded: the exit code belongs to the terminal's shell. Programs you sit in (vim, ssh, a bare python) aren't offered | Long-running projects through `biztel run`, whose log keeps the error |
+| Research monitoring | Not built: later, with the browser agent + a schedule | Costs Claude calls each check | – |
 
 ## 12. Security ✅
 
