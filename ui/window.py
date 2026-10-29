@@ -23,6 +23,7 @@ LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "t
           "starting": "Starting voice..."}
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
 ORB = 78
+CLAUDE_RGB = (0.85, 0.47, 0.34)  # Claude's warm orange, as in the chat bubbles
 PANEL_W, PANEL_H = 390, 500
 CHAT_KEEP = 200  # messages kept in the panel
 
@@ -64,7 +65,7 @@ ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" vie
 ICONS = {"idle": dict(ring="bbbbbb", core=2.6, fill="ffffff", dash=""),
          "listening": dict(ring="ffffff", core=4.2, fill="ffffff", dash=""),
          "thinking": dict(ring="ffffff", core=2.6, fill="bbbbbb", dash='stroke-dasharray="4 3"'),
-         "claude": dict(ring="ffffff", core=3.4, fill="888888", dash='stroke-dasharray="2 2"'),
+         "claude": dict(ring="e08a6d", core=3.4, fill="e08a6d", dash='stroke-dasharray="2 2"'),
          "speaking": dict(ring="ffffff", core=3.6, fill="ffffff", dash=""),
          "off": dict(ring="777777", core=2.2, fill="777777", dash=""),
          "starting": dict(ring="999999", core=2.2, fill="999999", dash='stroke-dasharray="1 3"')}
@@ -198,63 +199,104 @@ class UI:
         cx, cy, r = w / 2, h / 2, min(w, h) / 2 - 3
         t = time.time()
         s = self._shown or "idle"
+        tau = 2 * math.pi
 
-        grad = cairo.RadialGradient(cx, cy - r * 0.3, 0, cx, cy, r)
-        grad.add_color_stop_rgba(0, 0.22, 0.22, 0.22, 0.72)
-        grad.add_color_stop_rgba(1, 0.02, 0.02, 0.02, 0.60)
-        cr.arc(cx, cy, r, 0, 2 * math.pi)
+        # A dark glass ball with a soft sheen across the top.
+        grad = cairo.RadialGradient(cx, cy - r * 0.35, 0, cx, cy, r)
+        grad.add_color_stop_rgba(0, 0.24, 0.24, 0.26, 0.78)
+        grad.add_color_stop_rgba(1, 0.03, 0.03, 0.04, 0.68)
+        cr.arc(cx, cy, r, 0, tau)
         cr.set_source(grad)
         cr.fill()
+        sheen = cairo.RadialGradient(cx, cy - r * 0.62, 0, cx, cy - r * 0.62, r * 0.62)
+        sheen.add_color_stop_rgba(0, 1, 1, 1, 0.09)
+        sheen.add_color_stop_rgba(1, 1, 1, 1, 0)
+        cr.arc(cx, cy, r - 1, 0, tau)
+        cr.set_source(sheen)
+        cr.fill()
 
-        ring = 0.22 if s in ("idle", "off") else 0.45
-        cr.set_line_width(1.2)
-        cr.set_source_rgba(1, 1, 1, ring)
-        cr.arc(cx, cy, r - 0.6, 0, 2 * math.pi)
+        glow = 0.5 + 0.5 * math.sin(t * 2.2)
+        cr.set_line_width(1.3)
+        if s == "claude":
+            cr.set_source_rgba(*CLAUDE_RGB, 0.45 + 0.45 * glow)
+        else:
+            cr.set_source_rgba(1, 1, 1, 0.22 if s in ("idle", "off") else 0.45)
+        cr.arc(cx, cy, r - 0.65, 0, tau)
         cr.stroke()
 
         if s == "listening":
-            for i in range(2):
-                p = (t * 1.6 + i * 0.5) % 1.0
-                cr.set_source_rgba(1, 1, 1, 0.85 * (1 - p))
-                cr.set_line_width(1.6)
-                cr.arc(cx, cy, r * (0.30 + 0.62 * p), 0, 2 * math.pi)
+            # Ripples that ease out as they spread, around a softly pulsing core.
+            for i in range(3):
+                p = (t * 0.9 + i / 3) % 1.0
+                cr.set_source_rgba(1, 1, 1, 0.75 * (1 - p) ** 1.5)
+                cr.set_line_width(1.0 + 1.6 * (1 - p))
+                cr.arc(cx, cy, r * (0.22 + 0.72 * (1 - (1 - p) ** 3)), 0, tau)
                 cr.stroke()
-            self._core(cr, cx, cy, r * 0.20, 0.95)
+            self._core(cr, cx, cy, r * (0.20 + 0.025 * math.sin(t * 5)), 0.95)
         elif s == "thinking":
-            a = t * 4.0
-            cr.set_source_rgba(1, 1, 1, 0.9)
-            cr.set_line_width(2.4)
-            cr.arc(cx, cy, r * 0.62, a, a + 1.4)
-            cr.stroke()
-            self._core(cr, cx, cy, r * 0.14, 0.6)
+            # A comet: a bright head with a fading tail that stretches and shrinks as it spins.
+            a, span, n = t * 5.0, 2.0 + 0.6 * math.sin(t * 1.7), 16
+            for i in range(n):
+                f = (i + 1) / n
+                cr.set_source_rgba(1, 1, 1, 0.95 * f ** 1.4)
+                cr.set_line_width(1.0 + 1.8 * f)
+                cr.arc(cx, cy, r * 0.62, a - span * (1 - i / n), a - span * (1 - f))
+                cr.stroke()
+            cr.arc(cx + r * 0.62 * math.cos(a), cy + r * 0.62 * math.sin(a), 1.6, 0, tau)
+            cr.fill()
+            self._core(cr, cx, cy, r * 0.14, 0.5 + 0.1 * math.sin(t * 3))
         elif s == "claude":
-            # Claude is answering: a bright outer ring that breathes slowly, so it's easy to tell apart.
-            glow = 0.5 + 0.5 * math.sin(t * 2.5)
-            cr.set_line_width(2.0 + 2.0 * glow)
-            cr.set_source_rgba(1, 1, 1, 0.35 + 0.6 * glow)
-            cr.arc(cx, cy, r - 2.0, 0, 2 * math.pi)
-            cr.stroke()
-            a = t * 3.0
-            cr.set_line_width(2.0)
-            cr.set_source_rgba(1, 1, 1, 0.85)
-            cr.arc(cx, cy, r * 0.66, a, a + 2.2)
-            cr.stroke()
-            cr.set_source_rgba(0.7, 0.7, 0.7, 0.75)
-            cr.arc(cx, cy, r * 0.46, -a * 1.3, -a * 1.3 + 2.2)
-            cr.stroke()
-            self._core(cr, cx, cy, r * 0.12, 0.8)
+            # Claude is answering: a warm halo that breathes and a slowly turning, shimmering star.
+            halo = cairo.RadialGradient(cx, cy, r * 0.5, cx, cy, r)
+            halo.add_color_stop_rgba(0, *CLAUDE_RGB, 0)
+            halo.add_color_stop_rgba(1, *CLAUDE_RGB, 0.18 + 0.30 * glow)
+            cr.arc(cx, cy, r - 1, 0, tau)
+            cr.set_source(halo)
+            cr.fill()
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(2.4)
+            for k in range(8):
+                ang = t * 0.8 + k * tau / 8
+                reach = r * (0.30 + 0.10 * math.sin(t * 3 + k * 0.9))
+                cr.set_source_rgba(0.96, 0.66, 0.54, 0.65 + 0.3 * math.sin(t * 3 + k * 0.9))
+                cr.move_to(cx + r * 0.09 * math.cos(ang), cy + r * 0.09 * math.sin(ang))
+                cr.line_to(cx + reach * math.cos(ang), cy + reach * math.sin(ang))
+                cr.stroke()
+            cr.set_line_cap(cairo.LINE_CAP_BUTT)
+            self._core(cr, cx, cy, r * 0.08, 0.8)
         elif s == "starting":
-            cr.set_source_rgba(1, 1, 1, 0.35 + 0.25 * math.sin(t * 3))
-            cr.set_line_width(1.4)
-            cr.set_dash([2, 4], t * 8)
-            cr.arc(cx, cy, r * 0.6, 0, 2 * math.pi)
-            cr.stroke()
-            cr.set_dash([])
+            # Eight dots lighting up in turn, like a loading spinner.
+            head = t * 9
+            for k in range(8):
+                lit = 1 - ((head - k) % 8) / 8
+                ang = k * tau / 8 - math.pi / 2
+                cr.set_source_rgba(1, 1, 1, 0.12 + 0.75 * lit ** 2)
+                cr.arc(cx + r * 0.56 * math.cos(ang), cy + r * 0.56 * math.sin(ang), 1.4 + 1.3 * lit, 0, tau)
+                cr.fill()
             self._core(cr, cx, cy, r * 0.12, 0.35)
         elif s == "speaking":
-            self._core(cr, cx, cy, r * (0.20 + 0.08 * abs(math.sin(t * 9)) + 0.04 * math.sin(t * 23)), 0.95)
+            # A sound wave wrapped into a circle, wobbling around the pulsing core.
+            amp = r * (0.03 + 0.035 * abs(math.sin(t * 7)))
+            for base, alpha, phase in ((0.50, 0.75, 0.0), (0.42, 0.35, 1.7)):
+                for j in range(65):
+                    th = tau * j / 64
+                    rr = r * base + amp * (0.7 * math.sin(3 * th + t * 5 + phase) + 0.3 * math.sin(4 * th - t * 7))
+                    (cr.line_to if j else cr.move_to)(cx + rr * math.cos(th), cy + rr * math.sin(th))
+                cr.close_path()
+                cr.set_source_rgba(1, 1, 1, alpha)
+                cr.set_line_width(1.5)
+                cr.stroke()
+            self._core(cr, cx, cy, r * (0.18 + 0.07 * abs(math.sin(t * 9)) + 0.03 * math.sin(t * 23)), 0.95)
         elif s == "off":
+            # Muted: a dim core with a slash through it.
             self._core(cr, cx, cy, r * 0.13, 0.25)
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(2.0)
+            cr.set_source_rgba(1, 1, 1, 0.35)
+            cr.move_to(cx - r * 0.32, cy + r * 0.32)
+            cr.line_to(cx + r * 0.32, cy - r * 0.32)
+            cr.stroke()
+            cr.set_line_cap(cairo.LINE_CAP_BUTT)
         else:
             self._core(cr, cx, cy, r * 0.15, 0.5)
         return False
