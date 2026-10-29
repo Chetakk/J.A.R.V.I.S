@@ -29,14 +29,14 @@ Legend: ✅ mostly there · 🟡 partial · 🔴 mostly missing
 | "Read this window aloud" | Partly: AT-SPI text (python Atspi is installed) for GTK apps; screenshot → Claude for others | Chrome needs `--force-renderer-accessibility`; VS Code/Electron expose little text; no local OCR (tesseract not installed) | Browser pages via the browser agent (section 3) give clean text; tesseract is ~30 MB if wanted |
 | "Open the project I was working on yesterday" | Yes: Day Tracker + where.json already know recent projects | – | – |
 
-## C. Screen-aware interaction 🟡
+## C. Screen-aware interaction ✅ (built 2026-10-29)
 
-| Gap | Can be done | Can't / limits | Other options |
+| Gap | Done | Can't / limits | Other options |
 |---|---|---|---|
-| Read UI tree (buttons, menus, dialogs) | Yes for GTK/GNOME apps via AT-SPI, cheap and local | Electron/Qt/custom apps give partial or empty trees | Fall back to screenshot → Claude vision |
-| Click a button / do an action in the current app | Yes: AT-SPI `do_action` when the tree has it, XTest click at a coordinate Claude found otherwise | Coordinate clicking is fragile (scaling, moved windows); must confirm before any click Claude picked | Prefer keyboard shortcuts per app (most reliable) |
-| Verify an action worked | Yes, and should be done first (see 6): window appeared, process running, file exists, title changed | Some actions have no visible proof (e.g. "volume down" is fine, "send" in a web app is not) | Screenshot-before/after diff via Claude for hard cases (slow, use rarely) |
-| "Why isn't my app running?" | Partly already (screen Q); can add: read last terminal output, `ss -ltnp` for ports | Reading another terminal's scrollback isn't possible in gnome-terminal | Run projects through `biztel run` (logs saved) so JARVIS can read them |
+| Read UI tree (buttons, menus, dialogs) | **Done:** "what can I click here", "what's in the file menu" (skills/controls.py). AT-SPI lists a GTK window's buttons, tabs and menu items (even with the menu closed) in ~0.15 s; when the tree is empty, a screenshot goes to Claude | Chrome, VS Code and Electron apps (Vesktop) expose 0–3 nodes. Anything started from VS Code's terminal inherits `NO_AT_BRIDGE=1` and is invisible to AT-SPI | Chrome with `--force-renderer-accessibility` gives a full tree (costs some speed, so it isn't on by default); VS Code `"editor.accessibilitySupport": "on"` exposes a little more |
+| Click a button / do an action in the current app | **Done:** "click save", "press the back button", "choose zoom in from the view menu", "press control shift t", "hit enter". Tried surest first: the app's shortcut (config/app_keys.yaml), then AT-SPI `do_action` (no pointer used), then a spot Claude finds on a window screenshot. That spot is shown marked on a card and clicked only after a yes, and not if the window moved since. Buttons that delete or send are asked about first | Claude's spot was exact on a test window (sized so it isn't scaled down) but takes ~5 s. Terminals only use their own shortcuts (ctrl+c / ctrl+z mean something else there) | Add more apps to config/app_keys.yaml as they come up |
+| Verify an action worked | **Done:** every launch is watched (core/verify.py): a new window or a changed title counts as done; a non-zero exit is said out loud with its error. After a click the window's pixels are compared (~0.1 s, JARVIS's own orb and cards masked), and if nothing changed JARVIS says so. "Did that work?" answers from what it saw | Key presses and things like "copy" leave no visible trace: reported as "couldn't tell", not as done. Window apps' errors aren't captured (they write to stderr for days), only their exit code | When it couldn't tell, "did that work?" offers a screenshot for Claude to check (slow, so only when asked) |
+| "Why isn't my app running?" | **Done:** skills/troubleshoot.py reads biztel run's state, the ports its folder's programs listen on, the log `biztel run` now keeps, and the terminal's visible text. Clear cases are said locally (never started, port taken and by what, the last error before it stopped); unclear ones go to Claude with those facts. Also "what's using port 3000", "what ports are open" | AT-SPI only gives a terminal's visible screen, not its scrollback. Projects started by hand outside `biztel run` have no log | `biztel run` keeps `~/.local/state/biztel/runs/<name>.log` (last ~1 MB, kept after it stops). For other terminals: run under `script` or tmux to keep a log |
 
 ## D. Personality and presence ✅
 
@@ -65,7 +65,7 @@ Legend: ✅ mostly there · 🟡 partial · 🔴 mostly missing
 | Gap | Can be done | Can't / limits | Other options |
 |---|---|---|---|
 | Detect frozen apps | Yes: `_NET_WM_PING` check or process state; offer to close (slow_computer skill already offers) | – | – |
-| Click inside apps / menus | See C (AT-SPI + shortcuts) | Same limits as C | – |
+| Click inside apps / menus | Done, see C (shortcut → AT-SPI → Claude's spot, asked first) | Same limits as C | – |
 | Copy info between apps | Yes: clipboard skill + typing helper exist; chain them | – | – |
 
 ## 4B. File intelligence 🔴
