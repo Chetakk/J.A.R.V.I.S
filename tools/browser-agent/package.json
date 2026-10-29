@@ -1,0 +1,9 @@
+{
+  "name": "jarvis-browser-agent",
+  "private": true,
+  "description": "JARVIS's browser agent: drives its own Chrome (separate profile) over the debug port",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

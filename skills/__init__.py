@@ -2,8 +2,9 @@
 
 The order matters: the first skill whose phrase matches (and doesn't hand it on) wins. Cards come first
 ("the second one" is about the card on screen), then the instant local extras, then the rest; the day
-tracker and todos go before projects ("start work" isn't a project); clicking in a window and window focus
-go last.
+tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
+and the screen ("what's this page about" in a browser reads the page itself); clicking in a window and window
+focus go last.
 """
 from skills.browser_tabs import BrowserTabs
 from skills.cards import Cards
@@ -29,6 +30,7 @@ from skills.status import Status
 from skills.todos import Todos
 from skills.troubleshoot import Troubleshoot
 from skills.voice_prefs import VoicePrefs
+from skills.web import Web
 from skills.where_was_i import WhereWasI
 from skills.windows import Windows
 
@@ -37,7 +39,7 @@ ORDER = [
     ("maths", Maths), ("focus_mode", FocusMode),
     ("slow_computer", SlowComputer), ("where_was_i", WhereWasI), ("clipboard_history", ClipboardHistory),
     ("status", Status), ("checks", Checks), ("daytracker", DayTracker), ("todos", Todos),
-    ("troubleshoot", Troubleshoot), ("projects", Projects), ("screen", Screen),
+    ("troubleshoot", Troubleshoot), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("clipboard", Clipboard), ("notes", Notes), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]

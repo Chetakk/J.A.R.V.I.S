@@ -211,13 +211,14 @@ class Claude:
         except (ValueError, AttributeError):
             return None, ""
 
-    def _once(self, prompt, system, tools=""):
-        """A one-off question outside the conversation: returns Claude's reply text."""
+    def _once(self, prompt, system, tools="", allow=False):
+        """A one-off question outside the conversation: returns Claude's reply text. allow: `tools` may run
+        without asking (needed for WebSearch)."""
         if not self.bin:
             raise ClaudeError("Claude Code isn't installed")
         args = [self.bin, "-p", prompt, "--model", self.model, "--tools", tools, "--strict-mcp-config",
                 "--no-session-persistence", "--effort", self.effort, "--system-prompt", system,
-                "--output-format", "json"]
+                "--output-format", "json"] + (["--allowedTools", tools] if allow and tools else [])
         try:
             res = subprocess.run(args, cwd=WORKSPACE, capture_output=True, text=True, timeout=self.timeout,
                                  env=_ENV)

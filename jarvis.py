@@ -112,7 +112,11 @@ ABILITIES = "\n  ".join((
     "maths and units (instant): \"what's 18% of 2400\", \"50 miles in km\", \"100 fahrenheit in celsius\"",
     "focus: \"focus for 45 minutes\" (no heads-ups or notifications), \"stop focusing\", \"how long left on focus\"",
     "computer: \"what's slowing my computer\" (top CPU/memory users, offers to close one), \"where was I\"",
-    "clipboard history: \"paste the thing I copied before\", \"paste number 3\", \"clipboard history\""))
+    "clipboard history: \"paste the thing I copied before\", \"paste number 3\", \"clipboard history\"",
+    "web: \"summarise this page\", \"what's the price on this page\", \"research <topic>\", \"compare <x> and <y>\", "
+    "\"deep research <topic>\", \"summarise this video\", \"summarise my tabs\", \"fill the form on this page with "
+    "<details>\", \"in the agent browser <task>\", \"download <url>\", \"open my <name> bookmark\", \"search my "
+    "bookmarks for <x>\", \"bookmark this\""))
 
 # What Claude Code gets when asked to change JARVIS itself ("fix ... in jarvis").
 FIX_PROMPT = ("You're changing JARVIS itself: the voice assistant in this folder (start at jarvis.py; settings and "

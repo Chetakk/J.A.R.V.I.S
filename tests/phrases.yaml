@@ -896,3 +896,26 @@
 "summarise it": claude
 "summarise my clipboard": skill:clipboard_job
 "read it to me": card:read
+# Browser agent (skills/web.py)
+"summarise this page": skill:page
+"what's this page about": skill:page
+"what's the price on this page": skill:page
+"on this page, who wrote it": skill:page
+"summarise example.com": skill:page
+"summarise this video": skill:video
+"what's this video about": skill:video
+"summarise my tabs": skill:tabs
+"research the best budget mechanical keyboard": skill:research
+"compare jetson orin nx and raspberry pi 5": skill:research
+"deep research on solid state batteries": skill:deep_research
+"fill in the form on this page with my work email": skill:browse
+"in the agent browser, find the cheapest flight to goa": skill:browse
+"download the pdf on this page": skill:browse
+"download https://example.com/file.zip": skill:download
+"show the agent browser": skill:show_agent
+"log in to github in the agent browser": skill:show_agent
+"hide the agent browser": skill:hide_agent
+"bookmark this page": skill:bookmark_this
+"open my jira bookmark": skill:open_bookmark
+"search my bookmarks for recipes": skill:bookmarks
+"show my bookmarks": skill:bookmarks

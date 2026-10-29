@@ -70,6 +70,13 @@ push_to_talk:
   # Same, matched against the window title: Claude Code in a terminal and Claude chats in the browser.
   pass_through_titles: ["claude"]
 
+# Browser agent (skills/web.py): its own Chrome with its own profile (~/.local/share/jarvis/agent-chrome), run by
+# tools/browser-agent (npm install there once). It starts when needed and closes after idle_minutes.
+browser_agent:
+  idle_minutes: 10
+  timeout: 60              # seconds one page may take
+  chrome: /opt/google/chrome/chrome
+
 claude:                    # phase 2
   model: claude-haiku-5-5
   effort: low              # low | medium | high (thinking is off either way, for speed)
