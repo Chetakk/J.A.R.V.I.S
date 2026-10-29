@@ -52,8 +52,13 @@ class Speaker:
         self.engine = cfg.get("engine", "piper")
         self.piper = os.path.expanduser(cfg.get("piper_bin", ""))
         self.voice = os.path.expanduser(cfg.get("voice", ""))
-        self.tuning = ["--%s %s" % (k, float(cfg[k])) for k in
-                       ("length_scale", "noise_scale", "noise_w", "sentence_silence") if k in cfg]
+        self.tuning = {k: float(cfg[k]) for k in ("length_scale", "noise_scale", "noise_w", "sentence_silence")
+                       if k in cfg}
+        self.default_speed = self.tuning.get("length_scale", 1.0)
+        self.sink = None  # private mode: JARVIS's voice only goes to this output (headphones)
+        self.muted = False  # quiet mode: nothing spoken, the text still goes to the chat panel
+        self.brief = False  # brief answers: the shortest of the alternative lines
+        self.on_sink_lost = None  # callback() when the private output disappears (headphones off)
         self._proc = None
         self._player = None
         self._busy_until = 0.0
@@ -67,7 +72,7 @@ class Speaker:
         self.quiet_volume = 40  # percent, during quiet hours
         self.last = ""  # the last thing said, for "what did you say?"
         self._interrupted = 0.0
-        self._proc_quiet = False
+        self._proc_key = None  # what the running Piper and player were started with
         if self.engine == "piper" and not (os.path.isfile(self.piper) and os.path.isfile(self.voice)):
             print("[speech] Piper or voice not found, falling back to spd-say")
             self.engine = "spd-say"
@@ -76,7 +81,7 @@ class Speaker:
 
     def say(self, text):
         """Speak without blocking; `text` may be a list of alternatives. Text is always printed (and shown in the chat panel) too."""
-        if isinstance(text, (list, tuple)) and text and self.quiet():
+        if isinstance(text, (list, tuple)) and text and (self.quiet() or self.brief):
             text = min(text, key=len)
         text = pick(text)
         if text and time.time() - self._interrupted < 30:
@@ -88,11 +93,20 @@ class Speaker:
         print("JARVIS: %s" % text)
         if self.on_say and text:
             self.on_say(text)
-        if not self.enabled or not text:
+        if not self.enabled or not text or self.muted:
+            return
+        if self.sink and not _sink_exists(self.sink):
+            self.sink = None
+            if self.on_sink_lost:
+                self.on_sink_lost()  # private stays private: not out loud on the speaker
             return
         line = " ".join(text.split())
-        if self.engine == "piper" and self._proc and self._proc_quiet != self.quiet() and not self.busy():
-            self.stop()  # Quiet hours started or ended: restart the player at the new volume.
+        key = self._key()
+        if self.engine == "piper" and self._proc and self._proc_key != key and (
+                not self.busy() or self._proc_key[1] != key[1]):
+            # Quiet hours or the speed changed: restart Piper and the player once it's done talking.
+            # The output changed (private mode): at once, so nothing more goes out loud.
+            self.stop()
         # A first guess until the real audio arrives (see _pump): Piper needs a moment to start.
         self._busy_until = max(time.time(), self._busy_until) + min(len(line) / 18.0, 1.5) + 0.5
         if self.engine == "piper":
@@ -181,19 +195,33 @@ class Speaker:
             except subprocess.TimeoutExpired:
                 self.stop()
 
+    def set_speed(self, length_scale):
+        """Piper's length_scale: above 1 slower, below 1 faster. Takes effect from the next line said."""
+        self.tuning["length_scale"] = round(max(0.6, min(1.6, length_scale)), 2)
+        return self.tuning["length_scale"]
+
+    def speed(self):
+        return self.tuning.get("length_scale", 1.0)
+
+    def _key(self):
+        return self.quiet(), self.sink, tuple(sorted(self.tuning.items()))
+
     def _pipeline(self):
         if self._proc and self._proc.poll() is None:
             return self._proc
         with open(self.voice + ".json") as f:
             rate = json.load(f)["audio"]["sample_rate"]
-        self._proc_quiet = self.quiet()
-        if self._proc_quiet and shutil.which("pacat"):
-            player = "pacat --raw --rate=%d --format=s16le --channels=1 --volume=%d" % (
-                rate, 65536 * self.quiet_volume // 100)
+        self._proc_key = self._key()
+        quiet = self._proc_key[0]
+        if (quiet or self.sink) and shutil.which("pacat"):
+            player = "pacat --raw --rate=%d --format=s16le --channels=1%s%s" % (
+                rate, " --volume=%d" % (65536 * self.quiet_volume // 100) if quiet else "",
+                " --device=%s" % shlex.quote(self.sink) if self.sink else "")
         else:
             player = "aplay -q -r %d -f S16_LE -t raw -" % rate
         piper = "%s --model %s %s --output-raw 2>/dev/null" % (
-            shlex.quote(self.piper), shlex.quote(self.voice), " ".join(self.tuning))
+            shlex.quote(self.piper), shlex.quote(self.voice),
+            " ".join("--%s %s" % kv for kv in sorted(self.tuning.items())))
         # Piper's audio passes through JARVIS on its way to the player, so it knows exactly how long
         # it will play (to ignore its own voice in the mic for that long, and no longer).
         self._proc = subprocess.Popen(piper, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -215,3 +243,42 @@ class Speaker:
             player.stdin.close()
         except OSError:
             pass
+
+
+def sinks():
+    """[(name, description, form factor, active port)] of the audio outputs (pactl), or []."""
+    try:
+        out = subprocess.run(["pactl", "list", "sinks"], capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    found = []
+    for block in out.split("\n\n"):
+        fields = {}
+        for line in block.splitlines():
+            key, _, value = line.strip().partition(": ")
+            fields.setdefault(key, value)
+            if line.strip().startswith("device.form_factor = "):
+                fields["form"] = line.split("=", 1)[1].strip().strip('"')
+        if fields.get("Name"):
+            found.append((fields["Name"], fields.get("Description", ""), fields.get("form", ""),
+                          fields.get("Active Port", "")))
+    return found
+
+
+def headphones(fallback=None):
+    """The output that's headphones: one that says so (Bluetooth form factor, a name like "buds", a headphone
+    port), else `fallback` (settings speech.private_sink, e.g. the jack) when it's there."""
+    outputs = sinks()
+    for name, desc, form, port in outputs:
+        if form in ("headphone", "headset", "hands-free") or "headphone" in port or re.search(
+                r"head ?(?:phone|set)|ear ?(?:bud|phone)s?|buds|airpods|\bwh-|\bwf-", desc, re.IGNORECASE):
+            return name
+    return next((n for n, _, _, _ in outputs if n == fallback), None) if fallback else None
+
+
+def _sink_exists(name):
+    try:
+        out = subprocess.run(["pactl", "list", "sinks", "short"], capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return True  # can't tell: don't drop private mode over it
+    return any(line.split("\t")[1:2] == [name] for line in out.splitlines())

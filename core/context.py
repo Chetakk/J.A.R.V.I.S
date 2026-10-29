@@ -24,11 +24,11 @@ OTHER = re.compile(r"^(?:no,? )?(?:i meant )?(?:the other(?: one)?|other one|the
 
 # "volume up" <-> "volume down": the words swapped for "too much" / "the other way".
 SWAP = [("up", "down"), ("in", "out"), ("next", "previous"), ("forward", "back"), ("louder", "quieter"),
-        ("brighter", "darker"), ("high", "low"), ("bigger", "smaller"), ("on", "off"), ("left", "right"),
-        ("top", "bottom")]
+        ("brighter", "darker"), ("faster", "slower"), ("high", "low"), ("bigger", "smaller"), ("on", "off"),
+        ("left", "right"), ("top", "bottom")]
 # What "a bit more" can repeat: steps, not one-off actions (no "more" after "shut down").
 STEP = re.compile(r"\b(?:up|down|louder|quieter|in|out|next|previous|forward|back|brighter|darker|scroll|skip|"
-                  r"high|low|bigger|smaller)\b", re.IGNORECASE)
+                  r"high|low|bigger|smaller|faster|slower)\b", re.IGNORECASE)
 
 
 class Context:

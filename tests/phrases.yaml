@@ -865,3 +865,27 @@
 "what ports are open": skill:all_ports
 "which ports are in use": skill:all_ports
 "show me the ports": skill:project_links
+
+# how JARVIS talks: speed, brief / detailed, private and quiet mode
+"talk faster": skill:speed
+"speak a bit slower": skill:speed
+"slow down": skill:speed
+"you're talking too fast": skill:speed
+"normal speed": skill:normal_speed
+"be brief": skill:answers
+"keep it short": skill:answers
+"give me detailed answers": skill:answers
+"normal answers": skill:answers
+"more detail": claude
+"private mode": skill:private
+"headphones only": skill:private
+"talk through my headphones": skill:private
+"private mode off": skill:private
+"back to the speakers": skill:private
+"switch audio to headphones": command:audio_to_jack
+"quiet mode": skill:quiet
+"don't talk": skill:quiet
+"text only": skill:quiet
+"you can talk again": skill:quiet
+"quiet mode off": skill:quiet
+"speed up the video": claude

@@ -46,6 +46,9 @@ speech:
   noise_scale: 0.75        # more = more expressive (default 0.667)
   noise_w: 0.9             # more = more varied rhythm (default 0.8)
   sentence_silence: 0.25   # pause between sentences, seconds
+  # Private mode ("headphones only"): Bluetooth or named headphones when they're connected, else this output
+  # (the headphone jack, which can't tell whether anything is plugged in).
+  private_sink: alsa_output.platform-sound.analog-stereo
 
 stt:                       # speech-to-text: whisper.cpp server on the GPU
   server_bin: ~/.local/share/jarvis/whisper.cpp/build/bin/whisper-server

@@ -42,7 +42,7 @@ class DryJarvis:
         j._miss = lambda text, outcome: rec(("miss", outcome))
         j._open_app = lambda text: self._app(J.apps.OPEN, text, "open")
         j._close_app = lambda text: self._app(J.apps.CLOSE, text, "close")
-        for name in ("seen", "used", "add_reminder", "clear_reminders"):
+        for name in ("seen", "used", "add_reminder", "clear_reminders", "set_pref"):
             setattr(j.memory, name, lambda *a, **k: 0)
         j.claude.open_terminal = lambda *a, **k: rec(("claude-terminal", "")) or False
         J.open_in_vscode = lambda *a, **k: rec(("vscode", ""))

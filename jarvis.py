@@ -181,6 +181,7 @@ class Jarvis:
         self.cards = self.skills.cards  # "the second one", "read it to me", "pin it", timers, live cards
         self.mode = self.settings.get("mode", "agent")
         self.memory = persona.Memory()
+        self.skills.voice_prefs.apply()  # "talk faster", "be brief", private / quiet mode, from last time
         self.warned = {}  # heads-up key -> when it was last mentioned
         self.last_request = None  # for "do that again"
         self.last_app = None  # process of the last app opened, for "close it"
@@ -581,6 +582,13 @@ class Jarvis:
             parts.append("%s's most used commands: %s" % (user, ", ".join("%s (%d)" % kv for kv in uses)))
         parts.append("your use by %s today: %d questions, ~%dk tokens" % (
             self.name, usage["questions"], round(usage["tokens"] / 1000)))
+        answers = self.memory.pref("answers")
+        if answers == "brief":
+            parts.append("%s wants brief answers: \"say\" is one short sentence" % user)
+        elif answers == "detailed":
+            parts.append("%s wants detailed answers: \"say\" can be 3-4 sentences, the rest in \"details\"" % user)
+        if self.speaker.muted:
+            parts.append("%s reads your answers in the chat instead of hearing them" % user)
         return " | ".join(parts)
 
     def control(self, msg):

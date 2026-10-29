@@ -373,6 +373,19 @@ class Memory:
             self._save()
             return uses
 
+    def pref(self, key, default=None):
+        """A preference set by voice ("talk faster", "be brief"), kept across restarts."""
+        return (self.data.get("prefs") or {}).get(key, default)
+
+    def set_pref(self, key, value):
+        with self.lock:
+            prefs = self.data.setdefault("prefs", {})
+            if value is None:
+                prefs.pop(key, None)
+            else:
+                prefs[key] = value
+            self._save()
+
     def add_reminder(self, reminder):
         with self.lock:
             self.data["reminders"].append({k: reminder[k] for k in ("due", "what", "kind")})
