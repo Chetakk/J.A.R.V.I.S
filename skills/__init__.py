@@ -11,6 +11,7 @@ about X" before projects and notes
 (their "tell me about" / "what do you remember about" would take it); clicking in a window and window focus go last.
 """
 from skills.browser_tabs import BrowserTabs
+from skills.audio import Audio
 from skills.briefing import Briefing
 from skills.cards import Cards
 from skills.checks import Checks
@@ -55,7 +56,7 @@ ORDER = [
     ("status", Status), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
     ("network", Network), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
-    ("browser_tabs", BrowserTabs), ("media", Media), ("copy_between", CopyBetween), ("clipboard", Clipboard),
+    ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]

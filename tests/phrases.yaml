@@ -300,8 +300,8 @@
 "mute the sound": command:mute
 "unmute": command:mute
 "mute my mic": command:mute_mic
-"play sound on the echo dot": command:audio_to_echo
-"switch to headphones": command:audio_to_jack
+"play sound on the echo dot": skill:output
+"switch to headphones": skill:output
 "screenshot this window": command:screenshot_window
 "screenshot an area": command:screenshot_area
 "lock the computer": command:lock_screen
@@ -403,12 +403,12 @@
 "mute the microphone": "command:mute_mic"
 "turn off my mic": "command:mute_mic"
 "unmute my mic": "command:mute_mic"
-"play audio through the echo dot": "command:audio_to_echo"
-"use the echo": "command:audio_to_echo"
-"send sound to the usb speaker": "command:audio_to_usb"
-"use the usb speaker": "command:audio_to_usb"
-"use the headphone jack": "command:audio_to_jack"
-"switch the audio to headphones": "command:audio_to_jack"
+"play audio through the echo dot": skill:output
+"use the echo": skill:output_named
+"send sound to the usb speaker": skill:output
+"use the usb speaker": skill:output_named
+"use the headphone jack": skill:output_named
+"switch the audio to headphones": skill:output
 "capture the screen": "command:screenshot"
 "screenshot please": "command:screenshot"
 "grab my screen": "command:screenshot"
@@ -883,7 +883,7 @@
 "talk through my headphones": skill:private
 "private mode off": skill:private
 "back to the speakers": skill:private
-"switch audio to headphones": command:audio_to_jack
+"switch audio to headphones": skill:output
 "quiet mode": skill:quiet
 "don't talk": skill:quiet
 "text only": skill:quiet
@@ -1048,3 +1048,23 @@
 "why won't the wifi connect": skill:diagnose
 "how strong is my wifi signal": skill:signal
 "wifi signal strength": skill:signal
+# Audio devices (skills/audio.py)
+"what audio devices are there": skill:list
+"list my microphones": skill:list
+"which speaker am i using": skill:which
+"where is the sound going": skill:which
+"which mic are you using": skill:which
+"what's my mic volume": skill:which
+"switch audio to the echo dot": skill:output
+"move the sound to the usb speaker": skill:output
+"use bluetooth for sound": skill:output_named
+"switch to the jack": skill:output_named
+"play music on youtube": browser
+"switch the mic to the built in input": skill:mic_switch
+"use the usb mic": skill:mic_switch
+"set the mic volume to 60": skill:mic_volume
+"mic volume 40 percent": skill:mic_volume
+"turn the mic up": skill:mic_volume
+"lower my microphone": skill:mic_volume
+"mute my mic": command:mute_mic
+"switch to the github tab": skill:find_tab

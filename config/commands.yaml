@@ -157,21 +157,6 @@ commands:
     ask: "Toggle the microphone? If it goes off I won't hear you until you unmute it."
     reply: ["Microphone toggled", "Done, mic toggled"]
 
-  - name: audio_to_echo
-    say: [switch audio to echo dot, use echo dot, play on echo dot, use the echo]
-    run: pactl set-default-sink bluez_sink.68_B6_91_94_2A_43.a2dp_sink
-    reply: ["Sound is going to the Echo Dot", "Switched to the Echo Dot"]
-
-  - name: audio_to_usb
-    say: [switch audio to usb speaker, use usb speaker, use the usb audio]
-    run: pactl set-default-sink alsa_output.usb-Generic_AB13X_USB_Audio_20210726905926-00.analog-stereo
-    reply: ["Sound is going to the USB speaker", "Switched to the USB speaker"]
-
-  - name: audio_to_jack
-    say: [switch audio to headphones, use headphones, use the headphone jack]
-    run: pactl set-default-sink alsa_output.platform-sound.analog-stereo
-    reply: ["Sound is going to the headphone jack", "Switched to headphones"]
-
   # --- screen ---
   - name: screenshot
     say: [take a screenshot, take screenshot, screenshot]
