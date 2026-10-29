@@ -90,8 +90,9 @@ def template_regex(wording):
 
 
 class IntentMatcher:
-    def __init__(self, path, threshold=0.72, margin=0.03, extra=None):
-        """extra: more {phrase: [other wordings]}, e.g. the command list's own "say" phrases."""
+    def __init__(self, path, threshold=0.72, margin=0.03, extra=None, learned=None):
+        """extra: more {phrase: [other wordings]}, e.g. the command list's own "say" phrases.
+        learned: {what you said: phrase} learned from Claude (core/learned.py); treated like this file's own."""
         import onnxruntime as ort
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 2
@@ -101,6 +102,8 @@ class IntentMatcher:
         self.threshold, self.margin = threshold, margin
         with open(path, encoding="utf-8") as f:
             intents = yaml.safe_load(f) or {}
+        for said, target in (learned or {}).items():
+            intents[target] = list(intents.get(target) or []) + [said]
         own = {k: set(v or []) for k, v in intents.items()}  # only this file's wordings get the word-for-word check
         for target, says in (extra or {}).items():
             intents[target] = list(intents.get(target) or []) + list(says)
@@ -148,6 +151,12 @@ class IntentMatcher:
                                       "token_type_ids": np.zeros_like(ids)})[0]
         vec = (out * mask[..., None]).sum(1) / mask.sum(1, keepdims=True)
         return vec / np.linalg.norm(vec, axis=1, keepdims=True)
+
+    def learn(self, said, target):
+        """Add one wording while running (word for word, and by meaning); no rebuild needed."""
+        self.exact[_norm(said)] = target
+        self.targets.append(target)
+        self.matrix = np.vstack([self.matrix, self.embed([said])])
 
     def early(self, text):
         """A listed other wording, said word for word: its known phrase, before any pattern can misread it

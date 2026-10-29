@@ -11,6 +11,7 @@ import queue
 import random
 import re
 import shlex
+import subprocess
 import sys
 import threading
 import time
@@ -23,7 +24,7 @@ try:
 except ImportError:
     pass
 
-from core import misslog, persona, undo
+from core import learned, misslog, persona, undo
 from system import apps, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import Claude, ClaudeError, open_in_vscode
@@ -176,6 +177,7 @@ class Jarvis:
         self.last_undo = None  # saved command that reverses the last one, for "undo that"
         self.handling_since = None  # when the request being handled started (the watchdog restarts a stuck one)
         self._rewording = False  # handling a phrase the meaning matcher rewrote; it isn't rewritten again
+        self.do_missed = False  # Claude's "do" phrase matched nothing (then it isn't learned)
         self.whisper = self.wake = None
         self.ignored = False  # last follow-up was chatter, not a request
         self.follow_up = lambda: None  # wake word: listen once more without the name (set by start_voice)
@@ -215,7 +217,8 @@ class Jarvis:
         try:
             cfg = self.settings.get("intents") or {}
             self.intents = IntentMatcher(os.path.join(CONFIG, "intents.yaml"), cfg.get("threshold", 0.72),
-                                         extra=dict(self.apps.intents(), **command_phrases(self.registry)))
+                                         extra=dict(self.apps.intents(), **command_phrases(self.registry)),
+                                         learned=learned.load()["wordings"])
         except Exception as e:
             print("[intent] meaning matcher off: %r" % e)
         self.browser = Browser(self.registry)
@@ -305,7 +308,7 @@ class Jarvis:
         if self._close_app(text):  # before the command list, whose "close {app}" can't find real process names
             return True
         match = self.registry.match_exact(text)
-        if match:
+        if match and not self._not_running(match):
             return self._run_match(match)
         if self._open_app(text):
             return True
@@ -333,6 +336,7 @@ class Jarvis:
             self.ignored = True
             return True
         if self.from_claude:
+            self.do_missed = True  # (so it isn't learned as a wording)
             self.heard(text, "Claude's \"do\" phrase matched nothing; skipped")
             self._miss(text, "claude-do")
             return True
@@ -429,13 +433,17 @@ class Jarvis:
             # Claude chained commands anyway: run them as separate steps, so each can be checked and stopped.
             answer["steps"] = [{"command": part.strip()} for part in answer["command"].split(" && ")]
             answer["command"] = ""
-        for phrase in (answer["do"] if isinstance(answer["do"], list) else [])[:5]:
+        dos = (answer["do"] if isinstance(answer["do"], list) else [])[:5]
+        for phrase in dos:
             self.chat("sys", "do: %s" % phrase)
             self.from_claude = True
+            self.do_missed = False
             try:
                 self.handle(str(phrase))
             finally:
                 self.from_claude = False
+        if len(dos) == 1 and not self.do_missed:
+            self._learn(text, str(dos[0]))
         if answer["steps"]:
             self._run_steps(answer["steps"], text)
         if answer["details"]:
@@ -680,12 +688,33 @@ class Jarvis:
         return (["To-do list", "Reminder", "Timer", "Workspace", "Jetson Nano", "biztel", "Claude"]
                 + [p.spoken for p in self.projects.items] + apps)
 
+    def _learn(self, said, phrase):
+        """Claude turned `said` into a JARVIS phrase that worked: learn the wording, so next time needs no Claude.
+        settings learn: ask (default; you said to ask before saving), quiet, or off."""
+        mode = self.settings.get("learn", "ask")
+        if mode == "off" or not self.intents or not learned.worth_learning(said, phrase, learned.load()):
+            return
+        if mode == "ask" and not self.ask("Should I remember that \u201c%s\u201d means %s?" % (said, phrase)):
+            learned.decline(said)  # never asked about again
+            return
+        learned.remember(said, phrase)
+        self.intents.learn(said, phrase)
+        self.heard(said, "learned: means \"%s\"" % phrase)
+        if mode == "ask":
+            self.speaker.say(["Got it, I'll remember that.", "Okay, noted for next time."])
+
     def _reword(self, phrase):
         self._rewording = True  # one rewrite only: the new phrase isn't rewritten again
         try:
             return self.handle(phrase)
         finally:
             self._rewording = False
+
+    @staticmethod
+    def _not_running(match):
+        """"kill the tunes" isn't "close {app}" unless a program by that name is running (else pkill "tunes")."""
+        app = match.slots.get("app") if match.name == "close_app" else None
+        return bool(app) and subprocess.call(["pgrep", "-x", app[:15]], stdout=subprocess.DEVNULL) != 0
 
     def _open_app(self, text):
         m = apps.OPEN.match(text)

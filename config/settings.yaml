@@ -103,3 +103,8 @@ watchdog:
   stuck_minutes: 10   # a request running longer than this restarts JARVIS
   jarvis_mb: 1500     # JARVIS restarts itself (when idle) above this
   whisper_mb: 2500    # whisper-server is restarted above this
+
+# When Claude turns something you said into one of JARVIS's own phrases, learn that wording so it works
+# without Claude next time (core/learned.py, ~/.local/share/jarvis/learned.yaml).
+# ask = ask first ("Should I remember that ... means ...?"), quiet = just learn it, off = never.
+learn: ask
