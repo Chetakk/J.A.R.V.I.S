@@ -135,6 +135,10 @@ _GREETING = re.compile(r"^\W*(?:(?:hey|hi|hello|ok|okay|yo|oi|what'?s up|what ar
                        re.IGNORECASE)
 
 
+_ABOUT_NAME = re.compile(r"\b(?:close|quit|exit|shut ?down|turn off|switch off|kill|restart|reload|reboot|relaunch|"
+                         r"in|into|to|on) $", re.IGNORECASE)
+
+
 def split_name(text, names):
     """("EV, open YouTube." -> (True, "open YouTube")), ("What's up Jarvis?" -> (True, "")),
     ("open YouTube" -> (False, "")). The name must start or end what was said (after a greeting)."""
@@ -150,7 +154,10 @@ def split_name(text, names):
             after = after[call.match(after).end():]
         return True, after
     if not after:
-        # Name at the end: "open YouTube, Jarvis" -> the command is before it.
+        # Name at the end: "open YouTube, Jarvis" -> the command is before it. Straight after one of
+        # _ABOUT_NAME it's what the request is about: "close Jarvis", "make these changes in Jarvis".
+        if _ABOUT_NAME.search(before):
+            return True, (before + m.group(0)).strip(" ,.!?-")
         return True, before.strip(" ,.!?-")
     return False, ""  # Name in the middle of a sentence: someone talking *about* Jarvis.
 
