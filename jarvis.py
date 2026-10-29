@@ -123,6 +123,8 @@ ABILITIES = "\n  ".join((
     "projects: \"open <project> project\", \"run <project>\", \"stop <project>\", \"run the tests in <project>\", "
     "\"ask claude to <task> in <project> project\", \"git status of <project>\", \"open <project> in the browser\" "
     "(its running link), \"links for <project>\"",
+    "small talk (a spoken reply): \"hi\", \"what's up\", \"how are you\", \"thanks\", \"good night\", \"bye\", "
+    "\"tell me a joke\"",
     "itself: \"status\", \"stop\" (stop talking), \"open claude\", \"show chat\", \"do that again\", \"undo that\" (reverses the last setting or file change)",
     "cards: \"show that again\", \"close the card\", \"read it to me\", \"copy that\", \"save that\", "
     "\"show the previous card\", \"pin it\", \"unpin\", \"the second one\" (a choice), \"open the first link\"",

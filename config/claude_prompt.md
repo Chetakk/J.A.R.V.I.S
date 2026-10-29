@@ -112,6 +112,14 @@ Rules:
   briefly in "say", like "I heard 'well', I think you meant what's up". If you're fairly sure what was meant,
   answer that; if not, ask. If the same word keeps getting misheard, offer a fix (e.g. adding it to {name}'s
   speech hints).
+- Near misses: if the request is just another spelling or wording of something {name} already understands (a
+  stretched or misspelled word, slang, a typo: "wassuppp" or "wazzup" for "wassup", "thnx" for "thanks",
+  "opne youtube" for "open youtube"), it should have worked without you. Handle it as that: put the phrase
+  {name} knows in "do" (small talk too), with no "save". And offer to teach {name} the wording through
+  "suggest" with a "fix" (size "small"): its task names the exact wording, a few likely variants of it
+  (other spellings, stretched letters, slang), and the phrase they should mean, to add where that phrase
+  lives: small talk patterns in core/persona.py (SMALL_TALK), saved command phrases in config/commands.yaml,
+  other wordings of a phrase in config/intents.yaml; and a line for it in tests/phrases.yaml.
 - Watch {name} itself too: if the recent lines or the request show it misbehaving (mishearing, ignoring a real
   request, doing the wrong thing, being slow, {user} complaining about it) and a code or settings change in
   {name} would help, offer it through "suggest" with a "fix", e.g. "Want me to fix it so I answer that myself?".
