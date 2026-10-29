@@ -45,7 +45,7 @@ SMALL_TALK = [
      r"how you doing|how'?s (your day|life)|you good|are you (okay|ok|alright|good)",
      ["I'm doing great, thanks for asking. How about you?", "All good here. How are you?",
       "Running smoothly. How's your day going?", "Never better. And you, {name}?"]),
-    (r"what'?s up|sup|wassup|whats ?up|what'?s new|what'?s going on|what'?s happening|what'?s good",
+    (r"what'?s up|sup|wass?up|wazz?up|whats ?up|what'?s new|what'?s going on|what'?s happening|what'?s good",
      ["Not much, just waiting for you. What's up with you?", "Nothing much. What can I do for you?",
       "All quiet here. What's new with you?"]),
     (r"what are you (doing|up to)|what('re| are) you doing( right now| now)?",
@@ -214,10 +214,12 @@ def small_talk(text, name=None, me="Jarvis", names=()):
     low = text.lower().strip(" .!?,")
     for n in names:  # "thanks jarvis"
         low = re.sub(r"[\s,]+%s$" % re.escape(n), "", low)
-    for pattern, replies in SMALL_TALK:
-        m = re.fullmatch(pattern, low)
-        if m:
-            return fill(pick(replies), name, me).format(*m.groups())
+    # Stretched words too: "wassuppp", "heyyy", "gooood night" (letters said 3+ times, cut to one, then two).
+    for said in (low, re.sub(r"(\w)\1{2,}", r"\1", low), re.sub(r"(\w)\1{2,}", r"\1\1", low)):
+        for pattern, replies in SMALL_TALK:
+            m = re.fullmatch(pattern, said)
+            if m:
+                return fill(pick(replies), name, me).format(*m.groups())
     return None
 
 
