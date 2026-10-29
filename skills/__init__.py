@@ -2,12 +2,14 @@
 
 The order matters: the first skill whose phrase matches (and doesn't hand it on) wins. Cards come first
 ("the second one" is about the card on screen), then the instant local extras, then the rest; the day
-tracker and todos go before projects ("start work" isn't a project) and window focus goes last.
+tracker and todos go before projects ("start work" isn't a project); clicking in a window and window focus
+go last.
 """
 from skills.browser_tabs import BrowserTabs
 from skills.cards import Cards
 from skills.clipboard import Clipboard
 from skills.clipboard_history import ClipboardHistory
+from skills.controls import Controls
 from skills.daytracker import DayTracker
 from skills.dev import Dev
 from skills.dictation import Dictation
@@ -31,7 +33,7 @@ ORDER = [
     ("slow_computer", SlowComputer), ("where_was_i", WhereWasI), ("clipboard_history", ClipboardHistory),
     ("status", Status), ("daytracker", DayTracker), ("todos", Todos), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("clipboard", Clipboard), ("notes", Notes), ("files", Files),
-    ("nano", Nano), ("layouts", Layouts), ("windows", Windows), ("dev", Dev),
+    ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]
 
 

@@ -819,3 +819,12 @@
 "open gmail": browser
 "volume 30 percent": command:set_volume
 "turn the volume down": command:volume_down
+
+# what's clickable in the front window
+"what can i click here": skill:list_controls
+"what buttons are there": skill:list_controls
+"what buttons are on the screen": skill:list_controls
+"list the buttons": skill:list_controls
+"show me the options in this window": skill:list_controls
+"what's in the file menu": skill:list_controls
+"read the edit menu": skill:list_controls

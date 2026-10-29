@@ -25,12 +25,12 @@ class Screen(Skill):
     def screen(self, m):
         path = os.path.join(WORKSPACE, "screen.png")
         self.say(["Let me take a look.", "One sec, looking at your screen."])
-        _screenshot(path)
+        screenshot(path)
         self.j._ask_claude(m.group(0), image=path)
 
 
     def read_window(self, m):
-        win = _front_window()
+        win = front_window()
         if not win:
             self.say("I can't see a window to read.")
             return
@@ -40,7 +40,7 @@ class Screen(Skill):
         if len(words) < 8:  # the app doesn't share its text (Chrome, VS Code): read it off a screenshot
             path = os.path.join(WORKSPACE, "screen.png")
             self.say(["One sec, reading it.", "Let me read that."])
-            _screenshot(path)
+            screenshot(path)
             self.j._ask_claude("Read out the main text of the front window (\"%s\"), word for word if it's short, "
                                "else the important part. No description of the screen." % win.title, image=path)
             return
@@ -54,7 +54,7 @@ class Screen(Skill):
                   else "%s ... The rest is on the card; say read it to me for all of it.") % part)
 
 
-def _front_window():
+def front_window():
     """The window you're looking at: the active one, or, when that's JARVIS's own, the top one under it."""
     win = desktop.active_window()
     if win and "jarvis" not in win.wm_class:
@@ -72,7 +72,7 @@ def _speakable(text):
     return "\n".join(l for l in lines if l)
 
 
-def _screenshot(path):
+def screenshot(path):
     """Whole screen, scaled down so it's quick to send."""
     from PIL import Image
     tmp = path + ".full.png"
