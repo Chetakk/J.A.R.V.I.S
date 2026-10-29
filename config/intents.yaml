@@ -35,7 +35,7 @@ volume up: [turn the volume up, turn up the volume, turn up the sound, turn the 
 volume down: [turn the volume down, turn down the volume, turn down the sound, turn the sound down, make it quieter, it's too loud, lower the volume, softer please, lower it, bring it down, not so loud]
 dark mode: [make everything dark, switch to the dark look, my eyes hurt]
 # With a {value}: other wordings are matched word for word, and the value is carried over.
-"close {app}": ["shut {app}", "exit {app}", "get rid of {app}", "stop {app} app", "close down {app}", "shut {app} down"]
+"close {app}": ["shut {app}", "end {app}", "exit {app}", "get rid of {app}", "stop {app} app", "close down {app}", "shut {app} down"]
 "set volume to {level}": ["volume {level} percent", "volume {level} %", "put the sound at {level} percent", "put the sound at {level}", "make it {level} percent", "volume at {level}", "put the volume at {level}", "turn the volume to {level}", "volume to {level} percent", "set the sound to {level}", "set the volume to {level}", "volume to {level}", "change the volume to {level}", "make the volume {level}"]
 "connect to wifi {network}": ["join {network} wifi", "get on {network} wifi", "use the {network} network", "switch to {network} wifi"]
 
