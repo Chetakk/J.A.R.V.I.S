@@ -962,3 +962,23 @@
 "turn off quiet hours": skill:toggle_quiet
 "what are my quiet hours": skill:quiet_status
 "quiet mode": skill:quiet
+# Dashboard and links
+"show my dashboard": skill:show
+"open the dashboard": skill:show
+"what are you working on": skill:show
+"what are you busy with right now": skill:show
+"show running tasks": skill:show
+"what's in progress": skill:show
+"any jobs running": skill:show
+"close the dashboard": skill:close
+"everything about jarvis": skill:everything
+"show me everything about the study buddy project": skill:everything
+"what do i have on avtec": skill:everything
+"what have i got about the camera calibration": skill:everything
+"what's linked to biztel": skill:everything
+"everything i have on recipes": skill:everything
+"all my stuff about the nano": skill:everything
+"what's running": skill:whats_running
+"what are you up to": persona
+"tell me about jarvis": skill:about_project
+"what do you remember about the nano": skill:recall

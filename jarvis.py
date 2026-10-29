@@ -30,6 +30,7 @@ from system.browser import Browser
 from claude.bridge import Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from skills import Skills
+from skills.dashboard import plan_card
 from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
@@ -115,6 +116,8 @@ ABILITIES = "\n  ".join((
     "again\", \"turn the cpu alerts back on\", \"tell me when this finishes\" (a command in a terminal), \"quiet hours "
     "from 10 pm to 6 am\", \"turn off quiet hours\", \"what are my quiet hours\"",
     "computer: \"what's slowing my computer\" (top CPU/memory users, offers to close one), \"where was I\"",
+    "overview: \"show my dashboard\" / \"what are you working on\" (live card: question waiting, plan, what's "
+    "running), \"everything about <project>\", \"what do I have on <topic>\" (notes, to-dos, time, bookmarks, files)",
     "clipboard history: \"paste the thing I copied before\", \"paste number 3\", \"clipboard history\"",
     "web: \"summarise this page\", \"what's the price on this page\", \"research <topic>\", \"compare <x> and <y>\", "
     "\"deep research <topic>\", \"summarise this video\", \"summarise my tabs\", \"fill the form on this page with "
@@ -207,6 +210,8 @@ class Jarvis:
         self.source = "text"  # how the current request came in: text / voice / follow
         self.from_claude = False  # handling one of Claude's "do" phrases: never send it back to Claude
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
+        self.asking = None  # the question waiting for your answer, for the dashboard
+        self.plan = None  # Claude's multi-step plan: {"request", "steps", "done", "state", "at"}, for the dashboard
 
     def state(self, name):
         if self.ui:
@@ -269,6 +274,7 @@ class Jarvis:
 
     def _answer(self, question):
         """Say `question` and wait for the typed or spoken answer (None if none came)."""
+        self.asking = question if isinstance(question, str) else question[0]
         self.speaker.say(question)
         self.follow_up()  # "yes" without saying the name first
         timeout = self.settings.get("confirm_timeout", 8)
@@ -286,6 +292,7 @@ class Jarvis:
             print()
             return None
         finally:
+            self.asking = None
             for item in deferred:
                 self.inbox.put(item)
         if kind in ("voice", "follow"):
@@ -683,12 +690,16 @@ class Jarvis:
             return
         plan = "\n".join("%d. %s" % (i + 1, s["command"]) for i, s in enumerate(steps))
         self.chat("sys", "plan:\n" + plan)
+        self.plan = {"request": request, "steps": [str(s["command"]).strip() for s in steps], "done": 0,
+                     "state": "waiting" if len(steps) > 1 else "running", "at": time.time()}
         if len(steps) > 1:
-            self.show({"title": "Plan: %d steps" % len(steps), "text": "```\n%s\n```" % plan})
+            self.show(plan_card(self.plan))  # ticks itself off as the steps run
         if len(steps) > 1 and not self.ask("That's %d steps; they're on your screen. Shall I go ahead?"
                                            % len(steps)):
+            self._plan(state="cancelled")
             self.speaker.say(["Okay, I won't.", "No problem, cancelled."])
             return
+        self._plan(state="running")
         outputs = []
         for i, step in enumerate(steps):
             command = str(step["command"]).strip()
@@ -703,13 +714,23 @@ class Jarvis:
                 if step.get("output"):
                     outputs.append("$ %s\n%s" % (command, out[-1500:]))
             if not self.executor.ok:
+                self._plan(state="stopped")
                 self.speaker.say("I stopped at step %d of %d%s." % (
                     i + 1, len(steps), ", it didn't work" if out else ""))
                 return
+            self._plan(done=i + 1)
+        self._plan(state="done")
         if outputs:  # the plan was there to find something out: Claude reads it out and shows it
             self._read_out(request, " ; ".join(str(s["command"]) for s in steps), "\n\n".join(outputs))
         else:
             self.speaker.say(["All %d steps done." % len(steps), "Done, that's everything."])
+
+    def _plan(self, **changes):
+        """Move the plan on, and its card with it when that's on screen."""
+        self.plan.update(changes, at=time.time())
+        card = self.ui.current_card() if self.ui and self.ui.card_visible() else None
+        if card and card.get("id") == "plan":
+            self.ui.show_card(plan_card(self.plan))
 
     def _save(self, save, ran=""):
         """Offer to add Claude's suggested shortcut to commands.yaml; it's only saved if you say yes."""

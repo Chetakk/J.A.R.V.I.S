@@ -4,7 +4,8 @@ The order matters: the first skill whose phrase matches (and doesn't hand it on)
 ("the second one" is about the card on screen), then the instant local extras, then the rest; the day
 tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
 and the screen ("what's this page about" in a browser reads the page itself); copying between apps before the
-clipboard ("summarise my clipboard and put it in Slack"); clicking in a window and window focus go last.
+clipboard ("summarise my clipboard and put it in Slack"); "everything about X" before projects and notes
+(their "tell me about" / "what do you remember about" would take it); clicking in a window and window focus go last.
 """
 from skills.browser_tabs import BrowserTabs
 from skills.cards import Cards
@@ -14,12 +15,14 @@ from skills.clipboard_history import ClipboardHistory
 from skills.controls import Controls
 from skills.copy_between import CopyBetween
 from skills.daytracker import DayTracker
+from skills.dashboard import Dashboard
 from skills.dev import Dev
 from skills.dictation import Dictation
 from skills.files import Files
 from skills.focus_mode import FocusMode
 from skills.frozen import Frozen
 from skills.layouts import Layouts
+from skills.linked import Linked
 from skills.maths import Maths
 from skills.media import Media
 from skills.nano import Nano
@@ -42,7 +45,8 @@ ORDER = [
     ("maths", Maths), ("focus_mode", FocusMode), ("proactive", Proactive),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
-    ("status", Status), ("checks", Checks), ("daytracker", DayTracker), ("todos", Todos),
+    ("status", Status), ("dashboard", Dashboard), ("linked", Linked), ("checks", Checks),
+    ("daytracker", DayTracker), ("todos", Todos),
     ("troubleshoot", Troubleshoot), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("files", Files),

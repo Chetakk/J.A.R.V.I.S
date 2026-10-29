@@ -314,19 +314,24 @@ def click(x, y, button=1):
 
 def window_with_role(role):
     """The window with that role (gnome-terminal --role), or None."""
-    found = windows()
+    found = windows_with_role(role)
+    return found[0] if found else None
+
+
+def windows_with_role(role):
+    """Every window with that role (gnome-terminal --role), bottom to top."""
+    found, out = windows(), []
     try:
         d = display.Display()
         for w in found:
             prop = d.create_resource_object("window", w.id).get_full_property(_atom(d, "WM_WINDOW_ROLE"),
                                                                                X.AnyPropertyType)
             if prop and prop.value.decode("utf-8", "replace") == role:
-                d.close()
-                return w
+                out.append(w)
         d.close()
     except Exception:
         pass
-    return None
+    return out
 
 
 def activate_role(role):
