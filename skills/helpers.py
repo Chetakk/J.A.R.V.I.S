@@ -8,6 +8,11 @@ from system import desktop
 
 HOME = os.path.expanduser("~")
 PROJECTS = os.path.join(HOME, "Projects")
+# "the second one", "the first folder": which of the things on the card, or in the list JARVIS just read out.
+ORDINALS = {"first": 1, "1st": 1, "one": 1, "second": 2, "2nd": 2, "two": 2, "third": 3, "3rd": 3, "three": 3,
+            "fourth": 4, "4th": 4, "four": 4, "fifth": 5, "5th": 5, "five": 5, "sixth": 6, "6th": 6, "six": 6,
+            "last": -1}
+NTH = r"(%s|\d)" % "|".join(ORDINALS)
 TERMINALS = ("gnome-terminal", "xterm", "terminator", "tilix", "kitty", "alacritty", "konsole")
 typed_until = 0.0  # JARVIS's own clipboard use (typing) isn't a copy of yours
 

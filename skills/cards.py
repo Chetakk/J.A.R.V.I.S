@@ -12,15 +12,12 @@ import threading
 import time
 
 from skills.base import Skill
+from skills.helpers import NTH, ORDINALS
 from ui.card import choices, links, meter, plain
 from claude.bridge import WORKSPACE
 from core.safety import AUTO
 
 CARDS_DIR = os.path.join(WORKSPACE, "cards")  # "save that" puts cards here
-ORDINALS = {"first": 1, "1st": 1, "one": 1, "second": 2, "2nd": 2, "two": 2, "third": 3, "3rd": 3, "three": 3,
-            "fourth": 4, "4th": 4, "four": 4, "fifth": 5, "5th": 5, "five": 5, "sixth": 6, "6th": 6, "six": 6,
-            "last": -1}
-_NTH = r"(%s|\d)" % "|".join(ORDINALS)
 NUMBER_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
                 "eight": 8, "nine": 9, "ten": 10, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
                 "forty-five": 45, "sixty": 60, "ninety": 90, "half an": 0.5, "a couple of": 2, "a few": 3}
@@ -45,9 +42,9 @@ class Cards(Skill):
 
     def patterns(self):
         return [
-            (r"(?:pick|choose|select|go with|do|take)?\s*(?:the |option |number )*%s(?: one| option)?" % _NTH,
+            (r"(?:pick|choose|select|go with|do|take)?\s*(?:the |option |number )*%s(?: one| option)?" % NTH,
              self.pick),
-            (r"open (?:the )?%s link|open link (?:number )?%s" % (_NTH, _NTH), self.open_link),
+            (r"open (?:the )?%s link|open link (?:number )?%s" % (NTH, NTH), self.open_link),
             (r"read (?:it|that|this|the card)(?: out)?(?: to me)?|read (?:it|that) out(?: to me)?|"
              r"what does (?:it|the card) say", self.read),
             (r"copy (?:that|it|this|the card)(?: to (?:the |my )?clipboard)?", self.copy),
