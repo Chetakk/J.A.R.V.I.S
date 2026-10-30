@@ -70,6 +70,9 @@ class Nano(Skill):
             self.j.show({"title": "Nano: %s" % inner, "text": "```\n%s\n```" % out[-3000:]})
         if res.returncode == 255:
             self.say("I couldn't connect to the Nano.")
+        elif res.returncode:  # it ran, but failed: never "done"
+            first = out.splitlines()[0][:150] if out else ""
+            self.say("That failed on the Nano (exit %d)%s" % (res.returncode, ": %s" % first if first else "."))
         elif len(out) <= 150:
             self.say(out or "Done, no output.")
         else:
