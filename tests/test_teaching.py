@@ -96,6 +96,11 @@ def test_a_wording_that_would_pull_a_known_sentence_away_is_refused(jv):
     assert not kept and "pull" in refused[0][2]
 
 
+def test_a_wording_that_would_only_nearly_catch_a_request_for_claude_is_refused_too(jv):
+    """Not close enough to run it, but close enough for "did you mean...?" to stop it reaching Claude."""
+    assert teaching.pulls(jv.j, "explain things in more detail", "give me detailed answers") == "more detail"
+
+
 def test_a_number_or_a_secret_is_never_learned(jv):
     for wording in ("put it at 40 for me", "the wifi password is under the router"):
         kept, refused = teaching.teach(jv.j, [(wording, "volume down")])
