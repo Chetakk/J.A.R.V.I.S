@@ -14,6 +14,13 @@ FOCUS_FILE = os.path.join(HOME, ".local/share/jarvis/focus.json")
 
 
 class FocusMode(Skill):
+    group = "focus"
+    does = "Focus mode: no heads-ups, offers or notification banners for a while"
+    phrases = ("focus for 45 minutes (no heads-ups or notifications)", "stop focusing", "how long is left on my focus")
+    gives = "speech; banners held"
+    permission = "auto"
+    checks = "says when the notification banners couldn't be held; survives a restart"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self._focus_timer = None

@@ -42,6 +42,15 @@ GENERIC = {"it", "this", "that", "this one", "that one", "the command", "this co
 
 
 class Proactive(Skill):
+    group = "alerts"
+    does = "Heads-ups JARVIS brings up by itself, why it did, muting them, quiet hours"
+    phrases = ("why did you say that (why a heads-up came up)", "show my recent alerts", "don't warn me about that again",
+               "turn the cpu alerts back on", "tell me when this finishes (a command in a terminal)", "quiet hours from 10 pm to 6 am",
+               "turn off quiet hours", "what are my quiet hours")
+    gives = "speech, a card of recent alerts"
+    permission = "auto"
+    checks = "each heads-up keeps its reason; the ones that matter (the mic, things you asked for) can't be muted"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.log = deque(maxlen=30)  # {"at", "kind", "line", "why"}: what JARVIS brought up and why

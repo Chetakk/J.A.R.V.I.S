@@ -69,6 +69,14 @@ def spoken_time(ts):
 
 
 class Todos(Skill):
+    group = "reminders and to-dos"
+    does = "To-dos and reminders, kept in the Day Tracker"
+    phrases = ("remind me in 10 minutes to <x>", "remind me at 5 pm to <x>", "what are my reminders",
+               "cancel the <x> reminder", "add <x> to my todo list", "what's on my todo list", "mark <x> done")
+    gives = "speech; said when a reminder is due"
+    permission = "auto"
+    checks = "saved in the Day Tracker and read back; a tracker that's down is said, never pretended"
+
     def __init__(self, jarvis, watch=True):
         super().__init__(jarvis)
         self.hub = DayTracker(jarvis)

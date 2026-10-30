@@ -13,6 +13,14 @@ WHERE_FILE = os.path.join(HOME, ".local/share/jarvis/where.json")
 
 
 class WhereWasI(Skill):
+    group = "where was I"
+    does = "Your last requests, what's running and what's open on JARVIS's workspace"
+    phrases = ("where was I",)
+    gives = "speech and a card"
+    permission = "auto"
+    asks = "before taking you to JARVIS's workspace"
+    checks = "not checked: it only reports"
+
     def patterns(self):
         return [
             (r"where was i|where did i (?:leave|stop) off|catch me up|what did i leave (?:open|running)|"

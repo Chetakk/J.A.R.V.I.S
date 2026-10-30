@@ -13,6 +13,15 @@ SCREEN = r"(?:the |my )?(?:screen|display|monitor)"
 
 
 class Display(Skill):
+    group = "screen settings"
+    does = "Screen resolution and refresh rate through xrandr"
+    phrases = ("what's my screen resolution", "set the resolution to 1280 by 720", "change the refresh rate to 60",
+               "use the recommended resolution")
+    gives = "the screen changed"
+    permission = "confirm"
+    asks = "before a change, then whether you can see it"
+    checks = "only a yes keeps it; otherwise (or after 15 s) it goes back"
+
     def patterns(self):
         return [
             (r"what(?:'s| is) (?:my |the )?(?:screen |display |monitor )?(?:resolution|refresh rate)|what (?:resolution|"

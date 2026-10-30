@@ -9,6 +9,14 @@ from skills.base import Skill
 
 
 class Nano(Skill):
+    group = "jetson nano"
+    does = "The Jetson Nano: is it up, its keyboard link, commands on it"
+    phrases = ("is the nano up", "restart the nano link", "switch to the nano", "run <command> on the nano")
+    gives = "speech"
+    permission = "confirm"
+    asks = "before restarting the link or running a command; risky ones go to your terminal"
+    checks = "ping and the link's service; a command's exit code"
+
     def patterns(self):
         return [
             (r"(?:is )?(?:the )?nano (?:up|online|alive|reachable|there|connected|working)|nano status|"

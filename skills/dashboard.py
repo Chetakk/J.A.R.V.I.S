@@ -24,6 +24,13 @@ TASK_MINUTES = 30  # a finished task stays on the dashboard this long
 
 
 class Dashboard(Skill):
+    group = "overview"
+    does = "A live card of what JARVIS is doing for you"
+    phrases = ("show my dashboard (a live card: the question waiting, the plan, what's running)", "what are you working on")
+    gives = "a card kept up to date"
+    permission = "auto"
+    checks = "not checked: it only shows"
+
     def patterns(self):
         return [
             (r"(?:show |open |bring up |pull up )?(?:me )?(?:my |the |your )?(?:dashboard|task ?board|tasks? card|"

@@ -12,6 +12,13 @@ STOP = re.compile(r"^\W*(?:ok(?:ay)?\W+)?(?:stop(?: talking| it| that)?|be quiet
 
 
 class Status(Skill):
+    group = "itself"
+    does = "Stops JARVIS talking; says whether it can hear, understand and talk"
+    phrases = ("status", "stop (stop talking)")
+    gives = "speech and a status card"
+    permission = "auto"
+    checks = "checks speech recognition, mic, speaker, disk and memory each time"
+
     def patterns(self):
         return [
             (STOP, self.stop),

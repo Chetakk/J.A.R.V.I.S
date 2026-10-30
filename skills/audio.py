@@ -18,6 +18,15 @@ ECHO_HELP = ("The Echo Dot isn't connected right now. In the Alexa app, open its
 
 
 class Audio(Skill):
+    group = "audio"
+    does = "Speakers and microphones by name: switch, volume, which is in use"
+    phrases = ("what audio devices are there", "switch audio to <device>", "which mic are you using",
+               "set the mic volume to 60")
+    gives = "speech and a card"
+    permission = "confirm"
+    asks = "before changing the mic, or turning it low"
+    checks = "pactl's answer: a device that refuses is said, not claimed"
+
     def patterns(self):
         return [
             (r"(?:what|which) (?:audio|sound) (?:devices|outputs|inputs)(?: are there| do i have| are connected)?|"

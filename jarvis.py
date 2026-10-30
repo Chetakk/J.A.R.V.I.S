@@ -30,7 +30,7 @@ from system import apps, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
-from skills import Skills
+from skills import Skills, registry
 from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
@@ -102,50 +102,15 @@ CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hea
 
 
 
-# JARVIS's built-in abilities, for Claude's "do" field (sites, searches and saved commands are added from the YAML).
-ABILITIES = "\n  ".join((
-    "reminders: \"remind me in 10 minutes to <x>\", \"remind me at 5 pm to <x>\", \"what are my reminders\", "
-    "\"clear my reminders\"",
-    "memory: \"remember that <x>\", \"what do you remember about <x>\", \"forget <x>\", \"what do you know about "
-    "me\" (card of everything kept, with Forget buttons), \"forget number <n>\", \"forget this conversation\"",
-    "windows: \"switch to <app>\", \"go to workspace <n>\", \"move this to workspace <n>\", \"maximize <app>\", "
-    "\"minimize <app>\", \"put <app> on the left|right\", \"close this window\", \"close <app>\"",
-    "browser tabs: \"switch to the <name> tab\", \"close this tab\", \"new tab\", \"reopen the last tab\", "
-    "\"next tab\", \"go back\", \"refresh the page\", \"scroll down\", \"zoom in\"",
-    "media: \"pause\", \"play\", \"next song\", \"previous song\", \"what's playing\"",
-    "clipboard: \"what's on my clipboard\"",
-    "files: \"find my <file>\", \"open the <name> folder\", \"open <folder, file or project> in <app>\" (vs code, files, "
-    "terminal, claude, any installed app), \"open the latest download\", \"open the latest file in documents\", \"find pdfs from "
-    "last week\", \"what files did I change today\", \"summarise <file or this pdf>\", \"what does <file> say about X\", "
-    "\"summarise the pdfs in downloads\", \"compare <file> and <file>\", \"go through <file> with claude\", \"make a "
-    "folder called X in documents\", \"rename <file> to Y\", \"move <file> to <folder>\", \"delete <file>\" (to the "
-    "Trash), \"tidy my downloads\", \"find duplicate files in downloads\", \"undo that\"",
-    "jetson nano: \"is the nano up\", \"restart the nano link\", \"switch to the nano\", \"run <command> on the nano\"",
-    "projects: \"open <project> project\", \"run <project>\", \"stop <project>\", \"run the tests in <project>\", "
-    "\"ask claude to <task> in <project> project\", \"git status of <project>\", \"open <project> in the browser\" "
-    "(its running link), \"links for <project>\"",
+# What JARVIS understands besides its skills, for Claude's "do" field. The skills describe themselves
+# (skills/registry.py); sites, searches and saved commands are added from the YAML.
+ABILITIES = (
     "small talk (a spoken reply): \"hi\", \"what's up\", \"how are you\", \"thanks\", \"good night\", \"bye\", "
     "\"tell me a joke\"",
-    "itself: \"status\", \"stop\" (stop talking), \"open claude\", \"show chat\", \"do that again\", \"undo that\" (reverses the last setting or file change)",
-    "cards: \"show that again\", \"close the card\", \"read it to me\", \"copy that\", \"save that\", "
-    "\"show the previous card\", \"pin it\", \"unpin\", \"the second one\" (a choice), \"open the first link\"",
-    "timers: \"set a timer for 10 minutes for <x>\", \"cancel the timer\"",
-    "typing: \"type <text>\" (into the focused window), \"start dictation\" ... \"stop dictation\"",
-    "maths and units (instant): \"what's 18% of 2400\", \"50 miles in km\", \"100 fahrenheit in celsius\"",
-    "focus: \"focus for 45 minutes\" (no heads-ups or notifications), \"stop focusing\", \"how long left on focus\"",
-    "alerts: \"why did you say that\" (why a heads-up came up), \"show my recent alerts\", \"don't warn me about that "
-    "again\", \"turn the cpu alerts back on\", \"tell me when this finishes\" (a command in a terminal), \"quiet hours "
-    "from 10 pm to 6 am\", \"turn off quiet hours\", \"what are my quiet hours\"",
-    "tasks: \"how's the task going\", \"pause the task\", \"continue the task\", \"stop the task\", \"skip that step\", "
-    "\"hand the task to claude code\", \"what tasks did you do\"",
-    "computer: \"what's slowing my computer\" (top CPU/memory users, offers to close one), \"where was I\"",
-    "overview: \"show my dashboard\" / \"what are you working on\" (live card: question waiting, plan, what's "
-    "running), \"everything about <project>\", \"what do I have on <topic>\" (notes, to-dos, time, bookmarks, files)",
-    "clipboard history: \"paste the thing I copied before\", \"paste number 3\", \"clipboard history\"",
-    "web: \"summarise this page\", \"what's the price on this page\", \"research <topic>\", \"compare <x> and <y>\", "
-    "\"deep research <topic>\", \"summarise this video\", \"summarise my tabs\", \"fill the form on this page with "
-    "<details>\", \"in the agent browser <task>\", \"download <url>\", \"open my <name> bookmark\", \"search my "
-    "bookmarks for <x>\", \"bookmark this\""))
+    "itself: \"open claude\", \"show chat\", \"do that again\", \"undo that\" (reverses the last setting or file "
+    "change)",
+    "apps and folders: \"open <app>\", \"close <app>\", \"open the <name> folder\"",
+)
 
 # What Claude Code gets when asked to change JARVIS itself ("fix ... in jarvis").
 FIX_PROMPT = ("You're changing JARVIS itself: the voice assistant in this folder (start at jarvis.py; settings and "
@@ -681,7 +646,8 @@ class Jarvis:
         searchable = [site for site, info in reg.sites.items() if info.get("search")]
         saved = [c["say"][0] for c in reg.commands if c.get("say")]
         return "\n  ".join(line for line in (
-            ABILITIES,
+            *registry.abilities(),
+            *ABILITIES,
             "sites: \"open <site>\" (several: \"open gmail and youtube\"), add \"in chrome\"/\"in firefox\": %s"
             % ", ".join(reg.sites),
             "search: \"search <site> for <thing>\" on %s; \"google <thing>\"" % ", ".join(searchable),

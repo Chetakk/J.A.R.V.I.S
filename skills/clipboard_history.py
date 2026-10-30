@@ -12,6 +12,13 @@ ORDINAL = {"last": 1, "previous": 2, "one before": 2, "second": 2, "2nd": 2, "th
 
 
 class ClipboardHistory(Skill):
+    group = "clipboard history"
+    does = "The last few things you copied (in memory only)"
+    phrases = ("paste the thing I copied before", "paste number 3", "clipboard history")
+    gives = "text pasted, or a card"
+    permission = "auto"
+    checks = "not checked; never written to disk"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.copies = collections.deque(maxlen=10)  # newest last

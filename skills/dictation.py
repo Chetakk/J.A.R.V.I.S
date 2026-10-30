@@ -8,6 +8,13 @@ from system import desktop
 
 
 class Dictation(Skill):
+    group = "typing"
+    does = "Types text into the focused window, or everything you say while dictating"
+    phrases = ("type <text> (into the focused window)", "start dictation", "stop dictation")
+    gives = "text typed where your cursor is"
+    permission = "auto"
+    checks = "not checked; your clipboard is put back afterwards, and it never types into JARVIS's own window"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.dictating = False

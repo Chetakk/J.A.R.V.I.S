@@ -25,6 +25,15 @@ OTHER_THINGS = re.compile(r"\b(?:reminder|todo|layout|alarm|timer|bookmark|tab|l
 
 
 class Organise(Skill):
+    group = "organising files"
+    does = "Folders, renames, moves, the Trash, tidying, duplicates; all undoable"
+    phrases = ("make a folder called <x> in documents", "rename <file> to <name>", "move <file> to <folder>",
+               "delete <file> (to the Trash)", "tidy my downloads", "find duplicate files in downloads")
+    gives = "files changed, logged"
+    permission = "confirm"
+    asks = "before the Trash, several files, or a file it had to work out"
+    checks = "nothing overwritten or deleted for good; undo that puts it back"
+
     def patterns(self):
         return [
             (r"(?:make|create|add)(?: me)? (?:a )?(?:new )?folder (?:called |named )?[\"']?(.+?)[\"']?"

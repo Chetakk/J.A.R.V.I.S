@@ -30,6 +30,13 @@ _TOPIC = r"(?:the |my )?(.+?)(?: project| station)?"
 
 
 class Linked(Skill):
+    group = "overview"
+    does = "Everything linked to a project or topic on one card"
+    phrases = ("everything about <project>", "what do I have on <topic> (notes, to-dos, time, bookmarks, files)")
+    gives = "a card"
+    permission = "auto"
+    checks = "not checked: it only gathers"
+
     def patterns(self):
         return [
             (r"(?:show me |pull up |give me |find |list )?(?:everything|all (?:the )?(?:stuff|things)) "

@@ -38,6 +38,13 @@ SPOKEN_OPS = [(r"\bplus\b|\band\b", "+"), (r"\bminus\b|\btake away\b", "-"), (r"
 
 
 class Maths(Skill):
+    group = "maths and units (instant)"
+    does = "Works out sums, percentages and unit conversions locally"
+    phrases = ("what's 18% of 2400", "50 miles in km", "100 fahrenheit in celsius")
+    gives = "speech"
+    permission = "auto"
+    checks = "computed exactly; anything it can't work out (currencies, divide by zero, huge powers) goes to Claude"
+
     def patterns(self):
         n = r"([\d.,]+|%s)" % "|".join(sorted(NUM_WORDS, key=len, reverse=True))
         return [

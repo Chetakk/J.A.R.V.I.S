@@ -13,6 +13,13 @@ _SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
 class Reading(Skill):
+    group = "reading"
+    does = "Reads long text aloud a piece at a time; summarises it with Claude"
+    phrases = ("read the rest", "read all of it", "summarise it")
+    gives = "speech (the start; all of it on a card)"
+    permission = "auto"
+    checks = "not checked: it's speech"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         cfg = jarvis.settings.get("speech") or {}

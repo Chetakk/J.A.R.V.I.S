@@ -14,6 +14,14 @@ SPOKEN = 4  # read out at most this many; more are summed up
 
 
 class Notifications(Skill):
+    group = "notifications"
+    does = "Your desktop notifications since JARVIS started: read, by app, summarised"
+    phrases = ("any new notifications", "read my notifications", "notifications from <app>",
+               "summarise my notifications", "clear my notifications")
+    gives = "speech and a card"
+    permission = "auto"
+    checks = "says when it isn't watching rather than 'nothing new'"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.watcher = Watcher()

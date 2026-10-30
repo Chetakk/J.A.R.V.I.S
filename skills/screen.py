@@ -12,6 +12,13 @@ SPEAK_WORDS = 70  # longer than this: a terminal's end is spoken, all of it goes
 
 
 class Screen(Skill):
+    group = "screen"
+    does = "Reads the front window's text, or has Claude look at the screen"
+    phrases = ("what's on my screen", "read this window aloud")
+    gives = "speech (long text on a card)"
+    permission = "auto"
+    checks = "the window's own text when the app shares it; else a screenshot for Claude"
+
     def patterns(self):
         return [
             (r"read (?:out |aloud )?(?:this|the|my|that) (window|page|terminal|dialog|box|popup|error|message|app)"

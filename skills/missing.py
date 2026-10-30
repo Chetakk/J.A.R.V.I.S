@@ -72,6 +72,12 @@ def _resolution(answer, m):
 
 
 class Missing(Skill):
+    does = "Asks for the one thing a request left out ('set a timer': for how long?) and carries on with it"
+    phrases = ()
+    gives = "a question, then the whole request handled"
+    permission = "auto"
+    checks = "the completed request is handled (and checked) like any other; no answer does nothing"
+
     def patterns(self):
         some = r"(?:something|anything|some stuff|stuff|a thing)"
         app = r"(?:an? |some |another |a new )?(?:app|application|program|something)"

@@ -48,6 +48,15 @@ last = {"paths": [], "at": 0.0}  # files JARVIS last found, for "summarise it", 
 
 
 class Files(Skill):
+    group = "finding files"
+    does = "Downloads by when, the latest file, finding files by name or meaning"
+    phrases = ("find my <file>", "what did I download today", "open the pdf I downloaded this morning",
+               "open my latest download", "open the latest file in documents", "find pdfs from last week", "what files did I change today")
+    gives = "speech, a card with choices, a file opened"
+    permission = "auto"
+    asks = "before opening a file it found by searching"
+    checks = "the launch is watched for a window or an error"
+
     def patterns(self):
         return [
             (r"open (?:the )?file ((?:~|/).+)", self.open_path),

@@ -17,6 +17,13 @@ WHY = ("It's your daily briefing: the first time you were around this morning. S
 
 
 class Briefing(Skill):
+    group = "briefing"
+    does = "The day's briefing from the Day Tracker: reminders, to-dos, yesterday, goals"
+    phrases = ("brief me", "what's my day look like", "turn off the daily briefing")
+    gives = "a card and a short spoken line"
+    permission = "auto"
+    checks = "says when the Day Tracker isn't running rather than an empty day"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.hub = DayTracker(jarvis)

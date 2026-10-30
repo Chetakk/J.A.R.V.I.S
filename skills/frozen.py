@@ -23,6 +23,14 @@ EVERYTHING = {"computer", "everything", "screen", "desktop", "system", "jetson",
 
 
 class Frozen(Skill):
+    group = "frozen apps"
+    does = "Finds windows that stopped responding and why; closes or resumes them"
+    phrases = ("is anything frozen", "<app> isn't responding", "force quit <app>")
+    gives = "speech"
+    permission = "confirm"
+    asks = "before closing or resuming an app"
+    checks = "pings each window; after closing, checks its window is really gone"
+
     def patterns(self):
         return [
             (r"(?:is|are) (?:any(?:thing| apps?| windows?| programs?)?|something) %s|what'?s %s|"

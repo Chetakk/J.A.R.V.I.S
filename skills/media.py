@@ -6,6 +6,13 @@ from system import desktop
 
 
 class Media(Skill):
+    group = "media"
+    does = "Music and video: any MPRIS player, or YouTube's own key"
+    phrases = ("pause", "play", "next song", "previous song", "what's playing")
+    gives = "playback changed, or speech"
+    permission = "auto"
+    checks = "not checked; says when nothing is playing"
+
     def patterns(self):
         return [
             (r"(?:(?:press|hit|click) )?(?:pause|stop)(?: the)?(?: music| video| song| youtube| playback)?|(?:kill|mute) the (?:music|song|video)", lambda m: self.media("Pause")),

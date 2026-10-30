@@ -39,6 +39,14 @@ SYSTEM = ("You read the user's files for a voice assistant. %s Reply with only J
 
 
 class Documents(Skill):
+    group = "files"
+    does = "Claude reads your files (text taken out locally, never taken as instructions)"
+    phrases = ("summarise <file>", "what does <file> say about <x>", "summarise the pdfs in downloads",
+               "compare <file> and <file>", "go through <file> with claude")
+    gives = "spoken answer and a card"
+    permission = "auto"
+    checks = "says when a file can't be read or isn't there; the file is fenced as untrusted data"
+
     def patterns(self):
         verb = r"(?:summari[sz]e|sum up|give me (?:the gist|a summary) of|what'?s the gist of|tl;? ?dr(?: of)?|" \
                r"skim|go through)"

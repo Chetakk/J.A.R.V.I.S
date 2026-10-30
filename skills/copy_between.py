@@ -35,6 +35,15 @@ MARK = "jarvis-copy-mark-%d"  # what the clipboard holds until the copy key repl
 
 
 class CopyBetween(Skill):
+    group = "copy between apps"
+    does = "Copies text from one app into another"
+    phrases = ("copy this into <app>", "paste my clipboard into the terminal", "copy the link into <app>",
+               "summarise this and put it in <app>")
+    gives = "text pasted where the other window's cursor is"
+    permission = "confirm"
+    asks = "before pasting several lines into a terminal, or opening the app"
+    checks = "the window's pixels change after the paste; if not, it says so; nothing is sent"
+
     def patterns(self):
         return [
             (re.compile(r"^(?P<job>(?:summari[sz]e|translate|fix|correct|rewrite|reword|shorten|improve|proofread|"

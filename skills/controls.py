@@ -34,6 +34,15 @@ MAX_EDGE, MAX_PIXELS = 1568, 1150000  # what Claude sees without scaling it down
 
 
 class Controls(Skill):
+    group = "clicking"
+    does = "Clicks and presses in the front window: its shortcut, its accessibility tree, or a spot Claude finds"
+    phrases = ("what can I click here", "click <button>", "press control shift t",
+               "choose <item> from the <menu> menu")
+    gives = "the click or key press"
+    permission = "confirm"
+    asks = "before buttons that delete or send, and before clicking a spot Claude found"
+    checks = "the window's pixels or title change; 'nothing changed' is said"
+
     def patterns(self):
         return [
             (r"what (?:can|should) i (?:click|press)(?: on)?(?: here| in this window| on (?:this|the|my) screen)?|"

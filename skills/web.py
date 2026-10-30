@@ -45,6 +45,17 @@ PLAN_SYSTEM = (
 
 
 class Web(Skill):
+    group = "web"
+    does = "JARVIS's own browser reads pages, researches, and does web tasks step by step"
+    phrases = ("summarise this page", "what's the price on this page", "research <topic>", "compare <x> and <y>",
+               "deep research <topic>", "summarise this video", "summarise my tabs",
+               "fill the form on this page with <details>", "in the agent browser <task>", "download <url>",
+               "open my <name> bookmark", "search my bookmarks for <x>", "bookmark this")
+    gives = "spoken answer and a card; actions in its own browser"
+    permission = "confirm"
+    asks = "before any click that sends, submits, buys or deletes, and before uploads; never pays or types passwords"
+    checks = "each step re-reads the page; it stops after 10 steps or when it goes round in circles"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.agent = WebAgent(jarvis.settings.get("browser_agent"))

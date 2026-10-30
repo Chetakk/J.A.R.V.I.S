@@ -17,6 +17,14 @@ VAGUE = {"it", "this", "that", "them", "dependencies", "the dependencies", "deps
 
 
 class Install(Skill):
+    group = "software"
+    does = "Looks software up; installing and removing are pre-typed in your terminal"
+    phrases = ("install <app>", "uninstall <app>", "is <app> installed", "pip install <package>")
+    gives = "speech, a card, the command in your terminal"
+    permission = "manual"
+    asks = "before searching Ubuntu Software"
+    checks = "read-only lookups (dpkg, apt-cache, pip); nothing installs by itself"
+
     def patterns(self):
         return [
             (r"(?:please |can you |could you |go ahead and )?(?:pip3? install|install (?:the |a )?python (?:package|"

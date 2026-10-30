@@ -5,6 +5,13 @@ from skills.helpers import clipboard, set_clipboard
 
 
 class Clipboard(Skill):
+    group = "clipboard"
+    does = "Reads your clipboard, and has Claude rewrite what's on it"
+    phrases = ("what's on my clipboard", "summarise what I copied", "fix the grammar in my clipboard")
+    gives = "speech, or the result on your clipboard"
+    permission = "auto"
+    checks = "not checked; Claude failing leaves it alone"
+
     def patterns(self):
         return [
             (r"(?:what'?s|what is) (?:on|in) (?:my|the) clipboard|read (?:my|the) clipboard|what did i (?:just )?copy",

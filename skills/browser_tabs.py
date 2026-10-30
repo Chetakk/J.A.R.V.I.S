@@ -8,6 +8,14 @@ BROWSERS = ("google-chrome", "chromium", "firefox")
 
 
 class BrowserTabs(Skill):
+    group = "browser tabs"
+    does = "Your browser's tabs and pages, by key presses"
+    phrases = ("switch to the <name> tab", "close this tab", "new tab", "reopen the last tab", "next tab", "go back",
+               "refresh the page", "scroll down", "zoom in")
+    gives = "the key pressed in the browser"
+    permission = "auto"
+    checks = "a tab by name is checked against the window title; other keys aren't checked"
+
     def patterns(self):
         return [
             (r"close (?:this|the|that) tab", lambda m: self.tab("ctrl+w", "Closed.")),

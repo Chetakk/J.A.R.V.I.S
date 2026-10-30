@@ -8,6 +8,15 @@ NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 
 
 class Windows(Skill):
+    group = "windows"
+    does = "Windows and workspaces: switch, move, maximise, snap, close"
+    phrases = ("switch to <app>", "go to workspace <n>", "move this to workspace <n>", "maximize <app>",
+               "minimize <app>", "put <app> on the left", "close this window")
+    gives = "the window changed"
+    permission = "auto"
+    asks = "before closing a window"
+    checks = "not checked"
+
     def patterns(self):
         return [
             (r"(?:switch|go) to workspace (\w+)", self.workspace),

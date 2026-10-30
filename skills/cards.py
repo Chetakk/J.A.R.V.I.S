@@ -29,6 +29,15 @@ _AMOUNT = r"(\d+(?:\.\d+)?|half an|a couple of|a few|[a-z]+(?:-[a-z]+)?)\s*(seco
 
 
 class Cards(Skill):
+    group = "cards"
+    does = "Acts on the card on screen: picks a choice, opens a link, reads, copies, saves, pins; timers"
+    phrases = ("the second one (a choice on the card)", "open the first link", "read it to me", "copy that", "save that",
+               "show the previous card", "pin it", "unpin", "set a timer for 10 minutes for <x>", "cancel the timer")
+    gives = "the chosen action, speech, or a card"
+    permission = "auto"
+    checks = ("a timer card counts down and says when it's up; live cards only repeat commands the safety rules run "
+              "without asking")
+
     def __init__(self, jarvis):
         self.timers = {}  # id -> threading.Event that cancels it
         self._ids = itertools.count(1)

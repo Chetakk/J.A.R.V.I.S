@@ -14,6 +14,14 @@ BAD = (r"(?:so )?(?:slow|down|bad|laggy|lagging|not working|broken|dropping|drop
 
 
 class Network(Skill):
+    group = "network"
+    does = "Checks every hop of the connection and says where it stops"
+    phrases = ("why is my internet slow", "what's wrong with my wifi", "how strong is my wifi")
+    gives = "speech and a card"
+    permission = "confirm"
+    asks = "before turning Wi-Fi on or reconnecting"
+    checks = "checks again after a fix and says what it found"
+
     def patterns(self):
         return [
             (r"(?:can you |please )?(?:diagnose|check|test|troubleshoot|look at|debug|fix) (?:my |the )?%s(?: for me)?|"

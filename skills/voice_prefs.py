@@ -28,6 +28,16 @@ QUIET_OFF = r"(?:turn off |switch off |stop |end |leave |exit )(?:quiet|silent|t
 
 
 class VoicePrefs(Skill):
+    group = "voice"
+    does = ("How JARVIS talks: speed, brief or detailed answers, private (headphones) and quiet mode; kept across "
+             "restarts")
+    phrases = ("talk faster", "slow down", "be brief", "give me detailed answers", "private mode",
+               "private mode off", "quiet mode", "you can talk again")
+    gives = "the setting changed, and said"
+    permission = "auto"
+    asks = "going quiet instead when private mode finds no headphones"
+    checks = "the saved setting is applied again at start; lost headphones in private mode go silent, never loud"
+
     def patterns(self):
         return [
             (r"(?:can you |please )?(?:talk|speak|read|go)(?: a (?:bit|little|lot))? (faster|quicker|slower)"

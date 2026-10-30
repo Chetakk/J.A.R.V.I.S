@@ -25,6 +25,14 @@ OPENERS = {"vscode": "open vs code", "gnome-terminal": "open terminal", "chrome"
 
 
 class Layouts(Skill):
+    group = "layouts"
+    does = "Window layouts: arranged, saved, then checked"
+    phrases = ("arrange my coding windows", "coding layout", "save this layout as <name>", "list my layouts")
+    gives = "windows moved and placed"
+    permission = "auto"
+    asks = "before replacing or deleting a saved layout"
+    checks = "checks where each window ended up and names any that didn't land"
+
     def patterns(self):
         return [
             (r"save (?:this|the|my|the current|a|a new)(?: window)? (?:layout|arrangement|setup|windows)"

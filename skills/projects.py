@@ -14,6 +14,16 @@ from system import desktop
 
 
 class Projects(Skill):
+    group = "projects"
+    does = "Your ~/Projects: what they are, notes, running them with biztel run, their links"
+    phrases = ("run <project>", "stop <project>", "what's running", "links for <project>",
+               "open <project> in the browser (its running link)", "what's the <project> project about", "note for <project>: <x>",
+               "what's pending")
+    gives = "speech; a terminal running it"
+    permission = "auto"
+    asks = "before stopping everything"
+    checks = "says the links once biztel run reports them, or that it didn't start"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.projects = jarvis.projects

@@ -33,6 +33,15 @@ RESUME_PROMPT = (
 
 
 class Tasks(Skill):
+    group = "tasks"
+    does = "Runs Claude's multi-step plans one checked step at a time"
+    phrases = ("how's the task going", "pause the task", "continue the task", "stop the task", "skip that step",
+               "hand the task to claude code", "what tasks did you do")
+    gives = "a task card ticked off step by step"
+    permission = "confirm"
+    asks = "before a plan with risky steps you didn't ask for, or more than 4 steps"
+    checks = "each step: a window, process, file or tab it should leave, or the command's exit code; else 'not checked'"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.task = tasks.load()  # the one on (or paused) when JARVIS last ran

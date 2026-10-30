@@ -97,6 +97,15 @@ def _secret(note):
 
 
 class Notes(Skill):
+    group = "memory"
+    does = "What you told JARVIS to remember: notes, preferences, secrets (in your keyring)"
+    phrases = ("remember that <x>", "what do you remember about <x>", "forget <x>", "what do you know about me (a card of everything kept, with Forget buttons)",
+               "forget number <n>", "forget this conversation")
+    gives = "speech and a card"
+    permission = "confirm"
+    asks = "before forgetting, and before keeping something said in passing"
+    checks = "saved atomically and read back; secrets and private notes never reach Claude"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self._vecs = {}  # text -> meaning vector, so each note is embedded once

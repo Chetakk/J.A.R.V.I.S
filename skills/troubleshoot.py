@@ -22,6 +22,13 @@ STOPPED = (r"crash|crashed|crashing|stop|stopped|stopping|fail|failed|failing|di
 
 
 class Troubleshoot(Skill):
+    group = "troubleshooting"
+    does = "Why a project isn't running, from its run state, ports, log and terminal"
+    phrases = ("why isn't <project> working", "what's using port <n>", "what ports are open")
+    gives = "speech and a log card"
+    permission = "auto"
+    checks = "clear cases from the log and ports; unclear ones go to Claude with the facts"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.projects = jarvis.projects

@@ -14,6 +14,14 @@ PROTECTED = {"gnome-shell", "xorg", "x", "systemd", "pulseaudio", "pipewire", "g
 
 
 class SlowComputer(Skill):
+    group = "computer"
+    does = "What's using the CPU and memory; offers to close the worst"
+    phrases = ("what's slowing my computer (top CPU/memory users, offers to close one)",)
+    gives = "speech and a card"
+    permission = "confirm"
+    asks = "before closing a program"
+    checks = "never offers the desktop or JARVIS's own helpers; frozen windows are dealt with first"
+
     def patterns(self):
         return [
             (r"what'?s (?:slowing (?:down )?|hogging |using (?:up )?)(?:my |the )?(?:computer|system|jetson|cpu|"

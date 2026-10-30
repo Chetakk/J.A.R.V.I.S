@@ -30,6 +30,15 @@ _PAGE = re.compile(r"\.(?:pdf|html?|svg|png|jpe?g|gif|webp|txt|json|md|xml|mp3|m
 
 class Dev(Skill):
     group = "coding"
+    does = "git status, projects in VS Code, the project you worked on, tests and jobs via Claude Code"
+    phrases = ("git status of <project>", "open <project> project", "open the project I was working on yesterday",
+               "open <folder, file or project> in <app>", "run the tests in <project>",
+               "ask claude to <task> in <project> project")
+    gives = "speech, VS Code or a terminal opened"
+    permission = "auto"
+    checks = "the launch is watched for a window or an error"
+
+    group = "coding"
     about = "git status, projects in VS Code, the project you worked on, tests and jobs via Claude Code"
     phrases = ("git status of <project>", "open <project> project", "open the project I was working on yesterday",
                "open <folder, file or project> in <app>", "run the tests in <project>",

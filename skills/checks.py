@@ -12,6 +12,14 @@ RECENT = 5 * 60  # older than this, "that" isn't the last thing JARVIS did any m
 
 
 class Checks(Skill):
+    group = "did that work"
+    does = "Says what JARVIS saw after its last action"
+    phrases = ("did that work",)
+    gives = "speech"
+    permission = "auto"
+    asks = "before sending a screenshot to Claude to look"
+    checks = "from the last check (window, exit code, screen change); 'couldn't tell' is never said as yes"
+
     def patterns(self):
         return [
             (r"did (?:that|it|this) (?:work|open|go through|happen|run|start|load|succeed)(?: properly| okay| ok)?|"
