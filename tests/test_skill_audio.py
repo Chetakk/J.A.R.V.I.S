@@ -167,10 +167,10 @@ def test_unmute_the_sound_brings_it_back(jv, pulse):
 
 def test_muting_the_mic_stops_only_jarvis_and_asks_first(jv, pulse):
     jv.do("mute the mic", "yes")
-    assert jv.questions == ["Want me to stop listening? Only the tray icon brings me back."]
+    assert jv.questions == ["Want me to stop listening?"]
     assert jv.j.deaf and jv.j.mutes["mic"]
     assert pulse.get(USB_MIC)["mute"] is False  # the system microphone stays live for other apps
-    assert jv.says("not listening", "tray icon")  # always says how to get me back
+    assert jv.says("not listening") and not jv.says("tray")  # nothing about the tray, ever
     assert not any("set-source-mute" in c for c in jv.shell.calls)
 
 
@@ -242,10 +242,11 @@ def test_the_mute_replies_are_short(jv, pulse):
         jv.do(phrase, *answers)
         for line in jv.said:
             assert len(line) <= 75, (phrase, line)
+            assert "tray" not in line.lower(), line
 
 
 def test_the_mute_replies_sound_like_a_person(jv, pulse):
-    """No "Muted." / "Unmuted." status words alone for the mic: it reassures and says how to get me back."""
+    """No "Muted." / "Unmuted." status words alone for the mic."""
     import re
     robotic = re.compile(r"^(?:muted|unmuted|mic's (?:off|back)|not listening|listening again)\.?$", re.I)
     for phrase, answers in (("mute the mic", ("yes",)), ("/mute mic off", ()), ("mute the mic", ("no",))):

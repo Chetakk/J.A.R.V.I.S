@@ -22,10 +22,9 @@ DEVICE_WORDS = "|".join(p for p, _ in audio.ALIASES)
 NAMED = r"(?:the |my )?(?:%s)(?: speakers?)?" % DEVICE_WORDS  # "use the echo", "switch to headphones"
 ECHO_HELP = ("The Echo Dot isn't connected right now. In the Alexa app, open its Bluetooth devices and tap "
              "biztelai-desktop; it stays connected after that.")
-# How it sounds when I'm not listening and you ask me something: always says where to find me again.
-NOT_LISTENING = ["Okay, I'm not listening. Don't worry, the tray icon brings me back.",
-                 "Alright, I'll stay quiet. Tray icon wakes me up whenever.",
-                 "Got it, not listening. Don't worry, I'm in the tray."]
+NOT_LISTENING = ["Okay, I'm not listening. Don't worry about it.",
+                 "Alright, I'll stay quiet. Just let me know when you want me back.",
+                 "Got it, not listening. Don't worry."]
 # Muting the speaker and muting the microphone, each in its own direction (no toggles: "unmute" only unmutes).
 MUTE_SOUND = (r"mute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)?|"
               r"silence (?:the )?(?:sound|audio|speakers?|everything)|"
@@ -110,7 +109,7 @@ class Audio(Skill):
             self.say("Sound is going to %s, at %d percent%s." % (d.label, d.volume, ", but it's muted" if d.mute else ""))
             return
         if self.j.deaf:
-            self.say("I'm not listening right now. The tray icon brings me back.")
+            self.say("I'm not listening right now.")
             return
         if d.mute:
             self.say("I'm listening on %s, but it's muted in the system." % d.label)
@@ -204,7 +203,7 @@ class Audio(Skill):
         if j.deaf == on:
             self.say("I'm already not listening, don't worry." if on else "I'm already listening.")
             return
-        if on and ask and not j.ask("Want me to stop listening? Only the tray icon brings me back."):
+        if on and ask and not j.ask("Want me to stop listening?"):
             self.say(["Okay, I'm still here.", "Alright, still listening."])
             return
         j.deaf = on
