@@ -51,7 +51,8 @@ class Shell:
         self.missing = set()  # program names shutil.which() doesn't find
 
     def on(self, pattern, out="", code=0, err="", raises=None):
-        """out: text, or a function(command line) giving text or (text, exit code).
+        """Rules added later win over earlier ones (put the general ones first).
+        out: text, or a function(command line) giving text or (text, exit code).
         raises: an exception to throw instead, e.g. FileNotFoundError() or subprocess.TimeoutExpired."""
         self.rules.insert(0, (re.compile(pattern), out, code, err, raises))
         return self
@@ -567,6 +568,8 @@ class JV:
         self.questions = []  # what JARVIS asked you
         self.answers = []  # your replies, used in order; none left = no answer (like the timeout)
         self.screenshots = []  # where gnome-screenshot was asked to save
+        self.trashed = []  # what gio trash put in the Trash
+        self.trash_fails = False
         self.screen_changes = None  # see grab()
         self.procs = {}  # pid -> pretend process (add_process)
         self.signals = []  # (pid, signal) sent with os.kill
@@ -576,6 +579,7 @@ class JV:
         self.keyring = Keyring()
         self.keyring.patch(monkeypatch)
         shell.on(r"^gnome-screenshot ", out=self._screenshot)
+        shell.on(r"^gio trash ", out=self._trash)
         monkeypatch.setattr(speech.Speaker, "say", _say)
         self.j = build()
         j = self.j
@@ -645,6 +649,30 @@ class JV:
         self._grabs += 1
         shade = (self._grabs * 60) % 256 if self.screen_changes else 90
         return Image.new("RGB", (max(1, geometry[2]), max(1, geometry[3])), (shade, shade, shade)), geometry[:2]
+
+    def _trash(self, line):
+        """gio trash PATH: moves it into ~/.local/share/Trash/files and writes its .trashinfo, as gio does.
+        jv.trash_fails = "message" makes it refuse instead."""
+        if self.trash_fails:
+            return "", 1  # (gio's message goes to stderr; see Shell.on(err=) for that)
+        import shutil
+        from urllib.parse import quote
+        path = shlex.split(line)[2]
+        if not os.path.lexists(path):
+            return "", 1
+        trash = os.path.expanduser("~/.local/share/Trash")
+        os.makedirs(os.path.join(trash, "files"), exist_ok=True)
+        os.makedirs(os.path.join(trash, "info"), exist_ok=True)
+        name, n = os.path.basename(path), 1
+        while os.path.lexists(os.path.join(trash, "files", name)):
+            n += 1
+            name = "%s.%d" % (os.path.basename(path), n)
+        shutil.move(path, os.path.join(trash, "files", name))
+        with open(os.path.join(trash, "info", name + ".trashinfo"), "w") as f:
+            f.write("[Trash Info]\nPath=%s\nDeletionDate=%s\n" % (quote(os.path.abspath(path)),
+                                                                time.strftime("%Y-%m-%dT%H:%M:%S")))
+        self.trashed.append(path)
+        return ""
 
     def _screenshot(self, line):
         """gnome-screenshot -f PATH (-a/-w too): writes a small grey picture there, as a real one would."""
