@@ -52,13 +52,14 @@ from skills.tasks import Tasks
 from skills.todos import Todos
 from skills.troubleshoot import Troubleshoot
 from skills.voice_prefs import VoicePrefs
+from skills.weather import Weather
 from skills.web import Web
 from skills.where_was_i import WhereWasI
 from skills.windows import Windows
 
 ORDER = [
     ("cards", Cards), ("missing", Missing), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
-    ("maths", Maths), ("focus_mode", FocusMode), ("proactive", Proactive), ("notifications", Notifications),
+    ("maths", Maths), ("weather", Weather), ("focus_mode", FocusMode), ("proactive", Proactive), ("notifications", Notifications),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),

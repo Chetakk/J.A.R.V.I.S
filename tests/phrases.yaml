@@ -1026,7 +1026,7 @@
 "tidy my downloads": skill:tidy
 "find duplicate files in downloads": skill:duplicates
 "any duplicates on my desktop": skill:duplicates
-"what's the weather in delhi": claude
+"what's the weather in delhi": skill:weather
 "delete the reading layout": skill:delete
 "put this on the left": skill:snap
 "what's in the file menu": skill:list_controls
@@ -1456,8 +1456,8 @@
 "5 feet 10 inches in cm": skill:units_mixed
 "100 dollars in rupees": claude
 "shut off the computer": command:shutdown
-"temperature outside": claude
-"what's the temperature today": claude
+"temperature outside": skill:weather
+"what's the temperature today": skill:weather
 "what's the temperature of the cpu": command:cpu_temp
 "find me the definition of indefatigable": claude
 "delete report.pdf": skill:trash
@@ -1502,3 +1502,13 @@
 "off the speakers": skill:sound_mute
 "please mute the volume control": skill:sound_mute
 "turn off media volume": skill:sound_mute
+"what's the weather": skill:weather
+"weather tomorrow in mumbai": skill:weather
+"will it rain today": skill:will_it
+"do i need an umbrella": skill:will_it
+"how cold is it in london": skill:how_hot
+"what time is it in tokyo": skill:time
+"the time in cairo please": skill:time
+"time difference between here and london": skill:difference
+"what's the temperature": command:cpu_temp
+"how hot is it": command:cpu_temp
