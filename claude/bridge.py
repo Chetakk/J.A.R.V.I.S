@@ -233,12 +233,16 @@ class Claude:
         return self._once(question, system, tools="Read,Glob,Grep", allow=True, cwd=os.path.expanduser("~"),
                           deny=SECRET_PLACES, timeout=max(self.timeout, 120))
 
-    def _once(self, prompt, system, tools="", allow=False, cwd=WORKSPACE, deny=(), timeout=None):
+    def once(self, prompt, system, model="", timeout=None):
+        """A one-off question outside the conversation, no tools (core/teaching.py asks for wordings here)."""
+        return self._once(prompt, system, model=model, timeout=timeout)
+
+    def _once(self, prompt, system, tools="", allow=False, cwd=WORKSPACE, deny=(), timeout=None, model=""):
         """A one-off question outside the conversation: returns Claude's reply text. allow: `tools` may run
         without asking (needed for WebSearch). deny: permission rules it may never use ("Read(~/.ssh/**)")."""
         if not self.bin:
             raise ClaudeError("Claude Code isn't installed")
-        args = [self.bin, "-p", prompt, "--model", self.model, "--tools", tools, "--strict-mcp-config",
+        args = [self.bin, "-p", prompt, "--model", model or self.model, "--tools", tools, "--strict-mcp-config",
                 "--no-session-persistence", "--effort", self.effort, "--system-prompt", system,
                 "--output-format", "json"] + (["--allowedTools", tools] if allow and tools else [])
         if deny:

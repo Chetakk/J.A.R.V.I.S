@@ -25,7 +25,7 @@ try:
 except ImportError:
     pass
 
-from core import context, learned, misslog, persona, undo, verify
+from core import context, learned, misslog, persona, teaching, undo, verify
 from system import apps, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
@@ -1211,6 +1211,31 @@ def run_loop(jarvis, has_ui):
             jarvis.keep_following()  # it was noise: the rest of the window is still yours
 
 
+def teach(jarvis):
+    """Background: teaches itself other ways of saying things (core/teaching.py).
+
+    Claude writes wordings for the phrases that have none, and says which phrase the things you said that
+    JARVIS missed really meant; each one is checked before it's kept, and kept in learned.yaml like
+    anything else JARVIS learned. Held in focus mode and quiet hours, skipped while JARVIS is talking,
+    in system mode (no Claude) and with learn: off."""
+    cfg = jarvis.settings.get("teaching") or {}
+    if not cfg.get("enabled", True):
+        return
+    time.sleep(max(30, cfg.get("after", 300)))
+    while True:
+        try:
+            if jarvis.settings.get("learn", "ask") != "off" and jarvis.mode != "sys" \
+                    and not jarvis.speaker.busy() and not jarvis.skills.proactive.holding():
+                line = teaching.run(jarvis, cfg)
+                if line:
+                    print("[teaching] %s" % line)
+        except ClaudeError as e:
+            print("[teaching] %s" % e)
+        except Exception as e:  # a wording must never take JARVIS down
+            print("[teaching] failed: %r" % e)
+        time.sleep(max(600, cfg.get("every", 3) * 3600))
+
+
 def watch(jarvis):
     """Background: the notification reader; reminders when they're due; crashed projects; the morning briefing;
     every 2 minutes, heads-ups and habit offers (skills/proactive.py keeps why each was said, and holds them in focus
@@ -1284,6 +1309,7 @@ def main():
     jarvis.speaker.say(persona.greeting(jarvis.settings, jarvis.memory, [line for _, line, _ in ups]))
     jarvis.memory.seen()
     threading.Thread(target=watch, args=(jarvis,), daemon=True).start()
+    threading.Thread(target=teach, args=(jarvis,), daemon=True).start()
     print("Type /help for commands.")
     whisper = jarvis.whisper = Whisper(jarvis.settings.get("stt") or {})
     threading.Thread(target=watchdog.run, args=(jarvis, jarvis.settings.get("watchdog") or {}), daemon=True).start()

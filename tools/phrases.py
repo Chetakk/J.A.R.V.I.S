@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""Other ways of saying each phrase JARVIS knows: Claude writes them, this checks them, config/intents.yaml keeps them.
+"""Other ways of saying each phrase JARVIS knows, by hand: Claude writes them, this checks them,
+config/intents.yaml keeps them.
 
   tools/phrases.py                  # phrases the meaning matcher has no other wordings for
   tools/phrases.py --ask            # ask Claude for wordings for all of them, keep the ones that route right
   tools/phrases.py --ask notes todos   # only those skills (or groups)
   tools/phrases.py --ask --dry      # print what Claude suggested, write nothing (and check nothing)
   tools/phrases.py --misses 7       # the same, for what the last 7 days of misses nearly matched
+  tools/phrases.py --taught         # what JARVIS taught itself while running
 
-Each suggested wording is routed with tools/dryrun.py, before and after it's added: one that already
-goes to the right place isn't added (nothing needs it), and one that still goes elsewhere afterwards is
-taken back out. What survives is appended to config/intents.yaml and to tests/phrases.yaml, so
-`tools/dryrun.py --check` keeps it working from then on.
+JARVIS also does this by itself as it runs (core/teaching.py, settings `teaching`), straight into
+~/.local/share/jarvis/learned.yaml. This is the same wordings written into the code instead, with the
+fuller check only a dry run can do: each one is routed with tools/dryrun.py before and after it's added,
+so a wording that already goes to the right place isn't added, one that still goes elsewhere is dropped,
+and one that pulls a phrase in tests/phrases.yaml away from where it went takes its whole entry back out.
+What survives is appended to config/intents.yaml and tests/phrases.yaml, so `tools/dryrun.py --check`
+guards it from then on.
 
-Phrases with a value in them ("<x>") are left alone: those need a {slot} template, written by hand.
+Phrases with a value in them ("<x>", or "focus for 45 minutes") are left alone: those need a {slot}
+template, written by hand.
 """
 import difflib
 import json
@@ -28,9 +34,8 @@ sys.path.insert(0, HERE)
 
 import yaml  # noqa: E402
 
-from core import misslog  # noqa: E402
-from core.intent import ASK_FOR_VALUE, _norm  # noqa: E402
-from skills.registry import entries  # noqa: E402
+from core import teaching  # noqa: E402
+from core.intent import _norm  # noqa: E402
 
 INTENTS = os.path.join(HERE, "config", "intents.yaml")
 CASES = os.path.join(HERE, "tests", "phrases.yaml")
@@ -41,77 +46,14 @@ BATCH = 12  # phrases per question to Claude
 # a dry run has nothing on screen and nothing being read aloud, so JARVIS asks instead of acting.
 NOWHERE = ("claude", "ignored", "persona", "asks")
 
-SYSTEM = (
-    "You write the everyday spoken wordings for JARVIS, a Linux voice assistant. Its meaning matcher holds a "
-    "list of phrases it understands; your job is other ways a person would say the very same thing out loud, "
-    "so the matcher recognises them. Answer with JSON only.")
-RULES = """For each phrase below, give %d other ways someone would say the same thing to a voice assistant.
-
-Rules:
-- Same action, exactly. Never a related one: "stop the music" is not "next song", "quiet mode" is not "mute the speakers".
-- An instruction stays an instruction and a question stays a question. Never turn "stop focusing" into "am I focusing".
-- Never the opposite way round. For "unmute the mic" never give "mute my mic".
-- No names, numbers, filenames, apps or other fill-in values in them. Skip the phrase if you can't avoid them.
-- Spoken English, lower case, no "JARVIS" and no "please". No full stops or question marks; a comma is fine.
-- Give both: short ways of saying it, AND whole sentences as someone really speaks them out loud, with the
-  lead-ins and reasons people put in ("the music is too loud, bring it down", "i can't read this, make it bigger",
-  "i'm going to be on a call for a bit so keep quiet"). Roughly half of each.
-- Include the awkward real ones ("i can't hear it", "my eyes hurt"), not just polite rewordings.
-- Each wording must be different from the others, and from the phrase itself.
-- Nothing so vague it could mean another action. "end it" or "that's enough" could be anything; a wording
-  has to say what it acts on, even inside a longer sentence.
-- Stay on the same thing the phrase is about. A card on screen is not a window, a note is not a reminder.
-
-Phrases:
-%s
-
-Reply with one JSON object, nothing else: {"the phrase": ["wording", "wording"], ...}. Leave out a phrase you have nothing good for."""
-
 
 def known():
-    """Everything the matcher already holds, word for word (its phrases and all their other wordings)."""
-    with open(INTENTS, encoding="utf-8") as f:
-        intents = yaml.safe_load(f) or {}
-    intents.update(intents.pop(ASK_FOR_VALUE, None) or {})
-    out = {}
-    for phrase, says in intents.items():
-        out[_norm(phrase)] = phrase
-        for s in says or []:
-            out[_norm(s)] = phrase
-    return out
-
-
-def wanting(only=()):
-    """[(skill, phrase)] from the skills registry that the matcher has no other wordings for."""
-    have = known()
-    out, templated = [], []
-    for e in entries():
-        if only and not any(o in (e["name"], e["group"]) for o in only):
-            continue
-        for phrase in e["phrases"]:
-            phrase = phrase.split(" (")[0].strip()  # "delete <file> (to the Trash)" -> the words themselves
-            if "<" in phrase or re.search(r"\d", phrase):  # "focus for 45 minutes" needs a {dur}, not wordings
-                templated.append((e["name"], phrase))
-            elif _norm(phrase) not in have:
-                out.append((e["name"], phrase))
-    return out, templated
+    return teaching.known(path=INTENTS)
 
 
 def nearly_missed(days):
-    """[(outcome, what was said)] from the miss log: wordings JARVIS heard and didn't place."""
-    es = misslog.read()
-    if days:
-        since = time.strftime("%Y-%m-%d", time.localtime(time.time() - float(days) * 86400))
-        es = [e for e in es if e["time"] >= since]
-    have = known()
-    seen, out = set(), []
-    for e in es:
-        text = e["text"].lower().strip()
-        if _norm(text) in have or text in seen:
-            continue
-        seen.add(text)
-        out.append(("%s ~ %s" % (e["outcome"], e.get("guess") or "nothing"), text))
-    return out, []
+    """[(where it came from, what was said)] from the miss log: wordings JARVIS heard and didn't place."""
+    return [("a miss", text) for text in teaching.missed(known(), days)], []
 
 
 ROUTER = r"""
@@ -142,33 +84,29 @@ def routes(phrases):
 
 
 def ask(phrases, model, wanted):
-    """{phrase: [wordings]} from Claude, for one batch of phrases."""
+    """{phrase: [wordings]} from Claude, for one batch of phrases (core/teaching.py asks the question)."""
     claude = shutil.which("claude")
     if not claude:
         sys.exit("Claude Code isn't installed (needs `claude` on the PATH)")
-    prompt = RULES % (wanted, "\n".join("- %s" % p for p in phrases))
-    res = subprocess.run([claude, "-p", prompt, "--model", model, "--tools", "", "--strict-mcp-config",
-                          "--no-session-persistence", "--system-prompt", SYSTEM, "--output-format", "json"],
-                         capture_output=True, text=True, timeout=600)
-    try:
-        reply = json.loads(res.stdout)
-    except ValueError:
-        sys.exit("couldn't reach Claude: %s" % (res.stderr.strip() or res.stdout.strip())[:200])
-    if reply.get("is_error"):
-        sys.exit("Claude: %s" % reply.get("result"))
-    text = reply.get("result", "")
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
-        print("  (Claude answered with no JSON: %s)" % text[:120].replace("\n", " "))
-        return {}
-    try:
-        got = json.loads(m.group(0))
-    except ValueError as e:
-        print("  (Claude's JSON wouldn't parse: %s)" % e)
-        return {}
-    lower = {p.lower(): p for p in phrases}
-    return {lower[k.lower()]: [str(w).strip().lower().rstrip("?.!") for w in v]
-            for k, v in got.items() if k.lower() in lower and isinstance(v, list)}
+
+    def once(prompt, system):
+        res = subprocess.run([claude, "-p", prompt, "--model", model, "--tools", "", "--strict-mcp-config",
+                              "--no-session-persistence", "--system-prompt", system, "--output-format", "json"],
+                             capture_output=True, text=True, timeout=600)
+        try:
+            reply = json.loads(res.stdout)
+        except ValueError:
+            sys.exit("couldn't reach Claude: %s" % (res.stderr.strip() or res.stdout.strip())[:200])
+        if reply.get("is_error"):
+            sys.exit("Claude: %s" % reply.get("result"))
+        return reply.get("result", "")
+
+    return teaching.ask_wordings(once, phrases, wanted)
+
+
+def _yaml(text):
+    """A phrase as one YAML flow-list item: quoted when a comma or a leading marker would change what it means."""
+    return '"%s"' % text if re.search(r"[,:#]|^[/\"'&*?|<>!%@`\-]", text) else text
 
 
 def block(additions, why):
@@ -178,11 +116,6 @@ def block(additions, why):
     for phrase, says in additions.items():
         lines.append("%s: [%s]" % (_yaml(phrase), ", ".join(_yaml(s) for s in says)))
     return "\n".join(lines) + "\n"
-
-
-def _yaml(text):
-    """A phrase as one YAML flow-list item: quoted when a comma or a leading marker would change what it means."""
-    return '"%s"' % text if re.search(r"[,:#]|^[/\"'&*?|<>!%@`\-]", text) else text
 
 
 def write(path, text):
@@ -219,12 +152,7 @@ def run(targets, model, wanted, dry, why):
         batch = [p for _, p in targets[i:i + BATCH]]
         print("asking Claude about %d phrases (%d-%d of %d)..." % (len(batch), i + 1, i + len(batch), len(targets)))
         for phrase, says in ask(batch, model, wanted).items():
-            seen, keep = set(), []
-            for w in says:
-                if w and _norm(w) != _norm(phrase) and _norm(w) not in have and _norm(w) not in seen \
-                        and not re.search(r"[<>{}\[\]:\"]", w):
-                    seen.add(_norm(w))
-                    keep.append(w)
+            keep = teaching.tidy(phrase, says, have)
             if keep:
                 suggested[phrase] = keep
     if not suggested:
@@ -303,6 +231,22 @@ def run(targets, model, wanted, dry, why):
     return 0
 
 
+def taught():
+    """What JARVIS taught itself while running (~/.local/share/jarvis/taught.jsonl)."""
+    have = known()
+    try:
+        with open(teaching.TAUGHT, encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f if line.strip()]
+    except OSError:
+        print("nothing yet: %s isn't there" % teaching.TAUGHT)
+        return 0
+    for r in rows:
+        where = "in the code" if _norm(r["said"]) in have else "learned.yaml only"
+        print("%s  %-44s means %-28s (%s, %s)" % (r["time"], r["said"], r["means"], r.get("from", "?"), where))
+    print("\n%d taught itself. Move the ones worth keeping into config/intents.yaml." % len(rows))
+    return 0
+
+
 def main(argv):
     dry = "--dry" in argv
     model = MODEL
@@ -313,6 +257,8 @@ def main(argv):
     if "--n" in argv:
         wanted = int(argv[argv.index("--n") + 1])
         argv = argv[:argv.index("--n")] + argv[argv.index("--n") + 2:]
+    if "--taught" in argv:
+        return taught()
     asking = "--ask" in argv or "--misses" in argv
     misses = "--misses" in argv
     rest = [a for a in argv if not a.startswith("--")]
@@ -321,7 +267,7 @@ def main(argv):
         targets, skipped = nearly_missed(rest[0] if rest else 0)
         why = "from the miss log"
     else:
-        targets, skipped = wanting([a.replace("-", "_") for a in rest])
+        targets, skipped = teaching.gaps(known(), [a.replace("-", "_") for a in rest])
         why = "the skills registry's own phrases"
     if not targets:
         print("nothing to do: every phrase has other wordings already")
