@@ -153,6 +153,22 @@ OPEN_QUESTION = re.compile(r"^(?:who|whom|whose|why|explain|describe|define|comp
 SPLIT = re.compile(r",? (?:and then|and also|and after that|after that|then|and) |, ", re.IGNORECASE)
 UNSURE = 0.62  # from here up to the matcher's threshold, a guess is asked about (real questions scored lower)
 YES = re.compile(r"^\W*(y|yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|correct)\b", re.IGNORECASE)
+# Beyond a plain yes: "it's okay, close it", "that's fine", or the question's own verb ("close it", "I said close it").
+FINE = re.compile(r"^\W*(?:(?:it|that)(?:'s| is)\s+)?(?:okay|ok|fine|alright|all right)\b", re.IGNORECASE)
+NOT_YES = re.compile(r"\b(?:no|nope|nah|not|don't|do not|never ?mind|cancel|stop|wait|hold on|leave it|keep it)\b",
+                     re.IGNORECASE)
+NOT_VERBS = {"did", "do", "does", "should", "shall", "want", "is", "are", "can", "could", "would", "will", "may"}
+
+
+def is_yes(answer, question=""):
+    """A yes to `question`: "yes", "it's okay. Close it.", or its verb said back ("close it" to "Close Discord?")."""
+    answer = re.sub(r"\bno (?:problem|worries)\b", "", answer or "", flags=re.IGNORECASE)
+    if YES.match(answer):
+        return True
+    if NOT_YES.search(answer):
+        return False
+    verb = (re.findall(r"[a-z]+", question.lower()) or [""])[0]
+    return bool(FINE.match(answer) or verb and verb not in NOT_VERBS and re.search(r"\b%s\b" % verb, answer, re.I))
 
 
 def command_phrases(registry):
@@ -291,7 +307,7 @@ class Jarvis:
 
     def ask(self, question):
         """Ask a yes/no question; the answer can be typed or spoken."""
-        return bool(YES.match(self._answer(question) or ""))
+        return is_yes(self._answer(question), question if isinstance(question, str) else question[0])
 
     def choose(self, question, options):
         """Ask "X, or Y?": the option picked ("the first", "Y", "pause"), or None for "neither"/no answer."""
@@ -958,7 +974,12 @@ class Jarvis:
             return False
         threshold = (self.settings.get("intents") or {}).get("threshold", 0.72)
         if second >= UNSURE and score - second < 0.06 and not other.startswith("/"):  # two close meanings
-            phrase = self.choose("%s, or %s?" % (best[0].upper() + best[1:], other), [best, other])
+            # Just asked for one of them ("close discord", then "gross discord"): that one, not "X, or Y?".
+            said = [r[6:].lower().strip(" .!?") for r in reversed(self.recent) if r.startswith("User: ")][1:]
+            phrase = next((w for w in said if w in (best.lower(), other.lower())), None)
+            phrase = phrase and (best if phrase == best.lower() else other)
+            if not phrase:
+                phrase = self.choose("%s, or %s?" % (best[0].upper() + best[1:], other), [best, other])
             if phrase:
                 self.context.chose([best, other], phrase)  # for "the other one"
         elif UNSURE <= score < threshold:  # one likely meaning (no close second: that was the case above)
