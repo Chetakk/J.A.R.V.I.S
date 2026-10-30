@@ -474,6 +474,8 @@ class Jarvis:
             return True
         if self.skills.notes.answer(text):  # "where did I park": a note answers it, no Claude needed
             return True
+        if self.skills.lookup.answer(text):  # "who is Alan Turing": Wikipedia answers it, no Claude needed
+            return True
         self._miss(text, "claude" if self.mode != "sys" else "unknown")
         if self.mode == "sys":
             self.speaker.say(["Sorry, that one's not on my list, and I can't ask Claude in system mode.",

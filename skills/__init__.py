@@ -4,7 +4,7 @@ The order matters: the first skill whose phrase matches (and doesn't hand it on)
 ("the second one" is about the card on screen), then requests missing their value ("set a timer": asked for,
 before a pattern takes a placeholder like "something" as the value), then the instant local extras, then the
 rest; the day tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
-and the screen ("what's this page about" in a browser reads the page itself); copying between apps before the
+and the screen, quick lookups right after it ("research X" is the agent's) ("what's this page about" in a browser reads the page itself); copying between apps before the
 clipboard ("summarise my clipboard and put it in Slack"); reading files before the browser agent ("summarise
 resume.pdf" isn't a website); the network check before troubleshooting ("what's wrong with my
 wifi" isn't a project); the briefing before "everything about X" ("what do I have on today"); "everything
@@ -33,6 +33,7 @@ from skills.install import Install
 from skills.layouts import Layouts
 from skills.learning import Learning
 from skills.linked import Linked
+from skills.lookup import Lookup
 from skills.maths import Maths
 from skills.media import Media
 from skills.missing import Missing
@@ -62,7 +63,7 @@ ORDER = [
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
-    ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
+    ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("lookup", Lookup), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),

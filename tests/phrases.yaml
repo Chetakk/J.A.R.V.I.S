@@ -1433,3 +1433,8 @@
 "say this: good morning": skill:say_back
 "can you say thank you": skill:say_back
 "repeat this": skill:say_back
+"wikipedia alan turing": skill:wiki
+"what does wikipedia say about black holes": skill:wiki
+"search the web for jetson orin nx and tell me": skill:web
+"what does the web say about whisper.cpp": skill:web
+"look up cuda online": skill:web

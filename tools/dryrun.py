@@ -57,6 +57,7 @@ class DryJarvis:
         for skill in j.skills.all:
             self._stub_rules("card" if skill is j.cards else "skill", skill)
         j.skills.notes.answer = lambda text: False  # your own notes would make results differ per computer
+        j.skills.lookup.answer = lambda text: False  # needs the internet
         j.skills.first = lambda text: False  # not dictating; no "where was I" history
         j.skills.focusing = lambda: False
 
