@@ -1330,3 +1330,61 @@
 "start talking again": skill:quiet
 "turn your voice back on": skill:quiet
 "you can stop being quiet": skill:quiet
+# --- added 2026-10-30 by tools/phrases.py (the skills registry's own phrases)
+"i mean the second one, not the first": card:pick
+"let's go with number two": card:pick
+"put that on the clipboard": card:copy
+"make a copy of that": card:copy
+"copy what's selected": card:copy
+"i need to paste that later, copy it": card:copy
+"copy the selected text": card:copy
+"keep that": card:save
+"store that": card:save
+"remember that and save it": card:save
+"i want to keep that, save it": card:save
+"save what's on screen": card:save
+"hold on to that, save it": card:save
+"show the last card again": card:step
+"back to the card before this one": card:step
+"show me the card before": card:step
+"i missed it, go back a card": card:step
+"bring up the earlier card": card:step
+"flip back to the previous card": card:step
+"unpin this": card:unpin
+"remove the pin": card:unpin
+"take the pin off": card:unpin
+"unpin that card": card:unpin
+"i don't need that pinned anymore, unpin it": card:unpin
+"stop keeping that pinned": card:unpin
+"release the pin": card:unpin
+"turn off the timer": card:cancel_timers
+"kill the timer": card:cancel_timers
+"delete the timer": card:cancel_timers
+"i don't need the timer anymore, cancel it": card:cancel_timers
+"get rid of the timer": card:cancel_timers
+"never mind the timer, cancel it": card:cancel_timers
+"stop the focus session": skill:end_focus
+"i'm finished with focus mode, turn it off": skill:end_focus
+"quit focusing": skill:end_focus
+"anything new in my notifications": skill:read
+"is there a new notification": skill:read
+"what's new in notifications, anything": skill:read
+"i wonder if i missed any notifications": skill:read
+"read out my notifications": skill:read
+"read the notifications to me": skill:read
+"what do my notifications say": skill:read
+"read me what notifications i have": skill:read
+"i can't look at the screen, read my notifications": skill:read
+"say my notifications out loud": skill:read
+"go through my notifications out loud": skill:read
+"quick rundown of my notifications": skill:read
+"i have too many notifications, summarise them": skill:read
+"brief me on my notifications": skill:read
+"give me the gist of my notifications": skill:read
+"boil my notifications down for me": skill:read
+"dismiss all my notifications": skill:forget
+"get rid of my notifications": skill:forget
+"wipe out my notifications": skill:forget
+"my notifications are piling up, clear them": skill:forget
+"i've seen them all, clear the notifications": skill:forget
+"empty my notification list": skill:forget

@@ -14,6 +14,7 @@ taken back out. What survives is appended to config/intents.yaml and to tests/ph
 
 Phrases with a value in them ("<x>") are left alone: those need a {slot} template, written by hand.
 """
+import difflib
 import json
 import os
 import re
@@ -36,7 +37,9 @@ CASES = os.path.join(HERE, "tests", "phrases.yaml")
 MODEL = "claude-sonnet-5-5"
 WANTED = 8  # wordings asked for per phrase
 BATCH = 12  # phrases per question to Claude
-NOWHERE = ("claude", "ignored", "persona")  # a phrase that routes to one of these isn't a known phrase
+# A phrase that routes to one of these isn't a known phrase to hang wordings on. "asks" is one of them:
+# a dry run has nothing on screen and nothing being read aloud, so JARVIS asks instead of acting.
+NOWHERE = ("claude", "ignored", "persona", "asks")
 
 SYSTEM = (
     "You write the everyday spoken wordings for JARVIS, a Linux voice assistant. Its meaning matcher holds a "
@@ -49,9 +52,15 @@ Rules:
 - An instruction stays an instruction and a question stays a question. Never turn "stop focusing" into "am I focusing".
 - Never the opposite way round. For "unmute the mic" never give "mute my mic".
 - No names, numbers, filenames, apps or other fill-in values in them. Skip the phrase if you can't avoid them.
-- Spoken English, lower case, no punctuation, no "JARVIS" or "please". Short: how someone actually talks.
+- Spoken English, lower case, no "JARVIS" and no "please". No full stops or question marks; a comma is fine.
+- Give both: short ways of saying it, AND whole sentences as someone really speaks them out loud, with the
+  lead-ins and reasons people put in ("the music is too loud, bring it down", "i can't read this, make it bigger",
+  "i'm going to be on a call for a bit so keep quiet"). Roughly half of each.
 - Include the awkward real ones ("i can't hear it", "my eyes hurt"), not just polite rewordings.
 - Each wording must be different from the others, and from the phrase itself.
+- Nothing so vague it could mean another action. "end it" or "that's enough" could be anything; a wording
+  has to say what it acts on, even inside a longer sentence.
+- Stay on the same thing the phrase is about. A card on screen is not a window, a note is not a reminder.
 
 Phrases:
 %s
@@ -81,7 +90,7 @@ def wanting(only=()):
             continue
         for phrase in e["phrases"]:
             phrase = phrase.split(" (")[0].strip()  # "delete <file> (to the Trash)" -> the words themselves
-            if "<" in phrase:
+            if "<" in phrase or re.search(r"\d", phrase):  # "focus for 45 minutes" needs a {dur}, not wordings
                 templated.append((e["name"], phrase))
             elif _norm(phrase) not in have:
                 out.append((e["name"], phrase))
@@ -167,9 +176,13 @@ def block(additions, why):
     lines = ["", "# --- added %s by tools/phrases.py (%s), each one checked with tools/dryrun.py" %
              (time.strftime("%Y-%m-%d"), why)]
     for phrase, says in additions.items():
-        quote = '"%s"' % phrase if re.match(r"^[/\"'&*?|<>!%@`]|: ", phrase) else phrase
-        lines.append("%s: [%s]" % (quote, ", ".join(says)))
+        lines.append("%s: [%s]" % (_yaml(phrase), ", ".join(_yaml(s) for s in says)))
     return "\n".join(lines) + "\n"
+
+
+def _yaml(text):
+    """A phrase as one YAML flow-list item: quoted when a comma or a leading marker would change what it means."""
+    return '"%s"' % text if re.search(r"[,:#]|^[/\"'&*?|<>!%@`\-]", text) else text
 
 
 def write(path, text):
@@ -209,7 +222,7 @@ def run(targets, model, wanted, dry, why):
             seen, keep = set(), []
             for w in says:
                 if w and _norm(w) != _norm(phrase) and _norm(w) not in have and _norm(w) not in seen \
-                        and not re.search(r"[<>{}\[\],:]", w):
+                        and not re.search(r"[<>{}\[\]:\"]", w):
                     seen.add(_norm(w))
                     keep.append(w)
             if keep:
@@ -257,7 +270,16 @@ def run(targets, model, wanted, dry, why):
     # And no phrase that already worked may be pulled away. Whichever added phrase it was pulled into
     # is the one at fault: its whole entry comes back out, printed, to pick from by hand.
     taken = [(c, after[c], before[c]) for c in cases if after[c] != before[c]]
-    blamed = {phrase for phrase in kept for c, went, _ in taken if want[phrase] == went}
+    blamed = set()
+    for c, went, _ in taken:
+        owners = [phrase for phrase in kept if want[phrase] == went]
+        if not owners:  # it didn't land on an added phrase (it asks, or gave up): blame the nearest wording
+            near = difflib.get_close_matches(c, [w for ws in kept.values() for w in ws], 1, 0.4)
+            owners = [phrase for phrase in kept if near and near[0] in kept[phrase]]
+        blamed.update(owners)
+        if not owners:
+            print("conflict %-44s goes to %s now, not %s -- no added wording to blame, look at it by hand"
+                  % (c, went, before[c]))
     for c, went, was in taken:
         print("conflict %-44s goes to %s now, not %s" % (c, went, was))
     for phrase in sorted(blamed):
