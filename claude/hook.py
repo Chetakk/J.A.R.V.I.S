@@ -5,6 +5,8 @@ PreToolUse applies the JARVIS safety rules:
                   sent pre-typed to the JARVIS manual terminal
   file edits      allowed inside ~/jarvis-workspace, ask anywhere else
   other built-in tools (read, search, web) are allowed; MCP tools keep Claude Code's normal prompts
+  Switched to auto mode (or bypass), nothing asks: Claude Code's own mode decides instead. In accept-edits
+  mode, file edits don't ask either. "manual" commands stay blocked in every mode.
 Stop speaks the "SAY:" summary line Claude ends each reply with ("All done." first after a long task;
 UserPromptSubmit notes when the task started).
 Notification speaks Claude's alerts (e.g. when it is waiting for your permission).
@@ -25,9 +27,17 @@ WORKSPACE = os.path.realpath(os.path.expanduser("~/jarvis-workspace"))
 TURN_START = os.path.join(RUN_DIR, "claude_turn_start")
 LONG_TASK = 60  # seconds
 EDIT_TOOLS = {"Edit": "file_path", "Write": "file_path", "MultiEdit": "file_path", "NotebookEdit": "notebook_path"}
+NO_ASKING = {"auto", "bypassPermissions"}  # modes you picked so Claude stops asking: a hook "ask" would undo them
 
 
-def decide(tool, args, cwd):
+def decide(tool, args, cwd, mode="default"):
+    decision, reason = _decide(tool, args, cwd)
+    if decision == "ask" and (mode in NO_ASKING or mode == "acceptEdits" and tool in EDIT_TOOLS):
+        return None, None
+    return decision, reason
+
+
+def _decide(tool, args, cwd):
     if tool == "Bash":
         command = args.get("command", "")
         level, reason = Safety().classify(command)
@@ -105,7 +115,8 @@ def main():
         if event.get("message"):
             speak_via_jarvis(event["message"])
         return
-    decision, reason = decide(event.get("tool_name", ""), event.get("tool_input") or {}, event.get("cwd"))
+    decision, reason = decide(event.get("tool_name", ""), event.get("tool_input") or {}, event.get("cwd"),
+                              event.get("permission_mode") or "default")
     if decision:
         json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                           "permissionDecisionReason": reason}}, sys.stdout)
