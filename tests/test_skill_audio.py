@@ -240,7 +240,7 @@ def test_the_mute_replies_are_short(jv, pulse):
                             ("mute the mic", ("yes",)), ("mute the mic", ())):
         jv.clear()
         jv.do(phrase, *answers)
-        for line in jv.said:
+        for line in (alt for alts in jv.spoken for alt in alts):  # every wording, not just the first
             assert len(line) <= 75, (phrase, line)
             assert "tray" not in line.lower(), line
 

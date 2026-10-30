@@ -24,7 +24,12 @@ ECHO_HELP = ("The Echo Dot isn't connected right now. In the Alexa app, open its
              "biztelai-desktop; it stays connected after that.")
 NOT_LISTENING = ["Okay, I'm not listening. Don't worry about it.",
                  "Alright, I'll stay quiet. Just let me know when you want me back.",
-                 "Got it, not listening. Don't worry."]
+                 "Got it, not listening. Don't worry.",
+                 "Okay okay, I'll shut up.",
+                 "Ughhh, okay, I won't listen.",
+                 "Fine, fine, I'm not listening.",
+                 "Okay, okay, ears closed.",
+                 "Alright, alright, I'll stop listening."]
 # Muting the speaker and muting the microphone, each in its own direction (no toggles: "unmute" only unmutes).
 MUTE_SOUND = (r"mute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)?|"
               r"silence (?:the )?(?:sound|audio|speakers?|everything)|"
@@ -192,8 +197,9 @@ class Audio(Skill):
             return
         self.j.show_mutes(speaker=on)
         self.j.last_undo = lambda: self.sound_mute(not on)
-        self.say(["Okay, sound's off.", "Done, it's quiet now.", "Muted."] if on
-                 else ["Okay, sound's back.", "There you go, sound's back."])
+        self.say(["Okay, sound's off.", "Done, it's quiet now.", "Muted.", "Okay okay, shhh.",
+                  "Ugh, fine, sound's off."] if on
+                 else ["Okay, sound's back.", "There you go, sound's back.", "And we're back."])
 
     def mic_mute(self, on, ask=True):
         """JARVIS stops listening (or starts again). Only JARVIS: the system microphone stays live, so Zoom,
@@ -209,7 +215,8 @@ class Audio(Skill):
         j.deaf = on
         j.show_mutes(mic=on)
         j.last_undo = lambda: self.mic_mute(not on, ask=False)
-        self.say(NOT_LISTENING if on else ["I'm back, I can hear you.", "Okay, I'm listening again."])
+        self.say(NOT_LISTENING if on else ["I'm back, I can hear you.", "Okay, I'm listening again.", "Ears open again.",
+                                      "Okay, I'm all ears."])
 
     def mic_volume(self, to=None, up=None):
         d = audio.current("source")
