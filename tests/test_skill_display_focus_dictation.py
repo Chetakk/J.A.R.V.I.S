@@ -173,12 +173,17 @@ def test_stop_focusing_when_not_focusing(jv):
     assert not banners(jv)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: with gsettings failing, JARVIS says it didn't work but is left in "
-                                       "focus mode anyway (silencing heads-ups)")
-def test_focus_failing_to_start_is_not_half_on(jv):
+def test_focus_without_gsettings_says_the_banners_are_not_held(jv):
     jv.shell.on(r"^gsettings ", raises=FileNotFoundError)
     jv.do("focus for 25 minutes")
-    assert not (jv.says("didn't work") and jv.j.skills.focusing())  # either it's on, or it says it isn't
+    assert jv.said == ["Focus mode for 25 minutes. I'll keep quiet, but I couldn't hold your notification banners."]
+    assert jv.j.skills.focusing()  # JARVIS itself is quiet; it doesn't claim more than that
+
+
+def test_focus_when_gsettings_fails_says_so_too(jv):
+    jv.shell.on(r"^gsettings ", code=1)
+    jv.do("focus for 25 minutes")
+    assert jv.says("couldn't hold your notification banners")
 
 
 # --- dictation ---

@@ -39,13 +39,15 @@ class FocusMode(Skill):
         minutes = 45
         if len(groups) == 2:
             minutes = _number(groups[0]) * (60 if groups[1].startswith("h") else 1)
-        self._start_focus(time.time() + minutes * 60)
-        self.say("Focus mode for %s. I'll keep quiet and hold notifications." % (
-            "%d minutes" % minutes if minutes < 120 else "%s hours" % _spoken(minutes / 60)))
+        held = self._start_focus(time.time() + minutes * 60)
+        self.say("Focus mode for %s. I'll keep quiet%s." % (
+            "%d minutes" % minutes if minutes < 120 else "%s hours" % _spoken(minutes / 60),
+            " and hold notifications" if held else ", but I couldn't hold your notification banners"))
 
     def _start_focus(self, until):
+        """Start the session. True if the notification banners are held too (False: only JARVIS keeps quiet)."""
         self.focus_until = until
-        _banners(False)
+        held = _banners(False)
         try:
             with open(FOCUS_FILE, "w") as f:
                 json.dump({"until": until}, f)
@@ -56,6 +58,7 @@ class FocusMode(Skill):
         self._focus_timer = threading.Timer(max(0, until - time.time()), self._focus_over)
         self._focus_timer.daemon = True
         self._focus_timer.start()
+        return held
 
     def _focus_over(self):
         if self.focus_until and time.time() >= self.focus_until - 1:
@@ -102,6 +105,10 @@ class FocusMode(Skill):
 
 
 def _banners(on):
-    """GNOME's notification pop-ups (the urgent ones still show during focus)."""
-    subprocess.run(["gsettings", "set", "org.gnome.desktop.notifications", "show-banners", "true" if on else "false"],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
+    """GNOME's notification pop-ups (the urgent ones still show during focus). True if the setting changed."""
+    try:
+        return subprocess.run(["gsettings", "set", "org.gnome.desktop.notifications", "show-banners",
+                               "true" if on else "false"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=3).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
