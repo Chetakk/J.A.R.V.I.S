@@ -31,4 +31,11 @@ To add a skill: a new `skills/<name>.py` with a `Skill` subclass whose `patterns
 tools/run_jarvis.sh
 ```
 
+`tools/run_jarvis.sh` restarts JARVIS when it crashes and logs to a file. To see its output in a terminal instead, `biztel run jarvis` (`biztel stop jarvis` or Ctrl+C stops it), with this in `~/.config/biztel/run.json`:
+
+```json
+"J.A.R.V.I.S": { "services": [{ "name": "jarvis", "cmd": "python3 -u jarvis.py" }] }
+```
+
+
 Edit `config/settings.yaml` to set paths for the Piper voice, whisper.cpp model and your own names.
