@@ -1299,3 +1299,34 @@
 "find sources on whisper models": skill:research
 "do some research on the best usb mic": skill:research
 "start a deep research on edge ai chips": skill:deep_research
+# --- added 2026-10-30 by tools/phrases.py (the skills registry's own phrases)
+"speed up your speech": skill:speed
+"you talk too slow": skill:speed
+"pick up the pace when you talk": skill:speed
+"increase your speaking speed": skill:speed
+"speak more slowly": skill:speed
+"i can't keep up with you": skill:speed
+"slow your speech down": skill:speed
+"not so fast": skill:speed
+"reduce your speaking speed": skill:speed
+"go private": skill:private
+"stop listening to me": skill:private
+"don't listen in": skill:private
+"enter private mode": skill:private
+"i need some privacy": skill:private
+"stop recording": skill:private
+"start private mode": skill:private
+"disable private mode": skill:private
+"you can listen again": skill:private
+"back to normal listening": skill:private
+"go quiet": skill:quiet
+"stay silent": skill:quiet
+"be quiet for a while": skill:quiet
+"don't talk back to me": skill:quiet
+"enter quiet mode": skill:quiet
+"keep your voice off": skill:quiet
+"you can speak now": skill:quiet
+"talk to me again": skill:quiet
+"start talking again": skill:quiet
+"turn your voice back on": skill:quiet
+"you can stop being quiet": skill:quiet
