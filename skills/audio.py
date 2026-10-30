@@ -1,7 +1,14 @@
 """"What audio devices are there", "switch audio to the echo dot", "use the usb speaker", "which mic are you using",
 "set the mic volume to 60": speakers and microphones by what you call them (system/audio.py). Switching moves what's
 already playing too, and "undo that" goes back. The mic is what JARVIS hears you with, so changing it (or turning
-it low) asks first. The Echo Dot connects by itself from the Alexa app; when it isn't there JARVIS says so."""
+it low) asks first. The Echo Dot connects by itself from the Alexa app; when it isn't there JARVIS says so.
+
+Muting, three separate things, never one toggle:
+  "mute the sound"  the speaker, so nothing on this computer is heard; "unmute" brings it back.
+  "mute the mic"    the microphone. It asks first, because afterwards JARVIS can't hear you at all: only the
+                    tray icon (or typing in the chat) turns it back on.
+  "mute yourself"   JARVIS's own voice, which is quiet mode (skills/voice_prefs.py).
+Each says which way it's going, so saying "unmute" when nothing is muted never mutes you."""
 import re
 
 from skills.base import Skill
@@ -15,20 +22,41 @@ DEVICE_WORDS = "|".join(p for p, _ in audio.ALIASES)
 NAMED = r"(?:the |my )?(?:%s)(?: speakers?)?" % DEVICE_WORDS  # "use the echo", "switch to headphones"
 ECHO_HELP = ("The Echo Dot isn't connected right now. In the Alexa app, open its Bluetooth devices and tap "
              "biztelai-desktop; it stays connected after that.")
+TRAY_HINT = "my tray icon turns it back on"
+# Muting the speaker and muting the microphone, each in its own direction (no toggles: "unmute" only unmutes).
+MUTE_SOUND = (r"mute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)?|"
+              r"silence (?:the )?(?:sound|audio|speakers?|everything)|"
+              r"turn (?:the )?(?:sound|audio|volume|speakers?) off|"
+              r"turn off (?:the )?(?:sound|audio|volume|speakers?)|(?:sound|audio|speakers?) off")
+UNMUTE_SOUND = (r"unmute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)?|"
+                r"turn (?:the )?(?:sound|audio|volume|speakers?) (?:back )?on|"
+                r"turn (?:back )?on (?:the )?(?:sound|audio|volume|speakers?)|"
+                r"(?:sound|audio|speakers?) (?:back )?on|bring (?:the )?(?:sound|audio) back")
+MUTE_MIC = (r"mute (?:the |my )?(?:mic|microphone|mike|input)|"
+            r"turn (?:the |my )?(?:mic|microphone|mike) off|turn off (?:the |my )?(?:mic|microphone|mike)|"
+            r"(?:mic|microphone) off")
+UNMUTE_MIC = (r"unmute (?:the |my )?(?:mic|microphone|mike|input)|"
+              r"turn (?:the |my )?(?:mic|microphone|mike) (?:back )?on|"
+              r"turn (?:back )?on (?:the |my )?(?:mic|microphone|mike)|(?:mic|microphone) (?:back )?on")
 
 
 class Audio(Skill):
     group = "audio"
-    does = "Speakers and microphones by name: switch, volume, which is in use"
+    does = "Speakers and microphones by name: switch, volume, which is in use, mute and unmute"
     phrases = ("what audio devices are there", "switch audio to <device>", "which mic are you using",
-               "set the mic volume to 60")
+               "set the mic volume to 60", "mute the sound", "unmute the sound", "mute the mic", "unmute the mic")
     gives = "speech and a card"
     permission = "confirm"
-    asks = "before changing the mic, or turning it low"
+    asks = "before changing the mic, muting it, or turning it low"
     checks = "pactl's answer: a device that refuses is said, not claimed"
 
     def patterns(self):
         return [
+            # Muting first, and the mic before the speaker: "mute the mic" is never "mute everything".
+            (MUTE_MIC, lambda m: self.mic_mute(True)),
+            (UNMUTE_MIC, lambda m: self.mic_mute(False)),
+            (MUTE_SOUND, lambda m: self.sound_mute(True)),
+            (UNMUTE_SOUND, lambda m: self.sound_mute(False)),
             (r"(?:what|which) (?:audio|sound) (?:devices|outputs|inputs)(?: are there| do i have| are connected)?|"
              r"(?:list|show)(?: me)? (?:my |the )?(?:audio devices|sound devices|speakers and (?:mics|microphones)|"
              r"speakers|microphones|mics)|(?:what|which) (?:speakers|microphones|mics) (?:are there|do i have|"
@@ -79,7 +107,7 @@ class Audio(Skill):
             self.say("Sound is going to %s, at %d percent%s." % (d.label, d.volume, ", but it's muted" if d.mute else ""))
             return
         if d.mute:
-            self.say("I'm listening on %s, but it's muted, so I can't hear you. Say unmute mic." % d.label)
+            self.say("I'm listening on %s, but it's muted. %s." % (d.label, TRAY_HINT.capitalize()))
             return
         low = " That's low, so I may miss what you say." if d.volume < LOW_MIC_VOLUME else ""
         self.say("I'm listening on %s, at %d percent.%s" % (d.label, d.volume, low))
@@ -142,6 +170,46 @@ class Audio(Skill):
         if before:
             self.j.last_undo = lambda: audio.switch(before) and self.say("I'm back on %s." % before.label)
         self.say("I'm listening on %s now." % d.label)
+
+    def sound_mute(self, on):
+        """The speaker itself: muted, nothing on this computer is heard, JARVIS included. Said either way, so
+        the reply is in the chat panel even while you can't hear it."""
+        d = audio.current("sink")
+        if not d:
+            self.say("There's no speaker in use.")
+            return
+        if d.mute == on or not audio.set_mute(d, on):
+            self.j.show_mutes(_asked=False, speaker=d.mute)  # the tray shows what's true, not what was asked
+            if d.mute != on:
+                self.say("Sorry, %s didn't take it." % d.label)
+            else:
+                self.say("Already muted." if on else "It's not muted.")
+            return
+        self.j.show_mutes(speaker=on)
+        self.j.last_undo = lambda: self.sound_mute(not on)
+        self.say(["Muted.", "Sound's off."] if on else ["Sound's back.", "Unmuted."])
+
+    def mic_mute(self, on, ask=True):
+        """The microphone. Muting it makes JARVIS deaf, so it asks first and says that only the tray icon (or
+        typing) can undo it. Unmuting is here for the tray and the chat panel; it can't be spoken."""
+        d = audio.current("source")
+        if not d:
+            self.say("I can't find a microphone.")
+            return
+        if d.mute == on:
+            self.j.show_mutes(_asked=False, mic=d.mute)
+            self.say(("Mic's already off. %s." % TRAY_HINT.capitalize()) if on else "The mic isn't muted.")
+            return
+        if on and ask and not self.j.ask("Mute the mic? I won't hear you after that."):
+            self.say(["Okay, mic stays on.", "Leaving it on."])
+            return
+        if not audio.set_mute(d, on):
+            self.j.show_mutes(_asked=False, mic=d.mute)
+            self.say("Sorry, %s didn't take it." % d.label)
+            return
+        self.j.show_mutes(mic=on)
+        self.j.last_undo = lambda: self.mic_mute(not on, ask=False)
+        self.say(("Mic's off. %s." % TRAY_HINT.capitalize()) if on else ["Mic's back.", "I can hear you again."])
 
     def mic_volume(self, to=None, up=None):
         d = audio.current("source")

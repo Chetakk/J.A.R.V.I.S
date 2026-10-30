@@ -17,7 +17,7 @@ PAIRS = {
     "bluetooth_on": "bluetooth_off",
     "rotate_left": "rotate_normal",
 }
-TOGGLES = {"mute", "mute_mic"}
+TOGGLES = set()  # (muting isn't one: skills/audio.py sets its own undo, one direction at a time)
 
 OPPOSITE = dict(PAIRS)
 OPPOSITE.update({b: a for a, b in PAIRS.items()})

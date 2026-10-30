@@ -28,7 +28,10 @@ def _device(kind, name):
 
 
 def problems(jarvis):
+    """What's wrong right now, {key: spoken line}. Also refreshes jarvis.mutes (what's muted, for the tray icon);
+    a mute you asked for yourself isn't a problem, so it's shown but never said."""
     found = {}
+    mic = out = None
     info = dict(line.split(": ", 1) for line in _pactl("info").splitlines() if ": " in line)
 
     source = info.get("Default Source", "")
@@ -39,7 +42,8 @@ def problems(jarvis):
         if not mic:
             found["mic"] = "Your microphone isn't connected."
         elif mic["mute"]:
-            found["mic"] = "Your microphone is muted."
+            if "mic" not in jarvis.muted_on_purpose:
+                found["mic"] = "Your microphone is muted."
         elif mic["volume"] < LOW_MIC_VOLUME:
             found["mic"] = "Your microphone volume is only %d percent, so I may not hear you." % mic["volume"]
     wake = getattr(jarvis, "wake", None)
@@ -53,10 +57,13 @@ def problems(jarvis):
         out = _device("sink", sink)
         if not out:
             found["speaker"] = "The speaker isn't connected."
-        elif out["mute"]:
+        elif out["mute"] and "speaker" not in jarvis.muted_on_purpose:
             found["speaker"] = "The speaker is muted."
+    # speaker.enabled is whether a voice is installed at all; speaker.muted is quiet mode, which you chose.
     if not jarvis.speaker.enabled:
         found["voice"] = "My voice isn't working: Piper and spd-say are both missing."
+    jarvis.show_mutes(_asked=False, voice=jarvis.speaker.muted,
+                      mic=bool(mic and mic["mute"]), speaker=bool(out and out["mute"]))
 
     whisper = getattr(jarvis, "whisper", None)
     if whisper and getattr(jarvis, "rest", "") != "starting" and not whisper._ping():

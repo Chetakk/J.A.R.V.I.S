@@ -52,7 +52,7 @@ HELP = """Commands:
   /list     show all commands
   /reload   reload the YAML files
   /new      start a fresh conversation with Claude
-  /mute     toggle speech
+  /mute [voice|mic|sound] [on|off]   mute my voice, the microphone or the speaker (/mute alone: my voice)
   /chat [on|off]   show/hide the chat panel   (or say "show chat" / "hide chat")
   /orb [on|off]    show/hide the floating orb (or say "show orb" / "hide orb")
   /hearing [on|off]  show everything speech recognition hears in the chat ("show what you hear")
@@ -77,6 +77,11 @@ terminal), "stop avtec hs", "what's running", "links for avtec hs", "open avtec 
 OPEN_CLAUDE = {"open claude", "open claude terminal", "open claude code", "talk to claude"}
 OPEN_CLAUDE_VSCODE = {"open claude in vs code", "open claude in vscode", "open claude code in vs code",
                       "open claude code in vscode"}
+# /mute <what>: the three things that can be muted, and the words for each.
+MUTE_WHAT = {"voice": "voice", "speech": "voice", "me": "voice", "jarvis": "voice", "yourself": "voice",
+             "mic": "mic", "microphone": "mic", "input": "mic",
+             "sound": "sound", "speaker": "sound", "speakers": "sound", "audio": "sound", "output": "sound"}
+
 ASK_CLAUDE_VSCODE = re.compile(r"^(?:ask|tell) claude(?: code)? in (?:vs ?code) (?:to )?(.+)$", re.IGNORECASE)
 # JARVIS itself, not an app or a project called Jarvis (%s: its names): "close Jarvis", "restart yourself".
 QUIT_ME = r"^(?:close|quit|exit|shut ?down|turn off|switch off|kill) (?:yourself|%s)$"
@@ -166,6 +171,8 @@ class Jarvis:
         self.rest = "starting"  # state to return to when not busy: starting / idle / off
         self.load()
         self.show_hearing = bool((self.settings.get("ui") or {}).get("show_hearing", True))
+        self.mutes = {"voice": False, "mic": False, "speaker": False}  # what's muted now: the tray icon shows it
+        self.muted_on_purpose = set()  # of those, the ones you asked for; system/health.py doesn't warn about those
         self.speaker = Speaker(self.settings.get("speech") or {})
         self.speaker.on_say = self._said
         self.speaker.on_message = lambda msg: self.inbox.put(("ctl", msg))  # handled on the main loop
@@ -689,6 +696,33 @@ class Jarvis:
             parts.append("%s reads your answers in the chat instead of hearing them" % user)
         return " | ".join(parts)
 
+    def _mute(self, arg):
+        """/mute [voice|mic|sound] [on|off]: one thing at a time, one direction ("on" means muted). With no
+        argument it toggles my own voice. The tray icon uses this, so clicking a box never asks a question
+        you would have to answer out loud (and a muted mic couldn't hear the answer)."""
+        words = arg.lower().split()
+        what = next((MUTE_WHAT[w] for w in words if w in MUTE_WHAT), "voice")
+        on = {"on": True, "off": False, "yes": True, "no": False}.get(
+            next((w for w in words if w in ("on", "off", "yes", "no")), ""))
+        if what == "voice":
+            self.skills.voice_prefs.quiet(not self.speaker.muted if on is None else on)
+        elif what == "mic":
+            self.skills.audio.mic_mute(not self.mutes["mic"] if on is None else on, ask=False)
+        else:
+            self.skills.audio.sound_mute(not self.mutes["speaker"] if on is None else on)
+
+    def show_mutes(self, _asked=True, **changed):
+        """Remember what's muted (voice / mic / speaker) and put it on the tray icon. _asked=False when this is
+        only what the system reports, not something you asked me for: health.py may still warn about those."""
+        for key, value in changed.items():
+            self.mutes[key] = bool(value)
+            if not value:
+                self.muted_on_purpose.discard(key)
+            elif _asked:
+                self.muted_on_purpose.add(key)
+        if self.ui:
+            self.ui.set_mutes(**self.mutes)
+
     def control(self, msg):
         """A message from tools/jarvis (the Claude terminal, a fix task, VS Code): show a card or do a phrase."""
         if isinstance(msg.get("show"), dict):
@@ -1017,8 +1051,7 @@ class Jarvis:
             self.claude.new_session()
             self.speaker.say(["Sure, fresh start with Claude.", "Okay, starting a new conversation with Claude."])
         elif cmd == "/mute":
-            self.speaker.enabled = not self.speaker.enabled
-            print("speech %s" % ("on" if self.speaker.enabled else "off"))
+            self._mute(arg)
         elif cmd == "/hearing":
             on = {"on": True, "off": False}.get(arg.strip().lower())
             self.show_hearing = (not self.show_hearing) if on is None else on

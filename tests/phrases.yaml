@@ -7,7 +7,7 @@
 "close chrome": "app:close Google Chrome"
 "volume down": command:volume_down
 "turn the sound up": command:volume_up
-"mute": command:mute
+"mute": skill:sound_mute
 "set volume to 40": command:set_volume
 "take a screenshot": command:screenshot
 "screenshot area": command:screenshot_area
@@ -297,9 +297,9 @@
 "it's too loud": command:volume_down
 "set the volume to 50": command:set_volume
 "volume 30 percent": command:set_volume
-"mute the sound": command:mute
-"unmute": command:mute
-"mute my mic": command:mute_mic
+"mute the sound": skill:sound_mute
+"unmute": skill:sound_mute
+"mute my mic": skill:mic_mute
 "play sound on the echo dot": skill:output
 "switch to headphones": skill:output
 "screenshot this window": command:screenshot_window
@@ -397,12 +397,12 @@
 "set volume to 60": "command:set_volume"
 "volume at 20": "command:set_volume"
 "put the sound at 75 percent": "command:set_volume"
-"mute everything": "command:mute"
-"silence the speakers": "command:mute"
-"unmute the sound": "command:mute"
-"mute the microphone": "command:mute_mic"
-"turn off my mic": "command:mute_mic"
-"unmute my mic": "command:mute_mic"
+"mute everything": "skill:sound_mute"
+"silence the speakers": "skill:sound_mute"
+"unmute the sound": "skill:sound_mute"
+"mute the microphone": "skill:mic_mute"
+"turn off my mic": "skill:mic_mute"
+"unmute my mic": "skill:mic_mute"
 "play audio through the echo dot": skill:output
 "use the echo": skill:output_named
 "send sound to the usb speaker": skill:output
@@ -776,9 +776,9 @@
 "hide the orb": "slash:/orb off"
 "show what you hear": "slash:/hearing on"
 "hide what you hear": "slash:/hearing off"
-"mute yourself": "slash:/mute"
-"stop speaking out loud": "slash:/mute"
-"unmute yourself": "slash:/mute"
+"mute yourself": "slash:/mute voice on"
+"stop speaking out loud": "slash:/mute voice on"
+"unmute yourself": "slash:/mute voice off"
 "reload your settings": "slash:/reload"
 "list your commands": "slash:/list"
 # window layouts
@@ -1078,7 +1078,7 @@
 "mic volume 40 percent": skill:mic_volume
 "turn the mic up": skill:mic_volume
 "lower my microphone": skill:mic_volume
-"mute my mic": command:mute_mic
+"mute my mic": skill:mic_mute
 "switch to the github tab": skill:find_tab
 # Notifications (skills/notifications.py), in memory only
 "any new notifications": skill:read
@@ -1211,7 +1211,7 @@
 "change the speaker": "skill:ask_audio_output"
 "change the mic": "skill:ask_mic"
 "switch the microphone": "skill:ask_mic"
-"turn off my mic": "command:mute_mic"
+"turn off my mic": "skill:mic_mute"
 "install something": "skill:ask_install"
 "uninstall an app": "skill:ask_uninstall"
 "make a folder": "skill:ask_folder"

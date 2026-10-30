@@ -45,7 +45,7 @@ def test_brief_and_detailed(jv, speaker):
 
 def test_quiet_mode_mutes_and_survives_a_restart(jv, speaker):
     jv.do("quiet mode")
-    assert speaker.muted and jv.ui.calls[-1] == ("show_chat", (True,))
+    assert speaker.muted and ("show_chat", (True,)) in jv.ui.calls  # (set_mutes follows: the tray icon)
     speaker.muted = False  # a restart: a fresh speaker, then the saved prefs applied
     jv.j.skills.voice_prefs.apply()
     assert speaker.muted

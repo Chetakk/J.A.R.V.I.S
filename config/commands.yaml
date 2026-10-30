@@ -145,17 +145,9 @@ commands:
     run: "pactl set-sink-volume @DEFAULT_SINK@ {level}%"
     reply: ["Okay, {level} percent", "Got it, {level}"]
 
-  - name: mute
-    say: [mute, unmute, toggle mute, mute sound]
-    run: pactl set-sink-mute @DEFAULT_SINK@ toggle
-    reply: ["Got it", "Okay"]
-
-  - name: mute_mic
-    say: [mute microphone, unmute microphone, mute mic, unmute mic, toggle microphone]
-    run: pactl set-source-mute @DEFAULT_SOURCE@ toggle
-    risk: confirm
-    ask: "Toggle the microphone? If it goes off I won't hear you until you unmute it."
-    reply: ["Microphone toggled", "Done, mic toggled"]
+  # Muting lives in skills/audio.py, not here: "mute the sound" / "unmute the sound" / "mute the mic" each go
+  # one way only (a toggle turned "unmute" into "mute" whenever nothing was muted), the mic asks first, and the
+  # tray icon shows what's muted. Unmuting the mic is the tray icon's job: by then JARVIS can't hear you.
 
   # --- screen ---
   - name: screenshot

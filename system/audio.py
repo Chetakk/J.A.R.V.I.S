@@ -92,6 +92,12 @@ def switch(device):
     return ok
 
 
+def set_mute(device, on):
+    """Mute (on=True) or unmute a speaker or microphone. True if pactl took it."""
+    ok, _ = _pactl("set-%s-mute" % device.kind, device.name, "1" if on else "0")
+    return ok
+
+
 def set_volume(device, percent):
     ok, _ = _pactl("set-%s-volume" % device.kind, device.name, "%d%%" % max(0, min(150, percent)))
     if ok and device.mute and percent > 0:

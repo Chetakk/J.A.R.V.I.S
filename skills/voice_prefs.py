@@ -66,6 +66,11 @@ class VoicePrefs(Skill):
             if not spk.sink:
                 spk.muted = True  # private, but the headphones aren't here: say nothing out loud
         spk.on_sink_lost = self._sink_lost
+        self._show()
+
+    def _show(self):
+        """Quiet mode is JARVIS's voice muted: the tray icon shows it, whichever way it was set."""
+        self.j.show_mutes(voice=self.j.speaker.muted)
 
     def speed(self, m):
         word = next(g for g in m.groups() if g).lower()
@@ -98,6 +103,7 @@ class VoicePrefs(Skill):
             self.j.memory.set_pref("private", None)
             spk.sink = None
             spk.muted = bool(self.j.memory.pref("quiet"))
+            self._show()
             self.say("Okay, I'm back on the speaker." if not spk.muted else
                      "Okay. I'm still in quiet mode, so I'll keep writing in the chat.")
             return
@@ -125,10 +131,12 @@ class VoicePrefs(Skill):
             self.j.speaker.muted = bool(self.j.memory.pref("private")) and not self.j.speaker.sink
             self.say("Okay, I'm talking again." if not self.j.speaker.muted else
                      "I'm still in private mode and your headphones aren't here, so I'll keep writing.")
+        self._show()
 
     def _sink_lost(self):
         """The headphones went away in private mode: nothing out loud; write instead."""
         self.j.speaker.muted = True
+        self._show()
         self.j.chat("sys", "Your headphones disconnected, so I've gone quiet. Say private mode off to use the "
                            "speaker again.")
         if self.j.ui:

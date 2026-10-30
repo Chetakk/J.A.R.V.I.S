@@ -84,7 +84,8 @@ switch audio to echo dot: [switch to the echo dot, play on the echo dot, sound t
 
 # --- added 2026-10-29: the full feature list, more ways of saying each ---
 open documents: [take me to my documents, show me my documents, open my documents folder]
-mute: [mute everything, silence the speakers, unmute the sound, turn off the sound, no sound]
+mute the sound: [mute everything, silence the speakers, turn off the sound, no sound, silence my computer]
+unmute the sound: [turn the sound back on, bring the sound back, sound back on, i want sound again]
 take a screenshot: [capture the screen, grab my screen, screenshot the whole screen, take a picture of the screen]
 lock screen: [lock it, lock the computer now, lock up]
 night light on: [turn on the blue light filter, warm screen, warm colours, enable night light]
@@ -116,7 +117,10 @@ open my latest download: [open the last file i downloaded, open what i just down
 how long is left on my focus: [how much focus time is left, focus time left, how long until focus ends]
 show orb: [show the orb, bring back the orb, show yourself]
 hide orb: [hide the orb, hide yourself, get the orb out of the way]
-/mute: [mute yourself, stop speaking out loud, unmute yourself, speak again, be silent from now on, talk again]
+# JARVIS's own voice (quiet mode). One way at a time, never a toggle: "unmute yourself" must never mute it.
+# The speaker and the microphone are above; skills/audio.py handles those.
+"/mute voice on": [mute yourself, stop speaking out loud, be silent from now on]
+"/mute voice off": [unmute yourself, speak again, talk again]
 /reload: [reload your settings, reload yourself, refresh your settings, reload the config]
 /list: [list your commands, show your commands, what commands do you have]
 "go to workspace {n}": ["take me to workspace {n}", "show workspace {n}", "open workspace {n}"]
@@ -172,7 +176,8 @@ ask for the value:
   delete a file: [trash a file, remove a file, delete some files]
 
 # --- more wordings found while checking those
-mute microphone: [turn off my mic, turn off the mic, unmute my mic, turn my mic back on, turn on my mic]
+mute the mic: [turn off my mic, turn off the mic, mute my microphone, cut my mic]
+unmute the mic: [unmute my mic, turn my mic back on, turn on my mic]
 focus mode: [start focusing, i need to focus, i want to focus, help me focus, time to focus, focus time, let me concentrate, i need to concentrate]
 open claude in vs code: [ask claude in vs code, ask claude in vscode, talk to claude in vs code]
 

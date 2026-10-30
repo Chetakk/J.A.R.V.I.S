@@ -22,9 +22,10 @@ LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "t
           "claude": "Asking Claude...", "speaking": "Speaking", "off": "Voice input off",
           "starting": "Starting voice..."}
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
+MUTED = {"voice": "my voice muted", "speaker": "speaker muted", "mic": "mic muted"}
 ORB = 78
 CLAUDE_RGB = (0.85, 0.47, 0.34)  # Claude's warm orange, as in the chat bubbles
-PANEL_W, PANEL_H = 390, 500
+PANEL_W, PANEL_H = 390, 640
 CHAT_KEEP = 200  # messages kept in the panel
 
 CSS = b"""
@@ -67,10 +68,14 @@ SOLID_CSS = b"""
 ORB_LOOK = {"glass": ((0.32, 0.33, 0.35, 0.62), (0.17, 0.18, 0.19, 0.52), 0.14, (0.38, 0.6)),
             "solid": ((0.34, 0.34, 0.36, 0.95), (0.11, 0.11, 0.12, 0.90), 0.09, (0.22, 0.45))}
 
-# Tray icons: white/grey rings, one per state.
+# Tray icons: white/grey rings, one per state, plus the two that say what's muted. A slash through the ring
+# means you won't hear JARVIS (its voice muted, or the speaker muted); grey means it can't hear you (mic muted).
 ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
 <circle cx="11" cy="11" r="8.5" fill="none" stroke="#{ring}" stroke-width="1.6" {dash}/>
-<circle cx="11" cy="11" r="{core}" fill="#{fill}"/></svg>"""
+<circle cx="11" cy="11" r="{core}" fill="#{fill}"/>{slash}</svg>"""
+SLASH = ('<line x1="4.6" y1="17.4" x2="17.4" y2="4.6" stroke="#{ring}" stroke-width="2.2" '
+         'stroke-linecap="round"/>')
+DEAF = dict(ring="777777", fill="777777")  # the microphone is muted: JARVIS can't hear you at all
 ICONS = {"idle": dict(ring="bbbbbb", core=2.6, fill="ffffff", dash=""),
          "listening": dict(ring="ffffff", core=4.2, fill="ffffff", dash=""),
          "thinking": dict(ring="ffffff", core=2.6, fill="bbbbbb", dash='stroke-dasharray="4 3"'),
@@ -78,6 +83,11 @@ ICONS = {"idle": dict(ring="bbbbbb", core=2.6, fill="ffffff", dash=""),
          "speaking": dict(ring="ffffff", core=3.6, fill="ffffff", dash=""),
          "off": dict(ring="777777", core=2.2, fill="777777", dash=""),
          "starting": dict(ring="999999", core=2.2, fill="999999", dash='stroke-dasharray="1 3"')}
+
+
+def _icon_name(state, silent, deaf):
+    """The tray icon for a state and what's muted; _build_tray writes one SVG per combination."""
+    return "jarvis-%s%s%s" % (state, "-silent" if silent else "", "-deaf" if deaf else "")
 
 
 def _make_transparent(win):
@@ -118,6 +128,7 @@ class UI:
         self.orb_hide_after = float(cfg.get("orb_hide_after", 4))
         self.card_hide_after = float(cfg.get("card_hide_after", 30))  # with a card open, both go after this
         self._quiet_since = None
+        self.mutes = {"voice": False, "mic": False, "speaker": False}  # kept up to date by set_mutes()
         self._build_orb()
         self._build_panel()
         from ui.card import Card  # needs the names above, so imported here
@@ -133,6 +144,10 @@ class UI:
 
     def set_state(self, state):
         GLib.idle_add(self._set_state, state)
+
+    def set_mutes(self, voice=None, mic=None, speaker=None):
+        """What's muted now: the tray icon and its check boxes follow."""
+        GLib.idle_add(self._set_mutes, voice, mic, speaker)
 
     def add_chat(self, who, text):
         GLib.idle_add(self._add_chat, who, text)
@@ -523,8 +538,12 @@ class UI:
         icon_dir = os.path.join(RUN_DIR, "icons")
         os.makedirs(icon_dir, exist_ok=True)
         for name, v in ICONS.items():
-            with open(os.path.join(icon_dir, "jarvis-%s.svg" % name), "w") as f:
-                f.write(ICON_SVG.format(**v))
+            for silent in (False, True):
+                for deaf in (False, True):
+                    look = dict(v, **(DEAF if deaf else {}))
+                    look["slash"] = SLASH.format(ring=look["ring"]) if silent else ""
+                    with open(os.path.join(icon_dir, _icon_name(name, silent, deaf) + ".svg"), "w") as f:
+                        f.write(ICON_SVG.format(**look))
         ind = self.tray = AppIndicator3.Indicator.new("jarvis", "jarvis-idle",
                                                       AppIndicator3.IndicatorCategory.APPLICATION_STATUS)
         ind.set_icon_theme_path(icon_dir)
@@ -546,9 +565,15 @@ class UI:
         sys_item = Gtk.CheckMenuItem(label="System mode (no Claude)")
         sys_item.connect("toggled", lambda i: self.on_command("/sys" if i.get_active() else "/agent"))
         m.append(sys_item)
-        mute_item = Gtk.CheckMenuItem(label="Mute voice")
-        mute_item.connect("toggled", lambda i: self.on_command("/mute"))
-        m.append(mute_item)
+        # Three separate mutes. Unmuting the microphone can only happen here: once it's muted JARVIS is deaf,
+        # so no spoken command could ever reach it. Each box sends /mute <what> on|off, which never asks.
+        self.mute_items = {}
+        for key, label in (("voice", "Mute JARVIS's voice"), ("speaker", "Mute the speaker"),
+                           ("mic", "Mute the microphone")):
+            item = Gtk.CheckMenuItem(label=label)
+            item.connect("toggled", self._menu_mute)
+            self.mute_items[key] = item
+            m.append(item)
         m.append(Gtk.SeparatorMenuItem())
         for label, command in (("Open Claude terminal", "open claude"),
                                ("Open Claude in VS Code", "open claude in vs code"),
@@ -572,6 +597,25 @@ class UI:
     def _menu_chat(self, item):
         self._set_chat(item.get_active())
 
+    def _menu_mute(self, item):
+        what = next(k for k, i in self.mute_items.items() if i is item)
+        self.mutes[what] = item.get_active()
+        self._refresh()
+        self.on_command("/mute %s %s" % ({"speaker": "sound"}.get(what, what),
+                                         "on" if item.get_active() else "off"))
+
+    def _set_mutes(self, voice, mic, speaker):
+        for key, value in (("voice", voice), ("mic", mic), ("speaker", speaker)):
+            if value is not None:
+                self.mutes[key] = bool(value)
+        for key, item in self.mute_items.items():
+            if item.get_active() != self.mutes[key]:
+                item.handler_block_by_func(self._menu_mute)
+                item.set_active(self.mutes[key])
+                item.handler_unblock_by_func(self._menu_mute)
+        self._refresh()
+        return False
+
     # --- state ---
 
     def _set_state(self, state):
@@ -582,10 +626,14 @@ class UI:
     def _refresh(self):
         shown = "speaking" if self.state == "idle" and self.is_speaking() else self.state
         self._auto_orb(shown in ANIMATED and shown != "starting")
-        if shown != self._shown:
-            self._shown = shown
-            self.tray.set_icon_full("jarvis-%s" % shown, LABELS.get(shown, shown))
-            self.status_item.set_label("JARVIS: %s" % LABELS.get(shown, shown))
+        silent, deaf = self.mutes["voice"] or self.mutes["speaker"], self.mutes["mic"]
+        key = (shown, silent, deaf)
+        if key != self._shown:
+            self._shown = key
+            muted = ", ".join(MUTED[k] for k in ("voice", "speaker", "mic") if self.mutes[k])
+            label = LABELS.get(shown, shown) + (" (%s)" % muted if muted else "")
+            self.tray.set_icon_full(_icon_name(shown, silent, deaf), label)
+            self.status_item.set_label("JARVIS: %s" % label)
             self.title.set_text(LABELS.get(shown, shown))
             dot = self.dot.get_style_context()
             dot.add_class("live") if shown in ANIMATED else dot.remove_class("live")
@@ -595,7 +643,7 @@ class UI:
         return True
 
     def _tick(self):
-        if self._shown not in ANIMATED:
+        if not self._shown or self._shown[0] not in ANIMATED:
             self._anim = None
             self.orb.queue_draw()
             return False

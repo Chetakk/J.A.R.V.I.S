@@ -37,7 +37,7 @@ def test_which_speaker(jv, pulse):
 def test_which_mic_warns_when_muted(jv, pulse):
     pulse.get(USB_MIC)["mute"] = True
     jv.do("which mic are you using")
-    assert jv.says("muted, so I can't hear you")
+    assert jv.says("it's muted", "tray icon")
 
 
 def test_low_mic_is_flagged(jv, pulse):
@@ -139,3 +139,95 @@ def test_play_music_on_youtube_is_not_a_speaker(jv, pulse):
     jv.do("play music on youtube")
     assert not jv.says("I can't find")
     assert not jv.shell.ran(r"set-default-sink")
+
+
+# --- muting: the speaker, the microphone and JARVIS's own voice, each on its own and one way at a time ---
+
+def test_mute_the_sound_mutes_the_speaker(jv, pulse):
+    jv.do("mute the sound")
+    assert pulse.get(USB)["mute"] is True
+    assert jv.says("muted")
+    assert jv.j.mutes["speaker"] and "speaker" in jv.j.muted_on_purpose
+
+
+def test_unmute_never_mutes(jv, pulse):
+    """A toggle made "unmute" mute the speaker whenever nothing was muted."""
+    jv.do("unmute")
+    assert pulse.get(USB)["mute"] is False
+    assert jv.says("not muted")
+
+
+def test_unmute_the_sound_brings_it_back(jv, pulse):
+    pulse.get(USB)["mute"] = True
+    jv.j.show_mutes(speaker=True)
+    jv.do("unmute the sound")
+    assert pulse.get(USB)["mute"] is False
+    assert not jv.j.mutes["speaker"] and "speaker" not in jv.j.muted_on_purpose
+
+
+def test_muting_the_mic_asks_first_and_says_what_can_undo_it(jv, pulse):
+    jv.do("mute the mic", "yes")
+    assert jv.questions == ["Mute the mic? I won't hear you after that."]
+    assert pulse.get(USB_MIC)["mute"] is True
+    assert jv.says("mic's off", "tray icon")
+    assert jv.j.mutes["mic"]
+
+
+def test_saying_no_leaves_the_mic_on(jv, pulse):
+    jv.do("mute the mic", "no")
+    assert pulse.get(USB_MIC)["mute"] is False
+    assert jv.says("mic stays on") and not jv.j.mutes["mic"]
+
+
+def test_the_tray_mutes_and_unmutes_the_mic_without_asking(jv, pulse):
+    """Unmuting the mic can only come from the tray icon: by then JARVIS can't hear a spoken answer."""
+    jv.do("/mute mic on")
+    assert pulse.get(USB_MIC)["mute"] is True and not jv.questions
+    jv.do("/mute mic off")
+    assert pulse.get(USB_MIC)["mute"] is False and not jv.questions
+    assert jv.says("mic's back") and not jv.j.mutes["mic"]
+
+
+def test_a_mute_you_asked_for_is_not_reported_as_a_fault(jv, pulse):
+    from system import health
+    jv.do("mute the sound")
+    jv.do("mute the mic", "yes")
+    found = health.problems(jv.j)
+    assert "speaker" not in found and "mic" not in found
+    assert jv.j.mutes["speaker"] and jv.j.mutes["mic"]  # still shown on the tray icon
+
+
+def test_a_mute_you_did_not_ask_for_is_still_reported(jv, pulse):
+    from system import health
+    pulse.get(USB)["mute"] = True
+    pulse.get(USB_MIC)["mute"] = True
+    found = health.problems(jv.j)
+    assert found.get("speaker") == "The speaker is muted."
+    assert found.get("mic") == "Your microphone is muted."
+    assert jv.j.mutes["speaker"] and jv.j.mutes["mic"] and not jv.j.muted_on_purpose
+
+
+def test_quiet_mode_is_not_a_broken_voice(jv, pulse):
+    """/mute used to turn the speech engine off, so the watchdog announced that Piper and spd-say were missing."""
+    from system import health
+    enabled = jv.j.speaker.enabled
+    jv.do("/mute voice on")
+    assert jv.j.speaker.muted and jv.j.speaker.enabled == enabled
+    assert jv.j.mutes["voice"]
+    jv.j.speaker.enabled = True
+    assert "voice" not in health.problems(jv.j)
+
+
+def test_unmute_yourself_never_mutes_jarvis(jv, pulse):
+    jv.do("unmute yourself")
+    assert not jv.j.speaker.muted and not jv.j.mutes["voice"]
+
+
+def test_the_mute_replies_are_short(jv, pulse):
+    """They used to be a paragraph each ("...use Mute the microphone on my tray icon, or type unmute mic...")."""
+    for phrase, answers in (("mute the sound", ()), ("unmute the sound", ()), ("unmute the mic", ()),
+                            ("mute the mic", ("yes",)), ("mute the mic", ())):
+        jv.clear()
+        jv.do(phrase, *answers)
+        for line in jv.said:
+            assert len(line) <= 60, (phrase, line)
