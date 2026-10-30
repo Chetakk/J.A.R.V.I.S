@@ -51,3 +51,45 @@ def test_currency_goes_to_claude(jv):
 def test_huge_powers_are_not_computed_locally(jv):
     jv.do("what's 9 to the power of 99999")  # would hang JARVIS working it out
     assert jv.claude.asked("power of 99999")
+
+
+@pytest.mark.parametrize("text, answer", [
+    ("what is two plus two", "4."),
+    ("twelve times seven", "84."),
+    ("one hundred and twenty plus five", "125."),
+    ("three point five times two", "7."),
+    ("half of 90", "45."),
+    ("one third of 90", "30."),
+    ("two thirds of 90", "60."),
+    ("double 45", "90."),
+    ("20 percent off 500", "400."),
+    ("increase 200 by 10 percent", "220."),
+    ("reduce 80 by 25 percent", "60."),
+    ("500 plus 18 percent gst", "590."),
+    ("15 percent tip on 80", "12 tip, so 92 in total."),
+    ("what percent is 30 of 120", "25 percent."),
+    ("30 is what percent of 120", "25 percent."),
+    ("cube root of 27", "3."),
+    ("10 factorial", "3,628,800."),
+    ("average of 4, 6 and 8", "6."),
+    ("sum of 1 2 and 3", "6."),
+    ("sin 30", "0.5."),
+    ("log of 1000", "3."),
+])
+def test_everyday_maths(jv, text, answer):
+    jv.do(text)
+    assert jv.said == [answer]
+    assert not jv.claude.calls
+
+
+def test_mixed_units_and_spoken_numbers(jv):
+    jv.do("5 feet 10 inches in cm")
+    assert jv.said == ["5 feet 10 inches is 177.8 cm."]
+    jv.do("five miles in km")
+    assert jv.said[-1] == "5 miles is 8.047 km."
+
+
+@pytest.mark.parametrize("text", ["tan 90", "100 dollars in rupees", "what is a plus b"])
+def test_leaves_what_it_cannot_do(jv, text):
+    jv.do(text)
+    assert not any(s.endswith(".") and s[:1].isdigit() for s in jv.said)

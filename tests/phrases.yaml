@@ -1438,3 +1438,20 @@
 "search the web for jetson orin nx and tell me": skill:web
 "what does the web say about whisper.cpp": skill:web
 "look up cuda online": skill:web
+
+# Maths said every way (skills/maths.py)
+"what is two plus two": skill:maths
+"twelve times seven": skill:maths
+"half of 90": skill:maths
+"one third of 90": skill:maths
+"double 45": skill:maths
+"20 percent off 500": skill:maths
+"increase 200 by 10 percent": skill:maths
+"15 percent tip on 80": skill:maths
+"what percent is 30 of 120": skill:maths
+"cube root of 27": skill:maths
+"10 factorial": skill:maths
+"average of 4, 6 and 8": skill:maths
+"sin 30": skill:maths
+"5 feet 10 inches in cm": skill:units_mixed
+"100 dollars in rupees": claude
