@@ -84,3 +84,53 @@ def test_an_unknown_project_is_handed_on(jv):
     project(jv, "avtec-hs")
     jv.do("open the zebra project")
     assert not jv.shell.ran(r"^code ")
+
+
+# --- the focused window: "push", "git status" and Claude's fallback mean the project you're looking at ---
+
+def focus_vscode(jv, name, other="main.py"):
+    jv.desktop.add("%s — %s — Visual Studio Code" % (other, name), "code Code")
+
+
+def test_git_status_without_a_name_is_the_focused_vs_code_project(jv):
+    project(jv, "avtec-hs")
+    focus_vscode(jv, "avtec-hs")
+    jv.shell.on(r"^git -C .*avtec-hs status", out="## main...origin/main\n")
+    jv.do("git status")
+    assert jv.said == ["avtec-hs is clean, on branch main."]
+
+
+def test_push_goes_to_the_focused_project_after_asking(jv):
+    path = project(jv, "avtec-hs")
+    focus_vscode(jv, "avtec-hs")
+    jv.do("push", "yes")
+    assert jv.shell.ran("^git -C %s push$" % path)
+
+
+def test_push_declined_runs_nothing(jv):
+    project(jv, "avtec-hs")
+    focus_vscode(jv, "avtec-hs")
+    jv.do("push", "no")
+    assert not jv.shell.ran("push")
+
+
+def test_push_with_no_project_in_focus_says_so(jv):
+    jv.desktop.add("Document — LibreOffice Writer", "soffice Soffice")
+    jv.j.projects.current = None
+    jv.do("push")
+    assert not jv.shell.ran("push") and jv.says("can't tell which project")
+
+
+def test_terminal_title_with_a_projects_folder_counts(jv):
+    path = project(jv, "avtec-hs")
+    jv.desktop.add("biztel@jetson: %s/src" % path, "gnome-terminal-server Gnome-terminal")
+    jv.do("which project is this")
+    assert jv.says("You're in")
+
+
+def test_claude_fallback_is_told_the_focused_window_and_project(jv):
+    path = project(jv, "avtec-hs")
+    focus_vscode(jv, "avtec-hs")
+    jv.do("deploy this to staging")
+    sent = jv.claude.asked("Focused window")
+    assert sent and "avtec-hs" in sent[-1] and path in sent[-1]

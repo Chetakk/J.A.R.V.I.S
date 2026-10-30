@@ -29,12 +29,25 @@ _PAGE = re.compile(r"\.(?:pdf|html?|svg|png|jpe?g|gif|webp|txt|json|md|xml|mp3|m
 
 
 class Dev(Skill):
+    group = "coding"
+    about = "git status, projects in VS Code, the project you worked on, tests and jobs via Claude Code"
+    phrases = ("git status of <project>", "open <project> project", "open the project I was working on yesterday",
+               "open <folder, file or project> in <app>", "run the tests in <project>",
+               "ask claude to <task> in <project> project")
+    output = "speech, VS Code or a terminal opened"
+    permission = "auto"
+    verify = "the launch is watched for a window or an error"
+
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.projects = jarvis.projects
 
     def patterns(self):
         return [
+            (r"(?:git )?(push|pull|fetch)(?: (?:this|it|the code|my changes|the project|this project))?(?: to github)?",
+             self.git_sync),
+            (r"(?:which|what) project (?:is this|am i (?:in|on))|what am i (?:working on|looking at)",
+             lambda m: self.which_project()),
             (r"git status(?: (?:of|for|in))?(?: (?:the )?(.+?)(?: project)?)?|(?:any )?changes in (?:the )?(.+?)(?: project)?|"
              r"what changed in (?:the )?(.+?)(?: project)?", self.git_status),
             (r"(?:%s)(?: with| on)? (?:the |my |that )?(?:(?:last|latest|previous|most recent|recent) )?project(?:%s)?"
@@ -53,7 +66,8 @@ class Dev(Skill):
 
     def git_status(self, m):
         name = next((g for g in m.groups() if g), None)
-        path = self._project_path(name) if name else os.path.join(PROJECTS, "J.A.R.V.I.S")
+        focused = None if name else self.projects.focused()
+        path = self._project_path(name) if name else (focused.path if focused else os.path.join(PROJECTS, "J.A.R.V.I.S"))
         if not path:
             return False if name else None
         if not os.path.isdir(os.path.join(path, ".git")):
@@ -72,6 +86,27 @@ class Dev(Skill):
         else:
             self.say("%s on branch %s: %d changed file%s and %d new." % (
                 os.path.basename(path), branch, len(changed), "" if len(changed) == 1 else "s", len(new)))
+
+    def git_sync(self, m):
+        """push / pull / fetch in the project of the window you're looking at (git asks you first)."""
+        p = self.projects.focused()
+        if not (p and os.path.isdir(os.path.join(p.path, ".git"))):
+            self.say("I can't tell which project you mean. Click its VS Code window, or say its name.")
+            return
+        verb = m.group(1).lower()
+        self.j.executor.run("git -C %s %s" % (shlex.quote(p.path), verb), output=True, timeout=60,
+                            reply="%s %s." % (verb.capitalize(), p.spoken),
+                            question="%s %s?" % (verb.capitalize(), p.spoken))
+
+    def which_project(self):
+        win = desktop.active_window()
+        p = self.projects.focused()
+        if p:
+            self.say("You're in %s." % p.spoken)
+        elif win and win.title:
+            self.say("You're in %s, and I don't see a project in it." % win.title.split(" \u2014 ")[-1])
+        else:
+            self.say("I can't tell which window you're in.")
 
     def open_project(self, m):
         name = m.group(1) or m.group(2)

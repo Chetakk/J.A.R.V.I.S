@@ -119,6 +119,34 @@ class Projects:
             return self._pick(next(iter(names[close[0]])))
         return None
 
+    def focused(self):
+        """The project of the window you're looking at: a VS Code title ("file - project - Visual Studio Code")
+        or a terminal title that shows a folder inside ~/Projects. Else the one you last named. None if neither."""
+        win = desktop.active_window()
+        if win and "jarvis" in win.wm_class:  # JARVIS's own card/chat: look at what's under it
+            ws = desktop.current_workspace()
+            win = next((w for w in reversed(desktop.windows()) if "jarvis" not in w.wm_class and w.title
+                        and w.workspace in (ws, None)), None)
+        if win:
+            hit = self.in_title(win)
+            if hit:
+                return hit
+        return self.current
+
+    def in_title(self, win):
+        """The project a window's title names, or None."""
+        title = win.title or ""
+        if "code" in win.wm_class:
+            parts = [p.strip() for p in re.split(r"\s[\u2014\u2013-]\s", title)]
+            for part in reversed(parts[:-1]):  # the last part is "Visual Studio Code"
+                hit = self.get(part) or self.find(part, strict=True)
+                if hit:
+                    return hit
+        m = re.search(re.escape(self.root) + r"/([^/\s:]+)|~/Projects/([^/\s:]+)", title)
+        if m:
+            return self.get(m.group(1) or m.group(2))
+        return None
+
     def get(self, folder):
         """The project in `folder` (its exact name), without making it the current one."""
         return next((p for p in self.items if p.name == folder), None)

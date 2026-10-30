@@ -28,7 +28,7 @@ except ImportError:
 from core import context, learned, misslog, persona, undo, verify
 from system import apps, desktop, watchdog
 from system.browser import Browser
-from claude.bridge import Claude, ClaudeError, open_in_vscode
+from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from skills import Skills
 from voice.listen import PushToTalk
@@ -561,7 +561,8 @@ class Jarvis:
             self.claude_says(line)
 
         try:
-            known = " ".join(k for k in (self.projects.context(text), self.skills.notes.for_claude(text)) if k)
+            known = " ".join(k for k in (self._focus_line(), self.projects.context(text),
+                                         self.skills.notes.for_claude(text)) if k)
             answer = self.claude.ask(text + ("\n\n[%s]" % known if known else ""), recent, on_say=speak_early,
                                      image=image, about=self._about())
         except ClaudeError as e:
@@ -654,6 +655,20 @@ class Jarvis:
         task = m.group(2).strip(" ,.")
         said = list(self.talk)[:-1]  # the last line is this request itself
         if POINTS_BACK.search(task) and said:
+    def _focus_line(self):
+        """Which window the user is looking at, and its project, so "push" or "run the tests" means that one."""
+        win = desktop.active_window()
+        if win and "jarvis" in win.wm_class:
+            win = next((w for w in reversed(desktop.windows()) if "jarvis" not in w.wm_class and w.title), None)
+        p = self.projects.focused()
+        if not (win or p):
+            return ""
+        line = "Focused window: %s (%s)." % (win.title or "untitled", win.wm_class.split()[-1]) if win else ""
+        if p:
+            line += " Its project: %s, folder %s. Run git and other commands there (git -C <folder>), not in %s." % (
+                p.name, p.path, WORKSPACE)
+        return line
+
             task += "\n\nWhat was said with JARVIS just before this:\n" + "\n".join(said)
         self._fix_jarvis({"task": task, "size": "big" if m.group(1) else "small"})
         return True
