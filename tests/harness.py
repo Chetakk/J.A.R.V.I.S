@@ -8,6 +8,7 @@ would touch outside itself is fake and recorded.
   speech     what JARVIS says is recorded, never spoken.
   answers    replies to JARVIS's yes/no and "X, or Y?" questions.
   ui         cards and the chat panel: recorded.
+  clipboard  jv.clipboard.text: set by xclip and by a window's copy key (its .selected); read by xclip -o.
   keyring    the GNOME Keyring: a dict (jv.keyring.items); available=False for a desktop without one.
   manual     commands JARVIS put in the manual terminal for you to run: jv.manual, nothing opened.
   screen     jv.screen_changes: whether a window's pixels change after a click (see grab()).
@@ -49,6 +50,7 @@ class Shell:
         self.calls = []  # command lines, in order
         self.inputs = []  # (command line, stdin text) for run(input=...) and Popen stdin writes
         self.missing = set()  # program names shutil.which() doesn't find
+        self.on_input = None  # on_input(command line, stdin text), e.g. the clipboard taking what xclip was given
 
     def on(self, pattern, out="", code=0, err="", raises=None):
         """Rules added later win over earlier ones (put the general ones first).
@@ -80,6 +82,8 @@ class Shell:
         line, out, code, err = self._result(args, kw.get("shell"))
         if input is not None:
             self.inputs.append((line, input.decode() if isinstance(input, bytes) else input))
+            if self.on_input:
+                self.on_input(line, self.inputs[-1][1])
         as_text = text or universal_newlines or kw.get("encoding")
         out, err = (out, err) if as_text else (out.encode(), err.encode())
         if check and code:
@@ -327,6 +331,20 @@ class Hub:
         return copy.deepcopy(self.state)
 
 
+class Clipboard:
+    """The desktop clipboard behind xclip: "xclip -o" reads it, "xclip -selection clipboard" (with input) sets
+    it, and a window's copy key copies its selection into it (see Desktop.keys)."""
+
+    def __init__(self, shell, text=""):
+        self.text = text
+        shell.on(r"^xclip -o", out=lambda line: self.text)
+        shell.on_input = self._set
+
+    def _set(self, line, text):
+        if line == "xclip -selection clipboard":
+            self.text = text
+
+
 class Keyring:
     """The GNOME Keyring (system/keyring.py) as a dict. available=False is a desktop without a keyring daemon."""
 
@@ -348,10 +366,13 @@ class Keyring:
 
 
 class FakeWindow(desktop.Window):
+    """text: what its accessibility tree gives; selected: what its copy key copies; url: a browser's address."""
+
     def __init__(self, wid, title, wm_class, workspace=1, geometry=(0, 0, 800, 600), pid=None, role=None,
-                 frozen=False, text=""):
+                 frozen=False, text="", selected="", url=""):
         super().__init__(wid, title, wm_class, workspace)
         self.geometry, self.pid, self.role, self.frozen, self.text = geometry, pid, role, frozen, text
+        self.selected, self.url = selected, url
 
 
 class Desktop:
@@ -366,6 +387,7 @@ class Desktop:
         self.area = (0, 0, 1920, 1080)
         self.actions = []  # ("focus", title), ("keys", "ctrl+w"), ("click", (x, y)), ...
         self.stuck = set()  # ids of windows that won't move to another workspace
+        self.clipboard = None  # the Clipboard, for copy keys
         self._ids = iter(range(0x1000001, 0x2000000))
 
     def add(self, title, wm_class, front=True, **kw):
@@ -422,6 +444,16 @@ class Desktop:
                 focus(w)
             return bool(w)
 
+        def keys(combo):
+            """A copy key copies the front window's selection (its address after ctrl+l in a browser)."""
+            last = self.did("keys")[-1:]
+            rec(("keys", combo))
+            w = self.active
+            if w is not None and combo in ("ctrl+c", "ctrl+shift+c") and self.clipboard is not None:
+                copied = w.url if last == ["ctrl+l"] else w.selected
+                if copied:
+                    self.clipboard.text = copied
+
         def move_to_workspace(w, n):
             rec(("to_workspace", (title(w), n)))
             real = self._get(w.id)
@@ -449,7 +481,7 @@ class Desktop:
             "minimize": lambda w: rec(("minimize", title(w))),
             "close_window": close_window,
             "move_resize": move_resize,
-            "keys": lambda combo: rec(("keys", combo)),
+            "keys": keys,
             "click": lambda x, y, button=1: rec(("click", (x, y, button))),
             "activate": activate,
             "activate_role": activate_role,
@@ -578,6 +610,7 @@ class JV:
         self.files = {}  # path -> text: what reading that file gives (e.g. "/proc/net/wireless")
         self.desktop.patch(monkeypatch)
         self.keyring = Keyring()
+        self.clipboard = self.desktop.clipboard = Clipboard(shell)
         self.keyring.patch(monkeypatch)
         shell.on(r"^gnome-screenshot ", out=self._screenshot)
         shell.on(r"^gio trash ", out=self._trash)
