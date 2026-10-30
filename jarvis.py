@@ -382,9 +382,8 @@ class Jarvis:
             return self._reword(phrase)
         if not self._rewording and not self.from_claude and sounds_like_follow_up(text):
             self.heard(text, "a follow-up, but there's nothing recent to apply it to")
-            self.speaker.say(["Sorry, I've lost track. What should I do?", "Hmm, more of what?"]
-                             if context.MORE.match(text) or context.LESS.match(text)
-                             else "Sorry, I've lost track. What should I do?")
+            lost = persona.lines("lost_track", persona.address(self.settings))
+            self.speaker.say(lost if context.MORE.match(text) or context.LESS.match(text) else lost[0])
             return True
         self._text = text  # what's being handled (the rewritten phrase, when one was), for self.context
         if low in CHAT_PHRASES:
@@ -494,7 +493,7 @@ class Jarvis:
             self.heard(text, "ignored (too short or unclear to ask Claude)")
             self._miss(text, "unclear")
             self.recent.append("JARVIS ignored that (too short or unclear)")
-            self.speaker.say(["Sorry, I didn't catch that.", "Sorry, could you say that again?"])
+            self.speaker.say(persona.lines("didnt_catch", persona.address(self.settings)))
             return True
         if self._unsure(text):
             return True
@@ -504,8 +503,7 @@ class Jarvis:
             return True
         self._miss(text, "claude" if self.mode != "sys" else "unknown")
         if self.mode == "sys":
-            self.speaker.say(["Sorry, that one's not on my list, and I can't ask Claude in system mode.",
-                              "Hmm, I don't know that one yet. Switch to agent mode and I can ask Claude."])
+            self.speaker.say(persona.lines("not_on_list", persona.address(self.settings)))
         else:
             self._ask_claude(text)
         return True
@@ -561,7 +559,7 @@ class Jarvis:
         if self.ask("You usually %s around now. Want me to?" % cmd["say"][0]):
             self.handle(cmd["say"][0])
         else:
-            self.speaker.say(["No problem.", "Okay, maybe later."])
+            self.speaker.say(persona.lines("never_mind", persona.address(self.settings)))
 
     def _ask_claude(self, text, image=None):
         recent = list(self.recent)[:-1]  # the last line is this request itself
@@ -569,7 +567,10 @@ class Jarvis:
         self.chat("sys", "Asking Claude (%s)..." % self.claude.model)
         self.state("claude")
         if not image:
-            self.speaker.say("Asking Claude.")  # always the same, so you know Claude is answering
+            if re.search(r"\bclaude\b", text, re.I):
+                self.speaker.say("Asking Claude.")  # you named Claude, so say so
+            else:
+                self.speaker.say(["Let me think.", "Thinking.", "Let me think for a bit.", "One moment, thinking."])
         # If Claude is slow, say something now and then so the silence doesn't feel broken.
         fillers = [threading.Timer(delay, self.speaker.say, [lines]) for delay, lines in (
             (6, ["Still on it.", "Almost there.", "Just a moment more."]),
@@ -590,7 +591,7 @@ class Jarvis:
             answer = self.claude.ask(text + ("\n\n[%s]" % known if known else ""), recent, on_say=speak_early,
                                      image=image, about=self._about())
         except ClaudeError as e:
-            self.speaker.say("Sorry, I ran into a problem: %s." % str(e).rstrip("."))
+            self.speaker.say(persona.lines("problem", persona.address(self.settings), str(e).rstrip(".")))
             return
         finally:
             self.recent.clear()  # Claude has seen it now
@@ -631,7 +632,7 @@ class Jarvis:
             print("  command: %s" % command)
             self.chat("sys", "command: %s" % command)
             if answer["run_now"]:
-                out = self.executor.run(command, reply=["Done.", "All done.", "There you go."],
+                out = self.executor.run(command, reply=persona.lines("done"),
                                         output=bool(answer["output"]),
                                         question=["Want me to run it?", "Should I go ahead and run it?"],
                                         on_output=lambda o: o if 0 < len(o) <= 120 else "")
@@ -863,9 +864,9 @@ class Jarvis:
         elif not command:
             self.claude_says(say)
         elif self.ask(say):
-            self.executor.run(command, reply=["Done.", "There you go."], output=True)
+            self.executor.run(command, reply=persona.lines("done"), output=True)
         else:
-            self.speaker.say(["Okay, no worries.", "Sure, never mind."])
+            self.speaker.say(persona.lines("never_mind", persona.address(self.settings)))
 
     def _save(self, save, ran=""):
         """Offer to add Claude's suggested shortcut to commands.yaml; it's only saved if you say yes."""
@@ -918,7 +919,7 @@ class Jarvis:
         uses = self.memory.used(match.name, habit=bool(cmd.get("window")) and not match.slots)
         reply = match.reply()
         if uses > 5 and not cmd.get("output") and random.random() < 0.6:
-            reply = ["Done.", "Got it.", "Okay."]  # You know this one by now; no need to spell it out.
+            reply = persona.lines("done")  # You know this one by now; no need to spell it out.
         if cmd.get("window"):
             self.last_app = cmd.get("process", os.path.basename(cmd["run"].split()[0])) or None
         self.executor.run(match.shell(), reply=reply, output=cmd.get("output", False),
@@ -1076,7 +1077,7 @@ class Jarvis:
             return True
         cmd = next((c for c in self.registry.commands if c["name"] == self.last_undo), None)
         if not cmd:
-            self.speaker.say(["Sorry, I can't undo that one.", "Hmm, there's nothing I can undo right now."])
+            self.speaker.say(persona.lines("cant_undo", persona.address(self.settings)))
             return True
         self.last_undo = None
         self.heard("undo", "runs %s" % cmd["name"])
@@ -1243,8 +1244,7 @@ def run_loop(jarvis, has_ui):
         if kind == "voice":
             print(line or "(didn't catch that: the recording was silent or unclear)")
             if not line:
-                jarvis.speaker.say(["Sorry, I didn't catch that.", "Sorry, could you say that again?",
-                                    "Hmm, I missed that. One more time?"])
+                jarvis.speaker.say(persona.lines("didnt_catch", persona.address(jarvis.settings)))
                 jarvis.state(jarvis.rest)
                 jarvis.follow_up()
                 continue
