@@ -12,6 +12,8 @@
 auto:
   - jarvis              # tools/jarvis: say / show a card / do a JARVIS phrase
   - xdg-open
+  - npm --prefix /home/biztelai/Projects/study-budd run dev   # Study Buddy (run_study_buddy)
+  - curl -s -o /dev/null http://127.0.0.1:7314              # is Study Buddy already up
   - google-chrome
   - firefox
   - code
