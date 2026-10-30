@@ -275,6 +275,7 @@ class Jarvis:
         except Exception as e:
             print("[intent] meaning matcher off: %r" % e)
         self.chat_replies = None  # its own replies to chat ("do you have any pets?"), before Claude
+        self._chat_asked = None  # the topic of its question you're now answering ("Do you have any pets?")
         cfg = self.settings.get("chat_replies") or {}  # enabled: false turns them off; threshold: how close
         if self.intents and cfg.get("enabled", True):
             try:
@@ -371,6 +372,8 @@ class Jarvis:
         self.talk.append("User: %s" % text)
         self.transcript.append("User: %s" % text)
         low = text.lower()
+        if not self._rewording and not self.from_claude:  # whatever you say next, its question is answered
+            self._chat_asked = self.chat_replies.take() if self.chat_replies else None
         if undo.UNDO.match(text):
             return self._undo()
         phrase = None if self._rewording else self.context.follow_up(text)
@@ -460,7 +463,14 @@ class Jarvis:
         if match:
             self.handled(text, "fuzzy", (match.command.get("say") or [""])[0], value=bool(match.slots))
             return self._run_match(match)
-        # Chat that isn't a request ("do you have any pets?"): its own reply, no Claude needed.
+        # Chat that isn't a request ("do you have any pets?"): its own reply, no Claude needed. First, your answer
+        # to what it just asked you ("yes, a dog"); a question of your own goes on and is matched as usual.
+        if self._chat_asked and not self.from_claude:
+            reply = self.chat_replies.answer(self._chat_asked, text, persona.address(self.settings), self.name)
+            if reply:
+                self.heard(text, "your answer to its question (%s)" % self._chat_asked)
+                self.speaker.say(reply)
+                return True
         reply = None if self.from_claude or not self.chat_replies else self.chat_replies.reply(
             text, persona.address(self.settings), self.name, self.settings.get("real_name"))
         if reply:
@@ -534,7 +544,10 @@ class Jarvis:
             self.speaker.say("Sorry, I'm not sure what to close. Tell me the app's name.")
         else:
             # Reminders live in the day tracker now (skills/todos.py).
-            reply = persona.small_talk(text, user, self.name, self.names, self.settings.get("real_name"))
+            # A short "nope" or "pretty good" to its own question gets an answer that fits, not the usual small talk.
+            reply = self.chat_replies.answer(self._chat_asked, text, user, self.name, quick=True) \
+                if self._chat_asked and not self.from_claude else None
+            reply = reply or persona.small_talk(text, user, self.name, self.names, self.settings.get("real_name"))
             if not reply:
                 return False
             self.speaker.say(reply)

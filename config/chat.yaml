@@ -2,7 +2,8 @@
 # A wording is matched by meaning (the MiniLM model), so it needn't be said word for word.
 # Most wordings are user messages from HumanLLMs/Human-Like-DPO-Dataset (only the prompts, not its answers).
 # Replies: {name} = how JARVIS addresses you (settings call_me: sir / Ckay), {real} = your name (real_name),
-# {me} = JARVIS's name. Edit freely.
+# {me} = JARVIS's name. then: what to say to your answer when a reply asked you something (yes / no / good /
+# bad / other); a missing kind uses a general line, a missing other goes on as usual. Edit freely.
 travel_recent:
   replies:
   - I've been to every folder on this disk. Downloads is the wildest. Have you been anywhere nice?
@@ -179,6 +180,16 @@ travel_recent:
   - what's your favorite travel destination and why did you love it?
   - have you ever traveled to a place that completely surprised you?
   - have you ever taken a road trip?
+  then:
+    'yes':
+    - Lucky you. I'd love to hear about it some time.
+    - Nice. Hope it was a good break.
+    'no':
+    - Maybe soon. You've earned a trip.
+    - Fair enough. Home's not bad either.
+    other:
+    - Sounds lovely. Add it to my list of places I'll never see.
+    - Nice. I'm a little jealous.
 travel_dream:
   replies:
   - Somewhere with fast Wi-Fi and a good cooling fan. Where would you go?
@@ -441,6 +452,10 @@ travel_dream:
   - that's so cool that you're into photography - what's the most memorable shot you've ever taken, and what made it so special?
   - what's the most beautiful place you've ever seen in person, and what made it so stunning?
   - what's the most amazing thing you've ever seen or experienced?
+  then:
+    other:
+    - Good choice, {name}. Take me with you.
+    - Ooh, nice pick. I'd fit in a suitcase.
 music:
   replies:
   - I'll listen to whatever you play. Say play music and I'll put some on.
@@ -841,6 +856,16 @@ concerts:
   - what's the most memorable concert you've ever attended?
   - what's the most memorable concert or music festival you've ever attended?
   - if you could attend any music festival or concert, what would it be?
+  then:
+    'yes':
+    - Nice. Live music beats my speaker any day.
+    - Lucky. I'd have loved the sound.
+    'no':
+    - Maybe this year's the one.
+    - Fair. Front row at my speaker is free, at least.
+    other:
+    - That sounds like a great night.
+    - Nice. Live music is something special.
 learning_skills:
   replies:
   - I'd like to understand you better every time you talk to me. I'm getting there.
@@ -2084,6 +2109,10 @@ free_time:
   - have you ever tried a new activity or sport that you were really bad at? What was it?
   - have you ever tried a new activity or sport that you loved?
   - have you ever tried any extreme sports or activities?
+  then:
+    other:
+    - Sounds good. Better than watching CPU temperatures.
+    - Nice. You should do more of that.
 exercise:
   replies:
   - My only workout is the cooling fan. How about you?
@@ -2207,6 +2236,16 @@ exercise:
   - do you have a favorite type of exercise or activity that always gets you moving?
   - do you have a favorite type of sport or activity? Why do you enjoy it?
   - what's the best way you like to stay active or exercise?
+  then:
+    'yes':
+    - Good. I'll count that as a win.
+    - Nice. Keep it up, {name}.
+    'no':
+    - Even a short walk helps. Just saying.
+    - Fair. Maybe a short walk later, then.
+    other:
+    - Good stuff. Keep it up, {name}.
+    - Nice. That's more than my cooling fan does.
 books:
   replies:
   - I've read every README in your projects. Some were thrilling.
@@ -2953,6 +2992,16 @@ pets:
   - if you could be any animal for a day, what would you be?
   - if you could have a conversation with an animal, which one would you choose and why?
   - if you could be an animal for a day, which animal would you choose?
+  then:
+    'yes':
+    - Lovely. Give them a pat from me.
+    - Nice. Pets make a home.
+    'no':
+    - Fair enough. Less hair on the keyboard.
+    - Me neither. We can share the mouse.
+    other:
+    - Lovely. Give them a pat from me.
+    - Aw. Tell them I said hi.
 food:
   replies:
   - I run on electricity. Not much flavour, but very filling.
@@ -3564,6 +3613,16 @@ food:
   - do you prefer trying new foods or sticking with what you know and love?
   - do you prefer trying new foods or sticking to what you know and love?
   - do you prefer trying new foods or sticking with old favorites?
+  then:
+    'yes':
+    - Go eat something, {name}. I'll be here.
+    - Then go grab a bite. I'll hold the fort.
+    'no':
+    - Okay. Don't forget to eat later, though.
+    - Good. Remember to eat later.
+    other:
+    - Sounds tasty. Enjoy it.
+    - Nice. Enjoy your meal, {name}.
 drinks:
   replies:
   - I'm more of a power-supply person. Coffee or tea for you?
@@ -3642,6 +3701,10 @@ drinks:
   - do you have a go-to coffee order, or are you a tea person?
   - do you have a go-to coffee order?
   - what's your go-to order at your favorite coffee shop or restaurant?
+  then:
+    other:
+    - Good choice. Enjoy it.
+    - Nice. I'll stick to electricity.
 passions:
   replies:
   - Getting things done before you finish asking.
@@ -4338,6 +4401,16 @@ dreams:
   - have you ever had a strange or fascinating dream?
   - have you ever had a weird dream that stuck with you long after you woke up?
   - have you ever had a dream job or career goal that you're working towards?
+  then:
+    'yes':
+    - Strange ones are the best. Probably just your brain tidying up.
+    - Dreams are weird. Tell me about it some time.
+    'no':
+    - Good. A quiet night, then.
+    - Lucky you. Peaceful sleep.
+    other:
+    - That's wonderfully strange.
+    - Brains are odd. That's a good one.
 morning_person:
   replies:
   - I'm an all-day person. I never switch off.
@@ -4518,6 +4591,13 @@ sports:
   - are you a fan of any sports teams? Which ones?
   - do you have a favorite sports team or player that you love to cheer for?
   - are you a fan of any particular sports team or athlete?
+  then:
+    'no':
+    - No team? Fair enough. Less heartbreak.
+    - Fair. More time for everything else.
+    other:
+    - Good team. I'm with you.
+    - Then they're my team too.
 gifts:
   replies:
   - The best gift I got was a faster speech model. You gave me that, {name}.
@@ -4824,6 +4904,10 @@ creative:
   - what's the most inspiring story you've ever heard?
   - what's the most creative project you've ever worked on?
   - what's the most exciting project you've worked on recently?
+  then:
+    other:
+    - Sounds interesting. Tell me if I can help with it.
+    - Nice. Good luck with it, {name}.
 social_media:
   replies:
   - No accounts for me. I just watch you scroll.
@@ -4949,6 +5033,15 @@ how_week:
   - what's been the best part of your week so far?
   - what's the best thing that's happened to you this year?
   - how was your week? Do anything exciting?
+  then:
+    good:
+    - Glad to hear it, {name}.
+    - Nice. Long may it last.
+    bad:
+    - Sorry, {name}. Hope the rest of it goes better.
+    - That's rough. I'm here if you need anything.
+    other:
+    - Thanks for telling me. Hope the rest of it goes well.
 fashion:
   replies:
   - I'm wearing a black orb. It goes with everything.
