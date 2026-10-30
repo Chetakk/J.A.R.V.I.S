@@ -23,7 +23,7 @@ from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
 from ui.window import ORB, PANEL_W, _clear, _make_transparent  # noqa: E402
 
-CARD_W, CARD_MAX_H = 380, 520
+CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel (PANEL_H)
 HISTORY = 10
 POS_FILE = os.path.expanduser("~/.local/share/jarvis/card.json")
 
@@ -105,7 +105,7 @@ def plain(card):
 def _label(markup, cls=None, mono=False):
     lab = Gtk.Label(xalign=0, wrap=True, selectable=True)
     lab.set_line_wrap_mode(2)  # word, then char
-    lab.set_max_width_chars(48)
+    lab.set_max_width_chars(56)
     if mono:
         lab.set_text(markup)
         lab.set_line_wrap(False)
@@ -265,6 +265,7 @@ class Card:
         inner.pack_start(head, False, False, 0)
 
         self.body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.body.set_margin_end(6)  # room for the scrollbar
         scroll = self.scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.add(self.body)
@@ -312,7 +313,7 @@ class Card:
         self.buttons.set_visible(bool(choices(card)))
         # Wrapped labels don't pass their height up through a ScrolledWindow, so measure it: grow to fit,
         # scroll beyond CARD_MAX_H.
-        _, natural = self.body.get_preferred_height_for_width(CARD_W - 28)
+        _, natural = self.body.get_preferred_height_for_width(CARD_W - 34)
         self.scroll.set_min_content_height(min(natural, CARD_MAX_H))
         self.win.resize(CARD_W, 1)  # shrink to fit the new content
         self.visible = True
