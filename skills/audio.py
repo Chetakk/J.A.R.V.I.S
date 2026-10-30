@@ -22,7 +22,10 @@ DEVICE_WORDS = "|".join(p for p, _ in audio.ALIASES)
 NAMED = r"(?:the |my )?(?:%s)(?: speakers?)?" % DEVICE_WORDS  # "use the echo", "switch to headphones"
 ECHO_HELP = ("The Echo Dot isn't connected right now. In the Alexa app, open its Bluetooth devices and tap "
              "biztelai-desktop; it stays connected after that.")
-TRAY_HINT = "my tray icon turns it back on"
+# How it sounds when I'm not listening and you ask me something: always says where to find me again.
+NOT_LISTENING = ["Okay, I'm not listening. Don't worry, the tray icon brings me back.",
+                 "Alright, I'll stay quiet. Tray icon wakes me up whenever.",
+                 "Got it, not listening. Don't worry, I'm in the tray."]
 # Muting the speaker and muting the microphone, each in its own direction (no toggles: "unmute" only unmutes).
 MUTE_SOUND = (r"mute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)?|"
               r"silence (?:the )?(?:sound|audio|speakers?|everything)|"
@@ -107,7 +110,7 @@ class Audio(Skill):
             self.say("Sound is going to %s, at %d percent%s." % (d.label, d.volume, ", but it's muted" if d.mute else ""))
             return
         if self.j.deaf:
-            self.say("I've stopped listening. %s." % TRAY_HINT.capitalize())
+            self.say("I'm not listening right now. The tray icon brings me back.")
             return
         if d.mute:
             self.say("I'm listening on %s, but it's muted in the system." % d.label)
@@ -186,11 +189,12 @@ class Audio(Skill):
             if d.mute != on:
                 self.say("Sorry, %s didn't take it." % d.label)
             else:
-                self.say("Already muted." if on else "It's not muted.")
+                self.say("It's already muted." if on else "Sound's already on.")
             return
         self.j.show_mutes(speaker=on)
         self.j.last_undo = lambda: self.sound_mute(not on)
-        self.say(["Muted.", "Sound's off."] if on else ["Sound's back.", "Unmuted."])
+        self.say(["Okay, sound's off.", "Done, it's quiet now.", "Muted."] if on
+                 else ["Okay, sound's back.", "There you go, sound's back."])
 
     def mic_mute(self, on, ask=True):
         """JARVIS stops listening (or starts again). Only JARVIS: the system microphone stays live, so Zoom,
@@ -198,15 +202,15 @@ class Audio(Skill):
         heard: the tray icon (or typing in the chat) turns it back on."""
         j = self.j
         if j.deaf == on:
-            self.say(("I'm already not listening. %s." % TRAY_HINT.capitalize()) if on else "I'm listening.")
+            self.say("I'm already not listening, don't worry." if on else "I'm already listening.")
             return
-        if on and ask and not j.ask("Stop listening? I won't hear you after that."):
-            self.say(["Okay, still listening.", "Leaving it on."])
+        if on and ask and not j.ask("Want me to stop listening? Only the tray icon brings me back."):
+            self.say(["Okay, I'm still here.", "Alright, still listening."])
             return
         j.deaf = on
         j.show_mutes(mic=on)
         j.last_undo = lambda: self.mic_mute(not on, ask=False)
-        self.say(("Not listening. %s." % TRAY_HINT.capitalize()) if on else ["Listening again.", "I can hear you."])
+        self.say(NOT_LISTENING if on else ["I'm back, I can hear you.", "Okay, I'm listening again."])
 
     def mic_volume(self, to=None, up=None):
         d = audio.current("source")

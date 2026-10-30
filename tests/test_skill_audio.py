@@ -154,7 +154,7 @@ def test_unmute_never_mutes(jv, pulse):
     """A toggle made "unmute" mute the speaker whenever nothing was muted."""
     jv.do("unmute")
     assert pulse.get(USB)["mute"] is False
-    assert jv.says("not muted")
+    assert jv.says("already on")
 
 
 def test_unmute_the_sound_brings_it_back(jv, pulse):
@@ -167,16 +167,16 @@ def test_unmute_the_sound_brings_it_back(jv, pulse):
 
 def test_muting_the_mic_stops_only_jarvis_and_asks_first(jv, pulse):
     jv.do("mute the mic", "yes")
-    assert jv.questions == ["Stop listening? I won't hear you after that."]
+    assert jv.questions == ["Want me to stop listening? Only the tray icon brings me back."]
     assert jv.j.deaf and jv.j.mutes["mic"]
     assert pulse.get(USB_MIC)["mute"] is False  # the system microphone stays live for other apps
-    assert jv.says("not listening", "tray icon")
+    assert jv.says("not listening", "tray icon")  # always says how to get me back
     assert not any("set-source-mute" in c for c in jv.shell.calls)
 
 
 def test_saying_no_leaves_jarvis_listening(jv, pulse):
     jv.do("mute the mic", "no")
-    assert not jv.j.deaf and jv.says("still listening")
+    assert not jv.j.deaf and jv.says("still")
 
 
 def test_the_tray_stops_and_resumes_listening_without_asking(jv, pulse):
@@ -235,10 +235,21 @@ def test_unmute_yourself_never_mutes_jarvis(jv, pulse):
 
 
 def test_the_mute_replies_are_short(jv, pulse):
-    """They used to be a paragraph each ("...use Mute the microphone on my tray icon, or type unmute mic...")."""
+    """Short and said like a person, not a status line. They used to be a paragraph each ("...use Mute the microphone on my tray icon, or type unmute mic...")."""
     for phrase, answers in (("mute the sound", ()), ("unmute the sound", ()), ("unmute the mic", ()),
                             ("mute the mic", ("yes",)), ("mute the mic", ())):
         jv.clear()
         jv.do(phrase, *answers)
         for line in jv.said:
-            assert len(line) <= 60, (phrase, line)
+            assert len(line) <= 75, (phrase, line)
+
+
+def test_the_mute_replies_sound_like_a_person(jv, pulse):
+    """No "Muted." / "Unmuted." status words alone for the mic: it reassures and says how to get me back."""
+    import re
+    robotic = re.compile(r"^(?:muted|unmuted|mic's (?:off|back)|not listening|listening again)\.?$", re.I)
+    for phrase, answers in (("mute the mic", ("yes",)), ("/mute mic off", ()), ("mute the mic", ("no",))):
+        jv.clear()
+        jv.do(phrase, *answers)
+        for line in jv.said:
+            assert not robotic.match(line), line
