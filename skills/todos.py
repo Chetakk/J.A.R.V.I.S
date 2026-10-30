@@ -11,6 +11,7 @@ import threading
 import time
 
 from skills.base import Skill
+from system import productvt
 from skills.daytracker import DayTracker, HubDown, new_id, spoken
 
 TODO = r"(?:to ?-?dos?|todo list|to ?do list|task list|tasks)"
@@ -80,6 +81,8 @@ class Todos(Skill):
     def __init__(self, jarvis, watch=True):
         super().__init__(jarvis)
         self.hub = DayTracker(jarvis)
+        # With ProducTVT set up (the tray's config), todos live there, so its top-bar tray and web app show them.
+        self.pv = productvt.Todos() if productvt.available() else None
         if watch:
             threading.Thread(target=self._watch, daemon=True, name="reminders").start()
 
@@ -109,6 +112,8 @@ class Todos(Skill):
                 return fn(self, *a)
             except HubDown:
                 self.say("The day tracker isn't running. Start it with: systemctl --user start day-tracker.")
+            except productvt.Unavailable as e:
+                self.say(str(e))
         wrapped.__name__ = fn.__name__
         return wrapped
 
@@ -129,13 +134,19 @@ class Todos(Skill):
 
     # --- todos ---
 
+    def _open(self):
+        """Open todos, newest first, as {text, ...}: from ProducTVT when it's set up, else the Day Tracker."""
+        if self.pv:
+            return [{"id": t["id"], "text": t["title"]} for t in self.pv.open()]
+        todos = [t for t in self._list("todos") if not t.get("done")]
+        return sorted(todos, key=lambda t: -t.get("created", 0))
+
     @_guard
     def read(self):
-        todos = [t for t in self._list("todos") if not t.get("done")]
+        todos = self._open()
         if not todos:
             self.say("Your todo list is clear.")
             return
-        todos.sort(key=lambda t: -t.get("created", 0))
         top = [t["text"] for t in todos[:MAX_READ]]
         more = len(todos) - len(top)
         line = "You have %d open todo%s: %s" % (len(todos), "" if len(todos) == 1 else "s", "; ".join(top))
@@ -147,8 +158,11 @@ class Todos(Skill):
         if text.lower().startswith("to "):  # "add a todo to call Ravi"
             text = text[3:]
         text = text[:1].upper() + text[1:]
-        self._change("todos", lambda items: items.append(
-            {"id": new_id(), "text": text[:200], "done": False, "created": int(time.time() * 1000)}))
+        if self.pv:
+            self.pv.add(text[:200])
+        else:
+            self._change("todos", lambda items: items.append(
+                {"id": new_id(), "text": text[:200], "done": False, "created": int(time.time() * 1000)}))
         self.say("Added %s to your todos." % text)
 
     @_guard
@@ -157,6 +171,9 @@ class Todos(Skill):
 
         def tick(items):
             open_ = [t for t in items if not t.get("done")]
+            return pick(open_)
+
+        def pick(open_):
             texts = [t["text"].lower() for t in open_]
             hits = [t for t, x in zip(open_, texts) if want in x]
             if not hits:
@@ -165,7 +182,12 @@ class Todos(Skill):
                 hits[0]["done"] = True
             return hits
 
-        hits = self._change("todos", tick)
+        if self.pv:
+            hits = pick(self._open())
+            if len(hits) == 1:
+                self.pv.set_done(hits[0]["id"])
+        else:
+            hits = self._change("todos", tick)
         if not hits:
             return False  # not a todo: let the request carry on
         if len(hits) > 1:
@@ -270,8 +292,9 @@ class Todos(Skill):
 
     def _watch(self):
         while True:
-            time.sleep(15)
+            time.sleep(5)
             try:
+                self.hub.finish_countdown()  # "study for 25 minutes" ran out: logged and said
                 now = time.time() * 1000
                 if not any(not r.get("said") and r["at"] <= now for r in self._list("reminders")):
                     continue
