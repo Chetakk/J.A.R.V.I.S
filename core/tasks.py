@@ -12,6 +12,7 @@ import re
 import subprocess
 import time
 
+from core.store import load_json, save_json
 from system import desktop
 
 STATE_DIR = os.path.expanduser("~/.local/share/jarvis")
@@ -212,10 +213,8 @@ def save(task):
 
 def load():
     """The task that was on when JARVIS last ran, or None. One that was running is paused now (cut off)."""
-    try:
-        with open(TASK_FILE) as f:
-            task = json.load(f)
-    except (OSError, ValueError):
+    task = load_json(TASK_FILE, None)
+    if not isinstance(task, dict):
         return None
     if task.get("state") == "running":
         task["state"], task["why"] = "paused", "I was restarted in the middle of it"
@@ -230,20 +229,14 @@ def finish(task):
     history = past()
     history.append(task)
     try:
-        os.makedirs(STATE_DIR, exist_ok=True)
-        with open(HISTORY_FILE, "w") as f:
-            json.dump(history[-KEEP:], f)
+        save_json(HISTORY_FILE, history[-KEEP:])
         os.remove(TASK_FILE)
     except OSError:
         pass
 
 
 def past():
-    try:
-        with open(HISTORY_FILE) as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return []
+    return load_json(HISTORY_FILE, [])
 
 
 # --- what you see ---

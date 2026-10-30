@@ -4,6 +4,7 @@ import os
 import re
 import time
 
+from core.store import load_json, save_json
 from skills.base import Skill
 from skills.helpers import HOME
 from system import desktop
@@ -24,26 +25,18 @@ class WhereWasI(Skill):
         if re.match(r"^(?:where was i|where did i (?:leave|stop) off|catch me up|(?:continue|carry on|pick up) "
                     r"(?:from )?where i)\b", text, re.IGNORECASE):
             return
+        log = (load_json(WHERE_FILE, []) + [[time.time(), text]])[-20:]
         try:
-            with open(WHERE_FILE) as f:
-                log = json.load(f)
-        except (OSError, ValueError):
-            log = []
-        log = (log + [[time.time(), text]])[-20:]
-        try:
-            with open(WHERE_FILE, "w") as f:
-                json.dump(log, f)
+            save_json(WHERE_FILE, log)
         except OSError:
             pass
 
     def unlog(self):
         """Drop the request just logged (it was private: a secret, a private note)."""
         try:
-            with open(WHERE_FILE) as f:
-                log = json.load(f)
+            log = load_json(WHERE_FILE, [])
             if log and time.time() - log[-1][0] < 300:
-                with open(WHERE_FILE, "w") as f:
-                    json.dump(log[:-1], f)
+                save_json(WHERE_FILE, log[:-1])
         except (OSError, ValueError, IndexError, TypeError):
             pass
 

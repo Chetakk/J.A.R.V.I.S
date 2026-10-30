@@ -8,6 +8,8 @@ import re
 
 import yaml
 
+from core.store import keep_damaged
+
 PATH = os.path.expanduser("~/.local/share/jarvis/learned.yaml")
 
 
@@ -15,7 +17,13 @@ def load(path=None):
     try:
         with open(path or PATH, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-    except (OSError, yaml.YAMLError):
+    except OSError:
+        data = {}
+    except yaml.YAMLError:  # a slip while editing it by hand: keep it, or the next save would wipe your wordings
+        keep_damaged(path or PATH)
+        data = {}
+    if not isinstance(data, dict):
+        keep_damaged(path or PATH)
         data = {}
     return {"wordings": dict(data.get("wordings") or {}), "declined": list(data.get("declined") or [])}
 

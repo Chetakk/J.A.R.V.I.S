@@ -11,6 +11,7 @@ import time
 
 import yaml
 
+from core.store import load_json, save_json
 from skills.base import Skill
 from skills.helpers import HOME, and_list, or_list
 from system import desktop
@@ -43,11 +44,7 @@ class Layouts(Skill):
                 layouts = yaml.safe_load(f) or {}
         except (OSError, yaml.YAMLError):
             layouts = {}
-        try:
-            with open(SAVED) as f:
-                layouts.update(json.load(f))
-        except (OSError, ValueError):
-            pass
+        layouts.update(_saved())
         return {k.lower(): v for k, v in layouts.items() if isinstance(v, dict) and v.get("windows")}
 
     def _named(self, said, layouts):
@@ -167,17 +164,11 @@ class Layouts(Skill):
             if opener and self.j.registry.match_exact(opener):
                 item["open"] = opener
             items.append(item)
-        try:
-            with open(SAVED) as f:
-                saved = json.load(f)
-        except (OSError, ValueError):
-            saved = {}
+        saved = _saved()
         if name in saved and not self.j.ask("You already have a %s layout. Replace it?" % name):
             return
         saved[name] = {"workspace": ws, "windows": items}
-        os.makedirs(os.path.dirname(SAVED), exist_ok=True)
-        with open(SAVED, "w") as f:
-            json.dump(saved, f, indent=1)
+        save_json(SAVED, saved, indent=1)
         self.j.chat("sys", "saved layout %s: %s" % (name, json.dumps(items)))
         self.say("Saved %d window%s as your %s layout. Say %s layout to bring it back."
                  % (len(items), "" if len(items) == 1 else "s", name, name))
@@ -193,11 +184,7 @@ class Layouts(Skill):
         self.say("You have %s." % and_list("%s" % n for n in sorted(layouts)))
 
     def delete(self, m):
-        try:
-            with open(SAVED) as f:
-                saved = json.load(f)
-        except (OSError, ValueError):
-            saved = {}
+        saved = _saved()
         name = self._named(m.group(1), {k: v for k, v in saved.items() if isinstance(v, dict)})
         if not name:
             if not self._named(m.group(1), self._all()):
@@ -206,9 +193,14 @@ class Layouts(Skill):
             return
         if self.j.ask("Delete your %s layout?" % name):
             del saved[name]
-            with open(SAVED, "w") as f:
-                json.dump(saved, f, indent=1)
+            save_json(SAVED, saved, indent=1)
             self.say("Deleted.")
+
+
+def _saved():
+    """Your saved layouts (a damaged file is kept aside, not saved over)."""
+    saved = load_json(SAVED, {})
+    return saved if isinstance(saved, dict) else {}
 
 
 def _matches(win, app):

@@ -12,6 +12,7 @@ import shutil
 import threading
 import time
 
+from core.store import keep_damaged, load_json, save_json
 from voice.speech import pick
 
 MEMORY = os.path.expanduser("~/.local/share/jarvis/memory.json")
@@ -351,19 +352,15 @@ class Memory:
     def __init__(self, path=MEMORY):
         self.path = path
         self.lock = threading.Lock()
-        try:
-            with open(path) as f:
-                self.data = json.load(f)
-        except (OSError, ValueError):
+        self.data = load_json(path, {})
+        if not isinstance(self.data, dict):
+            keep_damaged(path)
             self.data = {}
         for key, empty in (("uses", {}), ("history", []), ("reminders", []), ("offered", {})):
             self.data.setdefault(key, empty)
 
     def _save(self):
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        with open(self.path + ".tmp", "w") as f:
-            json.dump(self.data, f)
-        os.replace(self.path + ".tmp", self.path)
+        save_json(self.path, self.data)
 
     def seen(self):
         with self.lock:

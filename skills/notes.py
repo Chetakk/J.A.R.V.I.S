@@ -14,13 +14,12 @@
 Recall goes by meaning (the meaning matcher's MiniLM, a few ms per question); the few things that matter for
 a question are passed on to Claude with it.
 """
-import json
 import os
 import re
-import shutil
 import threading
 import time
 
+from core.store import load_json, save_json
 from skills.base import Skill
 from skills.cards import ORDINALS
 from skills.helpers import HOME, words
@@ -60,25 +59,11 @@ STOP = {"i", "me", "you", "your", "is", "are", "was", "to", "in", "on", "at", "i
 
 
 def load_notes():
-    try:
-        with open(NOTES_FILE) as f:
-            return json.load(f)
-    except OSError:
-        return []
-    except ValueError:  # damaged (cut off mid-write?): keep it aside, or the next save would wipe it
-        try:
-            shutil.copy2(NOTES_FILE, "%s.damaged-%d" % (NOTES_FILE, os.path.getmtime(NOTES_FILE)))
-        except OSError:
-            pass
-        return []
+    return load_json(NOTES_FILE, [])
 
 
 def save_notes(notes):
-    os.makedirs(os.path.dirname(NOTES_FILE), exist_ok=True)
-    tmp = NOTES_FILE + ".tmp"  # written whole, then swapped in: a crash can't leave half a file
-    with open(tmp, "w") as f:
-        json.dump(notes, f, indent=1)
-    os.replace(tmp, NOTES_FILE)
+    save_json(NOTES_FILE, notes, indent=1)
 
 
 def _note_line(n):
