@@ -114,7 +114,8 @@ ABILITIES = "\n  ".join((
     "\"next tab\", \"go back\", \"refresh the page\", \"scroll down\", \"zoom in\"",
     "media: \"pause\", \"play\", \"next song\", \"previous song\", \"what's playing\"",
     "clipboard: \"what's on my clipboard\"",
-    "files: \"find my <file>\", \"open the latest download\", \"open the latest file in documents\", \"find pdfs from "
+    "files: \"find my <file>\", \"open the <name> folder\", \"open <folder, file or project> in <app>\" (vs code, files, "
+    "terminal, claude, any installed app), \"open the latest download\", \"open the latest file in documents\", \"find pdfs from "
     "last week\", \"what files did I change today\", \"summarise <file or this pdf>\", \"what does <file> say about X\", "
     "\"summarise the pdfs in downloads\", \"compare <file> and <file>\", \"go through <file> with claude\", \"make a "
     "folder called X in documents\", \"rename <file> to Y\", \"move <file> to <folder>\", \"delete <file>\" (to the "

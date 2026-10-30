@@ -21,6 +21,8 @@ import yaml  # noqa: E402
 import jarvis as J  # noqa: E402
 from skills import controls as J_controls  # noqa: E402
 from skills import copy_between as J_copy  # noqa: E402
+from skills import dev as J_dev  # noqa: E402
+from skills import files as J_files  # noqa: E402
 from skills import documents as J_docs  # noqa: E402
 from skills import frozen as J_frozen  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
@@ -100,6 +102,12 @@ class DryJarvis:
                 J_organise.OTHER_THINGS.search(_first(m)) and not J_docs.sure(_first(m)))
         if obj is self.j.skills.notes:  # "I prefer X, which should I get": a question, for Claude
             passes["casual"] = lambda m: not J_notes.ASKING.search(m.group(0))
+        if obj is self.j.skills.dev:  # "open the projects folder in vs code": not a project, but a folder
+            passes["open_project"] = lambda m: projects.find(_first(m))
+            passes["open_in"] = lambda m: J_dev.open_in_plan(self.j, m.group(1))
+        if obj is self.j.skills.files:  # "open the music folder": only a folder that's there
+            passes["open_folder"] = lambda m: J_files.place(self.j, m.group(1), folder=True) and not \
+                self.j.registry.match_exact(m.group(0))
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

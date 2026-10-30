@@ -3,7 +3,7 @@
 # A skill that would fall through at run time (returns False) still shows as that skill here.
 "open terminal": command:open_terminal
 "open vs code": command:open_vscode
-"open the downloads folder": command:open_downloads
+"open the downloads folder": skill:open_folder
 "close chrome": "app:close Google Chrome"
 "volume down": command:volume_down
 "turn the sound up": command:volume_up
@@ -352,7 +352,7 @@
 "what's my mouse battery": command:peripheral_battery
 "open a terminal": "app:open Terminal"
 "open my downloads": command:open_downloads
-"open the documents folder": command:open_documents
+"open the documents folder": skill:open_folder
 "open settings": command:open_settings
 "open the trash": command:open_trash
 "empty the trash": command:empty_trash
@@ -375,7 +375,7 @@
 "bring up the calculator": "app:open Calculator"
 "open the file manager": "app:open Files"
 "open up my files": "app:open Files"
-"show me my downloads folder": "command:open_downloads"
+"show me my downloads folder": skill:open_folder
 "take me to my documents": "command:open_documents"
 "open the settings app": "app:open Settings"
 "open system settings": "command:open_settings"
@@ -622,6 +622,18 @@
 "what did i work on last": "skill:recent_projects"
 "open the jarvis project in vs code": "skill:open_project"
 "open avtec hs in vs code": "skill:open_project"
+# a folder or file in any app; "open X in chrome" stays the browser's unless X is on this computer
+"open projects folder in vs code": skill:open_in
+"open the downloads folder in vs code": skill:open_in
+"open my documents in files": skill:open_in
+"open the projects folder in terminal": skill:open_in
+"open a terminal in downloads": skill:open_in
+"open jarvis in claude": skill:open_in
+"open youtube in chrome": browser
+"open google.com in firefox": browser
+"open spotify in chrome": browser
+"open projects folder": skill:open_folder
+"open the music folder": skill:open_folder
 "git status": "skill:git_status"
 "git status of avtec hs": "skill:git_status"
 "what changed in jarvis": "skill:git_status"

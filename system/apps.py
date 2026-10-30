@@ -12,7 +12,7 @@ import re
 DIRS = ["/usr/share/applications", "~/.local/share/applications", "/var/lib/snapd/desktop/applications",
         "/var/lib/flatpak/exports/share/applications", "~/.local/share/flatpak/exports/share/applications"]
 # What people call an app, beyond its menu name.
-ALIASES = {"visual studio code": ["vs code", "vscode", "code"], "google chrome": ["chrome"],
+ALIASES = {"visual studio code": ["vs code", "vscode", "code", "code editor", "visual studio"], "google chrome": ["chrome"],
            "gnome system monitor": [], "thunderbird mail": ["thunderbird", "email", "mail"],
            "vlc media player": ["vlc"], "mpv media player": ["mpv"], "aisleriot solitaire": ["solitaire"],
            "pulseaudio volume control": ["pavucontrol", "volume control", "sound mixer"],
@@ -103,7 +103,15 @@ class Apps:
             out["open %s" % app["name"].lower()] = says
         return out
 
-    def launch(self, app):
+    @staticmethod
+    def opens_files(app):
+        """Whether the app can be handed a file or folder to open ("open the projects folder in vs code")."""
         from gi.repository import Gio
         info = Gio.DesktopAppInfo.new_from_filename(app["path"])
-        return bool(info and info.launch([], None))
+        return bool(info and (info.supports_files() or info.supports_uris()))
+
+    def launch(self, app, paths=()):
+        """Start the app, opening `paths` in it (when it takes files: see opens_files)."""
+        from gi.repository import Gio
+        info = Gio.DesktopAppInfo.new_from_filename(app["path"])
+        return bool(info and info.launch([Gio.File.new_for_path(p) for p in paths], None))

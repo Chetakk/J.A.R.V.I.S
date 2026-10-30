@@ -1,21 +1,31 @@
 """Coding on your projects: git status, open in VS Code, run the tests, "ask Claude to ... in X project",
-"open the project I was working on yesterday"."""
+"open the project I was working on yesterday"; and any folder or file in any app ("open the projects folder in
+vs code", "open resume.pdf in writer", "open a terminal in downloads", "open jarvis in claude")."""
 import json
 import os
 import shlex
 import subprocess
+import re
 import urllib.request
 
+from core import verify
 from skills.base import Skill
 from skills.daytracker import HUB
-from skills.files import WHEN, _since
+from skills.files import THIS, WHEN, PLACES, _since, place, spoken_place
 from skills.helpers import PROJECTS
+from system import desktop
 
 # "open / reopen / bring up the project I worked on (yesterday, last time)"
 _BACK_TO = r"open|continue|resume|reopen|go back to|back to|pick up|get back to|bring up|load"
 _WORKED = (r" (?:that |which )?i (?:(?:was|were|have been|'?ve been|had been) (?:working on|on|doing|coding(?: on)?)|"
            r"worked on)")
 _AFTER = r"(?: (?:last time|before|earlier))?(?: in vs ?code)?"
+# "open <folder or file> in <app>" / "open <app> in <folder>"
+_IN = re.compile(r" (?:in|with|using|inside|at|from) (?:a |an |the |my )?", re.IGNORECASE)
+_CLAUDE = re.compile(r"claude(?: code)?", re.IGNORECASE)
+_TERMINAL = re.compile(r"(?:gnome )?terminal|shell|console|command line", re.IGNORECASE)
+_BROWSER = re.compile(r"(?:default |web )?browser", re.IGNORECASE)
+_PAGE = re.compile(r"\.(?:pdf|html?|svg|png|jpe?g|gif|webp|txt|json|md|xml|mp3|mp4)$", re.IGNORECASE)  # a browser shows
 
 
 class Dev(Skill):
@@ -32,6 +42,7 @@ class Dev(Skill):
              r"(?:open|continue|resume|reopen|load) (yesterday|today|last night|this morning)'?s project"
              % (_BACK_TO, _WORKED, WHEN, _AFTER, _BACK_TO, _WORKED, WHEN, _AFTER), self.last_project),
             (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code", self.open_project),
+            (r"open (?:up )?(.+?%s.+?)(?: app)?" % _IN.pattern, self.open_in),
             (r"run (?:the )?tests(?: (?:in|for|of) (?:the )?(.+?)(?: project)?)?", self.run_tests),
             (r"(?:ask|tell|have) claude (?:to )?(.+?) in (?:the )?(.+?) project", self.claude_project),
         ]
@@ -68,6 +79,31 @@ class Dev(Skill):
         if not path:
             return False
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
+
+    def open_in(self, m):
+        plan = open_in_plan(self.j, m.group(1))
+        if not plan:
+            return False  # "open youtube in chrome" is the browser's, "open it in a new window" isn't an app
+        path, kind, app = plan
+        folder = path if os.path.isdir(path) else os.path.dirname(path)
+        if kind == "claude":
+            self.j.claude.open_terminal(cwd=folder)
+            self.say("Opening Claude in %s." % spoken_place(folder))
+        elif kind == "terminal":
+            self.j.executor.run("gnome-terminal --working-directory=%s" % shlex.quote(folder),
+                                reply="Opening a terminal in %s." % spoken_place(folder), window=True)
+        elif not self.j.apps.opens_files(app):
+            self.say("%s can't open files, so I can't open %s in it." % (app["name"], spoken_place(path)))
+        else:
+            desktop.go_to_jarvis_workspace()
+            before = verify.windows_now()
+            if not self.j.apps.launch(app, [path]):
+                verify.record("open %s in %s" % (path, app["name"]), False, "it didn't start")
+                self.say("Hmm, %s didn't start." % app["name"])
+                return
+            verify.launched("open %s in %s" % (path, app["name"]), None, before, True, self.j.executor.notify)
+            self.j.last_app = app["process"] or None
+            self.say("Opening %s in %s." % (spoken_place(path), app["name"]))
 
     def last_project(self, m):
         when = next((g for g in m.groups() if g), None)
@@ -125,3 +161,50 @@ class Dev(Skill):
             return False
         self.j.claude.open_terminal(cwd=path, prompt=m.group(1))
         self.say("Okay, Claude's on it in %s." % os.path.basename(path))
+
+
+def open_in_plan(j, said):
+    """(path, kind, app) for "<folder or file> in <app>" or "<app> in <folder>": kind is "claude", "terminal" or
+    "app" (app: its menu entry). None when one side isn't a folder or file here, or the other isn't an app."""
+    said = re.sub(r"^(?:a|an|the|my) ", "", said.strip(), flags=re.IGNORECASE)
+    for cut in reversed(list(_IN.finditer(said))):
+        left, right = said[:cut.start()], said[cut.end():]
+        for what, where in ((left, right), (right, left)):
+            kind, app = _app(j, where)
+            if not kind:
+                continue
+            if what.lower() in j.registry.sites:
+                return None  # "open youtube in chrome": the website
+            if app and app["process"] in ("chrome", "firefox") and not _local(what):
+                return None  # "open google.com in firefox"
+            path = place(j, what)
+            if path:
+                return path, kind, app
+    return None
+
+
+def _app(j, said):
+    """(kind, menu entry) for the app `said` names: ("claude", None), ("terminal", None), ("app", entry);
+    "the browser" is your default one. (None, None) when it isn't an app."""
+    said = re.sub(r"^(?:a|an|the|my) |(?: app| window)$", "", said.strip(), flags=re.IGNORECASE)
+    if _CLAUDE.fullmatch(said):
+        return "claude", None
+    if _TERMINAL.fullmatch(said):
+        return "terminal", None
+    if _BROWSER.fullmatch(said):
+        from gi.repository import Gio
+        info = Gio.AppInfo.get_default_for_uri_scheme("https")
+        path = info and info.get_filename() if isinstance(info, Gio.DesktopAppInfo) else None
+        app = next((a for a in j.apps.apps if a["path"] == path), None)
+        return ("app", app) if app else (None, None)
+    app = j.apps.find(said)
+    if not app:
+        return None, None
+    return ("terminal", None) if app["process"].startswith("gnome-terminal") else ("app", app)
+
+
+def _local(said):
+    """Sounds like something on this computer, not a website: a folder, a path, "it", "report.pdf"."""
+    said = re.sub(r"^(?:the|my) ", "", said.strip(), flags=re.IGNORECASE)
+    return bool(re.search(r" (?:folder|directory)$", said) or said.lower() in PLACES or said.startswith(("~", "/"))
+                or re.fullmatch(THIS, said, re.IGNORECASE) or _PAGE.search(said))

@@ -1,9 +1,10 @@
 """Files: "open my latest download", "find my resume", "what did I download today", "open the pdf I downloaded
 this morning", "open file ~/Downloads/x.pdf", "find pdfs from last week", "what files did I change today",
-"show the .py files in projects from yesterday". "Find my tax papers" with no name matching looks by meaning
+"show the .py files in projects from yesterday", "open the projects folder". "Find my tax papers" with no name matching looks by meaning
 (the names of the files in your own folders, never what's in them).
 
-which() says what "this file", "it", "resume.pdf" or "my latest download" means, for the other file skills."""
+which() says what "this file", "it", "resume.pdf" or "my latest download" means, for the other file skills;
+place() what "the projects folder", "downloads" or "jarvis" means ("open the projects folder in vs code")."""
 import datetime
 import os
 import re
@@ -14,7 +15,7 @@ import urllib.parse
 import numpy as np
 
 from skills.base import Skill
-from skills.helpers import HOME, and_list, words
+from skills.helpers import HOME, PROJECTS, and_list, words
 from system import desktop
 
 WHEN = (r"today|this morning|this afternoon|this evening|tonight|earlier(?: today)?|yesterday(?: morning| afternoon|"
@@ -41,6 +42,7 @@ FOLDER_RE = (r"(?:(?:my |the )?(documents|downloads|desktop|pictures|videos|musi
              r"((?:~|/)\S+))")
 THIS = (r"(?:this|that|the|it|this one|that one)(?: (?:file|document|doc|pdf|spreadsheet|sheet|presentation|slides|"
         r"deck|picture|image|photo|one))?")
+PLACES = dict({f.lower(): os.path.join(HOME, f) for f in FOLDERS}, home=HOME, projects=PROJECTS)
 FRESH = 10 * 60  # "it" is the file JARVIS last found or opened for this long
 last = {"paths": [], "at": 0.0}  # files JARVIS last found, for "summarise it", "rename it"
 
@@ -49,6 +51,8 @@ class Files(Skill):
     def patterns(self):
         return [
             (r"open (?:the )?file ((?:~|/).+)", self.open_path),
+            # (before the meaning match, which takes "open the music folder" for the music player)
+            (r"(?:open|show(?: me)?|bring up) (?:up )?(.+? (?:folder|directory))", self.open_folder),
             (r"(?:what|which files?|what files?|what stuff) (?:did|have) i (?:just )?download(?:ed)?(?: (%s))?|"
              r"(?:show|list|tell)(?: me)? (?:my |the )?(?:(%s) )?downloads(?: from)? (%s)|"
              r"(?:show|list|tell)(?: me)? (?:what|the files?) i downloaded(?: (%s))?" % (WHEN, KIND_RE, WHEN, WHEN),
@@ -125,6 +129,13 @@ class Files(Skill):
             return
         remember([path])
         self.j.executor.run("xdg-open %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
+
+    def open_folder(self, m):
+        path = place(self.j, m.group(1), folder=True)
+        if not path or self.j.registry.match_exact(m.group(0)):
+            return False  # not a folder here, or a saved command for it ("open the downloads folder")
+        self.j.executor.run("xdg-open %s" % shlex.quote(path), reply="Opening %s." % spoken_place(path),
+                            window=True)
 
     def downloaded(self, m):
         kind = next((KIND_WORDS[g.lower()] for g in m.groups() if g and g.lower() in KIND_WORDS), None)
@@ -317,6 +328,56 @@ def which(j, said):
     hits = _find_files(said)
     exact = [h for h in hits if os.path.basename(h).lower() == said.lower()]
     return (exact or hits[:1]), "name" if hits else None
+
+
+def place(j, said, folder=False):
+    """The folder or file `said` names: "the projects folder", "downloads", "~/src", "jarvis" (a project), "temp"
+    (a folder in your home), "resume.pdf", "it". folder=True: only a folder. None when it's neither (a website,
+    an app, a folder that isn't there)."""
+    said = re.sub(r"^(?:the|my) ", "", said.strip().strip("\"'"), flags=re.IGNORECASE)
+    m = re.fullmatch(r"(.+?) (?:folder|directory)", said, re.IGNORECASE)
+    if m:
+        said, folder = m.group(1), True
+    if said.lower() in PLACES:
+        return PLACES[said.lower()]
+    if said.startswith(("~", "/")):
+        path = os.path.expanduser(said)
+        return path if os.path.isdir(path) or os.path.exists(path) and not folder else None
+    if re.fullmatch(THIS, said, re.IGNORECASE) and not folder:
+        paths, _ = which(j, said)
+        if paths:
+            return paths[0]
+    p = j.projects.find(said, strict=True)
+    if p:
+        return p.path
+    if not folder:
+        paths, _ = which(j, said)
+        if paths:
+            return paths[0]
+    return _folder_named(said)
+
+
+def spoken_place(path):
+    """"your home folder", "the Projects folder", "resume.pdf"."""
+    if path == HOME:
+        return "your home folder"
+    return "the %s folder" % os.path.basename(path) if os.path.isdir(path) else os.path.basename(path)
+
+
+def _folder_named(said, depth=3, seconds=2):
+    """A folder in your home (up to `depth` levels down) called `said`, ignoring case, spaces and dashes."""
+    want = re.sub(r"[^a-z0-9]", "", said.lower())
+    if len(want) < 3:
+        return None
+    deadline = time.time() + seconds
+    for root, dirs, _ in os.walk(HOME):
+        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS)
+        for d in dirs:
+            if re.sub(r"[^a-z0-9]", "", d.lower()) == want:
+                return os.path.join(root, d)
+        if root.count(os.sep) - HOME.count(os.sep) >= depth - 1 or time.time() > deadline:
+            dirs[:] = []
+    return None
 
 
 def front_files(j):
