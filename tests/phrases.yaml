@@ -1455,3 +1455,10 @@
 "sin 30": skill:maths
 "5 feet 10 inches in cm": skill:units_mixed
 "100 dollars in rupees": claude
+"shut off the computer": command:shutdown
+"temperature outside": claude
+"what's the temperature today": claude
+"what's the temperature of the cpu": command:cpu_temp
+"find me the definition of indefatigable": claude
+"delete report.pdf": skill:trash
+"delete my to do list": asks

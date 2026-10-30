@@ -68,6 +68,22 @@ def wrong_kind(said, phrase):
     return bool(DOING.match(said)) and bool(ASKING.match(phrase))
 
 
+# A loose match never turns the computer off: "please shut off" is "be quiet", not "shut down".
+POWER = {"shut down", "reboot"}
+COMPUTER = re.compile(r"\b(?:computer|pc|laptop|machine|system|jetson|desktop|down|power|reboot|restart)\b", re.I)
+# Nor is the weather the CPU's temperature: "temperature outside", "what's the temperature in delhi".
+HEAT = {"temperature", "gpu temperature"}
+WEATHER = re.compile(r"\b(?:outside|weather|forecast|today|tonight|tomorrow|rain|cold|warm|in (?!the (?:cpu|gpu)))\b",
+                     re.I)
+CHIP = re.compile(r"\b(?:cpu|gpu|computer|processor|chip|jetson|board|fan)\b", re.I)
+
+
+def wrong_thing(said, phrase):
+    """True if `phrase` would shut the computer down without it being named, or read the CPU's heat for the weather."""
+    return (phrase in POWER and not COMPUTER.search(said)) or (
+        phrase in HEAT and bool(WEATHER.search(said)) and not CHIP.search(said))
+
+
 def _value(slot, value):
     """{when}: "5 pm" -> "at 5 pm", "20 minutes" -> "in 20 minutes" ("tomorrow at 9 am" stays)."""
     value = value.strip()
@@ -201,7 +217,7 @@ class IntentMatcher:
     def _against(self, text, phrase):
         """`phrase` goes the other way ("on" said, "off" in it), only asks when you asked to do something, or would
         ask for a value you already said."""
-        return opposite_direction(text, phrase) or wrong_kind(text, phrase) or (
+        return opposite_direction(text, phrase) or wrong_kind(text, phrase) or wrong_thing(text, phrase) or (
             phrase in self.bare and bool(re.search(r"\d", text)))
 
     def candidates(self, text, n=2):

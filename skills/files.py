@@ -263,11 +263,7 @@ class Files(Skill):
 
     def find_file(self, m):
         query = m.group(1)
-        # Only things that sound like files ("find my resume", "where's best.pt", "find the report file");
-        # "where is the Eiffel Tower" goes on to Claude without searching the disk.
-        if not re.search(r"\bmy\b|\bfiles?\b|\.\w{1,5}$", m.group(0), re.IGNORECASE):
-            return False
-        if re.search(r"\b(on the )?(web|internet|google|youtube)\b", query, re.IGNORECASE):
+        if not worth_searching(m):
             return False
         hits = _find_files(query)
         meaning = not hits and self.j.intents and by_meaning(self.j.intents, query)
@@ -287,6 +283,14 @@ class Files(Skill):
                 "No file's called that, but the closest is" if meaning else "I found", os.path.basename(best),
                 " and %d more" % (len(hits) - 1) if len(hits) > 1 else "", where)):
             self.j.executor.run("xdg-open %s" % shlex.quote(best), reply="Opening it.", window=True)
+
+
+def worth_searching(m):
+    """Only things that sound like files ("find my resume", "where's best.pt", "find the report file");
+    "where is the Eiffel Tower" goes on to Claude without searching the disk."""
+    if not re.search(r"\bmy\b|\bfiles?\b|\.\w{1,5}$", m.group(0), re.IGNORECASE):
+        return False
+    return not re.search(r"\b(on the )?(web|internet|google|youtube)\b", m.group(1), re.IGNORECASE)
 
 
 def _find_files(query, limit=5, seconds=4):

@@ -21,7 +21,7 @@ SORT = [("Images", KINDS["image"] + (".bmp", ".tif", ".tiff")), ("Videos", KINDS
         ("Archives", KINDS["zip"]), ("Models", (".pt", ".pth", ".onnx", ".engine", ".tflite", ".safetensors", ".bin")),
         ("Documents", KINDS["document"] + KINDS["spreadsheet"] + KINDS["presentation"] + (".epub",))]
 # "Delete the milk todo", "remove the reading layout": other skills' things, not files.
-OTHER_THINGS = re.compile(r"\b(?:reminder|todo|layout|alarm|timer|bookmark|tab|line|word|that|it)s?\b", re.I)
+OTHER_THINGS = re.compile(r"\b(?:reminder|to ?-?do|task|layout|alarm|timer|bookmark|tab|line|word|that|it)s?\b", re.I)
 
 
 class Organise(Skill):

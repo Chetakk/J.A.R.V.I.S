@@ -115,6 +115,7 @@ class DryJarvis:
             passes["whats_in"] = lambda m: not J_files.NOT_A_FOLDER.search(_first(m)) and \
                 _folder_here(self.j, _first(m))
             passes["open_nth"] = lambda m: J_files.from_listing(m.group(1))
+            passes["find_file"] = J_files.worth_searching  # (the disk search itself isn't run)
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

@@ -27,3 +27,13 @@ def test_a_wording_ending_in_now_or_for_me_still_matches_word_for_word(jv):
     assert m.early("get the sound down") == "volume down"
     jv.do("what is going on right now")
     assert not jv.questions and not jv.claude.asked()
+
+
+def test_a_loose_match_never_shuts_down_or_reads_the_cpu_for_the_weather(jv):
+    """From Amazon's MASSIVE commands: "please shut off" (be quiet) became "shut down", "temperature outside" the CPU's."""
+    m = jv.j.intents
+    assert "shut down" not in [p for p, _ in m.candidates("please shut off")]
+    assert m.match("shut off the computer")[0] == "shut down"
+    assert "temperature" not in [p for p, _ in m.candidates("temperature outside")]
+    assert m.match("what's the temperature of the cpu")[0] == "temperature"
+
