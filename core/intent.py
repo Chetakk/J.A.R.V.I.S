@@ -148,7 +148,7 @@ class IntentMatcher:
 
     def _cached(self, examples):
         """Phrase vectors, reused from disk while the phrase list is unchanged (saves ~2 s at startup)."""
-        key = hashlib.sha1("\n".join(examples).encode()).hexdigest()
+        key = hashlib.sha1("\n".join(["one by one"] + examples).encode()).hexdigest()  # (see embed)
         try:
             data = np.load(CACHE)
             if str(data["key"]) == key:
@@ -163,12 +163,14 @@ class IntentMatcher:
         return matrix
 
     def embed(self, sentences):
-        encoded = [self.tok.encode(s) for s in sentences]
-        n = max(len(e) for e in encoded)
-        ids = np.zeros((len(encoded), n), dtype=np.int64)
-        mask = np.zeros_like(ids)
-        for i, e in enumerate(encoded):
-            ids[i, :len(e)], mask[i, :len(e)] = e, 1
+        """One at a time: in a batch, padding and the quantised model's per-batch ranges shift every vector according
+        to what else is in the batch (as far as 0.91 from itself), so adding one long sentence could flip a match
+        anywhere else. It costs nothing: ~3 ms each, the same as a batch."""
+        return np.vstack([self._embed_one(s) for s in sentences])
+
+    def _embed_one(self, sentence):
+        ids = np.array([self.tok.encode(sentence)], dtype=np.int64)
+        mask = np.ones_like(ids)
         out = self.session.run(None, {"input_ids": ids, "attention_mask": mask,
                                       "token_type_ids": np.zeros_like(ids)})[0]
         vec = (out * mask[..., None]).sum(1) / mask.sum(1, keepdims=True)
