@@ -35,6 +35,7 @@ from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
 from core.context import Context, sounds_like_follow_up
+from core.chat import ChatReplies
 from core.intent import IntentMatcher
 from core.registry import Registry, _names_regex, clean
 from core.safety import MANUAL, Safety
@@ -273,6 +274,14 @@ class Jarvis:
                                          learned=learned.load()["wordings"])
         except Exception as e:
             print("[intent] meaning matcher off: %r" % e)
+        self.chat_replies = None  # its own replies to chat ("do you have any pets?"), before Claude
+        cfg = self.settings.get("chat_replies") or {}  # enabled: false turns them off; threshold: how close
+        if self.intents and cfg.get("enabled", True):
+            try:
+                self.chat_replies = ChatReplies(os.path.join(CONFIG, "chat.yaml"), self.intents.embed,
+                                                cfg.get("threshold", 0.8))
+            except Exception as e:
+                print("[chat] chat replies off: %r" % e)
         self.browser = Browser(self.registry)
         self.claude = Claude(self.settings.get("claude") or {}, self.name, self.settings.get("user_name") or "the user",
                              self._abilities())
@@ -451,6 +460,13 @@ class Jarvis:
         if match:
             self.handled(text, "fuzzy", (match.command.get("say") or [""])[0], value=bool(match.slots))
             return self._run_match(match)
+        # Chat that isn't a request ("do you have any pets?"): its own reply, no Claude needed.
+        reply = None if self.from_claude or not self.chat_replies else self.chat_replies.reply(
+            text, self.settings.get("user_name"), self.name)
+        if reply:
+            self.heard(text, "chat (%s %.2f)" % self.chat_replies.last)
+            self.speaker.say(reply)
+            return True
 
         # In a conversation (a follow-up, no name needed) everything you say is meant for JARVIS, so it
         # goes through like any request. Only empty noise ("uh", a cough) is dropped, quietly.
