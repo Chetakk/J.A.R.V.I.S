@@ -655,20 +655,6 @@ class Jarvis:
         task = m.group(2).strip(" ,.")
         said = list(self.talk)[:-1]  # the last line is this request itself
         if POINTS_BACK.search(task) and said:
-    def _focus_line(self):
-        """Which window the user is looking at, and its project, so "push" or "run the tests" means that one."""
-        win = desktop.active_window()
-        if win and "jarvis" in win.wm_class:
-            win = next((w for w in reversed(desktop.windows()) if "jarvis" not in w.wm_class and w.title), None)
-        p = self.projects.focused()
-        if not (win or p):
-            return ""
-        line = "Focused window: %s (%s)." % (win.title or "untitled", win.wm_class.split()[-1]) if win else ""
-        if p:
-            line += " Its project: %s, folder %s. Run git and other commands there (git -C <folder>), not in %s." % (
-                p.name, p.path, WORKSPACE)
-        return line
-
             task += "\n\nWhat was said with JARVIS just before this:\n" + "\n".join(said)
         self._fix_jarvis({"task": task, "size": "big" if m.group(1) else "small"})
         return True
@@ -702,6 +688,20 @@ class Jarvis:
             "tab groups: \"open my <group> tabs\": %s" % ", ".join(reg.tab_groups) if reg.tab_groups else "",
             "saved commands (exact phrases): %s" % "; ".join(saved),
         ) if line)
+
+    def _focus_line(self):
+        """Which window the user is looking at, and its project, so "push" or "run the tests" means that one."""
+        win = desktop.active_window()
+        if win and "jarvis" in win.wm_class:
+            win = next((w for w in reversed(desktop.windows()) if "jarvis" not in w.wm_class and w.title), None)
+        p = self.projects.focused()
+        if not (win or p):
+            return ""
+        line = "Focused window: %s (%s)." % (win.title or "untitled", win.wm_class.split()[-1]) if win else ""
+        if p:
+            line += " Its project: %s, folder %s. Run git and other commands there (git -C <folder>), not in %s." % (
+                p.name, p.path, WORKSPACE)
+        return line
 
     def _about(self):
         """The line that tells Claude who is asking, how, and how much it's been used today."""
