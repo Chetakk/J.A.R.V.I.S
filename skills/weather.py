@@ -12,6 +12,7 @@ import subprocess
 import urllib.parse
 import urllib.request
 
+from core.persona import address, weather_quip
 from core.store import load_json, save_json
 from skills.base import Skill
 
@@ -253,6 +254,11 @@ class Weather(Skill):
     def _day(self, when):
         return 1 if (when or "").lower() == "tomorrow" else 0
 
+    def _quip(self, code, temp, rain):
+        """Now and then, a wry JARVIS line after the answer, by what the weather really is ("" when none)."""
+        line = weather_quip(code, temp, rain, address(self.j.settings))
+        return " " + line if line else ""
+
     def weather(self, m):
         pre, place, when, place2 = m.groups()
         if re.search(r"\b(?:on )?%s\b" % DAYS, "%s %s" % (place or "", place2 or ""), re.I):
@@ -276,12 +282,14 @@ class Weather(Skill):
         if day:
             self.say("Tomorrow in %s: %s, %d to %d degrees, %d percent chance of rain." % (
                 name, SKY.get(d["weather_code"][1], "mixed"), d["temperature_2m_min"][1], d["temperature_2m_max"][1],
-                d["precipitation_probability_max"][1] or 0))
+                d["precipitation_probability_max"][1] or 0) + self._quip(
+                d["weather_code"][1], d["temperature_2m_max"][1], d["precipitation_probability_max"][1]))
             return
         c = w["current"]
         self.say("In %s it's %d degrees and %s. Today: %d to %d, %d percent chance of rain." % (
             name, round(c["temperature_2m"]), SKY.get(c["weather_code"], "mixed"), d["temperature_2m_min"][0],
-            d["temperature_2m_max"][0], d["precipitation_probability_max"][0] or 0))
+            d["temperature_2m_max"][0], d["precipitation_probability_max"][0] or 0) + self._quip(
+            c["weather_code"], c["temperature_2m"], d["precipitation_probability_max"][0]))
 
     def will_it(self, m):
         what, place, when, place2 = m.groups()
@@ -294,16 +302,17 @@ class Weather(Skill):
             d["temperature_2m_max"][day]
         sky = SKY.get(d["weather_code"][day], "mixed")
         on = "tomorrow" if day else "today"
+        quip = self._quip(d["weather_code"][day], hi, rain)
         what = what.lower()
         if re.search(r"rain|umbrella|raincoat", what):
             lead = "Yes, likely" if rain >= 60 else "Maybe" if rain >= 30 else "Probably not"
-            self.say("%s: %d percent chance of rain %s in %s." % (lead, rain, on, name))
+            self.say("%s: %d percent chance of rain %s in %s." % (lead, rain, on, name) + quip)
         elif re.search(r"jacket|coat|sweater|cold", what):
             lead = "Yes, it gets cold" if lo < 12 else "Maybe in the evening" if lo < 18 else "Probably not"
-            self.say("%s: %d to %d degrees %s in %s." % (lead, lo, hi, on, name))
+            self.say("%s: %d to %d degrees %s in %s." % (lead, lo, hi, on, name) + quip)
         else:
             self.say("%s in %s: %s, %d to %d degrees, %d percent chance of rain." % (on.capitalize(), name, sky, lo,
-                                                                                     hi, rain))
+                                                                                     hi, rain) + quip)
 
     def loose(self, m):
         text = m.group(0)
@@ -331,4 +340,5 @@ class Weather(Skill):
             return
         c = w["current"]
         self.say("It's %d degrees in %s right now, feels like %d." % (round(c["temperature_2m"]), where["name"],
-                                                                     round(c["apparent_temperature"])))
+                                                                     round(c["apparent_temperature"]))
+                 + self._quip(c["weather_code"], c["apparent_temperature"], 0))
