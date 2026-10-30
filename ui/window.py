@@ -226,7 +226,7 @@ class UI:
         w, h = widget.get_allocated_width(), widget.get_allocated_height()
         cx, cy, r = w / 2, h / 2, min(w, h) / 2 - 3
         t = time.time()
-        s = self._shown or "idle"
+        s = self._shown[0] if self._shown else "idle"  # _shown is (state, silent, deaf)
         tau = 2 * math.pi
 
         # A glass ball, tinted like the chat panel, with a soft sheen across the top.
