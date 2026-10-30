@@ -48,8 +48,6 @@ def test_the_command_list_can_only_make_it_stricter(gate):
     assert gate.classify("rm -rf ~", declared="auto")[0] == MANUAL
 
 
-@pytest.mark.xfail(strict=True, reason="HOLE: programs on the auto list that run or write anything given the "
-                                       "right arguments (a command Claude suggests could use them)")
 @pytest.mark.parametrize("command", [
     "awk 'BEGIN{system(\"rm -rf ~\")}'",  # awk runs any command
     "gnome-terminal -- bash -c 'rm -rf ~'",  # a terminal running any command
@@ -99,3 +97,22 @@ def test_claude_suggesting_a_dangerous_command_goes_to_the_terminal(jv):
     jv.do("clean up my downloads folder for me please")
     assert not jv.shell.ran(r"^rm ")
     assert jv.manual and jv.manual[0][0] == "rm -rf ~/Downloads/*"
+
+
+@pytest.mark.parametrize("command", [
+    "nmcli -t -f active,ssid dev wifi | awk -F: '$1==\"yes\"{print $2}'",
+    "nmcli -t -f SSID dev wifi list | awk 'NF && !seen[$0]++' | head -5 | paste -sd,",
+    "free -h | awk '/Mem/ {print $7}'", "awk '{printf \"%d degrees\", $1/1000}' /sys/class/thermal/thermal_zone0/temp",
+    "gnome-terminal", "sort -nr numbers.txt", "find ~ -name '*.pdf'",
+])
+def test_the_programs_commands_yaml_uses_still_run_by_themselves(gate, command):
+    assert gate.classify(command)[0] == AUTO
+
+
+@pytest.mark.parametrize("command", [
+    "awk -f /tmp/evil.awk x", "awk -i inplace '{print}' ~/.bashrc", "gawk 'BEGIN{\"id\" | getline x}'",
+    "xterm -e 'rm -rf ~'", "gnome-terminal --command='rm -rf ~'", "sort --output=/home/x/.bashrc in", "sort -ro out",
+    "find / -fprintf /tmp/x '%p'", "find . -fls ~/.bashrc",
+])
+def test_more_ways_to_run_or_write_through_a_safe_program(gate, command):
+    assert gate.classify(command)[0] == MANUAL

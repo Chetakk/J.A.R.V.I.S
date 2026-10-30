@@ -3,6 +3,7 @@
 Kept dependency-free (stdlib + yaml) so the Claude Code hook can import it quickly.
 """
 import os
+import re
 import shlex
 
 import yaml
@@ -31,6 +32,27 @@ HARD_MANUAL_TOKENS = {">", ">>", ">|", "&>", "<<<"}
 SEPARATORS = {";", "&&", "||", "|", "&", "|&", "\n", "(", ")"}
 # find flags that change files.
 FIND_DANGEROUS = {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprintf", "-fls"}
+
+# Programs that are fine on the safe list until their arguments make them run something or write a file.
+AWKS = {"awk", "gawk", "mawk", "nawk"}
+AWK_UNSAFE = re.compile(r"system|getline|>|\|")  # run a command, read from one, write or pipe from the program
+AWK_FLAGS = {"-f", "--file", "-i", "--include", "-E", "--exec", "-l", "--load"}  # programs/extensions from files
+TERMINAL_RUNS = {"-e", "-x", "--", "--command", "--execute"}  # gnome-terminal running another command
+
+
+def _risky_args(prog, words):
+    """Why `prog` with these arguments isn't safe to run by itself, or None."""
+    args = words[1:]
+    if prog in AWKS and (AWK_FLAGS.intersection(args) or any(AWK_UNSAFE.search(a) for a in args if a[:1] != "-")):
+        return "%s can run commands or write files from its program" % prog
+    if prog in ("gnome-terminal", "xterm", "x-terminal-emulator") and (
+            TERMINAL_RUNS.intersection(args) or any(a.startswith(("--command=", "--execute=")) for a in args)):
+        return "%s would run another command" % prog
+    if prog == "sort" and any(a == "--output" or a.startswith("--output=") or (
+            a[:1] == "-" and a[1:2] != "-" and "o" in a[1:]) for a in args):
+        return "sort -o writes over a file"
+    return None
+
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_RULES = os.path.join(_HERE, "..", "config", "safety.yaml")
@@ -95,8 +117,12 @@ class Safety:
             return MANUAL, "the program name is hidden in a variable"
         if prog in HARD_MANUAL or prog.startswith(HARD_MANUAL_PREFIXES):
             return MANUAL, "%s can change or delete things on your system" % prog
-        if prog == "find" and FIND_DANGEROUS.intersection(words):
-            return MANUAL, "find with %s can change files" % "/".join(sorted(FIND_DANGEROUS.intersection(words)))
+        if prog == "find" and (FIND_DANGEROUS.intersection(words) or any(w.startswith("-fprint") for w in words)):
+            bad = FIND_DANGEROUS.intersection(words) or {w for w in words if w.startswith("-fprint")}
+            return MANUAL, "find with %s can change files" % "/".join(sorted(bad))
+        risky = _risky_args(prog, words)
+        if risky:
+            return MANUAL, risky
 
         key = (prog,) + tuple(words[1:])
         for n in range(len(key), 0, -1):
