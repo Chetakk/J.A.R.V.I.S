@@ -131,7 +131,7 @@ class WakeWord:
         return record_until_silence(self.vad, mic, self.max_seconds)
 
 
-_GREETING = re.compile(r"^\W*(?:(?:hey|hi|hello|ok|okay|yo|oi|what'?s up|what are you doing|are you there)\W*)*$",
+_GREETING = re.compile(r"^\W*(?:(?:hey|hi|hello|ok|okay|yo|oi|good (?:morning|afternoon|evening|night)|what'?s up|what are you doing|are you there)\W*)*$",
                        re.IGNORECASE)
 
 
@@ -141,14 +141,14 @@ _ABOUT_NAME = re.compile(r"\b(?:close|quit|exit|shut ?down|turn off|switch off|k
 
 def split_name(text, names):
     """("EV, open YouTube." -> (True, "open YouTube")), ("What's up Jarvis?" -> (True, "")),
-    ("open YouTube" -> (False, "")). The name must start or end what was said (after a greeting)."""
+    ("open YouTube" -> (False, "")). The name can be anywhere; in the middle the rest of the sentence is the request."""
     m = re.search(r"(?<![a-z])%s" % _names_regex(names), text, re.IGNORECASE)
     if not m:
         return False, ""
     before, after = text[:m.start()], text[m.end():].strip(" ,.!?-")
     if _GREETING.match(before):
         # "EV. EV. Hey EV, open YouTube" -> "open YouTube": drop repeated calls of the name.
-        call = re.compile(r"^(?:\W*(?:hey|hi|hello|ok|okay|yo|what'?s up)\b)*\W*%s[\s,.!?-]*" % _names_regex(names),
+        call = re.compile(r"^(?:\W*(?:hey|hi|hello|ok|okay|yo|good (?:morning|afternoon|evening|night)|what'?s up)\b)*\W*%s[\s,.!?-]*" % _names_regex(names),
                           re.IGNORECASE)
         while call.match(after) and call.match(after).end():
             after = after[call.match(after).end():]
@@ -159,7 +159,11 @@ def split_name(text, names):
         if _ABOUT_NAME.search(before):
             return True, (before + m.group(0)).strip(" ,.!?-")
         return True, before.strip(" ,.!?-")
-    return False, ""  # Name in the middle of a sentence: someone talking *about* Jarvis.
+    # Name in the middle: "Please Jarvis, open YouTube" -> the whole sentence is the request. Straight after
+    # one of _ABOUT_NAME it's what the request is about, so the name stays.
+    if _ABOUT_NAME.search(before):
+        return True, (before + m.group(0) + " " + after).strip(" ,.!?-")
+    return True, ("%s %s" % (before.strip(" ,.!?-"), after)).strip(" ,.!?-")
 
 
 # Ends a follow-up early: "thanks", "that's all", "stop", "never mind".
