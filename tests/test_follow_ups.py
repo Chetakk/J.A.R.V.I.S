@@ -69,3 +69,27 @@ def test_no_offer_when_the_chance_says_no(jv, wiki, monkeypatch):
     wiki.page = RECURSION
     jv.do("what is recursion")
     assert not jv.says("hear a bit more")
+
+
+@pytest.mark.parametrize("first, asks", [
+    ("Biryani is a mixed rice dish popular in South Asia.", "wiki_food"),
+    ("Interstellar is a 2014 epic science fiction film.", "wiki_media"),
+    ("Harry Potter is a series of seven fantasy novels.", "wiki_media"),
+    ("The guitar is a stringed musical instrument.", "wiki_skill"),
+    ("Python is a high-level, general-purpose programming language.", "wiki_skill"),
+    ("Albert Einstein was a German-born theoretical physicist.", None),
+])
+def test_the_question_fits_what_the_article_is(jv, wiki, first, asks, monkeypatch):
+    monkeypatch.setattr(lookup, "MORE_CHANCE", 0.0)
+    wiki.page = {"title": "X", "url": "", "text": first + " More follows here."}
+    jv.do("wikipedia x")
+    asked = jv.j.chat_replies.asked
+    assert (asked and asked[0]) == asks
+
+
+def test_a_yes_to_cooking_it(jv, wiki):
+    wiki.page = {"title": "Biryani", "url": "", "text": "Biryani is a mixed rice dish popular in South Asia."}
+    jv.do("what is biryani")
+    jv.clear()
+    jv.do("yes")
+    assert jv.says("enjoy") or jv.says("save me a plate")

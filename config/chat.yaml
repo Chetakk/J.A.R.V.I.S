@@ -5368,3 +5368,36 @@ wiki_place:
     - Lovely. Ask me anything about it.
     'no':
     - Fair enough. Just curious, then.
+wiki_food:
+  replies:
+  - Cooking it, or just hungry, {name}?
+  - Thinking of making it?
+  says: []
+  then:
+    'yes':
+    - Nice. Enjoy it, {name}.
+    - Lovely. Save me a plate.
+    'no':
+    - Fair enough. Just curious, then.
+wiki_media:
+  replies:
+  - Thinking of checking it out, {name}?
+  - Are you planning to give it a go?
+  says: []
+  then:
+    'yes':
+    - Nice. Hope you enjoy it.
+    - Good choice. Tell me what you think after.
+    'no':
+    - Fair enough. Just curious, then.
+wiki_skill:
+  replies:
+  - Are you learning it, {name}?
+  - Thinking of picking it up?
+  says: []
+  then:
+    'yes':
+    - Nice. Ask me anytime you get stuck.
+    - Good for you. A little every day goes a long way.
+    'no':
+    - Fair enough. Just curious, then.

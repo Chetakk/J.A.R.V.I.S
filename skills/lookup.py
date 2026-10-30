@@ -6,8 +6,9 @@ Wikipedia is one HTTP call (no key, no Claude, works in system mode). Anything c
 "google X" still opens the results in your browser.
 
 After an answer it asks one question back, as a friend would: "Are you feeling okay?" after an illness, "Thinking of
-going there?" after a place, now and then "Want to hear a bit more?" (a "yes" reads on). Your answer to the first two
-gets a fitting line (config/chat.yaml wiki_health / wiki_place), or goes to Claude, who sees the question."""
+going there?" after a place, "Cooking it?" after a dish, "Thinking of checking it out?" after a film or book, "Are you
+learning it?" after a skill; otherwise now and then "Want to hear a bit more?" (a "yes" reads on). Your answer gets a
+fitting line (config/chat.yaml wiki_* topics), or goes to Claude, who sees the question."""
 import json
 import random
 import re
@@ -32,11 +33,20 @@ QUESTION = re.compile(r"^(?:(?:who|what)(?: is|'s| was| are| were) (?:an? |the )
                       r"about) (?:an? |the )?|what does (?:an? |the )?(.+?) mean$|define |meaning of )(.+)$",
                       re.IGNORECASE)
 # What the article's first sentence says it is ("Malaria is a mosquito-borne infectious disease ...").
-_IS = r"\b(?:is|are|was) (?:an? |the )?(?:[\w'-]+ ){0,5}"
+_IS = r"\b(?:is|are|was) (?:an? |the )?(?:[\w'-]+,? ){0,5}"
 HEALTH = re.compile(_IS + r"(?:diseases?|infections?|disorders?|syndromes?|illness(?:es)?|conditions?|virus(?:es)?|"
                     r"cancers?|tumou?rs?|allerg(?:y|ies)|deficienc(?:y|ies))\b", re.IGNORECASE)
 PLACE = re.compile(_IS + r"(?:city|capital|country|nation|island|islands|archipelago|town|village|state|province|"
                    r"region|district|mountain|peak|lake|beach|resort|national park)\b", re.IGNORECASE)
+FOOD = re.compile(_IS + r"(?:dish|dishes|cuisine|food|drink|beverage|dessert|sweet|bread|curry|snack|soup|sauce|"
+                  r"cocktail)\b", re.IGNORECASE)
+MEDIA = re.compile(_IS + r"(?:film|movie|series|sitcom|novel|book|album|song|video game|musical(?! instrument)|anime|manga)\b",
+                   re.IGNORECASE)
+SKILL = re.compile(_IS + r"(?:musical instrument|instrument|sport|martial art|programming language|language|board "
+                   r"game|card game|game|dance|technique|skill|hobby|craft)\b", re.IGNORECASE)
+# The first that fits, in this order; its question and answers are config/chat.yaml's wiki_* topics.
+KINDS = (("wiki_health", HEALTH), ("wiki_place", PLACE), ("wiki_food", FOOD), ("wiki_media", MEDIA),
+         ("wiki_skill", SKILL))
 MORE_CHANCE = 0.5  # "Want to hear a bit more?" after other articles: now and then, not every time
 LOOKUP_SYSTEM = ("You answer quick questions for a voice assistant by searching the web. %s Reply with only JSON: "
                  "{\"say\": \"<the answer in one or two short spoken sentences, no markdown or URLs; when the "
@@ -121,7 +131,7 @@ class Lookup(Skill):
     def follow_up(self, page):
         """One question back (see the top of this file)."""
         first, chat = spoken(page["text"], 1), self.j.chat_replies
-        topic = "wiki_health" if HEALTH.search(first) else "wiki_place" if PLACE.search(first) else None
+        topic = next((name for name, kind in KINDS if kind.search(first)), None)
         line = chat.ask(topic, persona.address(self.j.settings), self.j.name) if topic and chat else None
         if line:
             self.say(line)
