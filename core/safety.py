@@ -18,7 +18,7 @@ HARD_MANUAL = {
     "apt", "apt-get", "aptitude", "dpkg", "snap", "pip", "pip3", "kill", "killall",
     "crontab", "useradd", "userdel", "usermod", "passwd", "mount", "umount", "iptables",
     "ufw", "eval", "exec", "source", ".", "xargs", "env", "nohup", "sh", "bash", "zsh",
-    "dash", "python", "python3", "perl", "ruby", "node", "git",
+    "dash", "python", "python3", "perl", "ruby", "node",
     # Wrappers that run another program.
     "command", "builtin", "nice", "ionice", "timeout", "stdbuf", "watch", "script", "setsid",
     "flock", "chroot", "nsenter", "busybox", "unshare",
@@ -40,9 +40,33 @@ AWK_FLAGS = {"-f", "--file", "-i", "--include", "-E", "--exec", "-l", "--load"} 
 TERMINAL_RUNS = {"-e", "-x", "--", "--command", "--execute"}  # gnome-terminal running another command
 
 
+# git options that run other programs or write files, and subcommand flags that destroy work.
+GIT_RUNS = {"-c", "--config-env", "--exec-path", "--upload-pack", "--receive-pack", "--ext-cmd"}
+GIT_DESTROYS = {"--force", "-f", "--force-with-lease", "--hard", "--delete", "-D", "--mirror", "--output"}
+GIT_NEVER = {"clean", "filter-branch", "gc", "prune", "reflog"}
+
+
+def _git_words(words):
+    """`git -C dir status` -> ('git', 'status'), so rules match the subcommand; or (None, reason)."""
+    out, i = ["git"], 1
+    while i < len(words) and words[i].startswith("-") and len(out) == 1:
+        if words[i] == "-C" and i + 1 < len(words):
+            i += 2
+        elif words[i] in GIT_RUNS or words[i].startswith(("-c", "--config-env", "--exec-path")):
+            return None, "git %s can run other programs" % words[i]
+        else:
+            i += 1
+    out += words[i:]
+    return out, None
+
+
 def _risky_args(prog, words):
     """Why `prog` with these arguments isn't safe to run by itself, or None."""
     args = words[1:]
+    if prog == "git":
+        sub = next((a for a in args if not a.startswith("-")), "")
+        if sub in GIT_NEVER or GIT_DESTROYS.intersection(args) or any(a.startswith("--output") for a in args):
+            return "git %s can destroy work or overwrite files" % sub
     if prog in AWKS and (AWK_FLAGS.intersection(args) or any(AWK_UNSAFE.search(a) for a in args if a[:1] != "-")):
         return "%s can run commands or write files from its program" % prog
     if prog in ("gnome-terminal", "xterm", "x-terminal-emulator") and (
@@ -120,6 +144,10 @@ class Safety:
         if prog == "find" and (FIND_DANGEROUS.intersection(words) or any(w.startswith("-fprint") for w in words)):
             bad = FIND_DANGEROUS.intersection(words) or {w for w in words if w.startswith("-fprint")}
             return MANUAL, "find with %s can change files" % "/".join(sorted(bad))
+        if prog == "git":
+            words, why = _git_words(words)
+            if words is None:
+                return MANUAL, why
         risky = _risky_args(prog, words)
         if risky:
             return MANUAL, risky
