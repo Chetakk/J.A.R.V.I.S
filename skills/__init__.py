@@ -3,8 +3,7 @@
 The order matters: the first skill whose phrase matches (and doesn't hand it on) wins. Cards come first
 ("the second one" is about the card on screen), then requests missing their value ("set a timer": asked for,
 before a pattern takes a placeholder like "something" as the value), then the instant local extras, then the
-rest; the day tracker, todos and Study Buddy go before projects ("start work" isn't a project; Study Buddy's player
-and group phrases hand on whatever isn't its own); the browser agent before projects
+rest; the day tracker and todos go before projects ("start work" isn't a project); the browser agent before projects
 and the screen, quick lookups right after it ("research X" is the agent's) ("what's this page about" in a browser reads the page itself); copying between apps before the
 clipboard ("summarise my clipboard and put it in Slack"); reading files before the browser agent ("summarise
 resume.pdf" isn't a website); the network check before troubleshooting ("what's wrong with my
@@ -49,7 +48,6 @@ from skills.reading import Reading
 from skills.screen import Screen
 from skills.slow_computer import SlowComputer
 from skills.status import Status
-from skills.studybuddy import StudyBuddy
 from skills.tasks import Tasks
 from skills.todos import Todos
 from skills.troubleshoot import Troubleshoot
@@ -65,7 +63,7 @@ ORDER = [
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
-    ("daytracker", DayTracker), ("todos", Todos), ("studybuddy", StudyBuddy),
+    ("daytracker", DayTracker), ("todos", Todos),
     ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("lookup", Lookup), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),

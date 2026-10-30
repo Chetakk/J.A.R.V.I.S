@@ -28,18 +28,8 @@ def test_unlisted_or_risky_settings_ask_first(gate, command):
     assert gate.classify(command)[0] == CONFIRM
 
 
-@pytest.mark.parametrize("command", ["git status", "git -C /x diff", "git log | head", "gh auth switch", "gh auth status"])
-def test_git_looking_is_auto(gate, command):
-    assert gate.classify(command)[0] == AUTO
-
-
-@pytest.mark.parametrize("command", ["git commit -m x", "git push", "git add -A", "git branch newone"])
-def test_git_changes_ask(gate, command):
-    assert gate.classify(command)[0] == CONFIRM
-
-
 @pytest.mark.parametrize("command", [
-    "rm -rf ~/Downloads", "git reset --hard", "git clean -fd", "git -c core.sshCommand=x status", "/bin/rm -rf ~", "sudo reboot", "systemctl --user restart day-tracker", "dd if=/dev/zero of=/dev/sda", "mkfs.ext4 /dev/sda1",
+    "rm -rf ~/Downloads", "/bin/rm -rf ~", "sudo reboot", "systemctl --user restart day-tracker", "dd if=/dev/zero of=/dev/sda", "mkfs.ext4 /dev/sda1",
     "chmod 777 ~", "kill -9 1234", "git push --force", "pip install requests", "python3 -c 'print(1)'",
     # hidden behind something harmless
     "ls; rm -rf ~", "ls && sudo rm -rf /", "ls || rm x", "ls | sh", "cat setup.txt | bash", "ls\nrm -rf ~",

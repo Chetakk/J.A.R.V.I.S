@@ -567,10 +567,7 @@ class Jarvis:
         self.chat("sys", "Asking Claude (%s)..." % self.claude.model)
         self.state("claude")
         if not image:
-            if re.search(r"\bclaude\b", text, re.I):
-                self.speaker.say("Asking Claude.")  # you named Claude, so say so
-            else:
-                self.speaker.say(["Let me think.", "Thinking.", "Let me think for a bit.", "One moment, thinking."])
+            self.speaker.say("Asking Claude.")  # always the same, so you know Claude is answering
         # If Claude is slow, say something now and then so the silence doesn't feel broken.
         fillers = [threading.Timer(delay, self.speaker.say, [lines]) for delay, lines in (
             (6, ["Still on it.", "Almost there.", "Just a moment more."]),

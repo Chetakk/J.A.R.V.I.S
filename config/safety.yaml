@@ -12,8 +12,6 @@
 auto:
   - jarvis              # tools/jarvis: say / show a card / do a JARVIS phrase
   - xdg-open
-  - npm --prefix /home/biztelai/Projects/study-budd run dev   # Study Buddy (run_study_buddy)
-  - curl -s -o /dev/null http://127.0.0.1:7314              # is Study Buddy already up
   - google-chrome
   - firefox
   - code
@@ -71,22 +69,6 @@ auto:
   - paste
   - timedatectl show
   - lsusb
-  # git/gh for Claude: look and switch accounts freely; commit, push and the rest ask first (see confirm:)
-  - git status
-  - git log
-  - git diff
-  - git show
-  - git branch -a
-  - git branch -v
-  - git branch --show-current
-  - git remote -v
-  - git stash list
-  - git config user
-  - gh auth status
-  - gh auth switch
-  - gh repo view
-  - gh pr list
-  - gh pr view
   # Only these desktop settings change without asking (any other gsettings change asks):
   - gsettings get
   - gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled
@@ -98,9 +80,6 @@ auto:
 confirm:
   - gsettings            # can change any desktop setting (even turn off the lock screen), so ask
   - pkill
-  - git                  # add, commit, push, pull, checkout... Claude asks you first
-  - git branch -m        # renaming a branch asks
-  - git branch -c
   - mkdir
   - touch
   - loginctl lock-session

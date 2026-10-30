@@ -12,8 +12,8 @@ greeting:
   - "Good {daypart}. All systems online. How may I be of assistance?"
   - "Welcome home, {name}."
   - "Systems check complete. Ready when you are."
-# What JARVIS calls you, now and then ("Done, sir."). Remove to never use a name.
-user_name: sir
+# What JARVIS calls you, now and then ("Done, Chetak."). Remove to never use a name.
+user_name: Chetak
 # Chat replies (config/chat.yaml): {name} is one of call_me at random (user_name when unset), {real} who you are.
 call_me: [sir, Ckay]
 real_name: Chetak
@@ -176,7 +176,3 @@ teaching:
   days: 30            # how far back it looks at what you said
   doubt: 0.06         # a match this close above the threshold counts as only just placed
   model: ""           # "" = the same Claude model as usual; a bigger one writes better wordings
-
-# Weather and the time anywhere (skills/weather.py): with no place said, it is this one.
-weather:
-  home: Bengaluru
