@@ -41,9 +41,8 @@ def problems(jarvis):
         mic = _device("source", source)
         if not mic:
             found["mic"] = "Your microphone isn't connected."
-        elif mic["mute"]:
-            if "mic" not in jarvis.muted_on_purpose:
-                found["mic"] = "Your microphone is muted."
+        elif mic["mute"]:  # (the system's own mute; "mute the mic" only makes JARVIS stop listening)
+            found["mic"] = "Your microphone is muted."
         elif mic["volume"] < LOW_MIC_VOLUME:
             found["mic"] = "Your microphone volume is only %d percent, so I may not hear you." % mic["volume"]
     wake = getattr(jarvis, "wake", None)
@@ -63,7 +62,7 @@ def problems(jarvis):
     if not jarvis.speaker.enabled:
         found["voice"] = "My voice isn't working: Piper and spd-say are both missing."
     jarvis.show_mutes(_asked=False, voice=jarvis.speaker.muted,
-                      mic=bool(mic and mic["mute"]), speaker=bool(out and out["mute"]))
+                      mic=jarvis.deaf or bool(mic and mic["mute"]), speaker=bool(out and out["mute"]))
 
     whisper = getattr(jarvis, "whisper", None)
     if whisper and getattr(jarvis, "rest", "") != "starting" and not whisper._ping():

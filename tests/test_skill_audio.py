@@ -37,7 +37,7 @@ def test_which_speaker(jv, pulse):
 def test_which_mic_warns_when_muted(jv, pulse):
     pulse.get(USB_MIC)["mute"] = True
     jv.do("which mic are you using")
-    assert jv.says("it's muted", "tray icon")
+    assert jv.says("it's muted")
 
 
 def test_low_mic_is_flagged(jv, pulse):
@@ -165,36 +165,47 @@ def test_unmute_the_sound_brings_it_back(jv, pulse):
     assert not jv.j.mutes["speaker"] and "speaker" not in jv.j.muted_on_purpose
 
 
-def test_muting_the_mic_asks_first_and_says_what_can_undo_it(jv, pulse):
+def test_muting_the_mic_stops_only_jarvis_and_asks_first(jv, pulse):
     jv.do("mute the mic", "yes")
-    assert jv.questions == ["Mute the mic? I won't hear you after that."]
-    assert pulse.get(USB_MIC)["mute"] is True
-    assert jv.says("mic's off", "tray icon")
-    assert jv.j.mutes["mic"]
+    assert jv.questions == ["Stop listening? I won't hear you after that."]
+    assert jv.j.deaf and jv.j.mutes["mic"]
+    assert pulse.get(USB_MIC)["mute"] is False  # the system microphone stays live for other apps
+    assert jv.says("not listening", "tray icon")
+    assert not any("set-source-mute" in c for c in jv.shell.calls)
 
 
-def test_saying_no_leaves_the_mic_on(jv, pulse):
+def test_saying_no_leaves_jarvis_listening(jv, pulse):
     jv.do("mute the mic", "no")
-    assert pulse.get(USB_MIC)["mute"] is False
-    assert jv.says("mic stays on") and not jv.j.mutes["mic"]
+    assert not jv.j.deaf and jv.says("still listening")
 
 
-def test_the_tray_mutes_and_unmutes_the_mic_without_asking(jv, pulse):
-    """Unmuting the mic can only come from the tray icon: by then JARVIS can't hear a spoken answer."""
+def test_the_tray_stops_and_resumes_listening_without_asking(jv, pulse):
+    """Unmuting can only come from the tray icon: by then JARVIS can't hear a spoken answer."""
     jv.do("/mute mic on")
-    assert pulse.get(USB_MIC)["mute"] is True and not jv.questions
+    assert jv.j.deaf and not jv.questions
     jv.do("/mute mic off")
-    assert pulse.get(USB_MIC)["mute"] is False and not jv.questions
-    assert jv.says("mic's back") and not jv.j.mutes["mic"]
+    assert not jv.j.deaf and not jv.questions
+    assert jv.says("listening again") and not jv.j.mutes["mic"]
+    assert pulse.get(USB_MIC)["mute"] is False
 
 
-def test_a_mute_you_asked_for_is_not_reported_as_a_fault(jv, pulse):
+def test_a_spoken_unmute_mic_does_not_mute_anything(jv, pulse):
+    jv.do("unmute the mic")
+    assert not jv.j.deaf and jv.says("listening")
+
+
+def test_a_muted_speaker_you_asked_for_is_not_reported_as_a_fault(jv, pulse):
     from system import health
     jv.do("mute the sound")
-    jv.do("mute the mic", "yes")
-    found = health.problems(jv.j)
-    assert "speaker" not in found and "mic" not in found
-    assert jv.j.mutes["speaker"] and jv.j.mutes["mic"]  # still shown on the tray icon
+    assert "speaker" not in health.problems(jv.j)
+    assert jv.j.mutes["speaker"]
+
+
+def test_jarvis_not_listening_stays_on_the_tray_after_a_health_check(jv, pulse):
+    from system import health
+    jv.do("/mute mic on")
+    health.problems(jv.j)
+    assert jv.j.mutes["mic"] and jv.j.deaf
 
 
 def test_a_mute_you_did_not_ask_for_is_still_reported(jv, pulse):

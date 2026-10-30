@@ -172,6 +172,7 @@ class Jarvis:
         self.load()
         self.show_hearing = bool((self.settings.get("ui") or {}).get("show_hearing", True))
         self.mutes = {"voice": False, "mic": False, "speaker": False}  # what's muted now: the tray icon shows it
+        self.deaf = False  # "mute the mic": I stop listening; the system microphone stays live for other apps
         self.muted_on_purpose = set()  # of those, the ones you asked for; system/health.py doesn't warn about those
         self.speaker = Speaker(self.settings.get("speech") or {})
         self.speaker.on_say = self._said
@@ -1154,7 +1155,8 @@ def start_voice(jarvis, whisper):
         wake = WhisperWake(jarvis.names, whisper, on_text, on_wake=on_listen, is_busy=busy, is_echo=jarvis.speaker.is_echo, on_heard=jarvis.heard,
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
                            on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)),
-                           is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"))
+                           is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
+                           is_deaf=lambda: jarvis.deaf)
         wake.start()
         jarvis.wake = wake
         jarvis.follow_up = wake.follow_up
@@ -1162,7 +1164,7 @@ def start_voice(jarvis, whisper):
         print('[voice] Wake word ready: say any of: %s (optionally with "hey").' % ", ".join(jarvis.names))
     elif wake_cfg.get("enabled", True):
         phrases = [g + n for n in jarvis.names for g in ("", "hey ", "hello ", "ok ")]
-        WakeWord(phrases, on_audio, on_wake=on_listen, is_busy=busy,
+        WakeWord(phrases, on_audio, on_wake=on_listen, is_busy=busy, is_deaf=lambda: jarvis.deaf,
                  threshold=wake_cfg.get("threshold", 0.10), boost=wake_cfg.get("boost", 2.0)).start()
         print('[voice] Wake word ready (keyword model): say any of: %s.' % ", ".join(jarvis.names))
     jarvis.rest = "idle"

@@ -5,8 +5,8 @@ it low) asks first. The Echo Dot connects by itself from the Alexa app; when it 
 
 Muting, three separate things, never one toggle:
   "mute the sound"  the speaker, so nothing on this computer is heard; "unmute" brings it back.
-  "mute the mic"    the microphone. It asks first, because afterwards JARVIS can't hear you at all: only the
-                    tray icon (or typing in the chat) turns it back on.
+  "mute the mic"    JARVIS stops listening; the system microphone stays live for other apps. It asks first,
+                    because afterwards JARVIS can't hear you: only the tray icon (or typing) turns it back on.
   "mute yourself"   JARVIS's own voice, which is quiet mode (skills/voice_prefs.py).
 Each says which way it's going, so saying "unmute" when nothing is muted never mutes you."""
 import re
@@ -106,8 +106,11 @@ class Audio(Skill):
         if kind == "sink":
             self.say("Sound is going to %s, at %d percent%s." % (d.label, d.volume, ", but it's muted" if d.mute else ""))
             return
+        if self.j.deaf:
+            self.say("I've stopped listening. %s." % TRAY_HINT.capitalize())
+            return
         if d.mute:
-            self.say("I'm listening on %s, but it's muted. %s." % (d.label, TRAY_HINT.capitalize()))
+            self.say("I'm listening on %s, but it's muted in the system." % d.label)
             return
         low = " That's low, so I may miss what you say." if d.volume < LOW_MIC_VOLUME else ""
         self.say("I'm listening on %s, at %d percent.%s" % (d.label, d.volume, low))
@@ -190,26 +193,20 @@ class Audio(Skill):
         self.say(["Muted.", "Sound's off."] if on else ["Sound's back.", "Unmuted."])
 
     def mic_mute(self, on, ask=True):
-        """The microphone. Muting it makes JARVIS deaf, so it asks first and says that only the tray icon (or
-        typing) can undo it. Unmuting is here for the tray and the chat panel; it can't be spoken."""
-        d = audio.current("source")
-        if not d:
-            self.say("I can't find a microphone.")
+        """JARVIS stops listening (or starts again). Only JARVIS: the system microphone stays live, so Zoom,
+        Meet and recordings are unaffected. Muting asks first, because afterwards a spoken "unmute" can't be
+        heard: the tray icon (or typing in the chat) turns it back on."""
+        j = self.j
+        if j.deaf == on:
+            self.say(("I'm already not listening. %s." % TRAY_HINT.capitalize()) if on else "I'm listening.")
             return
-        if d.mute == on:
-            self.j.show_mutes(_asked=False, mic=d.mute)
-            self.say(("Mic's already off. %s." % TRAY_HINT.capitalize()) if on else "The mic isn't muted.")
+        if on and ask and not j.ask("Stop listening? I won't hear you after that."):
+            self.say(["Okay, still listening.", "Leaving it on."])
             return
-        if on and ask and not self.j.ask("Mute the mic? I won't hear you after that."):
-            self.say(["Okay, mic stays on.", "Leaving it on."])
-            return
-        if not audio.set_mute(d, on):
-            self.j.show_mutes(_asked=False, mic=d.mute)
-            self.say("Sorry, %s didn't take it." % d.label)
-            return
-        self.j.show_mutes(mic=on)
-        self.j.last_undo = lambda: self.mic_mute(not on, ask=False)
-        self.say(("Mic's off. %s." % TRAY_HINT.capitalize()) if on else ["Mic's back.", "I can hear you again."])
+        j.deaf = on
+        j.show_mutes(mic=on)
+        j.last_undo = lambda: self.mic_mute(not on, ask=False)
+        self.say(("Not listening. %s." % TRAY_HINT.capitalize()) if on else ["Listening again.", "I can hear you."])
 
     def mic_volume(self, to=None, up=None):
         d = audio.current("source")

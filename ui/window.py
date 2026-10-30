@@ -22,7 +22,7 @@ LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "t
           "claude": "Asking Claude...", "speaking": "Speaking", "off": "Voice input off",
           "starting": "Starting voice..."}
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
-MUTED = {"voice": "my voice muted", "speaker": "speaker muted", "mic": "mic muted"}
+MUTED = {"voice": "my voice muted", "speaker": "speaker muted", "mic": "not listening"}
 ORB = 78
 CLAUDE_RGB = (0.85, 0.47, 0.34)  # Claude's warm orange, as in the chat bubbles
 PANEL_W, PANEL_H = 390, 640
@@ -569,7 +569,7 @@ class UI:
         # so no spoken command could ever reach it. Each box sends /mute <what> on|off, which never asks.
         self.mute_items = {}
         for key, label in (("voice", "Mute JARVIS's voice"), ("speaker", "Mute the speaker"),
-                           ("mic", "Mute the microphone")):
+                           ("mic", "Stop JARVIS listening (mic)")):
             item = Gtk.CheckMenuItem(label=label)
             item.connect("toggled", self._menu_mute)
             self.mute_items[key] = item

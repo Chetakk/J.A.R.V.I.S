@@ -35,7 +35,9 @@ class WakeWord:
     """Calls on_wake(True) when a wake phrase is heard, then on_audio(pcm) with what was said after it
     (or on_wake(False) if nothing was said)."""
 
-    def __init__(self, phrases, on_audio, on_wake=None, is_busy=None, threshold=0.10, boost=2.0, max_seconds=10):
+    def __init__(self, phrases, on_audio, on_wake=None, is_busy=None, threshold=0.10, boost=2.0, max_seconds=10,
+                 is_deaf=None):
+        self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
         self.on_audio = on_audio
         self.on_wake = on_wake
         self.is_busy = is_busy or (lambda: False)  # True while JARVIS is talking or push-to-talk is active
@@ -95,6 +97,8 @@ class WakeWord:
             raw = mic.stdout.read(chunk_bytes)
             if not raw:
                 return
+            if self.is_deaf():
+                continue
             recent.append(raw)
             if np.abs(np.frombuffer(raw, dtype=np.int16)).max() > 200:
                 last_sound, warned = time.time(), False
@@ -177,8 +181,9 @@ class WhisperWake:
 
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
-                 on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any"):
+                 on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None):
         self.names = names
+        self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
         self.whisper = whisper
         self.on_text = on_text
         self.on_stop = on_stop  # "stop" said while JARVIS is talking
@@ -233,6 +238,10 @@ class WhisperWake:
             if not raw:
                 return
             self.audio_at = time.time()
+            if self.is_deaf():
+                pending = np.zeros(0, dtype=np.float32)
+                self.vad.reset()
+                continue
             ints = np.frombuffer(raw, dtype=np.int16)
             if np.abs(ints).max() > 200:
                 last_sound, warned = time.time(), False
