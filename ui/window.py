@@ -393,6 +393,19 @@ class UI:
         inner.pack_start(self.entry, False, False, 0)
         w.add(box)
         w.connect("key-press-event", lambda _w, ev: ev.keyval == Gdk.KEY_Escape and self._set_chat(False))
+        w.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        w.connect("button-press-event", self._take_focus)
+        w.connect("map-event", lambda *_: GLib.idle_add(self._take_focus))
+
+    def _take_focus(self, _w=None, event=None):
+        """A dock window never gets keyboard focus from the window manager by itself: after you've clicked
+        another window, clicking the chat (or opening it) has to ask for it, or typing and editing do nothing."""
+        win = self.panel.get_window()
+        if win:
+            win.focus(event.time if event else Gdk.CURRENT_TIME)
+        if not self.entry.has_focus():
+            self.entry.grab_focus_without_selecting()
+        return False
 
     def _place_panel(self):
         ox, oy = self._orb_xy  # works even while the orb is hidden
