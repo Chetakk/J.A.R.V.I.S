@@ -85,8 +85,13 @@ MUTE_WHAT = {"voice": "voice", "speech": "voice", "me": "voice", "jarvis": "voic
 
 ASK_CLAUDE_VSCODE = re.compile(r"^(?:ask|tell) claude(?: code)? in (?:vs ?code) (?:to )?(.+)$", re.IGNORECASE)
 # JARVIS itself, not an app or a project called Jarvis (%s: its names): "close Jarvis", "restart yourself".
-QUIT_ME = r"^(?:close|quit|exit|shut ?down|turn off|switch off|kill) (?:yourself|%s)$"
-RESTART_ME = r"^(?:restart|reload|reboot|relaunch) (?:yourself|%s)$"
+# Also "I said restart yourselves", "please close yourself now": a lead-in, Whisper's "yourselves", a tail.
+_ME_LEAD = r"^(?:(?:i said|i told you|i want you to|i need you to|can you|could you|will you|please|just|now|ok(?:ay)?|"\
+           r"so|go|and)[ ,]+)*"
+_ME_TAIL = r"(?:[ ,]+(?:please|now|then|right now|already))*[ .!?]*$"
+_YOURSELF = r"(?:(?:yo?u?r?|ur) ?sel(?:f|fs|ves)|%s)"
+QUIT_ME = _ME_LEAD + r"(?:close|quit|exit|shut ?down|turn off|switch off|kill) " + _YOURSELF + _ME_TAIL
+RESTART_ME = _ME_LEAD + r"(?:restart|reload|reboot|relaunch) " + _YOURSELF + _ME_TAIL
 RESTART_CODE = 4  # tools/run_jarvis.sh starts JARVIS again straight away
 # "Ask Claude to add a timer to Jarvis", "tell Claude in VS Code that the Jarvis icon doesn't show": a change to
 # JARVIS itself when the request names it (or "yourself") anywhere.
