@@ -21,6 +21,9 @@ from system import desktop
 from system.webagent import PAYMENT, RISKY, UNTRUSTED_RULE, AgentError, WebAgent, untrusted
 
 MAX_STEPS = 10  # actions per agent task before it stops and tells you where it got to
+# Fields the agent never types into, whatever Claude plans: passwords, one-time codes, PINs (by type, name or label).
+SECRET_FIELD = re.compile(r"\bpassword\b|\bpass(?:wd|code|phrase)?\b|current-password|new-password|one-time-code|"
+                          r"\botp\b|\bpin\b|verification code|security code|\b2fa\b", re.IGNORECASE)
 ACTIONS = ("click", "fill", "select", "check", "press", "scroll", "back", "goto", "upload", "download", "done", "ask")
 URL = r"(https?://\S+|(?:www\.)?[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}(?:/\S*)?)"
 AGENT = r"the (?:agent(?:'?s)? browser|browser agent)"  # JARVIS's own browser, however it's called
@@ -328,6 +331,10 @@ class Web(Skill):
                 action != "fill" and any(PAYMENT.search(str(e.get("autocomplete") or "")) for e in snap["elements"]))):
             self.say("That's a payment step, and I never pay for things. I've put the page in your browser.")
             self.j.executor.run("xdg-open %s" % shlex.quote(snap["url"]), reply="", window=True)
+            return False
+        if action == "fill" and SECRET_FIELD.search(label):  # Claude is told never to; a page might talk it into it
+            self.say("That's a password or a code, and I never type those. Say show the agent browser and log in "
+                     "yourself; I'll stay logged in.")
             return False
         if action == "upload":
             path = os.path.expanduser(str(step.get("value") or ""))
