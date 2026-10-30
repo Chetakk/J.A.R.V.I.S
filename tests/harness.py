@@ -8,6 +8,7 @@ would touch outside itself is fake and recorded.
   speech     what JARVIS says is recorded, never spoken.
   answers    replies to JARVIS's yes/no and "X, or Y?" questions.
   ui         cards and the chat panel: recorded.
+  keyring    the GNOME Keyring: a dict (jv.keyring.items); available=False for a desktop without one.
   files      jv.files[path] = text: what reading that file gives (/proc, /sys); others read as usual.
 
 conftest.py also points HOME at a temp folder (wiped before each test), so notes, memory and reminders
@@ -19,6 +20,7 @@ call the fakes missed fails instead of reaching your desktop.
         jv.do("what's the volume")
         assert jv.says("40")
 """
+import copy
 import io
 import json
 import re
@@ -273,6 +275,55 @@ class Pulse:
         return ""
 
 
+class Hub:
+    """The Day Tracker hub (http://localhost:7313, skills/daytracker.py): GET/PUT /api/state with a revision
+    number. A PUT with an old revision gets 409 and the current state back, as the real hub does.
+    conflicts: how many of the next PUTs lose to a pretend write from the tracker page first."""
+
+    URL = r"^http://localhost:7313/api/state$"
+
+    def __init__(self, net, **state):
+        self.state = dict({"rev": 1, "entries": [], "active": None, "goals": {}, "todos": [], "reminders": []},
+                          **state)
+        self.puts = []
+        self.conflicts = 0
+        net.on(self.URL, self._api)
+
+    def _api(self, url, data):
+        if data is None:
+            return copy.deepcopy(self.state)
+        body = json.loads(data)
+        if self.conflicts:
+            self.conflicts -= 1
+            self.state["rev"] += 1  # the page saved in between
+        if body["rev"] != self.state["rev"]:
+            raise urllib.error.HTTPError(url, 409, "Conflict", {}, io.BytesIO(json.dumps(self.state).encode()))
+        self.puts.append(body["state"])
+        self.state.update(body["state"])
+        self.state["rev"] += 1
+        return copy.deepcopy(self.state)
+
+
+class Keyring:
+    """The GNOME Keyring (system/keyring.py) as a dict. available=False is a desktop without a keyring daemon."""
+
+    def __init__(self):
+        self.items = {}
+        self.available = True
+
+    def patch(self, monkeypatch):
+        from system import keyring
+        fakes = {
+            "available": lambda: self.available,
+            "store": lambda name, value: self.available and bool(self.items.__setitem__(name, value) or True),
+            "lookup": lambda name: self.items.get(name) if self.available else None,
+            "delete": lambda name: self.available and self.items.pop(name, None) is not None,
+            "names": lambda: list(self.items) if self.available else [],
+        }
+        for name, fn in fakes.items():
+            monkeypatch.setattr(keyring, name, fn)
+
+
 class FakeWindow(desktop.Window):
     def __init__(self, wid, title, wm_class, workspace=1, geometry=(0, 0, 800, 600), pid=None, role=None,
                  frozen=False, text=""):
@@ -406,7 +457,8 @@ class FakeClaude:
 
     def patch(self, monkeypatch, claude):
         def ask(text, recent=(), on_say=None, image=None, about=None):
-            self.calls.append(("ask", text))
+            # All of what Claude would be sent, so a test can check nothing private is in it.
+            self.calls.append(("ask", "\n".join([about or ""] + list(recent) + [text])))
             r = self._next({"say": "(claude answer)"})
             answer = _parse_answer(json.dumps(r if isinstance(r, dict) else {"say": r}))
             answer["spoken"] = bool(on_say and answer["say"])
@@ -479,6 +531,8 @@ class JV:
         self.screenshots = []  # where gnome-screenshot was asked to save
         self.files = {}  # path -> text: what reading that file gives (e.g. "/proc/net/wireless")
         self.desktop.patch(monkeypatch)
+        self.keyring = Keyring()
+        self.keyring.patch(monkeypatch)
         shell.on(r"^gnome-screenshot ", out=self._screenshot)
         monkeypatch.setattr(speech.Speaker, "say", _say)
         self.j = build()

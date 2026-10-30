@@ -140,36 +140,54 @@ def _guard(fn, *which):
     return wrapper
 
 
+# Commands and the network are faked for the whole run, not per test: a thread a test left behind (a
+# watcher, a live card) must never reach the real shell or the Day Tracker hub after its test ended. They go to
+# the running test's fakes; with none running, they fail.
+def _world():
+    if harness.current is None:
+        raise PermissionError("a command or network call outside a test (a leftover thread?)")
+    return harness.current
+
+
+def _which(prog, *a, **k):
+    if harness.current is None or os.path.basename(prog) in harness.current.shell.missing:
+        return None
+    return "/usr/bin/" + os.path.basename(prog)
+
+
+def _no_socket(*a, **k):
+    raise OSError("no network in tests")
+
+
+import socket  # noqa: E402
+import urllib.request  # noqa: E402
+
+subprocess.run = lambda *a, **k: _world().shell.run(*a, **k)
+subprocess.Popen = lambda *a, **k: _world().shell.popen(*a, **k)
+subprocess.check_output = lambda *a, **k: _world().shell.check_output(*a, **k)
+subprocess.call = lambda *a, **k: _world().shell.call(*a, **k)
+subprocess.check_call = lambda *a, **k: _world().shell.check_call(*a, **k)
+os.system = lambda line: _world().shell.system(line)
+os.popen = lambda line, *a, **k: _world().shell.popen(line, shell=True, text=True).stdout
+os.execv = os.execvp = os.execvpe = os.execl = os.execlp = lambda *a, **k: _world() and None
+shutil.which = _which
+urllib.request.urlopen = lambda *a, **k: _world().net.urlopen(*a, **k)
+socket.create_connection = _no_socket
+
+
 @pytest.fixture
 def jv(monkeypatch):
     """A JARVIS in the fake world. See harness.JV."""
     _fresh_home()
-    shell = harness.Shell()
-    net = harness.Net()
-    monkeypatch.setattr(subprocess, "run", shell.run)
-    monkeypatch.setattr(subprocess, "Popen", shell.popen)
-    monkeypatch.setattr(subprocess, "check_output", shell.check_output)
-    monkeypatch.setattr(subprocess, "call", shell.call)
-    monkeypatch.setattr(subprocess, "check_call", shell.check_call)
-    monkeypatch.setattr(os, "system", shell.system)
-    monkeypatch.setattr(os, "popen", lambda line, *a, **k: shell.popen(line, shell=True, text=True).stdout)
-    monkeypatch.setattr(shutil, "which", lambda prog, *a, **k: None if os.path.basename(prog) in shell.missing
-                        else "/usr/bin/" + os.path.basename(prog))
-    import urllib.request
-    import socket
-    monkeypatch.setattr(urllib.request, "urlopen", net.urlopen)
-
-    def no_socket(*a, **k):
-        raise OSError("no network in tests")
-    monkeypatch.setattr(socket, "create_connection", no_socket)
     from core import verify
-    from skills import helpers
+    from skills import helpers, todos
     monkeypatch.setattr(verify, "last", None)  # module state: one test's last action isn't the next one's
     monkeypatch.setattr(verify, "_watching", 0)
     monkeypatch.setattr(helpers, "typed_until", 0.0)
     monkeypatch.setattr(verify, "LAUNCH_SECONDS", 1.0)
     monkeypatch.setattr(verify, "QUICK_SECONDS", 0.5)
     monkeypatch.setattr(verify, "grab", lambda geometry: None)
+    monkeypatch.setattr(todos.Todos, "_watch", lambda self: None)  # an endless loop; tests run one round of it
 
     import queue
     import jarvis as J
@@ -185,7 +203,7 @@ def jv(monkeypatch):
     monkeypatch.setattr(shutil, "copy", _guard(shutil.copy, 1))
     monkeypatch.setattr(shutil, "copy2", _guard(shutil.copy2, 1))
     monkeypatch.setattr(shutil, "copyfile", _guard(shutil.copyfile, 1))
-    world = harness.JV(monkeypatch, lambda: J.Jarvis(queue.Queue()), shell, net)
+    world = harness.JV(monkeypatch, lambda: J.Jarvis(queue.Queue()), harness.Shell(), harness.Net())
     world.clear()  # what JARVIS ran while starting up isn't part of the test
     yield world
     harness.current = None
