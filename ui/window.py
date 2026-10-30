@@ -254,12 +254,12 @@ class UI:
         cr.stroke()
 
         if s == "listening":
-            # Ripples that ease out as they spread, around a softly pulsing core.
+            # Ripples drawn in from the rim, speeding up as they sink into a softly pulsing core.
             for i in range(3):
                 p = (t * 0.9 + i / 3) % 1.0
-                cr.set_source_rgba(1, 1, 1, 0.75 * (1 - p) ** 1.5)
-                cr.set_line_width(1.0 + 1.6 * (1 - p))
-                cr.arc(cx, cy, r * (0.22 + 0.72 * (1 - (1 - p) ** 3)), 0, tau)
+                cr.set_source_rgba(1, 1, 1, 0.75 * min(1, p * 5) * (1 - p) ** 0.7)
+                cr.set_line_width(1.0 + 1.6 * p)
+                cr.arc(cx, cy, r * (0.94 - 0.72 * p ** 2), 0, tau)
                 cr.stroke()
             self._core(cr, cx, cy, r * (0.20 + 0.025 * math.sin(t * 5)), 0.95)
         elif s == "thinking":
