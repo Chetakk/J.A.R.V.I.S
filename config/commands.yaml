@@ -483,3 +483,25 @@ commands:
     run: upower --dump | grep -E -i "model|percentage|state"
     reply: Here is what I found for your devices.
     output: true
+
+  - name: run_study_buddy
+    say: [run study buddy, start study buddy, run the study app]
+    run: curl -s -o /dev/null http://127.0.0.1:7314 || npm --prefix /home/biztelai/Projects/study-budd run dev
+    reply: Running Study Buddy.
+
+  - name: focused_window
+    say: [what window am i on, what window are we focused on, which window is focused, check what window
+        we are focused on]
+    run: xdotool getactivewindow getwindowname
+    reply: You're on {output}.
+    output: true
+
+  - name: open_projects_folder
+    say: ['open {folder} in projects', 'open my {folder} project folder', 'open the {folder} folder in projects']
+    run: xdg-open /home/biztelai/Projects/{folder}
+    reply: Opening {folder}.
+
+  - name: are_you_back
+    say: [are you back, you back, i said are you back]
+    run: echo Jarvis is back
+    reply: ["At your service. What can I do for you?", "Yes, I'm back. Systems fully operational"]
