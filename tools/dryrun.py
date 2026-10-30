@@ -108,6 +108,11 @@ class DryJarvis:
         if obj is self.j.skills.files:  # "open the music folder": only a folder that's there
             passes["open_folder"] = lambda m: J_files.place(self.j, m.group(1), folder=True) and not \
                 self.j.registry.match_exact(m.group(0))
+            # "what's in the file menu" is a menu, "open the second one" needs a list JARVIS just read out
+            passes["list_in"] = lambda m: _folder_here(self.j, m.group(2))
+            passes["whats_in"] = lambda m: not J_files.NOT_A_FOLDER.search(_first(m)) and \
+                _folder_here(self.j, _first(m))
+            passes["open_nth"] = lambda m: J_files.from_listing(m.group(1))
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731
@@ -159,6 +164,12 @@ class DryJarvis:
 
 def _first(m):
     return next((g for g in m.groups() if g), "")
+
+
+def _folder_here(j, said):
+    """Whether "what's in X" names a folder that's really there."""
+    path = J_files.place(j, said, folder=True)
+    return bool(path and os.path.isdir(path))
 
 
 def _convertible(amount):

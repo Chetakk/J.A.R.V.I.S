@@ -1,6 +1,7 @@
 """Coding on your projects: git status, open in VS Code, run the tests, "ask Claude to ... in X project",
 "open the project I was working on yesterday"; and any folder or file in any app ("open the projects folder in
-vs code", "open resume.pdf in writer", "open a terminal in downloads", "open jarvis in claude")."""
+vs code", "open resume.pdf in writer", "open a terminal in downloads", "open jarvis in claude",
+"open the first folder in vs code" after JARVIS has listed a folder)."""
 import json
 import os
 import shlex
@@ -25,6 +26,7 @@ _IN = re.compile(r" (?:in|with|using|inside|at|from) (?:a |an |the |my )?", re.I
 _CLAUDE = re.compile(r"claude(?: code)?", re.IGNORECASE)
 _TERMINAL = re.compile(r"(?:gnome )?terminal|shell|console|command line", re.IGNORECASE)
 _BROWSER = re.compile(r"(?:default |web )?browser", re.IGNORECASE)
+_DEFAULT = re.compile(r"default(?: application| program| viewer| editor)?|usual (?:one|program)", re.IGNORECASE)
 _PAGE = re.compile(r"\.(?:pdf|html?|svg|png|jpe?g|gif|webp|txt|json|md|xml|mp3|mp4)$", re.IGNORECASE)  # a browser shows
 
 
@@ -32,7 +34,8 @@ class Dev(Skill):
     group = "coding"
     does = "git status, projects in VS Code, the project you worked on, tests and jobs via Claude Code"
     phrases = ("git status of <project>", "open <project> project", "open the project I was working on yesterday",
-               "open <folder, file or project> in <app>", "run the tests in <project>",
+               "open <folder, file or project> in <app>", "open <folder, file or project> in the default app",
+               "run the tests in <project>",
                "ask claude to <task> in <project> project")
     gives = "speech, VS Code or a terminal opened"
     permission = "auto"
@@ -136,6 +139,9 @@ class Dev(Skill):
         elif kind == "terminal":
             self.j.executor.run("gnome-terminal --working-directory=%s" % shlex.quote(folder),
                                 reply="Opening a terminal in %s." % spoken_place(folder), window=True)
+        elif kind == "default":
+            self.j.executor.run("xdg-open %s" % shlex.quote(path), reply="Opening %s." % spoken_place(path),
+                                window=True)
         elif not self.j.apps.opens_files(app):
             self.say("%s can't open files, so I can't open %s in it." % (app["name"], spoken_place(path)))
         else:
@@ -228,8 +234,9 @@ def open_in_plan(j, said):
 
 
 def _app(j, said):
-    """(kind, menu entry) for the app `said` names: ("claude", None), ("terminal", None), ("app", entry);
-    "the browser" is your default one. (None, None) when it isn't an app."""
+    """(kind, menu entry) for the app `said` names: ("claude", None), ("terminal", None), ("default", None),
+    ("app", entry); "the browser" is your default one, "the default app" whatever opens that kind of file.
+    (None, None) when it isn't an app."""
     said = re.sub(r"^(?:a|an|the|my) |(?: app| window)$", "", said.strip(), flags=re.IGNORECASE)
     if _CLAUDE.fullmatch(said):
         return "claude", None
@@ -241,6 +248,8 @@ def _app(j, said):
         path = info and info.get_filename() if isinstance(info, Gio.DesktopAppInfo) else None
         app = next((a for a in j.apps.apps if a["path"] == path), None)
         return ("app", app) if app else (None, None)
+    if _DEFAULT.fullmatch(said):
+        return "default", None
     app = j.apps.find(said)
     if not app:
         return None, None

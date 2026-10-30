@@ -19,7 +19,8 @@ SAMPLES = {"x": "stretch", "y": "rust", "n": "2", "app": "chrome", "file": "plan
            "folder, file or project": "~/Downloads"}
 # Phrases that only mean the skill with something already going on (a text being read, dictation on):
 # routed elsewhere otherwise, by design.
-NEEDS_CONTEXT = {"read the rest", "read all of it", "summarise it", "stop dictation"}
+NEEDS_CONTEXT = {"read the rest", "read all of it", "summarise it", "stop dictation",
+                 "open the first folder", "open the second one"}  # only after JARVIS has listed a folder
 ENTRIES = registry.entries()
 
 
@@ -52,6 +53,7 @@ def concrete(phrase):
 def router(jv):
     """tools/dryrun.py's routing (every way out recorded, not done), noting which skill took each phrase."""
     os.makedirs(os.path.join(conftest.HOME, "Projects", "avtec-hs"))
+    os.makedirs(os.path.join(conftest.HOME, "Documents"), exist_ok=True)  # SAMPLES' stand-in <folder>
     with open(os.path.join(conftest.HOME, "Projects", "avtec-hs", "README.md"), "w") as f:
         f.write("# Avtec HS\n\nA camera station.\n")
     jv.desktop.add("Inbox - Gmail - Google Chrome", "google-chrome Google-chrome")

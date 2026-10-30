@@ -4,6 +4,12 @@
 "open terminal": command:open_terminal
 "open vs code": command:open_vscode
 "open the downloads folder": skill:open_folder
+"what folders do we have in projects": skill:list_in
+"what folders are in projects": skill:list_in
+"how many files are in downloads": skill:list_in
+"list the files in downloads": skill:list_in
+"what's in the downloads folder": skill:whats_in
+"show me what's in downloads": skill:whats_in
 "close chrome": "app:close Google Chrome"
 "volume down": command:volume_down
 "turn the sound up": command:volume_up

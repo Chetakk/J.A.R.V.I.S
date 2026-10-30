@@ -3,8 +3,13 @@ this morning", "open file ~/Downloads/x.pdf", "find pdfs from last week", "what 
 "show the .py files in projects from yesterday", "open the projects folder". "Find my tax papers" with no name matching looks by meaning
 (the names of the files in your own folders, never what's in them).
 
-which() says what "this file", "it", "resume.pdf" or "my latest download" means, for the other file skills;
-place() what "the projects folder", "downloads" or "jarvis" means ("open the projects folder in vs code")."""
+It also reads out what's in a folder ("what folders do we have in projects", "what's in the temp folder"), and
+keeps that list, so the next thing you say can point into it: "open the first folder", "open the second one in
+vs code", "the last one". Finding something and then opening it where you want is the whole chain.
+
+which() says what "this file", "it", "resume.pdf", "my latest download" or "the second one" means, for the other
+file skills; place() what "the projects folder", "downloads", "jarvis" or "the first folder" means
+("open the first folder in vs code")."""
 import datetime
 import os
 import re
@@ -15,7 +20,7 @@ import urllib.parse
 import numpy as np
 
 from skills.base import Skill
-from skills.helpers import HOME, PROJECTS, and_list, words
+from skills.helpers import HOME, NTH, ORDINALS, PROJECTS, and_list, words
 from system import desktop
 
 WHEN = (r"today|this morning|this afternoon|this evening|tonight|earlier(?: today)?|yesterday(?: morning| afternoon|"
@@ -40,18 +45,25 @@ SKIP_DIRS = {"node_modules", "snap", "site-packages", "__pycache__", "venv", ".v
 FOLDERS = ("Documents", "Downloads", "Desktop", "Pictures", "Videos", "Music")  # yours, for meaning search
 FOLDER_RE = (r"(?:(?:my |the )?(documents|downloads|desktop|pictures|videos|music|projects|home)(?: folder)?|"
              r"((?:~|/)\S+))")
+# "what's in the view menu" / "my clipboard history": asked the same way, but not a folder (other skills').
+NOT_A_FOLDER = re.compile(r"\b(?:menu|history|clipboard|bookmarks|memory|notes|fridge)$", re.IGNORECASE)
 THIS = (r"(?:this|that|the|it|this one|that one)(?: (?:file|document|doc|pdf|spreadsheet|sheet|presentation|slides|"
         r"deck|picture|image|photo|one))?")
 PLACES = dict({f.lower(): os.path.join(HOME, f) for f in FOLDERS}, home=HOME, projects=PROJECTS)
 FRESH = 10 * 60  # "it" is the file JARVIS last found or opened for this long
 last = {"paths": [], "at": 0.0}  # files JARVIS last found, for "summarise it", "rename it"
+listing = {"paths": [], "at": 0.0}  # what it last listed or opened, in order, for "the first folder"
 
 
 class Files(Skill):
     group = "finding files"
-    does = "Downloads by when, the latest file, finding files by name or meaning"
+    does = ("Downloads by when, the latest file, finding files by name or meaning, what's in a folder, and "
+            "\"the first one\" of whatever it just listed")
     phrases = ("find my <file>", "what did I download today", "open the pdf I downloaded this morning",
-               "open my latest download", "open the latest file in documents", "find pdfs from last week", "what files did I change today")
+               "open my latest download", "open the latest file in documents", "find pdfs from last week",
+               "what files did I change today", "what folders are in <folder>", "what's in the <folder> folder",
+               "open the first folder (one of the ones just listed)",
+               "open the second one (one of the ones just listed)")
     gives = "speech, a card with choices, a file opened"
     permission = "auto"
     asks = "before opening a file it found by searching"
@@ -60,6 +72,15 @@ class Files(Skill):
     def patterns(self):
         return [
             (r"open (?:the )?file ((?:~|/).+)", self.open_path),
+            # What's in a folder, before "open the X folder": "show me what's in the temp folder" lists it.
+            (r"(?:(?:what|which|how many)|(?:list|show)(?: me)?(?: all)?(?: the)?) "
+             r"(folders?|sub-?folders?|directories|files?|things|items?|stuff)"
+             r"(?: (?:are|is|do we have|have we got|do i have|are there))?(?: there)? (?:in|inside|under|of) (.+)",
+             self.list_in),
+            (r"(?:what'?s|what is) (?:in|inside) (.+)|(?:list|show)(?: me)?(?: the)? contents of (.+)|"
+             r"(?:show|list)(?: me)? what'?s (?:in|inside) (.+)", self.whats_in),
+            # "open the second one" with no card on screen: one of the ones JARVIS just listed.
+            (r"(?:open|show(?: me)?) (?:up )?(?:the |number )?%s(?: one| item| thing)?" % NTH, self.open_nth),
             # (before the meaning match, which takes "open the music folder" for the music player)
             (r"(?:open|show(?: me)?|bring up) (?:up )?(.+? (?:folder|directory))", self.open_folder),
             (r"(?:what|which files?|what files?|what stuff) (?:did|have) i (?:just )?download(?:ed)?(?: (%s))?|"
@@ -105,6 +126,7 @@ class Files(Skill):
                                                    " " + when if when else "", where))
             return
         remember(hits)
+        remember_listing(hits)
         title = ("Files you changed" if label == "changed" else label.capitalize()) + (" " + when if when else "")
         title += where
         self.j.show({"title": title,
@@ -139,12 +161,66 @@ class Files(Skill):
         remember([path])
         self.j.executor.run("xdg-open %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
 
+    def list_in(self, m):
+        word = m.group(1).lower()
+        kind = "folders" if word.startswith(("folder", "subfolder", "sub-folder", "director")) else \
+            "files" if word.startswith("file") else None
+        return self._contents(m.group(2), kind)
+
+    def whats_in(self, m):
+        said = next(g for g in m.groups() if g)
+        if NOT_A_FOLDER.search(said):
+            return False  # a window's menu, or the clipboard: another skill's
+        return self._contents(said, None)
+
+    def _contents(self, said, kind):
+        """Read out what's in a folder, and keep the list: "open the first folder" then means one of these."""
+        folder = place(self.j, said, folder=True)
+        if not folder or not os.path.isdir(folder):
+            return False  # not a folder here: maybe a menu, a website, or Claude knows
+        items = _children(folder, kind)
+        remember_listing(items)
+        where = spoken_place(folder)
+        if not items:
+            self.say("There's nothing in %s." % where if kind is None
+                     else "There aren't any %s in %s." % (kind, where))
+            return
+        dirs = [p for p in items if os.path.isdir(p)]
+        what = kind or ("folders" if len(dirs) == len(items) else "things")
+        self.j.show({"title": "In %s" % folder.replace(HOME, "~"),
+                     "text": "\n".join("%d. **%s**%s" % (i, os.path.basename(p), "/" if os.path.isdir(p) else "")
+                                       for i, p in enumerate(items[:30], 1))
+                             + ("\n\n…and %d more" % (len(items) - 30) if len(items) > 30 else ""),
+                     "choices": [{"label": os.path.basename(p)[:40], "do": "open file %s" % p.replace(HOME, "~")}
+                                 for p in items[:6]]})
+        names = [os.path.basename(p) for p in items[:3]]
+        if len(items) > 3:
+            names.append("%d more" % (len(items) - 3))
+        if len(items) == 1:
+            self.say("Just one %s in %s: %s." % (what.rstrip("s"), where, names[0]))
+        else:
+            self.say("%d %s in %s: %s. Say the first one, or its name, to open it."
+                     % (len(items), what, where, and_list(names)))
+
+    def open_nth(self, m):
+        path = from_listing(m.group(1))
+        if not path:
+            return False  # nothing listed lately: a card choice, or not about files at all
+        self._open(path)
+
+    def _open(self, path):
+        """Open a folder or file, and keep what's in it, so "the first one" can go a level deeper."""
+        remember([path])
+        if os.path.isdir(path):
+            remember_listing(_children(path))
+        self.j.executor.run("xdg-open %s" % shlex.quote(path), reply="Opening %s." % spoken_place(path),
+                            window=True)
+
     def open_folder(self, m):
         path = place(self.j, m.group(1), folder=True)
         if not path or self.j.registry.match_exact(m.group(0)):
             return False  # not a folder here, or a saved command for it ("open the downloads folder")
-        self.j.executor.run("xdg-open %s" % shlex.quote(path), reply="Opening %s." % spoken_place(path),
-                            window=True)
+        self._open(path)  # "the first folder" now means one inside the folder you just opened
 
     def downloaded(self, m):
         kind = next((KIND_WORDS[g.lower()] for g in m.groups() if g and g.lower() in KIND_WORDS), None)
@@ -179,6 +255,7 @@ class Files(Skill):
                  % (len(hits), "%ss" % kind if kind else "files", when))
 
     def _show(self, hits, when):
+        remember_listing(hits)
         self.j.show({"title": "Downloaded %s" % when,
                      "text": "\n".join("- **%s** · %s" % (os.path.basename(h), _when(h)) for h in hits),
                      "choices": [{"label": os.path.basename(h)[:40], "do": "open file %s" % h.replace(HOME, "~")}
@@ -305,6 +382,44 @@ def remember(paths):
     last["paths"], last["at"] = list(paths), time.time()
 
 
+def remember_listing(paths):
+    """What JARVIS just listed or opened, in the order it read them out."""
+    listing["paths"], listing["at"] = list(paths), time.time()
+
+
+def recent_listing():
+    """Those folders and files, while that's fresh and they're still there."""
+    if time.time() - listing["at"] < FRESH:
+        return [p for p in listing["paths"] if os.path.exists(p)]
+    return []
+
+
+def from_listing(said, folder=False):
+    """"the first", "second one", "the last file" -> that one of the things JARVIS just listed or opened.
+    None when `said` isn't an ordinal, nothing was listed lately, or the list is shorter than that."""
+    m = re.fullmatch(r"(?:number )?%s(?: (?:one|item|thing|folder|directory|file|document))?" % NTH, said.strip(),
+                     re.IGNORECASE)
+    if not m:
+        return None
+    paths = recent_listing()
+    if folder:
+        paths = [p for p in paths if os.path.isdir(p)]
+    word = m.group(1).lower()
+    n = len(paths) if ORDINALS.get(word) == -1 else (ORDINALS.get(word) or int(word))
+    return paths[n - 1] if 0 < n <= len(paths) else None
+
+
+def _children(folder, kind=None):
+    """What's in `folder`, folders first then files, each by name; no hidden ones. kind: "folders" or "files"."""
+    try:
+        paths = [os.path.join(folder, n) for n in sorted(os.listdir(folder)) if not n.startswith(".")]
+    except OSError:
+        return []
+    dirs = [p for p in paths if os.path.isdir(p)]
+    files = [p for p in paths if not os.path.isdir(p)]
+    return dirs if kind == "folders" else files if kind == "files" else dirs + files
+
+
 def recent_file():
     """The file JARVIS last found or opened, while that's fresh."""
     if time.time() - last["at"] < FRESH:
@@ -329,6 +444,9 @@ def which(j, said):
     if said.startswith(("~", "/")):
         path = os.path.expanduser(said)
         return ([path], "path") if os.path.exists(path) else ([], None)
+    picked = from_listing(said)
+    if picked and os.path.isfile(picked):
+        return [picked], "listing"
     m = re.fullmatch(r"(?:latest|newest|last|most recent) (?:download|downloaded file)|(?:(%s|file|thing|one) )?"
                      r"(?:that )?i (?:just )?downloaded(?: (%s))?" % (KIND_RE, WHEN), said, re.IGNORECASE)
     if m:
@@ -349,6 +467,9 @@ def place(j, said, folder=False):
         said, folder = m.group(1), True
     if said.lower() in PLACES:
         return PLACES[said.lower()]
+    picked = from_listing(said, folder)
+    if picked:
+        return picked
     if said.startswith(("~", "/")):
         path = os.path.expanduser(said)
         return path if os.path.isdir(path) or os.path.exists(path) and not folder else None
