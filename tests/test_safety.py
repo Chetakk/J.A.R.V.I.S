@@ -116,3 +116,11 @@ def test_the_programs_commands_yaml_uses_still_run_by_themselves(gate, command):
 ])
 def test_more_ways_to_run_or_write_through_a_safe_program(gate, command):
     assert gate.classify(command)[0] == MANUAL
+
+
+def test_chained_commands_with_cd_are_safe_and_not_missing(gate):
+    # `cd` is a builtin: no program file for the executor to find, and nothing to ask about.
+    from core.executor import BUILTINS
+    assert "cd" in BUILTINS
+    assert gate.classify("cd ~/Projects && ls")[0] == AUTO
+    assert gate.classify("cd /tmp && rm x")[0] == MANUAL

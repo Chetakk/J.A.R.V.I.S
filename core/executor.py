@@ -13,6 +13,10 @@ from voice.speech import pick
 from system.terminal import DEFAULT_TERMINAL, ManualTerminal
 
 
+# Shell builtins have no program file to find, so `cd x && ls` must not be called "missing".
+BUILTINS = {"cd", "pwd", "echo", "true", "false", "test", "[", "export", "type", "pushd", "popd"}
+
+
 class Executor:
     def __init__(self, safety, speaker, settings, ask):
         self.safety = safety
@@ -50,7 +54,7 @@ class Executor:
             prog = shlex.split(command)[0]
         except (ValueError, IndexError):
             prog = ""
-        if prog and not shutil.which(os.path.expanduser(prog)):
+        if prog and prog not in BUILTINS and not shutil.which(os.path.expanduser(prog)):
             self.outcome = "missing"
             self.speaker.say("Hmm, I can't find %s on this computer." % prog)
             return None

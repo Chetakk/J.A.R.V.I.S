@@ -34,6 +34,7 @@ auto:
   - uname
   - ls
   - pwd
+  - cd         # a shell builtin; only changes directory inside the command
   - echo
   - head
   - tail
