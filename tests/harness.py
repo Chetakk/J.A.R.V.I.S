@@ -507,7 +507,8 @@ class FakeClaude:
 
         def text_call(method):
             def fn(prompt, *a, **k):
-                self.calls.append((method, prompt))
+                content = a[0] if method == "rewrite" and a else ""  # rewrite(instruction, the text)
+                self.calls.append((method, prompt + ("\n\n" + content if content else "")))
                 r = self._next("(claude text)")
                 return r.get("say", "") if isinstance(r, dict) else r
             return fn
