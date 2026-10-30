@@ -10,6 +10,8 @@ would touch outside itself is fake and recorded.
   ui         cards and the chat panel: recorded.
   keyring    the GNOME Keyring: a dict (jv.keyring.items); available=False for a desktop without one.
   manual     commands JARVIS put in the manual terminal for you to run: jv.manual, nothing opened.
+  screen     jv.screen_changes: whether a window's pixels change after a click (see grab()).
+  processes  jv.add_process(pid, name, cpu=...): /proc/<pid>/stat and os.kill see only these (jv.signals).
   files      jv.files[path] = text: what reading that file gives (/proc, /sys); others read as usual.
 
 conftest.py also points HOME at a temp folder (wiped before each test), so notes, memory and reminders
@@ -24,8 +26,10 @@ call the fakes missed fails instead of reaching your desktop.
 import copy
 import io
 import json
+import os
 import re
 import shlex
+import signal
 import subprocess
 import threading
 import time
@@ -563,6 +567,10 @@ class JV:
         self.questions = []  # what JARVIS asked you
         self.answers = []  # your replies, used in order; none left = no answer (like the timeout)
         self.screenshots = []  # where gnome-screenshot was asked to save
+        self.screen_changes = None  # see grab()
+        self.procs = {}  # pid -> pretend process (add_process)
+        self.signals = []  # (pid, signal) sent with os.kill
+        self._grabs = 0
         self.files = {}  # path -> text: what reading that file gives (e.g. "/proc/net/wireless")
         self.desktop.patch(monkeypatch)
         self.keyring = Keyring()
@@ -580,6 +588,63 @@ class JV:
         from core import executor
         monkeypatch.setattr(executor, "with_name", lambda text, name: text)  # "Done, <name>." now and then: off
         monkeypatch.setattr(j, "_answer", self._answer)
+
+    # --- processes: /proc/<pid>/stat and os.kill, for pretend processes only ---
+    def add_process(self, pid, name, cpu=0.0, rss_mb=100, state="S", ignores_term=False):
+        """A pretend process. cpu: percent it uses (its CPU ticks grow by that between two reads half a second
+        apart). ignores_term: SIGTERM doesn't end it (a frozen app), SIGKILL does."""
+        self.procs[pid] = {"name": name, "cpu": cpu, "rss": rss_mb * 256, "state": state, "ticks": 1000,
+                           "ignores_term": ignores_term}
+
+    def fake_file(self, path):
+        """Text for a file the test pretends (jv.files, or /proc/<pid>/stat of a pretend process); None to read the
+        real one. A real process's /proc entry reads as missing: tests never see the computer's own processes."""
+        if path in self.files:
+            return self.files[path]
+        m = re.match(r"^/proc/(\d+)/(stat|status|cmdline)$", str(path))
+        if not m:
+            return None
+        p = self.procs.get(int(m.group(1)))
+        if not p:
+            raise FileNotFoundError(path)
+        p["ticks"] += round(p["cpu"] * os.sysconf("SC_CLK_TCK") * 0.5 / 100)
+        if m.group(2) == "cmdline":
+            return p["name"] + "\0"
+        return "%s (%s) %s 1 1 1 0 -1 0 0 0 0 0 %d 0 0 0 20 0 1 0 100 1000 %d\n" % (
+            m.group(1), p["name"], p["state"], p["ticks"], p["rss"])
+
+    def proc_ticks(self):
+        """For slow_computer._cpu_ticks: {pid: (name, cpu ticks, rss kB)} of the pretend processes."""
+        out = {}
+        for pid, p in self.procs.items():
+            p["ticks"] += round(p["cpu"] * os.sysconf("SC_CLK_TCK") * 0.5 / 100)
+            out[pid] = (p["name"], p["ticks"], p["rss"] * 4)
+        return out
+
+    def kill(self, pid, sig):
+        """os.kill: recorded; only pretend processes can be signalled (others: ProcessLookupError)."""
+        self.signals.append((pid, sig))
+        p = self.procs.get(pid)
+        if not p:
+            raise ProcessLookupError(pid)
+        if sig == signal.SIGCONT:
+            p["state"] = "S"
+            for w in self.desktop.wins:
+                if w.pid == pid:
+                    w.frozen = False
+        elif sig == signal.SIGKILL or (sig == signal.SIGTERM and not p["ignores_term"]):
+            del self.procs[pid]
+            self.desktop.wins = [w for w in self.desktop.wins if w.pid != pid]
+
+    def grab(self, geometry):
+        """verify.grab(): what that part of the screen looks like. screen_changes None: can't be read; False: the
+        same picture every time; True: a different one each time (the click did something)."""
+        if self.screen_changes is None or not geometry:
+            return None
+        from PIL import Image
+        self._grabs += 1
+        shade = (self._grabs * 60) % 256 if self.screen_changes else 90
+        return Image.new("RGB", (max(1, geometry[2]), max(1, geometry[3])), (shade, shade, shade)), geometry[:2]
 
     def _screenshot(self, line):
         """gnome-screenshot -f PATH (-a/-w too): writes a small grey picture there, as a real one would."""

@@ -57,3 +57,13 @@ def test_speech_and_claude_are_recorded(jv):
     assert jv.claude.asked("penguins")
     assert jv.says("(claude answer)")
     assert not jv.shell.ran(r"^claude ")
+
+
+def test_real_processes_cant_be_signalled_or_read(jv):
+    import signal
+    with pytest.raises(ProcessLookupError):
+        os.kill(os.getpid(), signal.SIGTERM)  # this very test process: still alive afterwards
+    with pytest.raises(FileNotFoundError):
+        open("/proc/1/stat")
+    jv.add_process(50001, "chrome")
+    assert open("/proc/50001/stat").read().startswith("50001 (chrome) S")

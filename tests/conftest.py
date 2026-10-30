@@ -125,9 +125,10 @@ def _guarded(path):
 def _guarded_open(file, mode="r", *a, **k):
     if any(c in mode for c in "wax+"):
         _guarded(file)
-    elif harness.current is not None and file in harness.current.files:  # jv.files: pretend contents
-        text = harness.current.files[file]
-        return io.BytesIO(text.encode()) if "b" in mode else io.StringIO(text)
+    elif harness.current is not None:
+        text = harness.current.fake_file(file)  # jv.files, pretend /proc/<pid>/stat
+        if text is not None:
+            return io.BytesIO(text.encode()) if "b" in mode else io.StringIO(text)
     return _open(file, mode, *a, **k)
 
 
@@ -171,6 +172,8 @@ os.system = lambda line: _world().shell.system(line)
 os.popen = lambda line, *a, **k: _world().shell.popen(line, shell=True, text=True).stdout
 os.execv = os.execvp = os.execvpe = os.execl = os.execlp = lambda *a, **k: _world() and None
 shutil.which = _which
+os.kill = lambda pid, sig: _world().kill(pid, sig)  # never a real process
+os.killpg = lambda pgid, sig: _world().kill(pgid, sig)
 urllib.request.urlopen = lambda *a, **k: _world().net.urlopen(*a, **k)
 socket.create_connection = _no_socket
 
@@ -189,7 +192,7 @@ def jv(monkeypatch):
     monkeypatch.setattr(files, "_names", {"key": None, "paths": [], "matrix": None})
     monkeypatch.setattr(verify, "LAUNCH_SECONDS", 1.0)
     monkeypatch.setattr(verify, "QUICK_SECONDS", 0.5)
-    monkeypatch.setattr(verify, "grab", lambda geometry: None)
+    monkeypatch.setattr(verify, "grab", lambda geometry: harness.current.grab(geometry) if harness.current else None)
     monkeypatch.setattr(todos.Todos, "_watch", lambda self: None)  # an endless loop; tests run one round of it
 
     import queue
