@@ -31,6 +31,7 @@ from skills.focus_mode import FocusMode
 from skills.frozen import Frozen
 from skills.install import Install
 from skills.layouts import Layouts
+from skills.learning import Learning
 from skills.linked import Linked
 from skills.maths import Maths
 from skills.media import Media
@@ -59,7 +60,7 @@ ORDER = [
     ("maths", Maths), ("focus_mode", FocusMode), ("proactive", Proactive), ("notifications", Notifications),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
-    ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
+    ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos),
     ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),

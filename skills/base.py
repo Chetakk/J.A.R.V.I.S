@@ -51,5 +51,6 @@ class Skill:
                     self.say("Sorry, that didn't work: %s." % e)
                     return True
                 if done is not False:
+                    self.j.handled(text, "pattern", skill=type(self).__name__, value=any(m.groups()))
                     return True
         return False

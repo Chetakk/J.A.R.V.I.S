@@ -152,21 +152,23 @@ watchdog:
 
 # When Claude turns something you said into one of JARVIS's own phrases, learn that wording so it works
 # without Claude next time (core/learned.py, ~/.local/share/jarvis/learned.yaml).
-# ask = ask first ("Should I remember that ... means ...?"), quiet = just learn it, off = never.
-learn: ask
+# quiet = just learn it, ask = ask first ("Should I remember that ... means ...?"), off = never.
+learn: quiet
 
-# Teaching itself (core/teaching.py): now and then, Claude writes other ways of saying the phrases JARVIS
-# knows but has no wordings for, and says which phrase the things you said that it missed really meant.
-# Each wording is checked before it's kept (nothing a skill already takes, nothing that already means
-# something else), then saved to ~/.local/share/jarvis/learned.yaml and used at once. What it taught
-# itself is listed in ~/.local/share/jarvis/taught.jsonl. Held in focus mode and quiet hours; `learn: off`
-# above turns this off too.
+# Teaching itself (core/teaching.py), without asking: Claude says what the things you said that JARVIS missed, or
+# only just placed, really meant; and it writes other ways of saying the phrases you use, then all the others, until
+# it says a phrase has enough. Each wording is checked before it's kept (nothing a skill already takes, nothing that
+# already means something else), then saved to ~/.local/share/jarvis/learned.yaml and used at once.
+# "Did you learn anything new?" tells you what it picked up. Held in focus mode and quiet hours; `learn: off` above
+# turns this off too.
 teaching:
   enabled: true
-  after: 300          # seconds after starting before the first pass
-  every: 3            # hours between passes
-  phrases: 6          # phrases without wordings per pass (one question to Claude)
+  log: true           # keep what you said that worked, for this (outcomes.jsonl; no values, secrets or private requests)
+  after: 300          # seconds after starting before it may run
+  every: 3            # hours between passes (at most two questions to Claude each)
+  phrases: 6          # phrases per pass to write wordings for
   wordings: 6         # wordings asked for per phrase
-  misses: 6           # things you said that it missed, per pass
-  miss_days: 30       # how far back to look for those
+  misses: 6           # things you said to work out per pass
+  days: 30            # how far back it looks at what you said
+  doubt: 0.06         # a match this close above the threshold counts as only just placed
   model: ""           # "" = the same Claude model as usual; a bigger one writes better wordings

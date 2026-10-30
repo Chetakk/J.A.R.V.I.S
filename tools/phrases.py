@@ -6,7 +6,6 @@ config/intents.yaml keeps them.
   tools/phrases.py --ask            # ask Claude for wordings for all of them, keep the ones that route right
   tools/phrases.py --ask notes todos   # only those skills (or groups)
   tools/phrases.py --ask --dry      # print what Claude suggested, write nothing (and check nothing)
-  tools/phrases.py --misses 7       # the same, for what the last 7 days of misses nearly matched
   tools/phrases.py --taught         # what JARVIS taught itself while running
 
 JARVIS also does this by itself as it runs (core/teaching.py, settings `teaching`), straight into
@@ -34,7 +33,7 @@ sys.path.insert(0, HERE)
 
 import yaml  # noqa: E402
 
-from core import teaching  # noqa: E402
+from core import learned, teaching  # noqa: E402
 from core.intent import _norm  # noqa: E402
 
 INTENTS = os.path.join(HERE, "config", "intents.yaml")
@@ -49,11 +48,6 @@ NOWHERE = ("claude", "ignored", "persona", "asks")
 
 def known():
     return teaching.known(path=INTENTS)
-
-
-def nearly_missed(days):
-    """[(where it came from, what was said)] from the miss log: wordings JARVIS heard and didn't place."""
-    return [("a miss", text) for text in teaching.missed(known(), days)], []
 
 
 ROUTER = r"""
@@ -101,7 +95,7 @@ def ask(phrases, model, wanted):
             sys.exit("Claude: %s" % reply.get("result"))
         return reply.get("result", "")
 
-    return teaching.ask_wordings(once, phrases, wanted)
+    return teaching.ask_wordings(once, phrases, wanted)[0]
 
 
 def _yaml(text):
@@ -233,13 +227,7 @@ def run(targets, model, wanted, dry, why):
 
 def taught():
     """What JARVIS taught itself while running (~/.local/share/jarvis/taught.jsonl)."""
-    have = known()
-    try:
-        with open(teaching.TAUGHT, encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
-    except OSError:
-        print("nothing yet: %s isn't there" % teaching.TAUGHT)
-        return 0
+    have, rows = known(), learned.history()
     for r in rows:
         where = "in the code" if _norm(r["said"]) in have else "learned.yaml only"
         print("%s  %-44s means %-28s (%s, %s)" % (r["time"], r["said"], r["means"], r.get("from", "?"), where))
@@ -259,16 +247,10 @@ def main(argv):
         argv = argv[:argv.index("--n")] + argv[argv.index("--n") + 2:]
     if "--taught" in argv:
         return taught()
-    asking = "--ask" in argv or "--misses" in argv
-    misses = "--misses" in argv
+    asking = "--ask" in argv
     rest = [a for a in argv if not a.startswith("--")]
-
-    if misses:
-        targets, skipped = nearly_missed(rest[0] if rest else 0)
-        why = "from the miss log"
-    else:
-        targets, skipped = teaching.gaps(known(), [a.replace("-", "_") for a in rest])
-        why = "the skills registry's own phrases"
+    targets, skipped = teaching.gaps(known(), [a.replace("-", "_") for a in rest])
+    why = "the skills registry's own phrases"
     if not targets:
         print("nothing to do: every phrase has other wordings already")
         return 0

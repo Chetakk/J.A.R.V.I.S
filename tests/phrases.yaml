@@ -1305,6 +1305,7 @@
 "find sources on whisper models": skill:research
 "do some research on the best usb mic": skill:research
 "start a deep research on edge ai chips": skill:deep_research
+
 # --- added 2026-10-30 by tools/phrases.py (the skills registry's own phrases)
 "speed up your speech": skill:speed
 "you talk too slow": skill:speed
@@ -1336,6 +1337,7 @@
 "start talking again": skill:quiet
 "turn your voice back on": skill:quiet
 "you can stop being quiet": skill:quiet
+
 # --- added 2026-10-30 by tools/phrases.py (the skills registry's own phrases)
 "i mean the second one, not the first": card:pick
 "let's go with number two": card:pick
@@ -1394,3 +1396,12 @@
 "my notifications are piling up, clear them": skill:forget
 "i've seen them all, clear the notifications": skill:forget
 "empty my notification list": skill:forget
+
+# --- what JARVIS has taught itself (skills/learning.py)
+"did you learn anything new": skill:whats_new
+"did you learn any new phrase": skill:whats_new
+"have you learned any new sentences": skill:whats_new
+"what new phrases do you know": skill:whats_new
+"what have you learned today": skill:whats_new
+"any new phrases": skill:whats_new
+"what have you been learning": skill:whats_new

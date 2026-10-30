@@ -47,6 +47,7 @@ class DryJarvis:
         j._answer = lambda question: rec(("asks", question))  # a yes/no or "X, or Y?": no answer comes
         j._slash = lambda raw: rec(("slash", raw)) or True
         j._miss = lambda text, outcome: rec(("miss", outcome))
+        j.handled = lambda *a, **k: None  # a dry run isn't something you said
         j._open_app = lambda text: self._app(J.apps.OPEN, text, "open")
         j._close_app = lambda text: self._app(J.apps.CLOSE, text, "close")
         for name in ("seen", "used", "add_reminder", "clear_reminders", "set_pref", "set_preferences"):

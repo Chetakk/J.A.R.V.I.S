@@ -25,7 +25,7 @@ try:
 except ImportError:
     pass
 
-from core import context, learned, misslog, persona, teaching, undo, verify
+from core import context, learned, misslog, outcomes, persona, teaching, undo, verify
 from system import apps, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
@@ -376,6 +376,7 @@ class Jarvis:
         phrase = self.intents.early(text) if self.intents and not self._rewording else None
         if phrase:  # a listed other wording, word for word: before any pattern can misread it
             self.heard(text, "means \"%s\"" % phrase)
+            self.handled(text, "wording", phrase)
             return self._reword(phrase)
         # Before the skills: "close Jarvis" isn't an app, nor a project. Claude's "do" can't close JARVIS.
         about_me = None if self.from_claude else self._about_me(text)
@@ -413,6 +414,7 @@ class Jarvis:
             return True
         match = self.registry.match_exact(text)
         if match and not self._not_running(match):
+            self.handled(text, "command", (match.command.get("say") or [""])[0], value=bool(match.slots))
             return self._run_match(match)
         if self._open_app(text):
             return True
@@ -439,9 +441,11 @@ class Jarvis:
         phrase, score = self.intents.match(text) if self.intents and not self._rewording else (None, 0)
         if phrase:
             self.heard(text, "means \"%s\" (%.2f)" % (phrase, score))
+            self.handled(text, "meaning", phrase, score=score)
             return self._reword(phrase)
         match = self.registry.match_fuzzy(text)
         if match:
+            self.handled(text, "fuzzy", (match.command.get("say") or [""])[0], value=bool(match.slots))
             return self._run_match(match)
 
         # In a conversation (a follow-up, no name needed) everything you say is meant for JARVIS, so it
@@ -473,6 +477,19 @@ class Jarvis:
         else:
             self._ask_claude(text)
         return True
+
+    def handled(self, text, how, phrase="", skill="", score=0.0, value=False):
+        """Record a request JARVIS handled (core/outcomes.py), so teaching knows what you lean on and which of its
+        matches only just got there. What was said is only kept when it could be taught from: no value in it, no
+        number or secret, not a private request. `teaching.log: false` turns it off."""
+        if self._rewording or self.from_claude or self._private \
+                or not (self.settings.get("teaching") or {}).get("log", True):
+            return
+        if value or not teaching.fit_to_send(text):
+            text = ""
+        elif how == "pattern":
+            phrase = text.lower().strip()  # no value in it: what you said is itself a phrase JARVIS knows
+        outcomes.log(how, text, "" if "{" in phrase else phrase, skill, score)
 
     def _miss(self, text, outcome):
         guess, score = self.intents.nearest if self.intents else (None, 0.0)
@@ -915,9 +932,10 @@ class Jarvis:
         if not phrase:
             return False  # neither: Claude, as before
         if self.settings.get("learn", "ask") != "off" and learned.worth_learning(text, phrase, learned.load()):
-            learned.remember(text, phrase)  # you just confirmed it: no need to ask again
+            learned.remember(text, phrase, why="you said yes")  # you just confirmed it: no need to ask again
             self.intents.learn(text, phrase)
         self.heard(text, "you meant \"%s\"" % phrase)
+        self.handled(text, "confirmed", phrase)
         return self._reword(phrase)
 
     def _learn(self, said, phrase):
@@ -929,7 +947,7 @@ class Jarvis:
         if mode == "ask" and not self.ask("Should I remember that \u201c%s\u201d means %s?" % (said, phrase)):
             learned.decline(said)  # never asked about again
             return
-        learned.remember(said, phrase)
+        learned.remember(said, phrase, why="Claude did it for you")
         self.intents.learn(said, phrase)
         self.heard(said, "learned: means \"%s\"" % phrase)
         if mode == "ask":
@@ -1212,28 +1230,28 @@ def run_loop(jarvis, has_ui):
 
 
 def teach(jarvis):
-    """Background: teaches itself other ways of saying things (core/teaching.py).
+    """Background: teaches itself other ways of saying things (core/teaching.py), without asking.
 
-    Claude writes wordings for the phrases that have none, and says which phrase the things you said that
-    JARVIS missed really meant; each one is checked before it's kept, and kept in learned.yaml like
-    anything else JARVIS learned. Held in focus mode and quiet hours, skipped while JARVIS is talking,
-    in system mode (no Claude) and with learn: off."""
+    Held in focus mode and quiet hours, and while JARVIS is talking; skipped in system mode (no Claude) and with
+    learn: off. The time of the last pass is kept, so restarting JARVIS doesn't mean asking Claude again."""
     cfg = jarvis.settings.get("teaching") or {}
     if not cfg.get("enabled", True):
         return
     time.sleep(max(30, cfg.get("after", 300)))
     while True:
+        wait = teaching.due_in(cfg)
+        if wait or jarvis.settings.get("learn", "ask") == "off" or jarvis.mode == "sys" \
+                or jarvis.speaker.busy() or jarvis.skills.proactive.holding():
+            time.sleep(min(wait or 600, 600))
+            continue
         try:
-            if jarvis.settings.get("learn", "ask") != "off" and jarvis.mode != "sys" \
-                    and not jarvis.speaker.busy() and not jarvis.skills.proactive.holding():
-                line = teaching.run(jarvis, cfg)
-                if line:
-                    print("[teaching] %s" % line)
+            line = teaching.run(jarvis, cfg)
+            if line:
+                print("[teaching] %s" % line)
         except ClaudeError as e:
             print("[teaching] %s" % e)
         except Exception as e:  # a wording must never take JARVIS down
             print("[teaching] failed: %r" % e)
-        time.sleep(max(600, cfg.get("every", 3) * 3600))
 
 
 def watch(jarvis):
