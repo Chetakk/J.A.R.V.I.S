@@ -12,7 +12,7 @@ import unicodedata
 import numpy as np
 import yaml
 
-from core.registry import opposite_direction
+from core.registry import _TRAILING_FILLER, opposite_direction
 
 MODEL_DIR = os.path.expanduser("~/.local/share/jarvis/models/minilm")
 CACHE = os.path.join(MODEL_DIR, "phrases.npz")
@@ -57,7 +57,10 @@ class WordPiece:
 
 
 def _norm(text):
-    return " ".join(re.findall(r"[\w']+|:", text.lower()))
+    """For comparing word for word. What you say has a trailing "please", "for me" or "now" taken off before it gets
+    here (core/registry.py), so a wording ending in one has to compare without it or it could never match."""
+    text = text.lower()
+    return " ".join(re.findall(r"[\w']+|:", _TRAILING_FILLER.sub("", text) or text))
 
 
 def wrong_kind(said, phrase):
