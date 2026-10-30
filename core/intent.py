@@ -85,13 +85,37 @@ def wrong_thing(said, phrase):
 
 
 def _value(slot, value):
-    """{when}: "5 pm" -> "at 5 pm", "20 minutes" -> "in 20 minutes" ("tomorrow at 9 am" stays)."""
+    """{when}: "5 pm" -> "at 5 pm", "20 minutes" -> "in 20 minutes" ("tomorrow at 9 am" stays).
+    {level}: "seventy percent" -> "70"."""
     value = value.strip()
+    if slot == "level":
+        return _level(value)
     if slot != "when" or re.match(r"^(?:in|at|today|tonight|tomorrow)\b", value, re.IGNORECASE):
         return value
     if re.search(r"\d\s*(?:[ap]\.?\s?m\b|:\d)|\b(?:noon|midnight|o'?clock)\b", value, re.IGNORECASE):
         return "at " + value
     return "in " + value
+
+
+_ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen " \
+        "seventeen eighteen nineteen".split()
+_TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split()
+# 0-100 in digits or words: "70", "seventy", "fifty five", "a hundred"; "percent" after it is allowed
+_LEVEL = r"(?:\d{1,3}|(?:%s)(?:[ -](?:%s))?|%s|(?:a |one )?hundred)(?: ?(?:percent|per cent|%%))?" % (
+    "|".join(_TENS), "|".join(_ONES[1:10]), "|".join(_ONES))
+
+
+def _level(value):
+    """"seventy five percent" -> "75" (digits stay as they are)."""
+    value = re.sub(r" ?(?:percent|per cent|%)$", "", value.lower()).strip()
+    if value.isdigit():
+        return value
+    if value.endswith("hundred"):
+        return "100"
+    words = re.split(r"[ -]", value)
+    if words[0] in _TENS:
+        return str(10 * (_TENS.index(words[0]) + 2) + (_ONES.index(words[1]) if len(words) > 1 else 0))
+    return str(_ONES.index(value))
 
 
 _NUM = (r"(?:\d[\d:.]*|an?|half an|a couple of|a few|one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
@@ -101,7 +125,7 @@ SLOTS = {
     # "20 minutes", "5 pm", "in an hour", "tomorrow at 9 am", "noon"
     "when": r"(?:(?:in|at) )?(?:(?:today|tonight|tomorrow)(?: at)? ?)?(?:%s(?: ?(?:[ap]\.? ?m\.?|minutes?|mins?|"
             r"hours?|hrs?|seconds?|secs?|o'?clock))?|noon|midnight)" % _NUM,
-    "level": r"\d{1,3}",  # a volume or brightness ("set volume to {level}" mustn't take "30 and open spotify")
+    "level": _LEVEL,  # a volume or brightness ("set volume to {level}" mustn't take "30 and open spotify")
     "dur": r"%s ?(?:minutes?|mins?|hours?|hrs?|seconds?|secs?)" % _NUM,
     "a": r"-?[\d.,]+", "b": r"-?[\d.,]+",  # sums take numbers only ("add a note to X" isn't one)
     "n": r"first|second|third|fourth|fifth|last|1st|2nd|3rd|4th|5th|one|two|three|four|five|\d",

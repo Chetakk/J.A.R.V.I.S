@@ -31,12 +31,12 @@ show chat: [open the chat, show me the conversation, show the chat window]
 hide chat: [close the chat, get rid of the chat, hide the conversation]
 close the card: [close it, get rid of that card, hide the card, dismiss that]
 # Saved commands (config/commands.yaml) are added automatically; extra wordings for them go here too.
-volume up: [turn the volume up, turn up the volume, turn up the sound, turn the sound up, make it louder, i can't hear it, raise the volume, crank it up, pump it up, raise it, it's too quiet, i can barely hear it, the sound is too low]
-volume down: [turn the volume down, turn down the volume, turn down the sound, turn the sound down, make it quieter, it's too loud, lower the volume, softer please, lower it, bring it down, not so loud]
+volume up: [turn the volume up, turn up the volume, turn up the sound, turn the sound up, make it louder, i can't hear it, raise the volume, crank it up, pump it up, raise it, it's too quiet, i can barely hear it, the sound is too low, adjust media volume up, can you speak a little louder, hey sound is low can you tune it up, i can't hear just increase the volume, i can't hear you can you say it again louder, i couldn't hear you repeat that louder, i need a high volume, i want the speakers turned up high, just increase the volume a little, made media volume louder, make the speaker volume on maximum, move the volume up a little, please speak loud, please turn the music up, set the volume higher, speak as loud as you can, turn my audio higher, turn up music please, turn up speakers]
+volume down: [turn the volume down, turn down the volume, turn down the sound, turn the sound down, make it quieter, it's too loud, lower the volume, softer please, lower it, bring it down, not so loud, it is too loud decrease the volume, it's really loud can you please turn the music down, lower audio, lower the speakers, lower the volume on the speakers, please slow down volume of speaker, please speak quieter to me, please talk softer, set the volume to low, slow the volume speaker, speak softer please, talk quieter please, turn down speakers, turn down the speakers]
 dark mode: [make everything dark, switch to the dark look, my eyes hurt]
 # With a {value}: other wordings are matched word for word, and the value is carried over.
 "close {app}": ["shut {app}", "end {app}", "exit {app}", "get rid of {app}", "stop {app} app", "close down {app}", "shut {app} down"]
-"set volume to {level}": ["volume {level} percent", "volume {level} %", "put the sound at {level} percent", "put the sound at {level}", "make it {level} percent", "volume at {level}", "put the volume at {level}", "turn the volume to {level}", "volume to {level} percent", "set the sound to {level}", "set the volume to {level}", "volume to {level}", "change the volume to {level}", "make the volume {level}"]
+"set volume to {level}": ["volume {level} percent", "volume {level} %", "put the sound at {level} percent", "put the sound at {level}", "make it {level} percent", "volume at {level}", "put the volume at {level}", "turn the volume to {level}", "volume to {level} percent", "set the sound to {level}", "set the volume to {level}", "volume to {level}", "change the volume to {level}", "make the volume {level}", "increase the volume to {level}", "raise the volume to {level}", "turn the volume up to {level}", "turn up the volume to {level}", "lower the volume to {level}", "turn the volume down to {level}", "turn down the volume to {level}", "set the music volume to {level}", "set the speaker volume to {level}", "change the speaker volume to {level}", "turn the speakers to {level}"]
 "connect to wifi {network}": ["join {network} wifi", "get on {network} wifi", "use the {network} network", "switch to {network} wifi"]
 
 # --- added 2026-10-29: everyday wordings for the rest of JARVIS ---
@@ -84,7 +84,7 @@ switch audio to echo dot: [switch to the echo dot, play on the echo dot, sound t
 
 # --- added 2026-10-29: the full feature list, more ways of saying each ---
 open documents: [take me to my documents, show me my documents, open my documents folder]
-mute the sound: [mute everything, silence the speakers, turn off the sound, no sound, silence my computer]
+mute the sound: [mute everything, silence the speakers, turn off the sound, no sound, silence my computer, i don't want sound, i would like to mute the speakers please, off the speakers, please mute the volume control, turn off media volume]
 unmute the sound: [turn the sound back on, bring the sound back, sound back on, i want sound again]
 take a screenshot: [capture the screen, grab my screen, screenshot the whole screen, take a picture of the screen]
 lock screen: [lock it, lock the computer now, lock up]

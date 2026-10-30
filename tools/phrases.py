@@ -7,6 +7,7 @@ config/intents.yaml keeps them.
   tools/phrases.py --ask notes todos   # only those skills (or groups)
   tools/phrases.py --ask --dry      # print what Claude suggested, write nothing (and check nothing)
   tools/phrases.py --taught         # what JARVIS taught itself while running
+  tools/phrases.py --from words.json   # {phrase: [wordings]} from elsewhere (a dataset), same checks, no Claude
 
 JARVIS also does this by itself as it runs (core/teaching.py, settings `teaching`), straight into
 ~/.local/share/jarvis/learned.yaml. This is the same wordings written into the code instead, with the
@@ -117,12 +118,22 @@ def write(path, text):
         f.write(text)
 
 
-def unwrite(path, old, new):
-    """Put `new` in place of the `old` block just appended (or take it out again)."""
-    with open(path, encoding="utf-8") as f:
-        body = f.read()
+def with_added(body, additions, why):
+    """config/intents.yaml's text with the wordings in: a phrase that has its own line already gets them at the end
+    of that list (a second "volume up:" key would replace the first one's wordings), the rest go in a new block."""
+    rest = {}
+    for phrase, says in additions.items():
+        line = re.compile(r"^(%s: \[.*)\]$" % re.escape(_yaml(phrase)), re.M)
+        if len(line.findall(body)) == 1:
+            body = line.sub(lambda m: "%s, %s]" % (m.group(1), ", ".join(_yaml(s) for s in says)), body)
+        else:
+            rest[phrase] = says
+    return body + block(rest, why) if rest else body
+
+
+def put(path, body):
     with open(path, "w", encoding="utf-8") as f:
-        f.write(body[:body.rindex(old)] + new + body[body.rindex(old) + len(old):])
+        f.write(body)
 
 
 def cases_now():
@@ -131,8 +142,8 @@ def cases_now():
         return yaml.safe_load(f) or {}
 
 
-def run(targets, model, wanted, dry, why):
-    """Ask, check, keep. targets: [(where it came from, phrase)]."""
+def run(targets, model, wanted, dry, why, given=None):
+    """Ask (or take `given` {phrase: [wordings]}), check, keep. targets: [(where it came from, phrase)]."""
     want = routes([p for _, p in targets])
     unknown = [(src, p) for src, p in targets if want[p] in NOWHERE or want[p].startswith("miss")]
     for src, p in unknown:
@@ -142,7 +153,11 @@ def run(targets, model, wanted, dry, why):
         return 0
 
     have, suggested = known(), {}
-    for i in range(0, len(targets), BATCH):
+    for _, phrase in targets if given else ():
+        keep = teaching.tidy(phrase, given[phrase], have)
+        if keep:
+            suggested[phrase] = keep
+    for i in range(0, len(targets) if not given else 0, BATCH):
         batch = [p for _, p in targets[i:i + BATCH]]
         print("asking Claude about %d phrases (%d-%d of %d)..." % (len(batch), i + 1, i + len(batch), len(targets)))
         for phrase, says in ask(batch, model, wanted).items():
@@ -177,8 +192,9 @@ def run(targets, model, wanted, dry, why):
         print("%d wordings suggested, all of them already understood; nothing to add" % already)
         return 0
 
-    added = block(additions, why)
-    write(INTENTS, added)
+    with open(INTENTS, encoding="utf-8") as f:
+        original = f.read()
+    put(INTENTS, with_added(original, additions, why))
     after = routes([w for says in additions.values() for w in says] + cases)
 
     # Each new wording must reach the phrase it was written for.
@@ -208,7 +224,7 @@ def run(targets, model, wanted, dry, why):
         print("put back %-44s (it pulled a known phrase away) -> %s" % (phrase, ", ".join(kept.pop(phrase))))
 
     if kept != additions:
-        unwrite(INTENTS, added, block(kept, why) if kept else "")
+        put(INTENTS, with_added(original, kept, why))
     for w, phrase, got in dropped:
         print("dropped  %-44s wanted %s, goes to %s" % (w, want[phrase], got))
 
@@ -247,6 +263,11 @@ def main(argv):
         argv = argv[:argv.index("--n")] + argv[argv.index("--n") + 2:]
     if "--taught" in argv:
         return taught()
+    if "--from" in argv:
+        path = argv[argv.index("--from") + 1]
+        with open(path, encoding="utf-8") as f:
+            given = json.load(f)
+        return run([("--from", p) for p in given], model, wanted, dry, "from %s" % os.path.basename(path), given)
     asking = "--ask" in argv
     rest = [a for a in argv if not a.startswith("--")]
     targets, skipped = teaching.gaps(known(), [a.replace("-", "_") for a in rest])

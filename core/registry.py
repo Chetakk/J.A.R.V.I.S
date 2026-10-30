@@ -16,7 +16,8 @@ _OPPOSITES = [("on", "off"), ("up", "down"), ("enable", "disable"), ("open", "cl
               ("start", "stop"), ("louder", "quieter"), ("brighter", "darker"), ("in", "out"), ("max", "min"),
               ("mute", "unmute"), ("connect", "disconnect"), ("lock", "unlock"), ("next", "previous"),
               ("start", "end"), ("begin", "end"), ("start", "finish"), ("record", "screenshot"),
-              ("copy", "move")]
+              ("copy", "move"), ("lower", "up"), ("raise", "down"), ("increase", "decrease"), ("higher", "lower"),
+              ("louder", "softer")]
 
 
 def opposite_direction(said, phrase):

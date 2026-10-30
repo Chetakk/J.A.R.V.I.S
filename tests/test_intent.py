@@ -37,3 +37,15 @@ def test_a_loose_match_never_shuts_down_or_reads_the_cpu_for_the_weather(jv):
     assert "temperature" not in [p for p, _ in m.candidates("temperature outside")]
     assert m.match("what's the temperature of the cpu")[0] == "temperature"
 
+
+
+def test_a_volume_said_in_words_is_set_in_digits(jv):
+    m = jv.j.intents
+    assert m.fill("set the volume to seventy") == "set volume to 70"
+    assert m.fill("increase the volume to fifty five percent") == "set volume to 55"
+    assert m.fill("turn the volume down to a hundred") == "set volume to 100"
+    assert m.fill("set the volume to 30 and open spotify") is None
+
+
+def test_lower_is_never_offered_as_up(jv):
+    assert "volume up" not in [p for p, _ in jv.j.intents.candidates("lower audio")]

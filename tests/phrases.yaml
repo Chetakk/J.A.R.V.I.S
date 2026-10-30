@@ -1462,3 +1462,43 @@
 "find me the definition of indefatigable": claude
 "delete report.pdf": skill:trash
 "delete my to do list": asks
+
+# --- added 2026-10-30 by tools/phrases.py (from volume_words.json)
+"adjust media volume up": command:volume_up
+"can you speak a little louder": command:volume_up
+"hey sound is low can you tune it up": command:volume_up
+"i can't hear just increase the volume": command:volume_up
+"i can't hear you can you say it again louder": command:volume_up
+"i couldn't hear you repeat that louder": command:volume_up
+"i need a high volume": command:volume_up
+"i want the speakers turned up high": command:volume_up
+"just increase the volume a little": command:volume_up
+"made media volume louder": command:volume_up
+"make the speaker volume on maximum": command:volume_up
+"move the volume up a little": command:volume_up
+"please speak loud": command:volume_up
+"please turn the music up": command:volume_up
+"set the volume higher": command:volume_up
+"speak as loud as you can": command:volume_up
+"turn my audio higher": command:volume_up
+"turn up music please": command:volume_up
+"turn up speakers": command:volume_up
+"it is too loud decrease the volume": command:volume_down
+"it's really loud can you please turn the music down": command:volume_down
+"lower audio": command:volume_down
+"lower the speakers": command:volume_down
+"lower the volume on the speakers": command:volume_down
+"please slow down volume of speaker": command:volume_down
+"please speak quieter to me": command:volume_down
+"please talk softer": command:volume_down
+"set the volume to low": command:volume_down
+"slow the volume speaker": command:volume_down
+"speak softer please": command:volume_down
+"talk quieter please": command:volume_down
+"turn down speakers": command:volume_down
+"turn down the speakers": command:volume_down
+"i don't want sound": skill:sound_mute
+"i would like to mute the speakers please": skill:sound_mute
+"off the speakers": skill:sound_mute
+"please mute the volume control": skill:sound_mute
+"turn off media volume": skill:sound_mute
