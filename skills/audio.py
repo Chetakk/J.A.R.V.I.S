@@ -109,6 +109,9 @@ class Audio(Skill):
 
     def mic_switch(self, m):
         words = _first(m).strip()
+        level = re.fullmatch(r"(\d+)(?: percent| %)?", words)
+        if level:  # "set the mic to 60": a level, not a mic called 60
+            return self.mic_volume(to=int(level.group(1)))
         d = audio.find("source", words)
         if not d:
             if m.group(0).lower().startswith(("use", "listen")) and not re.fullmatch(NAMED, words, re.IGNORECASE):

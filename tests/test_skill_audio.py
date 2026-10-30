@@ -90,7 +90,6 @@ def test_mic_volume_too_low_asks_first(jv, pulse):
     assert jv.says("it stays at 100 percent")
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: the mic-switch rule takes it first and looks for a mic called '10'")
 @pytest.mark.parametrize("text", ["set the mic to 60", "set the microphone to 60 percent"])
 def test_mic_level_without_the_word_volume(jv, pulse, text):
     jv.do(text)
