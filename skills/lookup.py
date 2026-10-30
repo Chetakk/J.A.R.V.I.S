@@ -3,12 +3,19 @@ knows it, a plain "who is X" / "what is X" answered from Wikipedia before Claude
 
 Wikipedia is one HTTP call (no key, no Claude, works in system mode). Anything current ("latest", "price of",
 "who is the president of ...") goes to a web search instead: one Claude call with WebSearch, no pages opened.
-"google X" still opens the results in your browser."""
+"google X" still opens the results in your browser.
+
+After an answer it asks one question back, as a friend would: "Are you feeling okay?" after an illness, "Thinking of
+going there?" after a place, now and then "Want to hear a bit more?" (a "yes" reads on). Your answer to the first two
+gets a fitting line (config/chat.yaml wiki_health / wiki_place), or goes to Claude, who sees the question."""
 import json
+import random
 import re
+import time
 import urllib.parse
 import urllib.request
 
+from core import persona
 from skills.base import Skill
 from system.webagent import UNTRUSTED_RULE
 
@@ -24,8 +31,18 @@ PERSONAL = re.compile(r"\b(?:my|mine|me|i|you|your|yours|this|that|it|here|there
 QUESTION = re.compile(r"^(?:(?:who|what)(?: is|'s| was| are| were) (?:an? |the )?|tell me (?:about|something "
                       r"about) (?:an? |the )?|what does (?:an? |the )?(.+?) mean$|define |meaning of )(.+)$",
                       re.IGNORECASE)
+# What the article's first sentence says it is ("Malaria is a mosquito-borne infectious disease ...").
+_IS = r"\b(?:is|are|was) (?:an? |the )?(?:[\w'-]+ ){0,5}"
+HEALTH = re.compile(_IS + r"(?:diseases?|infections?|disorders?|syndromes?|illness(?:es)?|conditions?|virus(?:es)?|"
+                    r"cancers?|tumou?rs?|allerg(?:y|ies)|deficienc(?:y|ies))\b", re.IGNORECASE)
+PLACE = re.compile(_IS + r"(?:city|capital|country|nation|island|islands|archipelago|town|village|state|province|"
+                   r"region|district|mountain|peak|lake|beach|resort|national park)\b", re.IGNORECASE)
+MORE_CHANCE = 0.5  # "Want to hear a bit more?" after other articles: now and then, not every time
 LOOKUP_SYSTEM = ("You answer quick questions for a voice assistant by searching the web. %s Reply with only JSON: "
-                 "{\"say\": \"<the answer in one or two short spoken sentences, no markdown or URLs>\", \"card\": "
+                 "{\"say\": \"<the answer in one or two short spoken sentences, no markdown or URLs; when the "
+                 "question hints at the user's own situation, end with one short friendly question, e.g. health or "
+                 "symptoms -> are they feeling okay, flights, hotels or prices -> are they planning a trip, how "
+                 "something works -> is it for something they're working on; none for plain facts>\", \"card\": "
                  "\"<markdown: the answer in a few lines, then a 'Sources' list of [title](url)>\"}." % UNTRUSTED_RULE)
 
 
@@ -99,6 +116,21 @@ class Lookup(Skill):
         self.j.show({"title": page["title"], "text": "%s\n\n[Wikipedia: %s](%s)" % (
             page["text"], page["title"], page["url"])})
         self.say(spoken(page["text"]) or "It's on the card.")
+        self.follow_up(page)
+
+    def follow_up(self, page):
+        """One question back (see the top of this file)."""
+        first, chat = spoken(page["text"], 1), self.j.chat_replies
+        topic = "wiki_health" if HEALTH.search(first) else "wiki_place" if PLACE.search(first) else None
+        line = chat.ask(topic, persona.address(self.j.settings), self.j.name) if topic and chat else None
+        if line:
+            self.say(line)
+            return
+        said, full = spoken(page["text"]), spoken(page["text"], 5)
+        more = full[len(said):].strip() if full.startswith(said) else ""
+        if more and random.random() < MORE_CHANCE:
+            self.say("Want to hear a bit more?")
+            self.j.late_yes = (time.time() + 30, lambda: self.say(more))
 
     def web(self, topic):
         """One web search through Claude; no pages opened."""

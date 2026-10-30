@@ -64,7 +64,7 @@ def test_a_command_is_never_taken_as_chat(jv):
 
 def test_every_topic_has_replies_and_wordings():
     for name, topic in CHAT.items():
-        assert topic.get("replies") and topic.get("says"), name
+        assert topic.get("replies") and (topic.get("says") or topic.get("then")), name  # then only: asked by a skill
         assert all(len(r) <= 140 for r in topic["replies"]), name  # spoken: short
 
 

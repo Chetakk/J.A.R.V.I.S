@@ -5341,3 +5341,30 @@ compliment_ai:
   - you're clever
   - good work today
   - you're a good assistant
+# Asked by skills/lookup.py after a Wikipedia answer (no wordings: never matched from what you say).
+wiki_health:
+  replies:
+  - Are you feeling okay, {name}?
+  - Hope you're feeling alright, {name}?
+  says: []
+  then:
+    'yes':
+    - Good. Just curious, then.
+    - Glad to hear it.
+    good:
+    - Good. Just curious, then.
+    'no':
+    - Sorry to hear that, {name}. Tell me how you're feeling. If it's bad, please see a doctor.
+    bad:
+    - Sorry to hear that, {name}. Tell me how you're feeling. If it's bad, please see a doctor.
+wiki_place:
+  replies:
+  - Thinking of going there, {name}?
+  - Planning a trip there?
+  says: []
+  then:
+    'yes':
+    - Nice! Tell me when, and I'll help you plan it.
+    - Lovely. Ask me anything about it.
+    'no':
+    - Fair enough. Just curious, then.

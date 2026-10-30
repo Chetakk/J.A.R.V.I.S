@@ -92,6 +92,14 @@ class ChatReplies:
         self.asked = (topic, time.time()) if line.endswith("?") else None
         return fill(line, name, me)
 
+    def ask(self, topic, name=None, me="Jarvis"):
+        """A question of its own from `topic` (e.g. "wiki_health" after a Wikipedia answer), remembered like a reply
+        that asked something, so your answer gets that topic's "then" lines."""
+        if topic not in self.replies:
+            return None
+        self.asked = (topic, time.time())
+        return fill(pick(self.replies[topic]), name, me)
+
     def take(self):
         """The topic of its last question, if that was under a minute ago; asked only once."""
         asked, self.asked = self.asked, None
