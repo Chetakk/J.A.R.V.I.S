@@ -28,8 +28,8 @@ PANEL_W, PANEL_H = 390, 500
 CHAT_KEEP = 200  # messages kept in the panel
 
 CSS = b"""
-.panel { background-color: rgba(30, 31, 34, 0.985); border-radius: 16px;
-         border: 1px solid rgba(255, 255, 255, 0.12); }
+.panel { background-color: rgba(43, 45, 49, 0.52); border-radius: 16px;
+         border: 1px solid rgba(255, 255, 255, 0.22); }
 .panel * { font-size: 11pt; }
 .panel scrolledwindow, .panel viewport, .panel list { background-color: transparent; }
 .panel entry { background-color: rgba(255, 255, 255, 0.07); color: #f2f2f2; border-radius: 12px;
@@ -45,8 +45,8 @@ CSS = b"""
 .dot.live { color: #ffffff; }
 .bubble { border-radius: 13px; padding: 6px 11px; }
 .bubble label selection { background-color: rgba(255, 255, 255, 0.28); }
-.you { background-color: rgba(255, 255, 255, 0.16); color: #f6f6f6; border-bottom-right-radius: 4px; }
-.jarvis { background-color: rgba(255, 255, 255, 0.05); color: #f2f2f2;
+.you { background-color: rgba(255, 255, 255, 0.24); color: #f6f6f6; border-bottom-right-radius: 4px; }
+.jarvis { background-color: rgba(20, 21, 24, 0.38); color: #f2f2f2;
           border: 1px solid rgba(255, 255, 255, 0.09); border-bottom-left-radius: 4px; }
 .claude { background-color: rgba(217, 119, 87, 0.10); border: 1px solid rgba(217, 119, 87, 0.30);
           border-bottom-left-radius: 4px; }
