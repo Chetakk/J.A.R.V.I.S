@@ -9,6 +9,7 @@ would touch outside itself is fake and recorded.
   answers    replies to JARVIS's yes/no and "X, or Y?" questions.
   ui         cards and the chat panel: recorded.
   keyring    the GNOME Keyring: a dict (jv.keyring.items); available=False for a desktop without one.
+  manual     commands JARVIS put in the manual terminal for you to run: jv.manual, nothing opened.
   files      jv.files[path] = text: what reading that file gives (/proc, /sys); others read as usual.
 
 conftest.py also points HOME at a temp folder (wiped before each test), so notes, memory and reminders
@@ -540,6 +541,11 @@ class JV:
         j.ui = self.ui
         j.follow_up = j.keep_following = lambda: None
         self.claude.patch(monkeypatch, j.claude)
+        # The manual terminal (risky commands pre-typed for you to run): recorded, no terminal opened.
+        self.manual = []  # (command, reason)
+        monkeypatch.setattr(j.executor.terminal, "send", lambda command, reason: self.manual.append((command, reason)))
+        from core import executor
+        monkeypatch.setattr(executor, "with_name", lambda text, name: text)  # "Done, <name>." now and then: off
         monkeypatch.setattr(j, "_answer", self._answer)
 
     def _screenshot(self, line):
@@ -583,7 +589,7 @@ class JV:
     def clear(self):
         """Forget what was said and run so far (e.g. after setting something up through JARVIS itself)."""
         del self.spoken[:], self.questions[:], self.shell.calls[:], self.shell.inputs[:], self.claude.calls[:]
-        del self.desktop.actions[:], self.ui.calls[:], self.net.calls[:]
+        del self.desktop.actions[:], self.ui.calls[:], self.net.calls[:], self.manual[:]
 
     @property
     def cards(self):

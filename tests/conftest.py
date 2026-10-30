@@ -184,6 +184,9 @@ def jv(monkeypatch):
     monkeypatch.setattr(verify, "last", None)  # module state: one test's last action isn't the next one's
     monkeypatch.setattr(verify, "_watching", 0)
     monkeypatch.setattr(helpers, "typed_until", 0.0)
+    from skills import files
+    monkeypatch.setattr(files, "last", {"paths": [], "at": 0.0})
+    monkeypatch.setattr(files, "_names", {"key": None, "paths": [], "matrix": None})
     monkeypatch.setattr(verify, "LAUNCH_SECONDS", 1.0)
     monkeypatch.setattr(verify, "QUICK_SECONDS", 0.5)
     monkeypatch.setattr(verify, "grab", lambda geometry: None)
