@@ -28,7 +28,26 @@ class SlowComputer(Skill):
              r"memory|ram)(?: down)?|why is (?:my |the )?(?:computer|system|jetson|it|everything) (?:so )?slow|"
              r"what'?s using (?:all )?(?:my |the )?(?:cpu|memory|ram)|(?:show )?(?:the )?top processes",
              lambda m: self.slow()),
+            (r"(?:check |show |what'?s )?(?:the )?system usage|(?:check|show) (?:the )?cpu,? memory,? (?:and )?gpu"
+             r"(?: usage| load)?|(?:check |show )?cpu,? (?:ram|memory),? (?:and )?gpu(?: usage| load)?",
+             lambda m: self.usage()),
         ]
+
+    def usage(self):
+        """CPU, memory and GPU load together, read straight from /proc and sysfs (no shell, nothing chained)."""
+        cpu = _cpu_percent()
+        total, free = _meminfo("MemTotal"), _meminfo("MemAvailable")
+        used = 100 * (total - free) // max(total, 1)
+        try:
+            with open("/sys/devices/gpu.0/load") as f:
+                gpu = "%d percent" % (int(f.read()) // 10)  # per mille
+        except (OSError, ValueError):
+            gpu = None
+        mem = "%d percent used, %.1f GB free" % (used, free / 2 ** 20)
+        self.j.show({"title": "System usage", "text": "- CPU: %d percent\n- Memory: %s\n- GPU: %s"
+                     % (cpu, mem, gpu or "not available")})
+        self.say("The CPU is at %d percent, memory is %d percent used%s." % (
+            cpu, used, ", and the GPU is at " + gpu if gpu else ""))
 
     def slow(self):
         stuck = []  # windows are pinged while the CPU is measured
@@ -101,6 +120,17 @@ def top_processes(seconds=0.5):
         g[2] += rss / 1024
         g[3].append(pid)
     return sorted(groups.values(), key=lambda g: (-g[1], -g[2]))
+
+
+def _cpu_percent(seconds=0.3):
+    def sample():
+        with open("/proc/stat") as f:
+            v = [int(x) for x in f.readline().split()[1:]]
+        return sum(v), v[3] + v[4]  # total, idle + iowait
+    t1, i1 = sample()
+    time.sleep(seconds)
+    t2, i2 = sample()
+    return 100 * (1 - (i2 - i1) / max(t2 - t1, 1))
 
 
 def _meminfo(key):
