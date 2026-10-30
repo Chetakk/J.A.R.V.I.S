@@ -9,6 +9,7 @@ reaching your desktop or music player. Writing, moving or deleting a file outsid
   python3 -m pytest tests/test_skill_maths.py -q
 """
 import copy
+import io
 import os
 import shutil
 import subprocess
@@ -124,6 +125,9 @@ def _guarded(path):
 def _guarded_open(file, mode="r", *a, **k):
     if any(c in mode for c in "wax+"):
         _guarded(file)
+    elif harness.current is not None and file in harness.current.files:  # jv.files: pretend contents
+        text = harness.current.files[file]
+        return io.BytesIO(text.encode()) if "b" in mode else io.StringIO(text)
     return _open(file, mode, *a, **k)
 
 
@@ -159,6 +163,10 @@ def jv(monkeypatch):
         raise OSError("no network in tests")
     monkeypatch.setattr(socket, "create_connection", no_socket)
     from core import verify
+    from skills import helpers
+    monkeypatch.setattr(verify, "last", None)  # module state: one test's last action isn't the next one's
+    monkeypatch.setattr(verify, "_watching", 0)
+    monkeypatch.setattr(helpers, "typed_until", 0.0)
     monkeypatch.setattr(verify, "LAUNCH_SECONDS", 1.0)
     monkeypatch.setattr(verify, "QUICK_SECONDS", 0.5)
     monkeypatch.setattr(verify, "grab", lambda geometry: None)

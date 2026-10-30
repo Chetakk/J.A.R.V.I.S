@@ -8,6 +8,7 @@ would touch outside itself is fake and recorded.
   speech     what JARVIS says is recorded, never spoken.
   answers    replies to JARVIS's yes/no and "X, or Y?" questions.
   ui         cards and the chat panel: recorded.
+  files      jv.files[path] = text: what reading that file gives (/proc, /sys); others read as usual.
 
 conftest.py also points HOME at a temp folder (wiped before each test), so notes, memory and reminders
 start empty and your real ones are never read or written; and it unsets DISPLAY and the session bus, so any
@@ -43,7 +44,8 @@ class Shell:
         self.missing = set()  # program names shutil.which() doesn't find
 
     def on(self, pattern, out="", code=0, err="", raises=None):
-        """raises: an exception to throw instead, e.g. FileNotFoundError() or subprocess.TimeoutExpired."""
+        """out: text, or a function(command line) giving text or (text, exit code).
+        raises: an exception to throw instead, e.g. FileNotFoundError() or subprocess.TimeoutExpired."""
         self.rules.insert(0, (re.compile(pattern), out, code, err, raises))
         return self
 
@@ -58,7 +60,9 @@ class Shell:
             if pattern.search(line):
                 if raises is not None:
                     raise raises() if isinstance(raises, type) else raises
-                out = out(line) if callable(out) else out
+                out = out(line) if callable(out) else out  # a function may give (output, exit code)
+                if isinstance(out, tuple):
+                    out, code = out
                 return line, out, code, err
         return line, "", 0, ""
 
@@ -87,6 +91,10 @@ class Shell:
 
     def popen(self, args, *a, **kw):
         line, out, code, err = self._result(args, kw.get("shell"))
+        for stream, data in ((kw.get("stdout"), out), (kw.get("stderr"), err)):
+            if data and hasattr(stream, "write"):  # a file it was told to write to (e.g. the executor's stderr)
+                stream.write(data.encode() if "b" in getattr(stream, "mode", "b") else data)
+                stream.flush()
         return FakePopen(self, line, args, out, code, err, text=kw.get("text") or kw.get("universal_newlines"))
 
     def system(self, line):
@@ -186,6 +194,83 @@ class _Response(io.BytesIO):
 
     def __exit__(self, *exc):
         return False
+
+
+class Pulse:
+    """Pretend PulseAudio behind pactl: speakers (sinks) and microphones (sources), the default of each, volumes,
+    and what's playing or recording. Switching and volume changes change this state, as pactl would.
+    broken: device names pactl refuses to switch to or set."""
+
+    def __init__(self, shell):
+        self.devs = {"sink": [], "source": []}
+        self.default = {"sink": None, "source": None}
+        self.streams = {"sink-inputs": ["12"], "source-outputs": ["7"]}
+        self.moved = []  # (stream, device name)
+        self.broken = set()
+        shell.on(r"^pactl info$", out=lambda line: "Server Name: pulseaudio\nDefault Sink: %s\nDefault Source: %s\n"
+                 % (self.default["sink"] or "", self.default["source"] or ""))
+        shell.on(r"^pactl list (sinks|sources)$", out=lambda line: self._list(line.split()[-1][:-1]))
+        shell.on(r"^pactl list short (sink-inputs|source-outputs)$",
+                 out=lambda line: "".join("%s\t1\tprotocol-native.c\tfloat32le 2ch 44100Hz\n" % s
+                                          for s in self.streams[line.split()[-1]]))
+        shell.on(r"^pactl set-default-(sink|source) ", out=self._set_default)
+        shell.on(r"^pactl move-(sink-input|source-output) ", out=self._move)
+        shell.on(r"^pactl set-(sink|source)-volume ", out=self._volume)
+        shell.on(r"^pactl set-(sink|source)-mute ", out=self._mute)
+
+    def add(self, kind, name, description, volume=60, mute=False, default=False, form="", port=""):
+        self.devs[kind].append({"name": name, "description": description, "volume": volume, "mute": mute,
+                                "form": form, "port": port})
+        if default or self.default[kind] is None:
+            self.default[kind] = name
+        return self
+
+    def get(self, name):
+        return next(d for kind in self.devs.values() for d in kind if d["name"] == name)
+
+    def _list(self, kind):
+        blocks = []
+        for i, d in enumerate(self.devs[kind]):
+            blocks.append("%s #%d\n\tState: RUNNING\n\tName: %s\n\tDescription: %s\n\tMute: %s\n"
+                          "\tVolume: front-left: 0 / %3d%% / 0 dB,   front-right: 0 / %3d%% / 0 dB\n"
+                          "%s\tProperties:\n\t\tdevice.form_factor = \"%s\"" % (
+                              kind.capitalize(), i, d["name"], d["description"], "yes" if d["mute"] else "no",
+                              d["volume"], d["volume"], "\tActive Port: %s\n" % d["port"] if d["port"] else "",
+                              d["form"]))
+        if kind == "source":  # every speaker has an echo "monitor" source; it isn't a microphone
+            blocks += ["Source #9%d\n\tName: %s.monitor\n\tDescription: Monitor of %s\n\tMute: no\n"
+                       "\tVolume: front-left: 0 / 100%% / 0 dB" % (i, d["name"], d["description"])
+                       for i, d in enumerate(self.devs["sink"])]
+        return "\n\n".join(blocks) + "\n"
+
+    def _known(self, name):
+        return any(d["name"] == name for kind in self.devs.values() for d in kind) and name not in self.broken
+
+    def _set_default(self, line):
+        kind, name = line.split()[1][len("set-default-"):], line.split()[2]
+        if not self._known(name):
+            return "", 1
+        self.default[kind] = name
+        return ""
+
+    def _move(self, line):
+        _, _, stream, name = line.split()
+        self.moved.append((stream, name))
+        return ""
+
+    def _volume(self, line):
+        name, level = line.split()[2], int(line.split()[3].rstrip("%"))
+        if not self._known(name):
+            return "", 1
+        self.get(name)["volume"] = level
+        return ""
+
+    def _mute(self, line):
+        name, on = line.split()[2], line.split()[3]
+        if not self._known(name):
+            return "", 1
+        self.get(name)["mute"] = on in ("1", "true", "yes")
+        return ""
 
 
 class FakeWindow(desktop.Window):
@@ -391,7 +476,10 @@ class JV:
         self.spoken = []  # every say(): a list of the alternative lines it was given
         self.questions = []  # what JARVIS asked you
         self.answers = []  # your replies, used in order; none left = no answer (like the timeout)
+        self.screenshots = []  # where gnome-screenshot was asked to save
+        self.files = {}  # path -> text: what reading that file gives (e.g. "/proc/net/wireless")
         self.desktop.patch(monkeypatch)
+        shell.on(r"^gnome-screenshot ", out=self._screenshot)
         monkeypatch.setattr(speech.Speaker, "say", _say)
         self.j = build()
         j = self.j
@@ -399,6 +487,14 @@ class JV:
         j.follow_up = j.keep_following = lambda: None
         self.claude.patch(monkeypatch, j.claude)
         monkeypatch.setattr(j, "_answer", self._answer)
+
+    def _screenshot(self, line):
+        """gnome-screenshot -f PATH (-a/-w too): writes a small grey picture there, as a real one would."""
+        from PIL import Image
+        path = shlex.split(line)[shlex.split(line).index("-f") + 1]
+        Image.new("RGB", (320, 200), (90, 90, 90)).save(path)
+        self.screenshots.append(path)
+        return ""
 
     def _answer(self, question):
         self.questions.append(question if isinstance(question, str) else question[0])
