@@ -276,6 +276,23 @@ class Pulse:
         return ""
 
 
+class Clock:
+    """For a module's `time`: sleep() moves the clock on at once, so a wait loop ("wait up to 10 s for the window")
+    runs its course without the wait. monkeypatch.setattr(module, "time", Clock())."""
+
+    def __init__(self):
+        self.now = time.time()
+
+    def time(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
+
 class Hub:
     """The Day Tracker hub (http://localhost:7313, skills/daytracker.py): GET/PUT /api/state with a revision
     number. A PUT with an old revision gets 409 and the current state back, as the real hub does.
@@ -343,6 +360,7 @@ class Desktop:
         self.tiling = False
         self.area = (0, 0, 1920, 1080)
         self.actions = []  # ("focus", title), ("keys", "ctrl+w"), ("click", (x, y)), ...
+        self.stuck = set()  # ids of windows that won't move to another workspace
         self._ids = iter(range(0x1000001, 0x2000000))
 
     def add(self, title, wm_class, front=True, **kw):
@@ -399,6 +417,12 @@ class Desktop:
                 focus(w)
             return bool(w)
 
+        def move_to_workspace(w, n):
+            rec(("to_workspace", (title(w), n)))
+            real = self._get(w.id)
+            if real and real.id not in self.stuck:
+                real.workspace = n
+
         def switch_to(n):
             rec(("workspace", n))
             self.workspace = n
@@ -415,7 +439,7 @@ class Desktop:
             "windows_with_role": lambda role: [w for w in self.wins if w.role == role],
             "switch_to": switch_to,
             "focus": focus,
-            "move_to_workspace": lambda w, n: rec(("to_workspace", (title(w), n))),
+            "move_to_workspace": move_to_workspace,
             "set_state": set_state,
             "minimize": lambda w: rec(("minimize", title(w))),
             "close_window": close_window,
@@ -428,6 +452,15 @@ class Desktop:
         }
         for name, fn in fakes.items():
             monkeypatch.setattr(desktop, name, fn)
+
+        # The accessibility tree (system/accessibility.py): a window's .text, terminals marked as such.
+        from system import accessibility
+
+        def window_text(pid, title="", seconds=2.0, limit=20000):
+            w = next((w for w in self.wins if (pid and w.pid == pid) or (title and w.title == title)), None)
+            return ((w.text or "")[:limit], "terminal" in w.wm_class) if w else ("", False)
+        monkeypatch.setattr(accessibility, "window_text", window_text)
+        monkeypatch.setattr(accessibility, "controls", lambda pid, title="", seconds=2.0, limit=300: [])
 
 
 class FakeClaude:
