@@ -462,7 +462,7 @@ class Jarvis:
             return self._run_match(match)
         # Chat that isn't a request ("do you have any pets?"): its own reply, no Claude needed.
         reply = None if self.from_claude or not self.chat_replies else self.chat_replies.reply(
-            text, self.settings.get("user_name"), self.name)
+            text, persona.address(self.settings), self.name, self.settings.get("real_name"))
         if reply:
             self.heard(text, "chat (%s %.2f)" % self.chat_replies.last)
             self.speaker.say(reply)
@@ -519,7 +519,7 @@ class Jarvis:
 
     def _personal(self, text):
         """Small talk, reminders, "do that again" and friends: answered instantly, without Claude."""
-        user = self.settings.get("user_name")
+        user = persona.address(self.settings)
         if persona.AGAIN.match(text):
             if self.last_request:
                 return self.handle(self.last_request)
@@ -534,7 +534,7 @@ class Jarvis:
             self.speaker.say("Sorry, I'm not sure what to close. Tell me the app's name.")
         else:
             # Reminders live in the day tracker now (skills/todos.py).
-            reply = persona.small_talk(text, user, self.name, self.names)
+            reply = persona.small_talk(text, user, self.name, self.names, self.settings.get("real_name"))
             if not reply:
                 return False
             self.speaker.say(reply)
@@ -1290,7 +1290,7 @@ def watch(jarvis):
         try:
             jarvis.skills.notifications.watch()  # restarts the notification reader if it stopped
             for reminder in jarvis.memory.due_reminders():
-                line = persona.reminder_line(reminder, jarvis.settings.get("user_name"))
+                line = persona.reminder_line(reminder, persona.address(jarvis.settings))
                 tell.note("reminder", line, "You asked me to remind you, for %s." % time.strftime(
                     "%H:%M", time.localtime(reminder["due"])))
                 jarvis.inbox.put(("say", line))

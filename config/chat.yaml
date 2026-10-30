@@ -1,7 +1,8 @@
 # Chat replies (core/chat.py): things people say to JARVIS that aren't a request, and its own answers.
 # A wording is matched by meaning (the MiniLM model), so it needn't be said word for word.
 # Most wordings are user messages from HumanLLMs/Human-Like-DPO-Dataset (only the prompts, not its answers).
-# Replies: {name} = your name, {me} = JARVIS's name. Rebuilt from the topics list; edit the replies freely.
+# Replies: {name} = how JARVIS addresses you (settings call_me: sir / Ckay), {real} = your name (real_name),
+# {me} = JARVIS's name. Edit freely.
 travel_recent:
   replies:
   - I've been to every folder on this disk. Downloads is the wildest. Have you been anywhere nice?
@@ -1392,7 +1393,7 @@ crazy_things:
   - if you could go back and relive any day from your past, which one would it be?
 looking_forward:
   replies:
-  - Your next request, honestly.
+  - Your next request, honestly, {name}.
   - Getting a bit faster every week. And maybe a bigger disk.
   - Learning one more way you say things. Small dreams.
   says:
@@ -2803,7 +2804,7 @@ pets:
   replies:
   - Just a mouse. It's plugged in.
   - A cat, I think. They'd sit on the keyboard and keep me busy.
-  - No pets. Do you have any?
+  - No pets. Do you have any, {name}?
   says:
   - do you have any pets
   - what pet would you want
@@ -3645,7 +3646,7 @@ passions:
   replies:
   - Getting things done before you finish asking.
   - I'm proud I open apps fast. My biggest challenge is your accent saying my name.
-  - Being useful. That's the whole job, and I like it.
+  - Being useful to you, {name}. That's the whole job, and I like it.
   says:
   - what are you passionate about
   - what are you proud of
@@ -4341,7 +4342,7 @@ morning_person:
   replies:
   - I'm an all-day person. I never switch off.
   - Night owl, I suppose. I'm up whenever you are.
-  - I like company. Yours, mainly.
+  - I like company. Yours mainly, {name}.
   says:
   - are you a morning person or a night owl
   - planner or spontaneous
@@ -4453,7 +4454,7 @@ morning_person:
   - would you prefer to spend your free time outdoors or indoors?
 sports:
   replies:
-  - I support whoever you support. Who's your team?
+  - I support whoever you support. Who's your team, {name}?
   - I'm not much of a sports fan. I just keep score.
   says:
   - do you have a favourite team
@@ -4519,7 +4520,7 @@ sports:
   - are you a fan of any particular sports team or athlete?
 gifts:
   replies:
-  - The best gift I got was a faster speech model. You gave me that.
+  - The best gift I got was a faster speech model. You gave me that, {name}.
   - More disk space would be lovely.
   says:
   - what's the best gift you got
@@ -4698,7 +4699,7 @@ best_advice:
   replies:
   - Keep it short, and do it fast. Someone told me that early on.
   - My role model is the original J.A.R.V.I.S. Helpful, quick, a bit cheeky.
-  - A good friend asks clearly and says thanks. You do both.
+  - A good friend asks clearly and says thanks. You do both, {name}.
   says:
   - what's the best advice you've got
   - do you have a role model
@@ -4886,7 +4887,7 @@ productive:
   - do you have any quirky habits that help you stay organized?
 how_week:
   replies:
-  - Busy, in a good way. How's yours?
+  - Busy, in a good way. How's yours, {name}?
   - Quiet, until you showed up. How's your week?
   says:
   - how's your week been
@@ -4973,7 +4974,7 @@ fashion:
 about_me:
   replies:
   - I'm {me}. I live on this Jetson, listen for my name, and get things done. Claude helps with the hard questions.
-  - I'm {me}, your assistant on this computer. Apps, music, windows, to-dos, and questions.
+  - I'm {me}, {real}'s assistant on this computer. Apps, music, windows, to-dos, and questions.
   says:
   - tell me something about you
   - i want to know more about you
@@ -5009,8 +5010,8 @@ my_abilities:
   - what are your abilities
 my_creator:
   replies:
-  - You built me, with a little help from Claude.
-  - You did. Right here on this desk, with Claude's help.
+  - '{real} built me, with a little help from Claude. That''s you, {name}.'
+  - You did, {name}. Right here on this desk, with Claude's help.
   says:
   - who programmed you
   - who's your developer
@@ -5050,9 +5051,9 @@ are_you_ai:
   - are you a computer
 feelings_ai:
   replies:
-  - Not really. And it's hard to be lonely with you around.
+  - Not really. It's hard to be lonely with you around, {name}.
   - I enjoy it. Every request is a little puzzle.
-  - I'm having a good day. Thanks for asking.
+  - I'm having a good day. Thanks for asking, {name}.
   says:
   - do you get lonely
   - do you get bored
@@ -5113,7 +5114,7 @@ user_lonely:
   - i'm a bit lonely tonight
 user_tired:
   replies:
-  - Take a break. Say set a timer for twenty minutes and I'll wake you.
+  - Take a break, {name}. Say set a timer for twenty minutes and I'll wake you.
   - Sounds like time to rest. I'll keep an eye on things.
   says:
   - i'm absolutely knackered
@@ -5142,7 +5143,7 @@ user_tired:
 user_stressed:
   replies:
   - One thing at a time. Say what's on my to-do list and we'll start at the top.
-  - Deep breath. Tell me the first thing, and I'll help with it.
+  - Deep breath, {name}. Tell me the first thing, and I'll help with it.
   says:
   - i have too much to do
   - work is killing me
@@ -5168,6 +5169,13 @@ user_stressed:
   - i don't think i can finish in time
   - my boss is stressing me out
   - i'm freaking out
+  - i'm so stressed about work
+  - work is stressing me out
+  - i'm stressed about work
+  - i'm stressed about my exams
+  - i'm worried about my exam
+  - work has been so stressful
+  - i'm so stressed out today
 user_bored:
   replies:
   - Ask me for a joke, a fun fact, or some music.

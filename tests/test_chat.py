@@ -1,6 +1,7 @@
 """Chat replies (core/chat.py, config/chat.yaml): JARVIS answers chat itself; requests and real questions don't
 become chat."""
 import os
+import re
 
 import yaml
 
@@ -8,8 +9,12 @@ CHAT = yaml.safe_load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.
                                         "config", "chat.yaml")))
 
 
+def _pattern(reply):
+    return re.compile(re.sub(r"\\\{\w+\\\}", ".+", re.escape(reply)).replace(",\\ .+", "(,\\ .+)?") + "$")
+
+
 def _from(topic, jv):
-    return [line for line in jv.said if any(line.startswith(r.split("{")[0]) for r in CHAT[topic]["replies"])]
+    return [line for line in jv.said if any(_pattern(r).match(line) for r in CHAT[topic]["replies"])]
 
 
 def test_a_chat_question_in_new_words_is_answered_without_claude(jv):
@@ -25,6 +30,18 @@ def test_how_the_user_feels_gets_a_kind_reply(jv):
 def test_who_built_jarvis(jv):
     jv.do("who is the person who coded you")
     assert _from("my_creator", jv) and not jv.claude.calls
+
+
+def test_replies_call_you_sir_or_ckay_and_know_you_are_chetak(jv):
+    jv.j.settings.update(call_me=["sir", "Ckay"], real_name="Chetak", user_name="sir")
+    lines = []
+    for _ in range(12):
+        jv.clear()
+        jv.do("who is the person who coded you")
+        lines += jv.said
+    assert all("{" not in line for line in lines)
+    assert any("Chetak built me" in line for line in lines)
+    assert {"sir", "Ckay"} <= {w.strip(".,!?") for line in lines for w in line.split()}
 
 
 def test_a_real_question_still_goes_to_claude(jv):

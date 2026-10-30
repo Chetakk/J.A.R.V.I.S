@@ -60,7 +60,12 @@ class ChatReplies:
             return None, score
         return self.topics[best], score
 
-    def reply(self, text, name=None, me="Jarvis"):
-        """What to say back, or None."""
+    def reply(self, text, name=None, me="Jarvis", real=None):
+        """What to say back, or None. name: how to address you (a list: one is picked, "sir" or "Ckay");
+        real: who you are, for a reply about you ("Chetak built me")."""
         topic, score = self.last = self.match(text)
-        return fill(pick(self.replies[topic]), name, me) if topic else None
+        if not topic:
+            return None
+        replies = [r for r in self.replies[topic] if real or "{real}" not in r] or self.replies[topic]
+        line = pick(replies).replace("{real}", real or "you")
+        return fill(line, name, me)

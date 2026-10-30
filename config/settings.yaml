@@ -13,6 +13,9 @@ greeting:
   - "Hey {name}, good {daypart}."
 # What JARVIS calls you, now and then ("Done, Chetak."). Remove to never use a name.
 user_name: Chetak
+# Chat replies (config/chat.yaml): {name} is one of call_me at random (user_name when unset), {real} who you are.
+call_me: [sir, Ckay]
+real_name: Chetak
 # Quiet hours: softer voice (volume in percent) and the shortest version of each reply. hold: heads-ups, habit
 # offers and Claude's suggestions wait until they're over (said once you're back). Also by voice: "quiet hours
 # from 10 pm to 6 am", "turn off quiet hours" (that wins over this line).

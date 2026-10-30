@@ -92,14 +92,14 @@ SMALL_TALK = [
 
     # About JARVIS
     (r"who are you|what are you|what'?s your name|what is your name|tell me about yourself|introduce yourself",
-     ["I'm {me}, your assistant on this computer.", "{me}. I run things on this computer for you."]),
+     ["I'm {me}, {real}'s assistant on this computer.", "{me}. I run things on this computer for you, {name}."]),
     (r"what can you do|what are your (features|skills)|what do you do|how can you help( me)?|help( me)?",
      ["I can open apps and websites, control volume and settings, set reminders, and tell jokes. "
       "Anything else, I'll ask Claude.",
       "Lots! Apps, websites, reminders, system settings. If it's not on my list, I'll figure it out with Claude."]),
     (r"who (made|created|built) you|who is your (creator|maker|boss)",
-     ["I was put together right here on this computer, piece by piece.",
-      "My boss is the person talking to me right now."]),
+     ["{real} built me, right here on this computer, piece by piece.",
+      "My boss is the person talking to me right now. That's you, {name}."]),
     (r"how old are you|when were you born|what'?s your age",
      ["Young, but I learn fast.", "Old enough to run your computer, young enough to keep learning."]),
     (r"are you (real|human|a (robot|bot|machine|computer|person|ai))",
@@ -116,7 +116,7 @@ SMALL_TALK = [
     (r"what'?s the meaning of life|what is the meaning of life",
      ["Forty-two. At least, that's what the books say.", "Good food, good people, and a computer that works."]),
     (r"do you know me|do you remember me|you know who i am",
-     ["Of course, {name}.", "Of course I do."]),
+     ["Of course, {name}.", "Of course I do. You're {real}."]),
 
     # Fun
     (r"(tell me |say )?(a |another |one more )?joke|tell me something funny|make me laugh|say something funny|"
@@ -202,27 +202,36 @@ def quiet_hours(settings):
     return (hour >= start or hour < end) if start > end else start <= hour < end
 
 
+def address(settings):
+    """How JARVIS addresses you: settings call_me (a list, one picked each time), else user_name."""
+    return settings.get("call_me") or settings.get("user_name")
+
+
 def fill(text, name=None, me="Jarvis"):
-    """Put the user's name in, or drop ", {name}" when there isn't one."""
-    text = text.replace("{me}", me)
+    """Put the user's name in, or drop ", {name}" when there isn't one. name: one is picked from a list
+    (settings call_me: "sir", "Ckay")."""
+    text, name = text.replace("{me}", me), pick(name) if name else name
     return text.replace("{name}", name) if name else re.sub(r",?\s*\{name\}", "", text)
 
 
 def with_name(text, name, chance=0.15):
-    """Now and then, address the user by name ("Done, Sam.")."""
+    """Now and then, address the user by name ("Done, Sam."); one picked from a list."""
+    name = pick(name) if name else name
     if not name or not text or len(text) > 40 or random.random() >= chance:
         return text
     return "%s, %s." % (text.rstrip(".! "), name)
 
 
-def small_talk(text, name=None, me="Jarvis", names=()):
+def small_talk(text, name=None, me="Jarvis", names=(), real=None):
+    """name: how to address you (see fill); real: who you are ("Chetak built me")."""
     low = text.lower().strip(" .!?,")
     for n in names:  # "thanks jarvis"
         low = re.sub(r"[\s,]+%s$" % re.escape(n), "", low)
     for pattern, replies in SMALL_TALK:
         m = re.fullmatch(pattern, low)
         if m:
-            return fill(pick(replies), name, me).format(*m.groups())
+            line = pick([r for r in replies if real or "{real}" not in r] or replies).replace("{real}", real or "you")
+            return fill(line, name, me).format(*m.groups())
     return None
 
 
@@ -240,7 +249,7 @@ def _ago(seconds):
 
 def greeting(settings, memory, ups=()):
     """The startup line: depends on the time and how long you were away, plus any heads-ups."""
-    name, hour = settings.get("user_name"), time.localtime().tm_hour
+    name, hour = address(settings), time.localtime().tm_hour
     away = time.time() - memory.data.get("last_seen", time.time())
     if hour < 4:
         line = pick(["Working late? It's past midnight.", "Burning the midnight oil, huh? I'm here."])
@@ -341,7 +350,7 @@ def parse_reminder(text):
 
 
 def reminder_line(reminder, name=None):
-    what = reminder["what"]
+    what, name = reminder["what"], pick(name) if name else name
     line = {"that": "Just a reminder that %s." % what, "about": "Reminder about %s." % what}.get(
         reminder["kind"], pick(["Hey{name}, it's time to %s." % what, "Just a reminder to %s." % what]))
     line = line.replace("{name}", " " + name if name else "")

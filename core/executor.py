@@ -7,7 +7,7 @@ import tempfile
 
 from core import verify
 from system import desktop
-from core.persona import with_name
+from core.persona import address, with_name
 from core.safety import CONFIRM, MANUAL
 from voice.speech import pick
 from system.terminal import DEFAULT_TERMINAL, ManualTerminal
@@ -23,7 +23,7 @@ class Executor:
         self.speaker = speaker
         self.terminal = ManualTerminal(settings.get("terminal") or DEFAULT_TERMINAL)
         self.ask = ask  # ask(question) -> bool, by voice or keyboard
-        self.user_name = settings.get("user_name")
+        self.user_name = address(settings)  # "sir" or "Ckay" (settings call_me)
         self.ok = False  # whether the last run() actually ran
         self.outcome = ""  # why not: "manual" (left in your terminal), "declined" (you said no), "missing", "timeout"
         self.notify = speaker.say  # a sure failure noticed later (from a thread); JARVIS sets its inbox
