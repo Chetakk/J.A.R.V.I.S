@@ -57,6 +57,15 @@ CSS = b"""
 .heard { color: rgba(255, 255, 255, 0.4); font-style: italic; font-size: 9pt; }
 .sys { color: rgba(255, 255, 255, 0.45); font-size: 9pt; }
 """
+# ui.look in settings.yaml: "glass" (the default above, see-through like Discord) or "solid" (dark and opaque).
+SOLID_CSS = b"""
+.panel { background-color: rgba(30, 31, 34, 0.985); border-color: rgba(255, 255, 255, 0.12); }
+.you { background-color: rgba(255, 255, 255, 0.16); }
+.jarvis { background-color: rgba(255, 255, 255, 0.05); }
+"""
+# The orb's glass for each look: centre and edge colours, sheen, rim when idle / active.
+ORB_LOOK = {"glass": ((0.32, 0.33, 0.35, 0.62), (0.17, 0.18, 0.19, 0.52), 0.14, (0.38, 0.6)),
+            "solid": ((0.34, 0.34, 0.36, 0.95), (0.11, 0.11, 0.12, 0.90), 0.09, (0.22, 0.45))}
 
 # Tray icons: white/grey rings, one per state.
 ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
@@ -99,9 +108,12 @@ class UI:
         self._pos = self._load_pos()
 
         provider = Gtk.CssProvider()
-        provider.load_from_data(CSS)
+        self.look = cfg.get("look") if cfg.get("look") in ORB_LOOK else "glass"
+        provider.load_from_data(CSS + (SOLID_CSS if self.look == "solid" else b""))
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        global ORB  # set before ui.card is imported below, which reads it
+        ORB = int(cfg.get("orb_size", ORB))
         self.orb_mode = cfg.get("orb", "auto")  # "auto" | True | False
         self.orb_hide_after = float(cfg.get("orb_hide_after", 4))
         self.card_hide_after = float(cfg.get("card_hide_after", 30))  # with a card open, both go after this
@@ -185,10 +197,11 @@ class UI:
         w.connect("motion-notify-event", self._orb_motion)
         w.connect("configure-event", self._orb_moved)
         w.set_tooltip_text("JARVIS: click for chat, drag to move, right-click for menu")
-        geo = Gdk.Display.get_default().get_monitor(0).get_workarea()
+        # The bottom-right corner of the screen, down beside the dock rather than above its strip.
+        geo = Gdk.Display.get_default().get_monitor(0).get_geometry()
         x, y = self._pos.get("x"), self._pos.get("y")
         if x is None:
-            x, y = geo.x + geo.width - ORB - 24, geo.y + geo.height - ORB - 24
+            x, y = geo.x + geo.width - ORB - 12, geo.y + geo.height - ORB - 12
         w.move(x, y)
         self._orb_xy = (x, y)
         self._press = None
@@ -201,15 +214,16 @@ class UI:
         s = self._shown or "idle"
         tau = 2 * math.pi
 
-        # A dark glass ball with a soft sheen across the top.
+        # A glass ball, tinted like the chat panel, with a soft sheen across the top.
+        centre, edge, shine, rim = ORB_LOOK[getattr(self, "look", "glass")]
         grad = cairo.RadialGradient(cx, cy - r * 0.35, 0, cx, cy, r)
-        grad.add_color_stop_rgba(0, 0.34, 0.34, 0.36, 0.95)
-        grad.add_color_stop_rgba(1, 0.11, 0.11, 0.12, 0.90)
+        grad.add_color_stop_rgba(0, *centre)
+        grad.add_color_stop_rgba(1, *edge)
         cr.arc(cx, cy, r, 0, tau)
         cr.set_source(grad)
         cr.fill()
         sheen = cairo.RadialGradient(cx, cy - r * 0.62, 0, cx, cy - r * 0.62, r * 0.62)
-        sheen.add_color_stop_rgba(0, 1, 1, 1, 0.09)
+        sheen.add_color_stop_rgba(0, 1, 1, 1, shine)
         sheen.add_color_stop_rgba(1, 1, 1, 1, 0)
         cr.arc(cx, cy, r - 1, 0, tau)
         cr.set_source(sheen)
@@ -220,7 +234,7 @@ class UI:
         if s == "claude":
             cr.set_source_rgba(*CLAUDE_RGB, 0.45 + 0.45 * glow)
         else:
-            cr.set_source_rgba(1, 1, 1, 0.22 if s in ("idle", "off") else 0.45)
+            cr.set_source_rgba(1, 1, 1, rim[0] if s in ("idle", "off") else rim[1])
         cr.arc(cx, cy, r - 0.65, 0, tau)
         cr.stroke()
 

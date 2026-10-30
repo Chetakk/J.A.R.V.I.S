@@ -106,6 +106,8 @@ claude:                    # phase 2
 
 ui:
   enabled: true            # transparent orb + top-right tray icon
+  look: glass              # glass = see-through grey like Discord; solid = the older dark, opaque look
+  orb_size: 96             # orb diameter in pixels (78 was the old size)
   orb: auto                # auto = appears while you're talking to it, fades after; true = always; false = never
   orb_hide_after: 4        # seconds of quiet before the orb hides (auto mode)
   card_hide_after: 30      # with a card open, orb and card hide together after this many quiet seconds
