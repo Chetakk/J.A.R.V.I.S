@@ -162,3 +162,34 @@ def test_claude_failing_leaves_the_clipboard_alone(jv):
     jv.do("fix the grammar in my clipboard")
     assert jv.says("didn't work", "took too long")
     assert not jv.shell.inputs
+
+
+def test_copy_our_conversation(jv):
+    jv.do("what's the time")
+    jv.do("copy our conversation")
+    assert "User: what's the time" in jv.clipboard.text and "JARVIS:" in jv.clipboard.text
+    assert "copy our conversation" not in jv.clipboard.text
+    assert jv.says("Copied our conversation")
+
+
+def test_copy_conversation_leaves_out_forgotten(jv):
+    jv.do("what's the time")
+    jv.do("forget this conversation")
+    jv.do("copy the whole chat")
+    assert "what's the time" not in jv.clipboard.text
+
+
+def test_copy_what_you_said_and_above_without_a_card(jv):
+    jv.j.speaker.last = "The answer is 42"
+    jv.do("copy what you said")
+    assert jv.clipboard.text == "The answer is 42"
+    jv.j.speaker.last = "Another line"
+    jv.do("copy above text")
+    assert jv.clipboard.text == "Another line"
+
+
+def test_repeat_yourself_repeats_without_claude(jv):
+    jv.j.speaker.last = "The answer is 42"
+    jv.do("repeat yourself")
+    assert jv.said[-1] == "The answer is 42"
+    assert not jv.claude.calls

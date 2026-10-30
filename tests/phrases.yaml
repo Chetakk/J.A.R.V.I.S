@@ -1405,3 +1405,22 @@
 "what have you learned today": skill:whats_new
 "any new phrases": skill:whats_new
 "what have you been learning": skill:whats_new
+
+# Repeating and copying what was said (core/persona.py, skills/clipboard.py)
+"repeat yourself": persona
+"can you repeat that": persona
+"say it again": persona
+"i didn't catch that": persona
+"repeat your last answer": persona
+"copy above text": skill:copy_above
+"copy the text above": skill:copy_above
+"copy the previous message": skill:copy_above
+"copy what you said": skill:copy_said
+"copy your last answer": skill:copy_said
+"copy that reply": skill:copy_said
+"copy our conversation": skill:copy_conversation
+"copy the conversation": skill:copy_conversation
+"copy this whole chat": skill:copy_conversation
+"copy the chat history": skill:copy_conversation
+"save our conversation": skill:copy_conversation
+"copy everything we said": skill:copy_conversation

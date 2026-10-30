@@ -451,6 +451,7 @@ class Notes(Skill):
         self.j.claude.new_session()
         self.j.recent.clear()
         self.j.talk.clear()
+        self.j.transcript.clear()
         self.say("Okay, I've forgotten this conversation. Your notes and preferences are still here.")
 
     def _nth(self, word):

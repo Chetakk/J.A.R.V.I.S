@@ -7,19 +7,57 @@ from skills.helpers import clipboard, set_clipboard
 class Clipboard(Skill):
     group = "clipboard"
     does = "Reads your clipboard, and has Claude rewrite what's on it"
-    phrases = ("what's on my clipboard", "summarise what I copied", "fix the grammar in my clipboard")
+    phrases = ("what's on my clipboard", "summarise what I copied", "fix the grammar in my clipboard",
+               "copy what you said", "copy the text above", "copy our conversation")
     gives = "speech, or the result on your clipboard"
     permission = "auto"
     checks = "not checked; Claude failing leaves it alone"
 
     def patterns(self):
         return [
+            (r"(?:copy|save|grab|put) (?:(?:all|the whole|the entire|all of) )?(?:of )?(?:our|this|the|my)(?: whole| entire| full)? "
+             r"(?:conversation|chat(?: history| log)?|transcript|talk)(?: so far)?(?: to (?:the |my )?clipboard)?|"
+             r"copy (?:everything|all) (?:we|you and i|i and you) (?:said|talked about|discussed)",
+             lambda m: self.copy_conversation()),
+            (r"copy (?:what you (?:just )?said|what you (?:just )?told me|your (?:last |previous )?(?:answer|reply|"
+             r"response|message)|(?:that|the|the last|the previous) (?:answer|reply|response))"
+             r"(?: to (?:the |my )?clipboard)?",
+             lambda m: self.copy_said()),
+            (r"copy (?:the )?(?:above|previous|last)(?: text| message| line)?|copy (?:the )?(?:text|message|line) above|"
+             r"copy (?:the )?text (?:from )?above(?: this)?|copy what'?s above",
+             lambda m: self.copy_above()),
             (r"(?:what'?s|what is) (?:on|in) (?:my|the) clipboard|read (?:my|the) clipboard|what did i (?:just )?copy",
              lambda m: self.read_clipboard()),
             (r"((?:summari[sz]e|explain|translate|fix|correct|rewrite|reword|shorten|improve|make|turn|"
              r"proofread|simplify)\b.*?)\b(?:what i (?:just )?copied|(?:my|the) clipboard|the copied text)\b(.*)",
              self.clipboard_job),
         ]
+
+    def copy_conversation(self):
+        lines = list(self.j.transcript)[:-1]  # the last line is this request itself
+        if not lines:
+            self.say("We haven't said anything yet.")
+            return
+        set_clipboard("\n".join(lines))
+        self.say("Copied our conversation, %d lines. Just paste it." % len(lines))
+
+    def copy_said(self):
+        said = self.j.speaker.last
+        if not said:
+            self.say("I haven't said anything yet.")
+            return
+        set_clipboard(said)
+        self.say(["Copied.", "It's on your clipboard."])
+
+    def copy_above(self):
+        """The card on screen is what's "above" when there is one; otherwise the last thing said."""
+        ui = self.j.ui
+        card = ui.current_card() if ui and ui.card_visible() else None
+        if not (card and card.get("text")):
+            self.copy_said()
+            return
+        set_clipboard(card["text"])
+        self.say(["Copied.", "It's on your clipboard."])
 
     def read_clipboard(self):
         text = clipboard().strip()

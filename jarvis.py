@@ -205,6 +205,7 @@ class Jarvis:
         self.keep_following = lambda: None  # wake word: noise doesn't end the follow-up window (set by start_voice)
         self.recent = deque(maxlen=8)  # what happened without Claude since its last answer, passed on next time
         self.talk = deque(maxlen=12)  # the last few lines both ways, Claude's answers too, for "make these changes"
+        self.transcript = deque(maxlen=400)  # this conversation, for "copy our conversation" (private mode isn't kept)
         self.exit_code = 0  # RESTART_CODE after "restart yourself"
         self.source = "text"  # how the current request came in: text / voice / follow
         self.from_claude = False  # handling one of Claude's "do" phrases: never send it back to Claude
@@ -238,12 +239,13 @@ class Jarvis:
             return
         self.recent.append("JARVIS said: %s" % text)
         self.talk.append("JARVIS said: %s" % text)
+        self.transcript.append("JARVIS: %s" % text)
 
     def keep_private(self):
         """The request being handled is private (a secret, a private note): it and what JARVIS says about it
         are left out of the lines Claude sees next time, and out of "where was I"."""
         self._private = True
-        for log in (self.recent, self.talk):
+        for log in (self.recent, self.talk, self.transcript):
             lines = list(log)
             last = max((i for i, line in enumerate(lines) if line.startswith("User: ")), default=None)
             for _ in range(len(lines) - last if last is not None else 0):
@@ -358,6 +360,7 @@ class Jarvis:
 
         self.recent.append("User: %s" % text)
         self.talk.append("User: %s" % text)
+        self.transcript.append("User: %s" % text)
         low = text.lower()
         if undo.UNDO.match(text):
             return self._undo()

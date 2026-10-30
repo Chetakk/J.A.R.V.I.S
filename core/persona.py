@@ -173,7 +173,11 @@ SMALL_TALK = [
      ["I'm here.", "Yep, right here.", "Loud and clear."]),
 ]
 AGAIN = re.compile(r"^(do (that|it) again|again|one more time|repeat that|same again|do the same)$", re.I)
-WHAT_DID_YOU_SAY = re.compile(r"^(what did you (just )?say|say that again|come again|pardon|what was that|repeat what you said)$",
+WHAT_DID_YOU_SAY = re.compile(r"^(what did you (just )?say|say that again|say it again|come again|pardon|what was that|"
+                              r"repeat (what you (just )?said|yourself|your(self)? (last )?(answer|reply|response)|"
+                              r"the (last )?(answer|reply|response))|"
+                              r"(can|could) you (say that again|repeat (that|yourself))|"
+                              r"i (didn'?t|did not) (hear|catch) (that|you)|what was your (last )?(answer|reply))$",
                               re.I)
 CLOSE_IT = re.compile(r"^(close|quit|kill) (it|that|this)$", re.I)
 LIST_REMINDERS = re.compile(r"^(what are|list|show|tell me) my reminders$|^(any|do i have any) reminders$", re.I)
