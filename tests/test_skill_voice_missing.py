@@ -145,3 +145,22 @@ def test_private_falls_back_to_the_configured_jack(jv, speaker):
     Pulse(jv.shell).add("sink", JACK, "Built-in Audio", default=True)
     jv.do("private mode")
     assert speaker.sink == JACK and pref(jv, "private") is True
+
+
+# --- saying your words back ---
+
+@pytest.mark.parametrize("said, back", [("say hello there", "hello there"), ('say "good morning everyone"', "good morning everyone"),
+                                        ("repeat after me the quick brown fox", "the quick brown fox"),
+                                        ("say this: I am Iron Man", "I am Iron Man"),
+                                        ("please say hello out loud", "hello"),
+                                        ("say salt and pepper", "salt and pepper")])
+def test_says_your_words_back(jv, said, back):
+    jv.do(said)
+    assert jv.said[-1] == back
+    assert not jv.claude.calls
+
+
+def test_say_again_still_repeats_its_last_line(jv):
+    jv.j.speaker.last = "The answer is 42"
+    jv.do("say that again")
+    assert jv.said[-1] == "The answer is 42"

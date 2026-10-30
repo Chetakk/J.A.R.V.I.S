@@ -32,7 +32,7 @@ class VoicePrefs(Skill):
     does = ("How JARVIS talks: speed, brief or detailed answers, private (headphones) and quiet mode; kept across "
              "restarts")
     phrases = ("talk faster", "slow down", "be brief", "give me detailed answers", "private mode",
-               "private mode off", "quiet mode", "you can talk again")
+               "private mode off", "quiet mode", "you can talk again", "repeat after me <text>", "say <text>")
     gives = "the setting changed, and said"
     permission = "auto"
     asks = "going quiet instead when private mode finds no headphones"
@@ -52,7 +52,22 @@ class VoicePrefs(Skill):
             (PRIVATE_ON, lambda m: self.private(True)),
             (QUIET_OFF, lambda m: self.quiet(False)),
             (QUIET_ON, lambda m: self.quiet(True)),
+            (r"(?:can you |could you |please )?(?:repeat after me|say after me|say this|repeat this|say the following|"
+             r"repeat the following)", lambda m: self.say_back("")),
+            (r"(?:can you |could you |please )?(?:repeat after me|say after me|say this|repeat this|say the following|"
+             r"repeat the following)[:,]? (.+)", lambda m: self.say_back(m.group(1))),
+            # Not "say that again" (repeats its last line), "say less" (above) or "say my notifications".
+            (r"(?:can you |could you |please )?say (?!(?:that|it|this|something|anything|again|my|what)\b)(.+?)"
+             r"(?: out loud| aloud)?", lambda m: self.say_back(m.group(1))),
         ]
+
+    def say_back(self, text):
+        """"Repeat after me ...", "say ...": your own words, spoken back exactly."""
+        text = text.strip().strip("\"'\u201c\u201d")
+        if not text:
+            text = (self.j._answer("Okay, what should I say?") or "").strip()
+        if text:
+            self.say(text)
 
     def apply(self):
         """At startup: what was set by voice last time."""
