@@ -237,6 +237,7 @@ class Jarvis:
         self._claude_saying = False  # what's being said is Claude's answer: the chat panel shows it as Claude's
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
         self.asking = None  # the question waiting for your answer, for the dashboard
+        self.late_yes = None  # (until, fn): an offer that got no answer in time; a "yes" before `until` runs fn
         self._private = False  # this request is private: what's said in it isn't passed on to Claude
 
     def state(self, name):
@@ -329,10 +330,18 @@ class Jarvis:
         sys.stdout.write("  [yes/no, typed or spoken] (%ds) > " % timeout)
         sys.stdout.flush()
         deferred = []  # reminders and heads-ups that arrive mid-question wait until it's answered
-        deadline = self.speaker.done_at() + timeout  # counted from when the question has been said
+        deadline = self.speaker.done_at() + timeout
         try:
             while True:
-                kind, answer = self.inbox.get(timeout=max(0.01, deadline - time.time()))
+                # Counted from when the question has been said: its real audio can outlast the first guess.
+                deadline = max(deadline, self.speaker.done_at() + timeout)
+                left = deadline - time.time()
+                if left <= 0:
+                    raise queue.Empty
+                try:
+                    kind, answer = self.inbox.get(timeout=min(left, 0.5))
+                except queue.Empty:
+                    continue
                 if kind not in ("say", "offer", "task"):  # (a task's next step waits for the answer too)
                     break
                 deferred.append((kind, answer))
@@ -365,6 +374,12 @@ class Jarvis:
         text = clean(raw, self.names)
         if not text:
             self.speaker.say(["Yes?", "I'm listening.", "Yeah, what's up?", "Go ahead."])
+            return True
+
+        late, self.late_yes = self.late_yes, None
+        if late and time.time() < late[0] and YES.match(text) and len(text.split()) <= 3:
+            self.heard(text, "a late yes to the question before")
+            late[1]()
             return True
 
         self.recent.append("User: %s" % text)
@@ -808,9 +823,19 @@ class Jarvis:
         values = m.groupdict() if m else {}
         phrase = re.sub(r"\{(\w+)\}", lambda v: values.get(v.group(1)) or "something", phrases[0])
         self.chat("sys", "suggested command %s: %s\nrun: %s" % (name, " | ".join(phrases), run))
-        if not self.ask('Want me to remember "%s" for next time?' % phrase):
+        answer = self._answer('Want me to remember "%s" for next time?' % phrase)
+        if answer is None:  # no answer in time (still typing, say): a "yes" in the next minute still saves it
+            self.late_yes = (time.time() + 60, lambda: self._keep(save, name, phrases, run, phrase))
+            self.speaker.say(["I didn't get an answer, so it's not saved yet. Say yes if you want it.",
+                              "No answer, so I haven't saved it. Just say yes if you'd like it."])
+            return
+        if not YES.match(answer):
             self.speaker.say(["Okay, I won't save it.", "No problem, not saved."])
             return
+        self._keep(save, name, phrases, run, phrase)
+
+    def _keep(self, save, name, phrases, run, phrase):
+        """Save the shortcut _save offered, once you've said yes."""
         self.registry.add(name, phrases, run, str(save.get("reply") or "Done"), bool(save.get("output")))
         if self.intents:  # other wordings of it work at once, not only after a restart
             for p in phrases:
