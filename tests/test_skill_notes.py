@@ -162,16 +162,23 @@ def test_unreadable_notes_file_doesnt_crash(jv):
     assert jv.said == ["You haven't asked me to remember anything yet."]
 
 
-@pytest.mark.xfail(strict=True, reason="DATA LOSS: a notes.json that fails to parse is read as empty, and the "
-                                       "next save overwrites it with just the new note")
-def test_a_damaged_notes_file_is_not_overwritten(jv):
+def test_a_damaged_notes_file_is_kept_aside_not_overwritten(jv):
+    damaged = '[{"text": "old note 1", "at": 1}, {"text": "old note 2", "at": 2},'  # cut off mid-write
     with open(notes.NOTES_FILE, "w") as f:
-        f.write('[{"text": "old note 1", "at": 1}, {"text": "old note 2", "at": 2},')  # cut off mid-write
+        f.write(damaged)
     jv.do("remember that the new note is here")
-    with open(notes.NOTES_FILE) as f:
-        assert "old note 1" in f.read() or any(
-            "old note" in open(os.path.join(os.path.dirname(notes.NOTES_FILE), n)).read()
-            for n in os.listdir(os.path.dirname(notes.NOTES_FILE)) if n.startswith("notes") and n != "notes.json")
+    assert [n["text"] for n in saved_notes()] == ["the new note is here"]
+    kept = [n for n in os.listdir(os.path.dirname(notes.NOTES_FILE)) if n.startswith("notes.json.damaged")]
+    assert len(kept) == 1
+    with open(os.path.join(os.path.dirname(notes.NOTES_FILE), kept[0])) as f:
+        assert f.read() == damaged  # your old notes can still be recovered from it
+
+
+def test_saving_notes_never_leaves_a_half_written_file(jv):
+    jv.do("remember that the first note")
+    assert not os.path.exists(notes.NOTES_FILE + ".tmp")
+    json_ok = json.load(open(notes.NOTES_FILE))
+    assert json_ok[0]["text"] == "the first note"
 
 
 def test_recall_of_something_never_said_goes_to_claude(jv):

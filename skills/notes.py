@@ -17,6 +17,7 @@ a question are passed on to Claude with it.
 import json
 import os
 import re
+import shutil
 import threading
 import time
 
@@ -62,14 +63,22 @@ def load_notes():
     try:
         with open(NOTES_FILE) as f:
             return json.load(f)
-    except (OSError, ValueError):
+    except OSError:
+        return []
+    except ValueError:  # damaged (cut off mid-write?): keep it aside, or the next save would wipe it
+        try:
+            shutil.copy2(NOTES_FILE, "%s.damaged-%d" % (NOTES_FILE, os.path.getmtime(NOTES_FILE)))
+        except OSError:
+            pass
         return []
 
 
 def save_notes(notes):
     os.makedirs(os.path.dirname(NOTES_FILE), exist_ok=True)
-    with open(NOTES_FILE, "w") as f:
+    tmp = NOTES_FILE + ".tmp"  # written whole, then swapped in: a crash can't leave half a file
+    with open(tmp, "w") as f:
         json.dump(notes, f, indent=1)
+    os.replace(tmp, NOTES_FILE)
 
 
 def _note_line(n):
