@@ -7,7 +7,7 @@ import tempfile
 
 from core import verify
 from system import desktop
-from core.persona import address, lines, with_name
+from core.persona import address, with_name
 from core.safety import CONFIRM, MANUAL
 from voice.speech import pick
 from system.terminal import DEFAULT_TERMINAL, ManualTerminal
@@ -47,7 +47,7 @@ class Executor:
             return None
         if level == CONFIRM and not approved and not self.ask(question or "%s?" % reply.rstrip(".")):
             self.outcome = "declined"
-            self.speaker.say(lines("declined", self.user_name))
+            self.speaker.say(["Okay, I won't.", "No problem, cancelled.", "Alright, never mind then."])
             return None
 
         try:

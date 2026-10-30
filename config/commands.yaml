@@ -44,27 +44,27 @@ commands:
     run: gnome-terminal
     window: true
     process: ""
-    reply: ["Opening a terminal", "Terminal coming up", "A terminal, as requested"]
+    reply: ["Opening a terminal", "Sure, here's a terminal"]
 
   - name: open_files
     say: [open files, open file manager, open home folder, open nautilus]
     run: nautilus ~
     window: true
-    reply: ["Opening your files", "Here are your files"]
+    reply: ["Opening your files", "Sure, here are your files"]
 
   - name: open_downloads
     say: [open downloads, open downloads folder, show downloads]
     run: xdg-open ~/Downloads
     window: true
     process: ""
-    reply: ["Opening your Downloads", "Accessing Downloads"]
+    reply: ["Opening your Downloads", "Here's your Downloads folder"]
 
   - name: open_documents
     say: [open documents, open documents folder]
     run: xdg-open ~/Documents
     window: true
     process: ""
-    reply: ["Opening your Documents", "Accessing Documents"]
+    reply: ["Opening your Documents", "Here's your Documents folder"]
 
   - name: open_desktop_folder
     say: [open desktop folder]
@@ -78,44 +78,44 @@ commands:
     run: xdg-open ~/Pictures
     window: true
     process: ""
-    reply: ["Opening your Pictures", "Accessing your pictures"]
+    reply: ["Opening your Pictures", "Here are your pictures"]
 
   - name: open_vscode
     say: [open vs code, open vscode, open code editor, launch vs code]
     run: code
     window: true
-    reply: ["Opening VS Code", "VS Code coming up. Working on a secret project, are we?"]
+    reply: ["Opening VS Code", "Sure, VS Code is on its way"]
 
   - name: open_chrome
     say: [open chrome, launch chrome, open google chrome]
     run: google-chrome
     window: true
     process: chrome
-    reply: ["Opening Chrome", "Chrome coming up"]
+    reply: ["Opening Chrome", "Sure, firing up Chrome"]
 
   - name: open_firefox
     say: [open firefox, launch firefox]
     run: firefox
     window: true
-    reply: ["Opening Firefox", "Firefox coming up"]
+    reply: ["Opening Firefox", "Sure, firing up Firefox"]
 
   - name: open_settings
     say: [open settings, open system settings]
     run: gnome-control-center
     window: true
-    reply: ["Opening settings", "Accessing settings"]
+    reply: ["Opening settings", "Here are your settings"]
 
   - name: open_calculator
     say: [open calculator, calculator]
     run: gnome-calculator
     window: true
-    reply: ["Opening the calculator", "The calculator. Though you could just ask me"]
+    reply: ["Opening the calculator", "Here's the calculator"]
 
   - name: open_text_editor
     say: [open text editor, open gedit, open notepad]
     run: gedit
     window: true
-    reply: ["Opening the text editor", "A blank page, ready when you are"]
+    reply: ["Opening the text editor", "Here's a text editor"]
 
   - name: open_system_monitor
     say: [open system monitor, open task manager]
@@ -126,24 +126,24 @@ commands:
   - name: close_app
     say: ["close {app}", "quit {app}", "kill {app}"]
     run: "pkill -x {app}"
-    reply: ["Closed {app}", "{app} is closed"]
+    reply: ["Okay, closed {app}", "Done, {app} is closed"]
     ask: "Close {app}? Anything unsaved will be lost."
 
   # --- sound ---
   - name: volume_up
     say: [volume up, increase volume, louder, turn it up]
     run: pactl set-sink-volume @DEFAULT_SINK@ +10%
-    reply: ["Louder", "Turning it up", "Very good"]
+    reply: ["Got it", "Okay", "Louder"]
 
   - name: volume_down
     say: [volume down, decrease volume, quieter, turn it down]
     run: pactl set-sink-volume @DEFAULT_SINK@ -10%
-    reply: ["Quieter", "Turning it down", "Very good"]
+    reply: ["Got it", "Okay", "Quieter"]
 
   - name: set_volume
     say: ["set volume to {level}", "volume {level}", "set volume to {level} percent"]
     run: "pactl set-sink-volume @DEFAULT_SINK@ {level}%"
-    reply: ["Volume at {level} percent", "{level} percent it is"]
+    reply: ["Okay, {level} percent", "Got it, {level}"]
 
   # Muting lives in skills/audio.py, not here: "mute the sound" / "unmute the sound" / "mute the mic" each go
   # one way only (a toggle turned "unmute" into "mute" whenever nothing was muted), the mic asks first, and the
@@ -153,23 +153,23 @@ commands:
   - name: screenshot
     say: [take a screenshot, take screenshot, screenshot]
     run: gnome-screenshot
-    reply: ["Screenshot taken, it's in Pictures", "Captured. It's in Pictures"]
+    reply: ["Got it, it's saved in Pictures", "Screenshot taken, it's in Pictures"]
 
   - name: screenshot_area
     say: [screenshot area, screenshot a region, take a screenshot of an area]
     run: gnome-screenshot -a
-    reply: ["Drag to select the area", "Pick the area, I'll capture it"]
+    reply: ["Okay, drag to select the area", "Go ahead and pick the area"]
 
   - name: lock_screen
     say: [lock screen, lock the screen, lock my computer]
     run: loginctl lock-session
-    reply: ["Locking the screen", "Locking up. I'll keep watch"]
+    reply: ["Locking the screen", "Locking up, see you soon"]
     ask: "Lock the screen now?"
 
   - name: screenshot_window
     say: [screenshot window, screenshot this window, take a screenshot of the window]
     run: gnome-screenshot -w
-    reply: ["Window captured, it's in Pictures", "Window screenshot saved in Pictures"]
+    reply: ["Got the window, it's in Pictures", "Window screenshot saved in Pictures"]
 
   # Brightness is software dimming (xrandr): the HDMI monitor has no backlight control here.
   - name: brightness_full
@@ -190,7 +190,7 @@ commands:
   - name: brightness_low
     say: [brightness low, dim the screen, low brightness, brightness 40]
     run: xrandr --output HDMI-0 --brightness 0.4
-    reply: ["Dimming the screen", "Brightness at 40 percent"]
+    reply: ["Dimmed the screen", "Brightness at 40 percent"]
 
   - name: night_light_on
     say: [night light on, turn on night light, enable night light]
@@ -199,7 +199,7 @@ commands:
       gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-from 0.0 &&
       gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-to 23.99 &&
       gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
-    reply: ["Night light is on", "Warming up the display. Easier on the eyes"]
+    reply: ["Night light is on", "Warming up the screen"]
 
   - name: night_light_off
     say: [night light off, turn off night light, disable night light]
@@ -229,7 +229,7 @@ commands:
   - name: screen_off
     say: [screen off, turn off the screen, turn off display]
     run: xset dpms force off
-    reply: ["Display off. Move the mouse to wake it", "Turning off the display"]
+    reply: ["Screen off. Move the mouse to wake it", "Turning off the display"]
 
   - name: rotate_normal
     say: [rotate screen normal, reset screen rotation]
@@ -246,18 +246,18 @@ commands:
   - name: dnd_on
     say: [do not disturb, do not disturb on, turn on do not disturb, mute notifications]
     run: gsettings set org.gnome.desktop.notifications show-banners false
-    reply: ["Do not disturb is on. I'll hold your calls", "Notifications muted"]
+    reply: ["Do not disturb is on", "Notifications muted"]
 
   - name: dnd_off
     say: [do not disturb off, turn off do not disturb, unmute notifications]
     run: gsettings set org.gnome.desktop.notifications show-banners true
-    reply: ["Notifications are back on", "You're reachable again"]
+    reply: "Notifications are back on"
 
   # --- wifi & network ---
   - name: wifi_on
     say: [wifi on, turn on wifi, enable wifi]
     run: nmcli radio wifi on
-    reply: ["Wi-Fi is on", "Activating Wi-Fi"]
+    reply: ["Wi-Fi is on", "Turning Wi-Fi on"]
 
   - name: wifi_off
     say: [wifi off, turn off wifi, disable wifi]
@@ -343,19 +343,19 @@ commands:
   - name: shutdown
     say: [shut down, shutdown, power off, turn off the computer]
     run: systemctl poweroff
-    reply: ["Shutting systems down. Goodbye", "Powering down. Until next time"]
+    reply: ["Shutting down. See you later", "Okay, powering off. Bye for now"]
     ask: "Are you sure you want me to shut down?"
 
   - name: reboot
     say: [reboot, restart, restart the computer]
     run: systemctl reboot
-    reply: ["Restarting. Back in a moment", "Rebooting. Don't go anywhere"]
+    reply: ["Restarting, be right back", "Okay, restarting now"]
     ask: "Restart the computer now?"
 
   - name: suspend
     say: [suspend, sleep, go to sleep]
     run: systemctl suspend
-    reply: ["Going to sleep. Wake me when you need me", "Powering down to standby"]
+    reply: ["Going to sleep. Wake me when you need me", "Okay, suspending now"]
     ask: "Put the computer to sleep?"
 
   - name: log_out
@@ -375,7 +375,7 @@ commands:
   - name: power_max
     say: [max power mode, maxn mode, full power mode]
     run: sudo nvpmodel -m 0
-    reply: ["Switching to max power", "All power to the main systems"]
+    reply: "Switching to max power"
 
   - name: power_low
     say: [low power mode, power saving mode, 10 watt mode]
@@ -390,7 +390,7 @@ commands:
   - name: jetson_clocks
     say: [max performance, boost clocks, jetson clocks, full speed]
     run: sudo jetson_clocks
-    reply: ["Clocks maxed", "Clocks at full speed. Try not to melt anything"]
+    reply: "Clocks maxed"
 
   - name: fan_max
     say: [fan max, fan full speed, cool down]
@@ -402,7 +402,7 @@ commands:
     say: [what time is it, time, tell me the time, what's the time]
     run: date '+%-I:%M %p'
     output: true
-    reply: ["It's {output}", "The time is {output}"]
+    reply: ["It's {output}", "It's {output} right now"]
 
   - name: date
     say: [what's the date, what is the date, today's date, what day is it]
@@ -420,7 +420,7 @@ commands:
     say: [memory usage, how much memory, ram usage, check memory]
     run: free -h | awk '/Mem/ {print $7}'
     output: true
-    reply: ["You've got {output} of memory free", "{output} of memory available"]
+    reply: ["You've got {output} of memory free", "{output} of memory available right now"]
 
   - name: ip_address
     say: [ip address, what's my ip, what is my ip address]
@@ -476,7 +476,7 @@ commands:
     run: gio trash --empty
     risk: confirm
     ask: "Empty the trash? Those files will be gone for good."
-    reply: ["Trash emptied", "The trash has been taken out. Among my many duties"]
+    reply: "Trash emptied"
 
   - name: peripheral_battery
     say: [mouse battery, keyboard battery, how is my mouse battery]

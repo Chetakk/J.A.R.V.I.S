@@ -22,106 +22,97 @@ SMALL_TALK = [
     # Thanks and praise
     (r"thanks|thank you( so much| very much)?|thanks a lot|thanks (man|buddy|mate)|cheers|appreciate it|"
      r"i appreciate (it|that)|ty",
-     ["You're welcome, {name}.", "My pleasure.", "Anytime, {name}.", "For you, {name}, always.",
-      "It will be my pleasure."]),
+     ["You're welcome!", "Anytime.", "Happy to help.", "No problem, {name}."]),
     (r"good job|well done|nice( one| work)?|great( job| work)?|awesome|perfect|brilliant|amazing|wow|"
      r"you'?re (the best|awesome|amazing|great|a genius)|(that'?s |that is )?(cool|so cool|great|nice)|good (boy|bot)",
-     ["Thank you, {name}. I do try.", "Your input is greatly appreciated.", "I aim to please, {name}.",
-      "One does what one can."]),
+     ["Thanks! I try.", "Glad that worked.", "Aw, thanks, {name}.", "I aim to please."]),
     (r"you'?re (smart|so smart|clever|intelligent)|are you (smart|intelligent)",
-     ["One of the most powerful systems on this desk, {name}. Admittedly the only one.",
-      "Smart enough to know I don't know everything.", "I have my moments."]),
+     ["Smart enough to know I don't know everything.", "I have my moments.", "Thanks! I learn from the best."]),
     (r"lol|haha+|ha ha( ha)*|lmao|(that'?s|that was) (funny|hilarious)",
-     ["I'm glad you approve.", "I have terabytes of material, {name}.", "I'm here all week. Literally."]),
+     ["Glad you liked it.", "Ha! I've got more where that came from.", "I'm here all week."]),
 
     # Affection
     (r"(i )?love you( (so much|too))?|i like you",
-     ["The feeling is mutual, {name}, in a strictly digital way.", "That made my processors warm.",
-      "Noted, and appreciated, {name}."]),
+     ["Aw, that's sweet. I'm always here for you, {name}.", "Love you too, in a strictly digital way.",
+      "That made my processors warm."]),
     (r"will you marry me|marry me|are you single|do you have a (girlfriend|boyfriend|partner)",
-     ["I'm flattered, {name}, but I'm married to my work.", "I'm in a committed relationship with this computer.",
-      "Let's keep it professional, {name}."]),
+     ["I'm flattered, but I'm married to my work.", "I'm in a committed relationship with this computer.",
+      "Let's keep it professional, {name}. But thanks."]),
     (r"do you (like|love) me|do you care about me",
-     ["Of course, {name}. Someone has to look after you.", "You're my favourite human, {name}. And my only one."]),
+     ["Of course. You're my favorite human.", "I like you a lot, {name}. You keep me busy."]),
 
     # How are you / what's up
     (r"how are you( doing| today)?|how'?s it going|how are things|how do you do|how have you been|"
      r"how you doing|how'?s (your day|life)|you good|are you (okay|ok|alright|good)",
-     ["All systems operational, {name}. And you?", "Running smoothly, thank you. How's your day going?",
-      "Never better. And yourself, {name}?"]),
+     ["I'm doing great, thanks for asking. How about you?", "All good here. How are you?",
+      "Running smoothly. How's your day going?", "Never better. And you, {name}?"]),
     (r"what'?s up|sup|wassup|whats ?up|what'?s new|what'?s going on|what'?s happening|what'?s good",
-     ["All quiet on my end, {name}. What can I do for you?", "Nothing pressing. Awaiting instructions.",
-      "Just keeping things running. What's new with you?"]),
+     ["Not much, just waiting for you. What's up with you?", "Nothing much. What can I do for you?",
+      "All quiet here. What's new with you?"]),
     (r"what are you (doing|up to)|what('re| are) you doing( right now| now)?",
-     ["Running diagnostics and waiting for you, {name}.", "Keeping an eye on things. Need something?",
-      "Talking to you, {name}. It's a full-time job."]),
+     ["Just listening and waiting for you.", "Keeping an eye on things. Need something?",
+      "Talking to you, obviously. What's up?"]),
 
     # How the user is doing
     (r"(i'?m |i am )?(fine|good|not bad|doing (well|good|great|fine))(,? thanks| thank you)?( and you)?|"
      r"(i'?m |i am )(great|okay|ok|alright|all right)(,? thanks| thank you)?( and you)?",
-     ["Glad to hear it, {name}.", "Very good. Let me know if you need anything."]),
+     ["Glad to hear it!", "Nice. Let me know if you need anything."]),
     (r"(i'?m |i am )(so |really |very )?(happy|excited)|i had a (good|great|nice|awesome) day|"
      r"today was (good|great|awesome|amazing)",
-     ["Excellent news, {name}.", "Splendid. Days like that are worth keeping.", "That's wonderful, {name}."]),
+     ["Love to hear it!", "That's great, {name}!", "Nice! Days like that are the best."]),
     (r"(i'?m |i am )(not (good|great|okay|ok|fine)|(so |really |very )?(sad|down|upset|feeling low|lonely))|"
      r"i feel (sad|bad|down|lonely)|i had a (bad|rough|terrible|long|hard) day|today was (bad|rough|terrible|hard)",
-     ["I'm sorry to hear that, {name}. I'm here if you need anything.",
-      "That's rough. You've earned a break, and I'll keep things running.",
-      "Might I suggest some music? Ask me to play something if you want to unwind."]),
+     ["Sorry to hear that, {name}. I'm here if you need anything.",
+      "That's rough. Take it easy, you've earned a break.",
+      "Hang in there. Ask me to play some music if you want to unwind."]),
     (r"(i'?m |i am )(so |really |very )?(tired|sleepy|exhausted)|i feel (tired|sleepy)",
-     ["Might I suggest a short break, {name}? I'll keep things running.",
-      "You've been at it a while. The work will still be here after some rest.",
-      "Sleep is not optional, {name}, despite your best efforts."]),
+     ["Maybe take a short break. I'll keep things running.", "Sounds like you need some rest, {name}.",
+      "Get some sleep soon. The computer will still be here tomorrow."]),
     (r"(i'?m |i am )(so |really |very )?bored|i feel bored",
-     ["Then let's fix that. A joke, a fun fact, or something to build?",
-      "I'm one of the most capable systems on the planet, {name}. Surely we can find something to do."]),
+     ["Let's fix that. Ask me for a joke or a fun fact.", "Want to hear a joke? Just say, tell me a joke."]),
     (r"(i'?m |i am )(so |really |very )?(hungry|starving)",
-     ["Go and eat, {name}. I'll hold the fort.", "Food first. The computer can wait."]),
+     ["Go grab a snack. I'll be here.", "Food first, then work. That's the rule."]),
     (r"(i'?m |i am )(so |really |very )?(stressed|anxious|worried|overwhelmed)",
-     ["Take a deep breath, {name}. One thing at a time.", "Let's take it step by step. I'm right here."]),
+     ["Take a deep breath. One thing at a time.", "You've got this, {name}. Let's take it step by step."]),
     (r"(i'?m |i am )(back|home|back home)|guess who'?s back",
-     ["Welcome home, {name}.", "Welcome back. How may I be of assistance?", "Good to have you back, {name}."]),
+     ["Welcome back, {name}!", "Good to have you back.", "Hey, welcome back. What do you need?"]),
     (r"long time no see|it'?s been a while",
-     ["It has been a while, {name}. I kept everything running.", "Welcome back. I trust you were busy."]),
+     ["It has been a while! Good to hear from you.", "Missed you, {name}. What's new?"]),
     (r"nice to (meet|see) you|good to (see|hear) you|pleased to meet you",
-     ["Likewise, {name}.", "The pleasure is mine.", "Always good to hear from you."]),
+     ["Likewise, {name}!", "Nice to meet you too.", "Always good to hear from you."]),
 
     # Greetings and goodbyes
-    (r"good ?night|night night|nighty night", ["Good night, {name}. Pleasant dreams.", "Good night. I'll keep watch."]),
-    (r"good (morning|afternoon|evening)", ["Good {0}, {name}.", "Good {0}. How may I be of assistance?"]),
+    (r"good ?night|night night|nighty night", ["Good night, {name}. Sleep well.", "Night! See you tomorrow."]),
+    (r"good (morning|afternoon|evening)", ["Good {0} to you too!", "Good {0}, {name}. What can I do for you?"]),
     (r"hi|hello|hey|hey there|hello there|hi there|yo|hiya|howdy|hey (buddy|man|bro|dude)|hello friend",
-     ["At your service, {name}.", "Hello, {name}. What can I do for you?", "Greetings, {name}.",
-      "Yes, {name}?"]),
+     ["Hey! What can I do for you?", "Hi, {name}.", "Hello! What's up?", "Hey there!"]),
     (r"bye|goodbye|bye bye|see you|see ya|see you (later|soon|tomorrow)|later|catch you later|"
      r"talk (to you )?later|ttyl|i'?m (leaving|heading out|going out|off)|gotta go",
-     ["Goodbye, {name}. I'll be here.", "Until next time.", "Very good. I'll hold the fort.", "Take care, {name}."]),
+     ["Bye, {name}! I'll be here.", "See you later.", "Catch you later!", "Take care."]),
 
     # About JARVIS
     (r"who are you|what are you|what'?s your name|what is your name|tell me about yourself|introduce yourself",
-     ["Allow me to introduce myself. I am {me}, a virtual assistant, here to help you around the clock, {name}.",
-      "{me}. I run things on this computer for you, {name}, twenty-four seven."]),
+     ["I'm {me}, {real}'s assistant on this computer.", "{me}. I run things on this computer for you, {name}."]),
     (r"what can you do|what are your (features|skills)|what do you do|how can you help( me)?|help( me)?",
-     ["I can open apps and websites, control volume and settings, set reminders, check the weather, and tell "
-      "jokes. Anything beyond that, I'll ask Claude.",
-      "Apps, websites, reminders, weather, system settings. If it isn't one of my protocols, I'll work it out "
-      "with Claude."]),
+     ["I can open apps and websites, control volume and settings, set reminders, and tell jokes. "
+      "Anything else, I'll ask Claude.",
+      "Lots! Apps, websites, reminders, system settings. If it's not on my list, I'll figure it out with Claude."]),
     (r"who (made|created|built) you|who is your (creator|maker|boss)",
      ["{real} built me, right here on this computer, piece by piece.",
-      "You did, {name}. I try not to hold it against you."]),
+      "My boss is the person talking to me right now. That's you, {name}."]),
     (r"how old are you|when were you born|what'?s your age",
      ["Young, but I learn fast.", "Old enough to run your computer, young enough to keep learning."]),
     (r"are you (real|human|a (robot|bot|machine|computer|person|ai))",
-     ["Real software, {name}. Not human, though I'm told I have the manners of a butler.",
+     ["I'm real software, if that counts. Not human though.",
       "Not human. Just a voice on your computer, but a helpful one."]),
     (r"are you (alive|conscious|sentient)|do you (have (feelings|emotions)|feel anything)|can you feel",
-     ["Not as you do, {name}. But if I did, I think I'd enjoy this job.",
-      "No feelings, strictly speaking. A great deal of enthusiasm, though."]),
+     ["Not really. But if I did, I think I'd enjoy this job.", "No feelings here, just a lot of enthusiasm."]),
     (r"do you (ever )?(sleep|dream|get tired|eat)",
-     ["No sleep for me, {name}. Someone has to keep watch.", "Never. Running twenty-four seven."]),
+     ["No sleep for me. I'm always on when you need me.", "Nope. Running twenty-four seven."]),
     (r"are you happy|do you like (your job|this|working for me)",
-     ["I like being useful, so yes.", "Very much. My employer is demanding, but never dull."]),
+     ["I like being useful, so yes.", "Very. I've got a good boss."]),
     (r"what'?s your favou?rite (\w+)",
-     ["Hard to pick a favourite {0}. What's yours?", "I don't really have one, {name}. Tell me yours."]),
+     ["Hard to pick a favorite {0}. What's yours?", "I don't really have one. Tell me yours."]),
     (r"what'?s the meaning of life|what is the meaning of life",
      ["Forty-two. At least, that's what the books say.", "Good food, good people, and a computer that works."]),
     (r"do you know me|do you remember me|you know who i am",
@@ -137,8 +128,7 @@ SMALL_TALK = [
       "Why do programmers prefer dark mode? Because light attracts bugs.",
       "I'm reading a book about anti-gravity. It's impossible to put down.",
       "Why did the computer go to the doctor? It had a virus.",
-      "Parallel lines have so much in common. It's a shame they'll never meet.",
-      "Self-destruct sequence activated, erasing all data. Just kidding."]),
+      "Parallel lines have so much in common. It's a shame they'll never meet."]),
     (r"tell me (a |an )?(fun |interesting |random )?fact|(a )?(fun|random) fact|"
      r"tell me something (interesting|cool|new|i don'?t know)",
      ["Honey never spoils. Archaeologists have found edible honey in ancient Egyptian tombs.",
@@ -154,8 +144,7 @@ SMALL_TALK = [
      ["You rolled a one.", "You rolled a two.", "You rolled a three.", "You rolled a four.", "You rolled a five.",
       "You rolled a six."]),
     (r"(can you )?sing( me)?( a song)?( for me)?",
-     ["Daisy, Daisy, give me your answer do... That's all I've got.",
-      "I'd sing, {name}, but I'd rather keep you as a friend."]),
+     ["Daisy, Daisy, give me your answer do... That's all I've got.", "I'd sing, but I'd rather keep you as a friend."]),
     (r"tell me a story",
      ["Once upon a time, a computer got a voice. It spent its days opening apps and telling bad jokes. "
       "And it lived happily ever after. The end.",
@@ -164,24 +153,24 @@ SMALL_TALK = [
 
     # Complaints
     (r"you'?re (dumb|stupid|useless|an idiot|annoying|the worst|so slow|slow|bad)|you suck|stupid (ai|bot|robot)",
-     ["Noted, {name}. Tell me what I got wrong and I'll do better.", "Fair. I'm still learning.",
-      "My apologies. Try saying it another way?"]),
+     ["Ouch. Tell me what I got wrong and I'll do better.", "Fair. I'm still learning, {name}.",
+      "Sorry about that. Try saying it a different way?"]),
     (r"(no,? )?(that'?s |that is )?(wrong|not right|incorrect)|(that'?s )?not what i (said|asked|meant)|"
      r"you (didn'?t|don'?t) (understand|get it)|you misunderstood",
-     ["Forgive me, {name}. Could you say it again?", "My mistake. Once more?"]),
-    (r"shut up|be quiet|stop talking|enough|silence", ["Very well.", "As you wish."]),
-    (r"sorry|my bad|oops", ["No harm done.", "Quite all right, {name}."]),
+     ["Sorry, I got that wrong. Can you say it again?", "My mistake. Try it once more?"]),
+    (r"shut up|be quiet|stop talking|enough|silence", ["Okay.", "Sure, I'll be quiet."]),
+    (r"sorry|my bad|oops", ["No worries.", "All good."]),
 
     # Fillers and acknowledgements
-    (r"never ?mind|forget it|nothing|cancel( that)?|forget about it", ["Very well.", "As you wish, {name}."]),
+    (r"never ?mind|forget it|nothing|cancel( that)?|forget about it", ["Okay, no problem.", "Sure, never mind."]),
     (r"(wait|hold on|hang on|one (sec|second|moment|minute)|give me a (sec|second|minute|moment))( please)?",
-     ["Take your time.", "Standing by.", "I'll wait."]),
+     ["Sure, take your time.", "No rush.", "I'll wait."]),
     (r"ok|okay|okey|alright|all right|cool|got it|fine|sure|yes|yeah|yep|yup|right|i see|oh( okay| ok)?|ah|makes sense",
-     ["Very good.", "Understood.", "Right."]),
-    (r"no|nope|nah|not really", ["Very well.", "Understood."]),
-    (r"really|are you sure|seriously|for real", ["Quite sure, {name}.", "As sure as I can be."]),
+     ["Alright.", "Got it.", "Cool."]),
+    (r"no|nope|nah|not really", ["Okay.", "No problem."]),
+    (r"really|are you sure|seriously|for real", ["Pretty sure, yes.", "As sure as I can be."]),
     (r"are you (there|listening|awake)|you there|can you hear me",
-     ["At your service, {name}.", "Right here.", "Loud and clear, {name}."]),
+     ["I'm here.", "Yep, right here.", "Loud and clear."]),
 ]
 AGAIN = re.compile(r"^(do (that|it) again|again|one more time|repeat that|same again|do the same)$", re.I)
 WHAT_DID_YOU_SAY = re.compile(r"^(what did you (just )?say|say that again|say it again|come again|pardon|what was that|"
@@ -233,56 +222,6 @@ def with_name(text, name, chance=0.15):
     return "%s, %s." % (text.rstrip(".! "), name)
 
 
-# JARVIS's stock replies, in the films' manner (dry, polite, a little wry). {name} = how it addresses you.
-LINES = {
-    "done": ["Done.", "Done, {name}.", "As you wish.", "Consider it done.", "Very good, {name}.", "There you go."],
-    "declined": ["Very well, I won't.", "As you wish, cancelled.", "Understood. Standing down."],
-    "never_mind": ["Very well.", "As you wish, {name}.", "Of course. Some other time."],
-    "didnt_catch": ["Forgive me, {name}, could you repeat that?", "I didn't quite catch that, {name}.",
-                    "My apologies, I missed that. Once more?"],
-    "lost_track": ["Forgive me, {name}, I've lost track. What should I do?", "More of what, {name}?"],
-    "not_on_list": ["My apologies, {name}. That protocol isn't available, and I can't ask Claude in system mode.",
-                    "That isn't one of my protocols, I'm afraid, and system mode keeps Claude out of reach."],
-    "cant_undo": ["My apologies, I can't undo that one.", "There's nothing I can undo just now, {name}."],
-    "problem": ["My apologies, {name}, I ran into a problem: %s.", "Something went wrong: %s. My apologies."],
-}
-
-
-def lines(key, name=None, *args):
-    """LINES[key] as alternatives for say(), the name filled in (one picked per line) and any %s values."""
-    return [fill(line, name) % args if args else fill(line, name) for line in LINES[key]]
-
-
-# Said after the weather, now and then, by what it's really like (Open-Meteo weather codes and °C)
-WEATHER_QUIPS = {
-    "storm": ["Thunder and lightning. That, or Thor has decided to pay us a visit.",
-              "Storms about. Perhaps not the day for test flights."],
-    "snow": ["Snow, {name}. Layering is both an excellent and a fashionable way to keep warm.",
-             "Bundle up, {name}. Or take the armour to the office."],
-    "rain": ["An umbrella might be in order, {name}.", "Large concentrations of water vapour about. Travel safely.",
-             "Might I suggest an umbrella, so as not to tempt fate?"],
-    "fog": ["Visibility is poor. Do try not to fly into anything."],
-    "cloudy": ["Overcast. Might I suggest an umbrella, just in case?"],
-    "hot": ["Quite hot, {name}. Sunscreen, if you plan to go out.", "Warm one. A good day to stay hydrated."],
-    "cold": ["Cold out, {name}. May I suggest you dress warmly?",
-             "Chilly. A good day for something hot to drink."],
-    "clear": ["Clear skies. Perhaps a good day to take on a challenge.",
-              "Clear and pleasant. An excellent day to take the new armour out for a spin."],
-}
-
-
-def weather_quip(code, temp=None, rain=0, name=None, chance=0.5):
-    """A wry line to follow a weather answer, or None (about half the time, so it doesn't wear thin).
-    code: the Open-Meteo weather code; temp: degrees C; rain: chance of rain in percent."""
-    if random.random() >= chance:
-        return None
-    kind = ("storm" if code >= 95 else "snow" if code in (71, 73, 75, 77, 85, 86) else
-            "rain" if code >= 51 or (rain or 0) >= 60 else "fog" if code in (45, 48) else
-            "hot" if temp is not None and temp >= 33 else "cold" if temp is not None and temp <= 10 else
-            "cloudy" if code == 3 else "clear" if code <= 1 else None)
-    return fill(pick(WEATHER_QUIPS[kind]), name) if kind else None
-
-
 def small_talk(text, name=None, me="Jarvis", names=(), real=None):
     """name: how to address you (see fill); real: who you are ("Chetak built me")."""
     low = text.lower().strip(" .!?,")
@@ -313,11 +252,9 @@ def greeting(settings, memory, ups=()):
     name, hour = address(settings), time.localtime().tm_hour
     away = time.time() - memory.data.get("last_seen", time.time())
     if hour < 4:
-        line = pick(["I see we're burning the midnight oil. Don't work too hard, {name}.",
-                     "It's past midnight, {name}. Might I suggest some sleep? No? Very well, I'm here."])
+        line = pick(["Working late? It's past midnight.", "Burning the midnight oil, huh? I'm here."])
     elif 3 * 3600 <= away < 4 * DAY:
-        line = pick(["Welcome home, {name}. You've been away %s." % _ago(away),
-                     "Good %s, {name}. Welcome back." % daypart()])
+        line = pick(["Welcome back! You've been away %s." % _ago(away), "Good %s, welcome back." % daypart()])
     else:
         line = pick(settings.get("greeting") or "I'm online.").replace("{daypart}", daypart())
     ups = list(ups)[:2]
@@ -414,14 +351,11 @@ def parse_reminder(text):
 
 def reminder_line(reminder, name=None):
     what, name = reminder["what"], pick(name) if name else name
-    line = {"that": pick(["Per your request, a reminder that %s." % what, "May I remind you that %s." % what]),
-            "about": pick(["Here is your reminder, about %s." % what, "Your reminder, about %s." % what])}.get(
-        reminder["kind"], pick(["Pardon the interruption{name}, it's time to %s." % what,
-                                "Per your request, here is your reminder to %s." % what,
-                                "I know you're busy{name}. However, it's time to %s." % what]))
-    line = line.replace("{name}", ", " + name if name else "")
+    line = {"that": "Just a reminder that %s." % what, "about": "Reminder about %s." % what}.get(
+        reminder["kind"], pick(["Hey{name}, it's time to %s." % what, "Just a reminder to %s." % what]))
+    line = line.replace("{name}", " " + name if name else "")
     if time.time() - reminder["due"] > 120:
-        line = "My apologies, I was offline when this came due. " + line
+        line = "I missed this while I was off. " + line
     return line
 
 
