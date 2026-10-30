@@ -12,8 +12,8 @@ greeting:
   - "Good {daypart}. All systems online. How may I be of assistance?"
   - "Welcome home, {name}."
   - "Systems check complete. Ready when you are."
-# What JARVIS calls you, now and then ("Done, Chetak."). Remove to never use a name.
-user_name: Chetak
+# What JARVIS calls you, now and then ("Done, sir."). Remove to never use a name.
+user_name: sir
 # Chat replies (config/chat.yaml): {name} is one of call_me at random (user_name when unset), {real} who you are.
 call_me: [sir, Ckay]
 real_name: Chetak
