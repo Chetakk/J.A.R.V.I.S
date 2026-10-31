@@ -126,8 +126,10 @@ class UI:
         ORB = int(cfg.get("orb_size", ORB))
         self.orb_mode = cfg.get("orb", "auto")  # "auto" | True | False
         self.orb_hide_after = float(cfg.get("orb_hide_after", 4))
-        self.card_hide_after = float(cfg.get("card_hide_after", 30))  # with a card open, both go after this
-        self._quiet_since = None
+        self.card_hide_after = float(cfg.get("card_hide_after", 30))
+        self.chat_hide_after = float(cfg.get("chat_hide_after", 60))
+        self._quiet_since = None  # JARVIS idle and you not on the chat or card since then
+        self._bare_since = None  # nothing on screen but the orb since then
         self.mutes = {"voice": False, "mic": False, "speaker": False}  # kept up to date by set_mutes()
         self._build_orb()
         self._build_panel()
@@ -419,6 +421,7 @@ class UI:
 
         self.entry = Gtk.Entry(placeholder_text="Type to JARVIS...")
         self.entry.connect("activate", self._entry_send)
+        self.entry.connect("changed", lambda _e: setattr(self, "_quiet_since", None))  # typing counts
         inner.pack_start(self.entry, False, False, 0)
         w.add(box)
         w.connect("key-press-event", lambda _w, ev: ev.keyval == Gdk.KEY_Escape and self._set_chat(False))
@@ -446,6 +449,7 @@ class UI:
     def _set_chat(self, on):
         on = (not self.panel.get_visible()) if on is None else on
         if on:
+            self._quiet_since = None  # full time on screen
             self._place_panel()
             self.panel.show_all()
             self.panel.present()
@@ -467,25 +471,52 @@ class UI:
         self.orb.show_all() if on else self.orb.hide()
         return False
 
-    def _auto_orb(self, active):
-        """Auto mode: show the orb while JARVIS is busy (or the chat is open); hide it after a quiet spell.
-        The card goes with it (pinned copies stay); while a card is open the quiet spell is longer, to read it."""
-        if self.orb_mode != "auto":
-            return
-        card = hasattr(self, "card") and self.card.visible
-        if active or self.panel.get_visible():
-            self._quiet_since = None
-            if not self.orb.get_visible():
+    def _touching(self):
+        """The pointer is on the chat or the card, or there's half-typed text in the chat."""
+        if self.panel.get_visible() and self.entry.get_text():
+            return True
+        _screen, px, py = Gdk.Display.get_default().get_default_seat().get_pointer().get_position()
+        for w in (self.panel, self.card.win):
+            gw = w.get_window()
+            if w.get_visible() and gw:
+                _ok, x, y = gw.get_origin()
+                if x <= px < x + gw.get_width() and y <= py < y + gw.get_height():
+                    return True
+        return False
+
+    def _auto_hide(self, active):
+        """While JARVIS is busy or you're on the chat or card, nothing hides. After a quiet spell the card goes
+        (card_hide_after), then the chat (chat_hide_after); in auto mode the orb follows orb_hide_after seconds
+        after both are gone, and shows while either is up. Pinned copies stay."""
+        chat, card = self.panel.get_visible(), self.card.visible
+        auto = self.orb_mode == "auto"
+        if active or self._touching():
+            self._quiet_since = self._bare_since = None
+            if auto and (active or chat or card) and not self.orb.get_visible():
                 self.orb.show_all()
-        elif self.orb.get_visible() or card:
+            return
+        if not (chat or card or (auto and self.orb.get_visible())):
+            self._quiet_since = self._bare_since = None  # nothing to hide
+            return
+        now = time.time()
+        self._quiet_since = self._quiet_since or now
+        if card and now - self._quiet_since >= self.card_hide_after:
+            self.card.close()
+            card = False
+        if chat and now - self._quiet_since >= self.chat_hide_after:
+            self._set_chat(False)
+            chat = False
+        if not auto:
+            return
+        if chat or card:
+            self._bare_since = None
             if not self.orb.get_visible():
                 self.orb.show_all()  # a card appeared while it was quiet (e.g. from the Claude terminal)
-            self._quiet_since = self._quiet_since or time.time()
-            if time.time() - self._quiet_since >= (self.card_hide_after if card else self.orb_hide_after):
-                self.orb.hide()
-                if card:
-                    self.card.close()
-                self._quiet_since = None
+            return
+        self._bare_since = self._bare_since or now
+        if now - self._bare_since >= self.orb_hide_after:
+            self.orb.hide()
+            self._quiet_since = self._bare_since = None
 
     def _entry_send(self, entry):
         text = entry.get_text().strip()
@@ -625,7 +656,7 @@ class UI:
 
     def _refresh(self):
         shown = "speaking" if self.state == "idle" and self.is_speaking() else self.state
-        self._auto_orb(shown in ANIMATED and shown != "starting")
+        self._auto_hide(shown in ANIMATED and shown != "starting")
         silent, deaf = self.mutes["voice"] or self.mutes["speaker"], self.mutes["mic"]
         key = (shown, silent, deaf)
         if key != self._shown:

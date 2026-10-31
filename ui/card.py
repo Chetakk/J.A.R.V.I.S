@@ -1,5 +1,6 @@
 """The "show" card: a floating panel, styled like the chat, for things worth seeing rather than hearing
-(a table of numbers, a list, links, a picture, choices). It stays until closed or replaced by the next card.
+(a table of numbers, a list, links, a picture, choices). It stays until closed, replaced by the next card,
+or left alone for a while (ui.card_hide_after).
 
 A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "refresh" {...}}:
 - text: "# heading", "- bullet" (indent to nest), "1. step", "- [ ]"/"- [x]" checklists, "| table |" rows,

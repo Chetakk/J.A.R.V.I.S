@@ -113,8 +113,9 @@ ui:
   look: glass              # glass = see-through grey like Discord; solid = the older dark, opaque look
   orb_size: 96             # orb diameter in pixels (78 was the old size)
   orb: auto                # auto = appears while you're talking to it, fades after; true = always; false = never
-  orb_hide_after: 4        # seconds of quiet before the orb hides (auto mode)
-  card_hide_after: 30      # with a card open, orb and card hide together after this many quiet seconds
+  orb_hide_after: 4        # seconds after the chat and card are gone before the orb hides (auto mode)
+  card_hide_after: 30      # a card hides after this many quiet seconds (pointer not on it or the chat)
+  chat_hide_after: 60      # the chat hides after this many quiet seconds (pointer not on it, nothing half-typed)
   chat: false              # show the chat panel at startup (click the orb, or say "show chat")
   show_hearing: true       # list everything speech recognition hears in the chat ("hide what you hear" to stop)
 
