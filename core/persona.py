@@ -173,7 +173,9 @@ SMALL_TALK = [
     (r"sorry|my bad|oops", ["No harm done.", "Quite all right, {name}."]),
 
     # Fillers and acknowledgements
-    (r"never ?mind|forget it|nothing|cancel( that)?|forget about it", ["Very well.", "As you wish, {name}."]),
+    # "nevermind nothing leave it": any run of them
+    (r"(?:(?:never ?mind|nevemind|forget (?:about )?it|nothing|cancel(?: that)?|leave it|let it be|skip it)"
+     r"[\s,]*)+", ["Very well.", "As you wish, {name}."]),
     (r"(wait|hold on|hang on|one (sec|second|moment|minute)|give me a (sec|second|minute|moment))( please)?",
      ["Take your time.", "Standing by.", "I'll wait."]),
     (r"ok|okay|okey|alright|all right|cool|got it|fine|sure|yes|yeah|yep|yup|right|i see|oh( okay| ok)?|ah|makes sense",
