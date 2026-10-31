@@ -206,9 +206,22 @@ class Projects(Skill):
             len(items), " %s %s running." % (and_list(names), "is" if len(names) == 1 else "are") if names else ""))
 
     def recent_projects(self):
-        recent = self.projects.recent(3)
+        """The five you touched last, each with a line: what it is, the last commit, when."""
+        recent = self.projects.recent(5)
+        if not recent:
+            self.say("I don't see any projects in your Projects folder.")
+            return
         self.projects.current = recent[0]
-        self.say("Lately you've been on %s." % and_list([p.spoken for p in recent]))
+        lines = []
+        for p in recent:
+            brief = [_short(p.summary)] if p.summary else []
+            last = _last_commit(p.path)
+            if last:
+                brief.append("last: " + last)
+            brief.append(_ago(time.time() - p.touched()))
+            lines.append("- **%s**: %s" % (p.spoken, "; ".join(brief)))
+        self.j.show({"title": "What you've been working on", "text": "\n".join(lines)})
+        self.say("Lately you've been on %s. A line on each is on the card." % and_list([p.spoken for p in recent]))
 
     def refresh_projects(self):
         self.projects.refresh()
@@ -287,3 +300,30 @@ def _ports(links):
 def _link_lines(links):
     width = max([len(l["name"]) for l in links] or [0])
     return "\n".join("  %s  %s" % (l["name"].ljust(width), l["url"]) for l in links) or "  (no links yet)"
+
+
+def _short(summary, limit=80):
+    """The README line cut to its first sentence, at most `limit` characters."""
+    s = summary.replace(" · ", ", ").split(". ")[0].rstrip(".")
+    return s if len(s) <= limit else s[:limit].rsplit(" ", 1)[0] + "…"
+
+
+def _last_commit(path):
+    """The last commit's subject, or "" (not a git project, or git failed)."""
+    if not os.path.isdir(os.path.join(path, ".git")):
+        return ""
+    try:
+        res = subprocess.run(["git", "-C", path, "log", "-1", "--format=%s"], capture_output=True, text=True,
+                             timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return _short(res.stdout.strip()) if res.returncode == 0 else ""
+
+
+def _ago(secs):
+    if secs < 3600:
+        return "touched just now"
+    if secs < 86400:
+        return "touched %d hour%s ago" % (secs // 3600, "" if secs < 7200 else "s")
+    days = int(secs // 86400)
+    return "touched yesterday" if days == 1 else "touched %d days ago" % days

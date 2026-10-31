@@ -626,6 +626,13 @@
 "create a new station": "skill:biztel_build"
 "recent projects": "skill:recent_projects"
 "what did i work on last": "skill:recent_projects"
+"what all things were we working on": "skill:recent_projects"
+"what have we been working on": "skill:recent_projects"
+"kya kya kaam chal raha hai": "skill:recent_projects"
+"what all projects i was working on": "skill:recent_projects"
+"what i was working on": "skill:recent_projects"
+"what all projects are there": "skill:list_projects"
+"give me a list of my projects": "skill:list_projects"
 "open the jarvis project in vs code": "skill:open_project"
 "open avtec hs in vs code": "skill:open_project"
 # a folder or file in any app; "open X in chrome" stays the browser's unless X is on this computer

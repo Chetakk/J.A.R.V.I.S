@@ -5,6 +5,7 @@ Your projects (skills/projects.py, system/projects.py: ~/Projects, biztel run) a
 import json
 import os
 import signal
+import time
 
 import pytest
 
@@ -47,6 +48,20 @@ def test_about_a_project_from_its_readme(jv):
     project(jv, "study-buddy", "# Study Buddy\n\nFlashcards that quiz you by voice.\n")
     jv.do("what's the study buddy project about")
     assert jv.says("Flashcards that quiz you by voice") and not jv.claude.calls
+
+
+def test_recent_projects_five_with_a_line_each(jv):
+    now = time.time()
+    for i, name in enumerate(["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]):
+        path = project(jv, name, "# %s\n\nThe " + name + " tool. It does more things.\n")
+        os.utime(os.path.join(path, "README.md"), (now - i * 86400, now - i * 86400))
+    os.makedirs(os.path.join(H, "Projects", "alpha", ".git"))
+    jv.shell.on(r"^git -C .*alpha log -1", out="Cards: wider and taller\n")
+    jv.do("what all things were we working on")
+    assert jv.says("alpha, bravo, charlie, delta and echo") and not jv.claude.calls
+    text = jv.card_text()
+    assert "**alpha**: The alpha tool; last: Cards: wider and taller; touched just now" in text
+    assert "**bravo**: The bravo tool; touched yesterday" in text and "foxtrot" not in text
 
 
 def test_run_a_project(jv):
