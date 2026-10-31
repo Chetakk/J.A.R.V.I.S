@@ -29,6 +29,9 @@ KWS_DIR = os.path.join(MODELS, "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-0
 KWS_FILES = "epoch-12-avg-2-chunk-16-left-64.int8.onnx"
 VAD_WINDOW = 512
 VAD_TAIL = 0.5  # silence the voice detector waits for before ending a bit of speech
+# The voice detector notices speech a moment after it starts, so a soft "s" or "j" ("set a timer",
+# "Jarvis") can be missing from the bit Whisper gets. Each bit keeps this much audio from before it.
+PRE_ROLL = 0.3
 
 
 class WakeWord:
@@ -235,6 +238,9 @@ class WhisperWake:
     def _segments(self, mic):
         """Yield each finished bit of speech (float32 samples) from the mic."""
         pending = np.zeros(0, dtype=np.float32)
+        # The windows fed to the voice detector (as long as its 30 s buffer), and how many samples so far:
+        # a bit's .start counts from the last reset, so the audio before it can be found here.
+        history, fed = collections.deque(maxlen=31 * RATE // VAD_WINDOW), 0
         last_sound, warned = time.time(), False
         while True:
             raw = mic.stdout.read(VAD_WINDOW * 2)
@@ -244,6 +250,8 @@ class WhisperWake:
             if self.is_deaf():
                 pending = np.zeros(0, dtype=np.float32)
                 self.vad.reset()
+                history.clear()
+                fed = 0
                 continue
             ints = np.frombuffer(raw, dtype=np.int16)
             if np.abs(ints).max() > 200:
@@ -254,11 +262,14 @@ class WhisperWake:
             pending = np.concatenate([pending, ints.astype(np.float32) / 32768])
             while len(pending) >= VAD_WINDOW:
                 self.vad.accept_waveform(pending[:VAD_WINDOW])
+                history.append(pending[:VAD_WINDOW])
+                fed += VAD_WINDOW
                 pending = pending[VAD_WINDOW:]
             while not self.vad.empty():
                 seg = np.array(self.vad.front.samples, dtype=np.float32)
+                before = _audio_before(history, fed, self.vad.front.start, int(PRE_ROLL * RATE))
                 self.vad.pop()
-                yield seg
+                yield np.concatenate([before, seg])
 
     def _listen(self, mic):
         self.vad.reset()
@@ -418,6 +429,18 @@ class WhisperWake:
         self.waiting_until = 0.0
         print("[wake] nothing said; back to waiting for the name")
         self.on_wake(False)
+
+
+def _audio_before(history, fed, start, count):
+    """The `count` samples just before sample `start`, from the last windows fed (fewer if they're gone)."""
+    first = fed - len(history) * VAD_WINDOW  # the sample history[0] begins at
+    lo = max(start - count, first)
+    if lo >= start:
+        return np.zeros(0, dtype=np.float32)
+    skip = (lo - first) // VAD_WINDOW
+    windows = list(history)[skip:(start - first + VAD_WINDOW - 1) // VAD_WINDOW]
+    offset = first + skip * VAD_WINDOW
+    return np.concatenate(windows)[lo - offset:start - offset]
 
 
 def record_until_silence(vad, mic, max_seconds):
