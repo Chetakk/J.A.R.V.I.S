@@ -57,7 +57,9 @@ class Dev(Skill):
              r"(?: (%s))?%s|(?:%s) (?:the |my |that )?(?:thing|stuff|work|code)%s(?: (%s))?%s|"
              r"(?:open|continue|resume|reopen|load) (yesterday|today|last night|this morning)'?s project"
              % (_BACK_TO, _WORKED, WHEN, _AFTER, _BACK_TO, _WORKED, WHEN, _AFTER), self.last_project),
-            (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code", self.open_project),
+            # "JARVIS project in VS Code": speech can drop the "open".
+            (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code|(?:the )?(.+?) project in vs ?code",
+             self.open_project),
             (r"open (?:up )?(.+?%s.+?)(?: app)?" % _IN.pattern, self.open_in),
             (r"run (?:the )?tests(?: (?:in|for|of) (?:the )?(.+?)(?: project)?)?", self.run_tests),
             (r"(?:ask|tell|have) claude (?:to )?(.+?) in (?:the )?(.+?) project", self.claude_project),
@@ -112,7 +114,7 @@ class Dev(Skill):
             self.say("I can't tell which window you're in.")
 
     def open_project(self, m):
-        name = m.group(1) or m.group(2)
+        name = next(g for g in m.groups() if g)
         path = self._project_path(name)
         if not path:
             return False

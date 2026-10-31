@@ -20,7 +20,7 @@ import sentencepiece
 import sherpa_onnx
 
 from voice.listen import RATE, beep
-from core.registry import _names_regex
+from core.registry import NAME_AS_THING, _names_regex
 from skills.status import STOP as INTERRUPT  # "stop", "be quiet", "enough"...
 from system.terminal import RUN_DIR
 
@@ -150,6 +150,9 @@ def split_name(text, names):
     if not m:
         return False, ""
     before, after = text[:m.start()], text[m.end():].strip(" ,.!?-")
+    if re.match(NAME_AS_THING, text[m.end():], re.IGNORECASE):
+        # "Jarvis project in VS Code", "open Jarvis project": the name is what the request is about.
+        return True, (text[m.start():] if _GREETING.match(before) else text).strip(" ,.!?-")
     if _GREETING.match(before):
         # "EV. EV. Hey EV, open YouTube" -> "open YouTube": drop repeated calls of the name.
         call = re.compile(r"^(?:\W*(?:hey|hi|hello|ok|okay|yo|good (?:morning|afternoon|evening|night)|what'?s up)\b)*\W*%s[\s,.!?-]*" % _names_regex(names),

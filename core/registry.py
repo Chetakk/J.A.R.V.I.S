@@ -25,6 +25,8 @@ def opposite_direction(said, phrase):
     a, b = set(re.findall(r"[a-z]+", said.lower())), set(re.findall(r"[a-z]+", phrase.lower()))
     return any((x in a and y in b and y not in a) or (y in a and x in b and x not in a) for x, y in _OPPOSITES)
 _GREETING = r"(?:hey|hello|hi|ok|okay)"
+# The name followed by one of these is the thing talked about ("open the Jarvis project"), not a call.
+NAME_AS_THING = r"\s+(?:project|folder|repo|repository|code ?base|source code|directory|logs?|readme)\b"
 _TRAILING_FILLER = re.compile(r"[\s,]*(?:please|for me|now)?[\s.!?]*$", re.IGNORECASE)
 
 
@@ -43,12 +45,13 @@ def clean(text, names=("jarvis",)):
     text = text.strip()
     # Speech can pick up a stray word or two before the name ("page arguments. Hey Jarvis, ...").
     # Only cut when the name is used to address the assistant, not when it's part of a question.
-    m = re.search(r"(?:[.!?,]\s*|\b%s[\s,]+)%s[\s,.!?]*" % (_GREETING, name), text[:40], re.IGNORECASE)
+    m = re.search(r"(?:[.!?,]\s*|\b%s[\s,]+)%s(?!%s)[\s,.!?]*" % (_GREETING, name, NAME_AS_THING), text[:40],
+                  re.IGNORECASE)
     if m:
         # ...unless nothing follows the name ("thank you, Jarvis"): then what came before is the request.
         text = text[m.end():] if text[m.end():].strip() else text[:m.start()]
-    text = re.sub(r"^(?:%s[\s,.!]+)?(?:%s[\s,.!?]*)?(?:(?:can|could|would|will) you\s+)?(?:please\s+)?"
-                  % (_GREETING, name), "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^(?:%s[\s,.!]+)?(?:%s(?!%s)[\s,.!?]*)?(?:(?:can|could|would|will) you\s+)?(?:please\s+)?"
+                  % (_GREETING, name, NAME_AS_THING), "", text, flags=re.IGNORECASE)
     text = _TRAILING_FILLER.sub("", text)
     return re.sub(r"\s+", " ", text).strip()
 

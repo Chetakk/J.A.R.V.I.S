@@ -134,3 +134,22 @@ def test_claude_fallback_is_told_the_focused_window_and_project(jv):
     jv.do("deploy this to staging")
     sent = jv.claude.asked("Focused window")
     assert sent and "avtec-hs" in sent[-1] and path in sent[-1]
+
+
+def test_open_the_jarvis_project(jv):
+    # "Jarvis" here is the project, not a call: it stays in the request.
+    path = project(jv, "J.A.R.V.I.S")
+    for said in ("open jarvis project", "open the jarvis project in vs code", "jarvis project in vs code",
+                 "hey jarvis, open jarvis project"):
+        jv.shell.calls.clear()
+        jv.do(said)
+        assert jv.shell.ran("^code %s$" % path), said
+
+
+def test_the_name_as_the_project_is_kept_by_the_wake_word():
+    from voice.wake import split_name
+    names = ["jarvis", "ev"]
+    assert split_name("JARVIS project in VS Code.", names) == (True, "JARVIS project in VS Code")
+    assert split_name("open Jarvis project", names) == (True, "open Jarvis project")
+    assert split_name("Hey Jarvis, open Jarvis project.", names) == (True, "open Jarvis project")
+    assert split_name("Jarvis, open YouTube.", names) == (True, "open YouTube")
