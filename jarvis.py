@@ -395,7 +395,8 @@ class Jarvis:
         low = text.lower()
         if not self._rewording and not self.from_claude:  # whatever you say next, its question is answered
             self._chat_asked = self.chat_replies.take() if self.chat_replies else None
-        if undo.UNDO.match(text):
+        # "cancel that" with nothing to undo is just a never mind (small talk below)
+        if undo.UNDO.match(text) and (self.last_undo or not re.fullmatch(persona.NEVER_MIND, low.strip(" .!?,"))):
             return self._undo()
         phrase = None if self._rewording else self.context.follow_up(text)
         if phrase:  # "a bit more", "make it 70", "and firefox too": about what JARVIS just did

@@ -18,6 +18,17 @@ from voice.speech import pick
 MEMORY = os.path.expanduser("~/.local/share/jarvis/memory.json")
 DAY = 86400
 
+# "nevermind nothing leave it", "no wait, cancel", "for now let it be nothing just ignore it": any run of these.
+_DROP = (r"never ?mind|nevemind|forget (?:about )?(?:it|that)|forget i (?:said anything|said that|asked|mentioned it)|"
+         r"ignore (?:that|it|me|what i said)|disregard (?:that|it)|leave it(?: be| alone)?|let it (?:be|go)|"
+         r"skip (?:it|that)|drop it|don'?t bother|no need(?: anymore| for that)?|not needed|cancel(?: that| it)?|"
+         r"scratch that|(?:undo|forget) that request|abort|call it off|hold off|(?:it'?s )?nothing|(?:i )?(?:have |'?ve )?changed my mind|"
+         r"(?:actually|on second thought)[\s,]+no|not now|(?:maybe )?later|i'?ll do it myself|i(?:'?ve)? got it|"
+         r"rehne do|rehne de|chhodo|chhod do|kuch nahi|koi baat nahi|jaane do")
+NEVER_MIND = (r"(?:(?:no|nah|oh|ok|okay|it'?s (?:okay|ok|fine)|actually|wait|stop|just|for now|on second thought)"
+              r"[\s,]+)*(?:(?:%s)(?:[\s,]+(?:just|and|then|for now|sorry|it'?s fine|thanks|thank you|please)\b)*"
+              r"[\s,]*)+" % _DROP)
+
 SMALL_TALK = [
     # Thanks and praise
     (r"thanks|thank you( so much| very much)?|thanks a lot|thanks (man|buddy|mate)|cheers|appreciate it|"
@@ -173,9 +184,7 @@ SMALL_TALK = [
     (r"sorry|my bad|oops", ["No harm done.", "Quite all right, {name}."]),
 
     # Fillers and acknowledgements
-    # "nevermind nothing leave it": any run of them
-    (r"(?:(?:never ?mind|nevemind|forget (?:about )?it|nothing|cancel(?: that)?|leave it|let it be|skip it)"
-     r"[\s,]*)+", ["Very well.", "As you wish, {name}."]),
+    (NEVER_MIND, ["Very well.", "As you wish, {name}.", "Alright, never mind then."]),
     (r"(wait|hold on|hang on|one (sec|second|moment|minute)|give me a (sec|second|minute|moment))( please)?",
      ["Take your time.", "Standing by.", "I'll wait."]),
     (r"ok|okay|okey|alright|all right|cool|got it|fine|sure|yes|yeah|yep|yup|right|i see|oh( okay| ok)?|ah|makes sense",
