@@ -153,3 +153,13 @@ def test_the_name_as_the_project_is_kept_by_the_wake_word():
     assert split_name("open Jarvis project", names) == (True, "open Jarvis project")
     assert split_name("Hey Jarvis, open Jarvis project.", names) == (True, "open Jarvis project")
     assert split_name("Jarvis, open YouTube.", names) == (True, "open YouTube")
+
+
+def test_open_your_own_project(jv):
+    path = project(jv, "J.A.R.V.I.S")
+    for said in ("open your project", "open your own project in vs code", "open the project to fix you",
+                 "open the project for jarvis", "open the project of you", "jarvis, open your project",
+                 "open the project for fixing yourself"):
+        jv.shell.calls.clear()
+        jv.do(said)
+        assert jv.shell.ran("^code %s$" % path), said

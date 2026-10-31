@@ -57,6 +57,11 @@ class Dev(Skill):
              r"(?: (%s))?%s|(?:%s) (?:the |my |that )?(?:thing|stuff|work|code)%s(?: (%s))?%s|"
              r"(?:open|continue|resume|reopen|load) (yesterday|today|last night|this morning)'?s project"
              % (_BACK_TO, _WORKED, WHEN, _AFTER, _BACK_TO, _WORKED, WHEN, _AFTER), self.last_project),
+            # JARVIS's own project: "open your project", "open the project to fix you", "... for jarvis".
+            (r"open (?:up )?(?:your|ur) (?:own )?(?:project|code|code ?base|repo)(?: in vs ?code)?|"
+             r"open (?:up )?(?:the |your )?(?:project|code|code ?base|repo) (?:to (?:fix|change|improve|update)|"
+             r"for (?:fixing|changing|improving)|of|for|behind) (?:you|yourself|jarvis)(?: in vs ?code)?",
+             lambda m: self.open_project(None)),
             # "JARVIS project in VS Code": speech can drop the "open".
             (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code|(?:the )?(.+?) project in vs ?code",
              self.open_project),
@@ -114,8 +119,8 @@ class Dev(Skill):
             self.say("I can't tell which window you're in.")
 
     def open_project(self, m):
-        name = next(g for g in m.groups() if g)
-        path = self._project_path(name)
+        # m None: JARVIS's own project.
+        path = self._project_path(next(g for g in m.groups() if g)) if m else os.path.join(PROJECTS, "J.A.R.V.I.S")
         if not path:
             return False
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
