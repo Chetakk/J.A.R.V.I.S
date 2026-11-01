@@ -20,7 +20,7 @@ _OPPOSITES = [("on", "off"), ("up", "down"), ("enable", "disable"), ("open", "cl
               ("mute", "unmute"), ("connect", "disconnect"), ("lock", "unlock"), ("next", "previous"),
               ("start", "end"), ("begin", "end"), ("start", "finish"), ("record", "screenshot"),
               ("copy", "move"), ("lower", "up"), ("raise", "down"), ("increase", "decrease"), ("higher", "lower"),
-              ("louder", "softer")]
+              ("louder", "softer"), ("high", "low")]
 
 
 def opposite_direction(said, phrase):

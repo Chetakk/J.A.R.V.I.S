@@ -36,7 +36,7 @@ from system.projects import Projects
 from system.apps import Apps
 from core.context import Context, sounds_like_follow_up
 from core.chat import ChatReplies
-from core.intent import IntentMatcher
+from core.intent import MODEL_DIR, Embedder, IntentMatcher
 from core.registry import Registry, _names_regex, clean
 from core.safety import MANUAL, Safety
 from voice.speech import Speaker, pick
@@ -156,7 +156,7 @@ OPEN_QUESTION = re.compile(r"^(?:who|whom|whose|why|explain|describe|define|comp
                            r"would|to)\b)|\b(?:in|at) (?!a\b|the\b|my\b)[a-z]+$|\b(?:yesterday|last (?:week|month|year))\b",
                            re.IGNORECASE)
 SPLIT = re.compile(r",? (?:and then|and also|and after that|after that|then|and) |, ", re.IGNORECASE)
-UNSURE = 0.62  # from here up to the matcher's threshold, a guess is asked about (real questions scored lower)
+UNSURE = 0.10  # this far below the matcher's threshold (0.62 at 0.72), a guess is asked about (real questions lower)
 YES = re.compile(r"^\W*(y|yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|correct)\b", re.IGNORECASE)
 NO = re.compile(r"^\W*(?:no|nope|nah|not that|neither|wrong)\b", re.IGNORECASE)
 # "That's not what I said", "no, I meant pause the music": right after a match by meaning, it was the wrong one.
@@ -302,7 +302,8 @@ class Jarvis:
             cfg = self.settings.get("intents") or {}
             self.intents = IntentMatcher(os.path.join(CONFIG, "intents.yaml"), cfg.get("threshold", 0.72),
                                          extra=dict(self.apps.intents(), **command_phrases(self.registry)),
-                                         learned=learned.load()["wordings"], wrong=learned.load()["wrong"])
+                                         learned=learned.load()["wordings"], wrong=learned.load()["wrong"],
+                                         model=cfg.get("model"))
         except Exception as e:
             print("[intent] meaning matcher off: %r" % e)
         self.chat_replies = None  # its own replies to chat ("do you have any pets?"), before Claude
@@ -310,7 +311,9 @@ class Jarvis:
         cfg = self.settings.get("chat_replies") or {}  # enabled: false turns them off; threshold: how close
         if self.intents and cfg.get("enabled", True):
             try:
-                self.chat_replies = ChatReplies(os.path.join(CONFIG, "chat.yaml"), self.intents.embed,
+                # (a tuned matcher model isn't the one chat's wordings and threshold were made with)
+                embed = self.intents.embed if self.intents.model_dir == MODEL_DIR else Embedder(MODEL_DIR).embed
+                self.chat_replies = ChatReplies(os.path.join(CONFIG, "chat.yaml"), embed,
                                                 cfg.get("threshold", 0.8))
             except Exception as e:
                 print("[chat] chat replies off: %r" % e)
@@ -1015,7 +1018,8 @@ class Jarvis:
                 or self.intents.left(text):  # (taught as near one of its phrases but meaning none of them)
             return False
         threshold = (self.settings.get("intents") or {}).get("threshold", 0.72)
-        if second >= UNSURE and score - second < 0.06 and not other.startswith("/"):  # two close meanings
+        unsure = threshold - (self.settings.get("intents") or {}).get("unsure", UNSURE)
+        if second >= unsure and score - second < 0.06 and not other.startswith("/"):  # two close meanings
             # Just asked for one of them ("close discord", then "gross discord"): that one, not "X, or Y?".
             said = [r[6:].lower().strip(" .!?") for r in reversed(self.recent) if r.startswith("User: ")][1:]
             phrase = next((w for w in said if w in (best.lower(), other.lower())), None)
@@ -1024,7 +1028,7 @@ class Jarvis:
                 phrase = self.choose("%s, or %s?" % (best[0].upper() + best[1:], other), [best, other])
             if phrase:
                 self.context.chose([best, other], phrase)  # for "the other one"
-        elif UNSURE <= score < threshold:  # one likely meaning (no close second: that was the case above)
+        elif unsure <= score < threshold:  # one likely meaning (no close second: that was the case above)
             question = "Did you mean %s?" % best
             answer = self._answer(question)
             phrase = best if is_yes(answer, question) else None

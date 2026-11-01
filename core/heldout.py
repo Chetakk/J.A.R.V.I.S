@@ -37,7 +37,7 @@ def load(matcher, path=None):
             raw = f.read()
     except OSError:
         return {}, [], None
-    key = hashlib.sha1(raw.encode()).hexdigest()
+    key = hashlib.sha1((raw + getattr(matcher, "model_dir", "")).encode()).hexdigest()  # (vectors are per model)
     if key in _memo:
         return _memo[key]
     cases = yaml.safe_load(raw) or {}

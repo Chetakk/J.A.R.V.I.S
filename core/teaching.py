@@ -51,7 +51,7 @@ VAGUE = re.compile(r"^(?:(?:that'?s |thats )?enough|do|try|end|stop|start|go|run
 # small model scores by topic, not direction: "the sound is way too loud for me" sits as close to "volume
 # up" as to "volume down", so only a clear gap means the wording really is about something else.
 SURER = 0.08
-NEARLY = 0.62  # as close as "did you mean X?" asks from (UNSURE in jarvis.py): a request for Claude can be stopped there
+NEARLY = 0.10  # this far below the threshold "did you mean X?" asks (UNSURE in jarvis.py): a request for Claude can be stopped there
 
 SYSTEM = (
     "You write the everyday spoken wordings for JARVIS, a Linux voice assistant. Its meaning matcher holds a "
@@ -267,7 +267,7 @@ def pulls(jarvis, wording, phrase):
         return None
     scores = matrix @ matcher.embed([wording])[0]
     for i in scores.argsort()[::-1]:
-        if scores[i] < NEARLY:
+        if scores[i] < matcher.threshold - NEARLY:
             return None
         text = texts[i]
         if scores[i] < matcher.threshold and cases[text] != "claude":
@@ -288,7 +288,7 @@ def stopped(jarvis, wording):
         return None
     scores = matrix @ matcher.embed([wording])[0]
     for i in scores.argsort()[::-1]:
-        if scores[i] < NEARLY:
+        if scores[i] < matcher.threshold - NEARLY:
             return None
         if cases[texts[i]] == "claude":
             continue  # going to Claude anyway

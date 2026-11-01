@@ -2,7 +2,7 @@
 # checks itself against them. sentence: [phrases that would be right] or none (the matcher must leave it);
 # "none" in a list: leaving it is right too (a skill's pattern takes most of those before the matcher sees them).
 # From Amazon MASSIVE (en-US test split), CC BY 4.0, https://github.com/alexa/massive; wake word
-# removed, sentences with numbers left out, each labelled by its MASSIVE intent.
+# removed, sentences with numbers left out, each labelled by its MASSIVE intent (tools/massive.py).
 wake me up at five am this week: [none, set an alarm, set a reminder, set a timer]
 it's dirty here make some noise: none
 hoover the hallway: none

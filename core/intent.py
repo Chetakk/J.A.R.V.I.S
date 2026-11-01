@@ -14,8 +14,8 @@ import yaml
 
 from core.registry import _TRAILING_FILLER, opposite_direction
 
-MODEL_DIR = os.path.expanduser("~/.local/share/jarvis/models/minilm")
-CACHE = os.path.join(MODEL_DIR, "phrases.npz")
+MODELS = os.path.expanduser("~/.local/share/jarvis/models")
+MODEL_DIR = os.path.join(MODELS, "minilm")  # the model as downloaded (chat replies always use this one)
 # A small embedding model scores by topic, not by action: "make me a reminder" sits right next to "what are my
 # reminders". So a request that does something never becomes a phrase that only asks something.
 DOING = re.compile(r"^(?:(?:i want you to|i need you to|i'd like you to|i want to|i need to|i'd like to|please|just|"
@@ -152,17 +152,43 @@ def template_regex(wording):
     return re.compile("^%s$" % pattern, re.IGNORECASE)
 
 
-class IntentMatcher:
-    def __init__(self, path, threshold=0.72, margin=0.03, extra=None, learned=None, wrong=None):
-        """extra: more {phrase: [other wordings]}, e.g. the command list's own "say" phrases.
-        learned: {what you said: phrase} learned from Claude (core/learned.py); treated like this file's own.
-        wrong: {what you said: [phrases]} it must never mean (core/learned.py), word for word."""
+class Embedder:
+    """A sentence -> its vector, with one of the MiniLM models in ~/.local/share/jarvis/models: "minilm" as
+    downloaded, or "minilm-tuned", trained on JARVIS's own wordings (tools/finetune.py)."""
+
+    def __init__(self, model_dir=MODEL_DIR):
         import onnxruntime as ort
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 2
-        self.session = ort.InferenceSession(os.path.join(MODEL_DIR, "model_quantized.onnx"), opts,
+        self.model_dir = model_dir
+        self.session = ort.InferenceSession(os.path.join(model_dir, "model_quantized.onnx"), opts,
                                             providers=["CPUExecutionProvider"])
-        self.tok = WordPiece(os.path.join(MODEL_DIR, "vocab.txt"))
+        self.tok = WordPiece(os.path.join(model_dir, "vocab.txt"))
+
+    def embed(self, sentences):
+        """One at a time: in a batch, padding and the quantised model's per-batch ranges shift every vector according
+        to what else is in the batch (as far as 0.91 from itself), so adding one long sentence could flip a match
+        anywhere else. It costs nothing: ~3 ms each, the same as a batch."""
+        return np.vstack([self._embed_one(s) for s in sentences])
+
+    def _embed_one(self, sentence):
+        ids = np.array([self.tok.encode(sentence)], dtype=np.int64)
+        mask = np.ones_like(ids)
+        out = self.session.run(None, {"input_ids": ids, "attention_mask": mask,
+                                      "token_type_ids": np.zeros_like(ids)})[0]
+        vec = (out * mask[..., None]).sum(1) / mask.sum(1, keepdims=True)
+        return vec / np.linalg.norm(vec, axis=1, keepdims=True)
+
+
+class IntentMatcher:
+    def __init__(self, path, threshold=0.72, margin=0.03, extra=None, learned=None, wrong=None, model=None):
+        """extra: more {phrase: [other wordings]}, e.g. the command list's own "say" phrases.
+        learned: {what you said: phrase} learned from Claude (core/learned.py); treated like this file's own.
+        wrong: {what you said: [phrases]} it must never mean (core/learned.py), word for word.
+        model: the folder in ~/.local/share/jarvis/models to use ("minilm" when not given; settings intents.model)."""
+        self.embedder = Embedder(os.path.join(MODELS, model) if model else MODEL_DIR)
+        self.model_dir = self.embedder.model_dir
+        self.embed = self.embedder.embed
         self.threshold, self.margin = threshold, margin
         with open(path, encoding="utf-8") as f:
             intents = yaml.safe_load(f) or {}
@@ -204,32 +230,19 @@ class IntentMatcher:
     def _cached(self, examples):
         """Phrase vectors, reused from disk while the phrase list is unchanged (saves ~2 s at startup)."""
         key = hashlib.sha1("\n".join(["one by one"] + examples).encode()).hexdigest()  # (see embed)
+        cache = os.path.join(self.model_dir, "phrases.npz")  # (each model its own: their vectors differ)
         try:
-            data = np.load(CACHE)
+            data = np.load(cache)
             if str(data["key"]) == key:
                 return data["matrix"]
         except (OSError, KeyError, ValueError):
             pass
         matrix = self.embed(examples)
         try:
-            np.savez(CACHE, key=key, matrix=matrix)
+            np.savez(cache, key=key, matrix=matrix)
         except OSError as e:
             print("[intent] can't cache phrase vectors: %r" % e)
         return matrix
-
-    def embed(self, sentences):
-        """One at a time: in a batch, padding and the quantised model's per-batch ranges shift every vector according
-        to what else is in the batch (as far as 0.91 from itself), so adding one long sentence could flip a match
-        anywhere else. It costs nothing: ~3 ms each, the same as a batch."""
-        return np.vstack([self._embed_one(s) for s in sentences])
-
-    def _embed_one(self, sentence):
-        ids = np.array([self.tok.encode(sentence)], dtype=np.int64)
-        mask = np.ones_like(ids)
-        out = self.session.run(None, {"input_ids": ids, "attention_mask": mask,
-                                      "token_type_ids": np.zeros_like(ids)})[0]
-        vec = (out * mask[..., None]).sum(1) / mask.sum(1, keepdims=True)
-        return vec / np.linalg.norm(vec, axis=1, keepdims=True)
 
     def learn(self, said, target):
         """Add one wording while running (word for word, and by meaning); no rebuild needed."""

@@ -142,6 +142,8 @@ nano:
 # Meaning matcher (config/intents.yaml): how close (0-1) another wording must be to run a known phrase.
 intents:
   threshold: 0.72
+  model: minilm       # minilm (as downloaded) or minilm-tuned (trained on JARVIS's own wordings: tools/finetune.py)
+  unsure: 0.10        # this far below the threshold it asks "did you mean X?" instead of guessing
 
 # Watchdog (system/watchdog.py): restarts what hangs. Memory use is logged every 10 minutes.
 # Tasks: requests that take several steps, each one checked (skills/tasks.py). "continue the task" after a pause.
