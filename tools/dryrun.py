@@ -81,6 +81,9 @@ class DryJarvis:
             fn = getattr(obj, name)
             if callable(fn) and not name.startswith("_") and name != "handle":
                 setattr(obj, name, lambda *a, _n=name, **k: rec((kind, _n)) or True)
+        if obj is self.j.skills.studybuddy:  # bare "pause", "note: X" are only Study Buddy's when it's in front
+            for name in ("play", "note", "speed_step", "seek"):
+                setattr(obj, name, lambda *a, _n=name, front=False, **k: not front and (rec((kind, _n)) or True))
         if obj is self.j.skills.reading:  # nothing is being read in a dry run: "continue" is the music's
             obj.rest = obj.summarise = lambda *a, **k: False
         # Skills that hand non-matches on at run time: the same read-only lookup decides here too.
