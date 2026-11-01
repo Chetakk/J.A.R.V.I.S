@@ -11,6 +11,11 @@ Two things get taught:
 
 Code does the counting (what's used most, what's been asked about already); meaning is Claude's call.
 
+What turned out wrong is taken back. "That's not what I said" after a match (jarvis.py) unlearns the wording that
+caused it at once, and the next pass asks Claude what you did mean. A match that only just got there which Claude
+places somewhere else is never made again. And every pass is scored on held-out sentences (core/heldout.py) before
+and after: a wording that makes one of them worse is taken back, and the score is kept in teaching.json.
+
 What's kept goes into ~/.local/share/jarvis/learned.yaml (yours, not part of the code: edit or delete lines
 freely) and into the running matcher, so it works at once. Checking a wording only ever matches patterns and
 compares sentences, never runs a handler, so it has no effect on your desktop.
@@ -27,7 +32,7 @@ import time
 import numpy as np
 import yaml
 
-from core import learned, misslog, outcomes
+from core import heldout, learned, misslog, outcomes
 from core.intent import ASK_FOR_VALUE, _norm, wrong_kind
 from core.registry import opposite_direction
 from core.store import load_json, save_json
@@ -267,7 +272,9 @@ def why_not(jarvis, wording, phrase, data=None):
     spoken for is left alone."""
     data = data or learned.load()
     if not fit_to_send(wording) or not learned.worth_learning(wording, phrase, data, LONGEST):
-        return "not worth learning (too long, a number or secret in it, or already known)"
+        return "not worth learning (too long, a number or secret in it, already known, or found wrong)"
+    if _norm(wording) in heldout.sentences(jarvis.intents):
+        return "it's one of the held-out sentences, which are never taught"
     if opposite_direction(wording, phrase) or wrong_kind(wording, phrase):
         return "it goes the other way from “%s”" % phrase
     takes = claimed(jarvis, wording)
@@ -304,12 +311,14 @@ def teach(jarvis, pairs, why=""):
 def _state():
     state = load_json(STATE, {})
     return {"last": state.get("last", 0), "placed": list(state.get("placed") or []),
-            "phrases": dict(state.get("phrases") or {})}
+            "phrases": dict(state.get("phrases") or {}), "rechecked": list(state.get("rechecked") or []),
+            "scores": list(state.get("scores") or [])}
 
 
 def _save(state):
     try:
-        save_json(STATE, dict(state, placed=state["placed"][-2000:]))
+        save_json(STATE, dict(state, placed=state["placed"][-2000:], rechecked=state["rechecked"][-2000:],
+                              scores=state["scores"][-200:]))
     except OSError as e:
         print("[teaching] can't write %s: %r" % (STATE, e))
 
@@ -319,14 +328,62 @@ def due_in(cfg=None):
     return max(0, _state()["last"] + (cfg or {}).get("every", 3) * 3600 - time.time())
 
 
+def corrected(state):
+    """What you said that JARVIS got wrong ("that's not what I said"), not yet put to Claude to place again."""
+    data = learned.load()
+    return [s for s in data["wrong"] if s not in state["rechecked"] and s not in data["wordings"] and fit_to_send(s)
+            and 1 < len(s.split()) <= LONGEST]
+
+
 def to_place(jarvis, state, rows, cfg):
-    """What you said that JARVIS didn't place or only just did, not put to Claude before, most often said first."""
+    """What you said that JARVIS got wrong, didn't place, or only just placed, not put to Claude before: the wrong
+    ones first, then the most often said."""
     have = known(jarvis.intents)
     near = outcomes.doubtful(rows, jarvis.intents.threshold, cfg.get("doubt", 0.06))
-    out = missed(have, cfg.get("days", 30))
+    fixes = corrected(state)
+    out = fixes + [t for t in missed(have, cfg.get("days", 30)) if t not in fixes]
     # (a doubtful one is known only if it's been learned as itself; the matcher's rows of phrases don't count)
     out += [t.lower() for t in near if fit_to_send(t) and t.lower() not in out and _norm(t) not in jarvis.intents.exact]
-    return [t for t in out if t not in state["placed"]][:cfg.get("misses", 6)]
+    return [t for t in out if t in fixes or t not in state["placed"]][:cfg.get("misses", 6)]
+
+
+def unlearn(jarvis, said, phrase, why):
+    """`said` must never mean `phrase` again, word for word. If a learned wording is what took it there, that
+    wording is taken back too (one from config/intents.yaml is the code's own: only the pair is blocked).
+    [the wordings taken back]."""
+    gone = []
+    winner = jarvis.intents.winner if jarvis.intents.match(said)[0] == phrase else None
+    jarvis.intents.block(said, phrase)
+    learned.wrong(said, phrase, why=why)
+    for w in {said, winner} - {None}:
+        if jarvis.intents.forget(w) == phrase:
+            learned.wrong(w, phrase, why=why)
+            gone.append(w)
+    for w in gone:
+        print("[teaching] took back %r for %r: %s" % (w, phrase, why))
+    return gone
+
+
+def check(jarvis, state, before, kept):
+    """Score the pass on the held-out sentences, taking back any wording it learned that made one worse.
+    {"before", "after", "took back"} for teaching.json; None with no held-out sentences."""
+    if not before:
+        return None
+    learnt = {_norm(w): p for w, p in kept}
+    took = []
+    while True:
+        after = heldout.results(jarvis.intents)
+        blame = [(t, w) for t, w in heldout.worse(before, after, jarvis.intents) if w and _norm(w) in learnt]
+        if not blame:
+            break
+        for text, w in blame:
+            if _norm(w) in learnt and jarvis.intents.forget(w):
+                learned.wrong(w, learnt.pop(_norm(w)), why="it made “%s” go wrong" % text)
+                state["rechecked"].append(w.lower().strip())  # (Claude's wording, not something you said)
+                took.append(w)
+                print("[teaching] took back %r: it made %r go wrong" % (w, text))
+    return {"time": time.strftime("%Y-%m-%d %H:%M"), "before": heldout.summary(before, jarvis.intents),
+            "after": heldout.summary(after, jarvis.intents), "took back": took}
 
 
 def offered(jarvis):
@@ -384,15 +441,25 @@ def run(jarvis, cfg=None):
     _save(state)
     once = lambda prompt, system: jarvis.claude.once(prompt, system, model=cfg.get("model") or "", timeout=120)  # noqa: E731
     rows = outcomes.read(cfg.get("days", 30))
-    done = []
+    done, learnt = [], []
+    before = heldout.results(jarvis.intents)
 
     saids = to_place(jarvis, state, rows, cfg)
     if saids:
+        fixes = set(corrected(state))
+        near = {t.lower(): p for t, p in outcomes.doubtful(rows, jarvis.intents.threshold,
+                                                           cfg.get("doubt", 0.06)).items()}
         meant = ask_meant(once, saids, offered(jarvis))
-        state["placed"] += saids  # asked once: "none" stays none, and it isn't sent again
+        state["placed"] += [s for s in saids if s not in state["placed"]]  # asked once: "none" stays none
+        state["rechecked"] += [s for s in saids if s in fixes]
         _save(state)
+        for said in saids:  # Claude says one only just placed meant something else: never that again
+            reached = near.get(said)
+            if reached and meant.get(said) and meant[said] != reached:
+                unlearn(jarvis, said, reached, "Claude said it meant “%s”" % meant[said])
         kept, refused = teach(jarvis, list(meant.items()), "something you said")
         _log(kept, refused)
+        learnt += kept
         if kept:
             done.append("placed %d of %d things you said" % (len(kept), len(saids)))
 
@@ -408,8 +475,18 @@ def run(jarvis, cfg=None):
         pairs = [(w, p) for p, words in says.items() for w in tidy(p, words, known(jarvis.intents))]
         kept, refused = teach(jarvis, pairs, "a new way of saying it")
         _log(kept, refused)
+        learnt += kept
         if kept:
             done.append("%d new wordings for %d phrases" % (len(kept), len({p for _, p in kept})))
+
+    score = check(jarvis, state, before, learnt) if learnt else None
+    if score:
+        state["scores"].append(score)
+        _save(state)
+        after = score["after"]
+        done.append("held-out %d/%d right, %d wrong%s" % (
+            after["right"], after["out_of"], after["wrong"],
+            ", took back %d" % len(score["took back"]) if score["took back"] else ""))
     return "; ".join(done)
 
 

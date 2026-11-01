@@ -4,7 +4,8 @@
 
 `how` is how it got there: pattern (a skill's own words), command (a saved command's wording), wording (a
 wording it already knows, word for word), meaning (the matcher, with its score), fuzzy (near enough to a
-command's wording), confirmed (you said yes to "did you mean X?"). Failures aren't in here: those go to
+command's wording), confirmed (you said yes to "did you mean X?"), undone ("undo that" right after a match by meaning:
+maybe the wrong one, so it's checked like one that only just got there). Failures aren't in here: those go to
 misses.jsonl (core/misslog.py).
 
 core/teaching.py reads this: the phrases you lean on are the ones Claude writes other wordings for first,
@@ -72,11 +73,11 @@ def read(days=0, path=None):
 
 def doubtful(rows, threshold, margin=0.06):
     """{what you said: the phrase it reached}, most often said first, for matches that only just got there:
-    a score barely over the threshold, or a saved command's wording that was merely close."""
+    a score barely over the threshold, a saved command's wording that was merely close, or one you undid at once."""
     counts, phrase = {}, {}
     for r in rows:
         text = r.get("text")
-        if text and r.get("phrase") and (r.get("how") == "fuzzy" or (
+        if text and r.get("phrase") and (r.get("how") in ("fuzzy", "undone") or (
                 r.get("how") == "meaning" and threshold <= r.get("score", 0) < threshold + margin)):
             counts[text] = counts.get(text, 0) + 1
             phrase[text] = r["phrase"]
@@ -87,7 +88,7 @@ def counted(rows, field):
     """{phrase or skill: how many requests reached it}."""
     counts = {}
     for r in rows:
-        if r.get(field):
+        if r.get(field) and r.get("how") != "undone":
             counts[r[field]] = counts.get(r[field], 0) + 1
     return counts
 
@@ -97,6 +98,6 @@ def said_for(rows, phrase):
     out = []
     for r in rows:
         text = r.get("text")
-        if text and (r.get("phrase") or "").lower() == phrase.lower() and text.lower() != phrase.lower() and text not in out:
+        if text and r.get("how") != "undone" and (r.get("phrase") or "").lower() == phrase.lower() and text.lower() != phrase.lower() and text not in out:
             out.append(text)
     return out

@@ -150,9 +150,10 @@ def template_regex(wording):
 
 
 class IntentMatcher:
-    def __init__(self, path, threshold=0.72, margin=0.03, extra=None, learned=None):
+    def __init__(self, path, threshold=0.72, margin=0.03, extra=None, learned=None, wrong=None):
         """extra: more {phrase: [other wordings]}, e.g. the command list's own "say" phrases.
-        learned: {what you said: phrase} learned from Claude (core/learned.py); treated like this file's own."""
+        learned: {what you said: phrase} learned from Claude (core/learned.py); treated like this file's own.
+        wrong: {what you said: [phrases]} it must never mean (core/learned.py), word for word."""
         import onnxruntime as ort
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 2
@@ -172,7 +173,11 @@ class IntentMatcher:
         own = {k: set(v or []) for k, v in intents.items()}  # only this file's wordings get the word-for-word check
         for target, says in (extra or {}).items():
             intents[target] = list(intents.get(target) or []) + list(says)
-        self.targets, examples = [], []
+        self.targets, self.examples = [], []  # one row each: the phrase, and the wording that stands for it
+        self.mine = {_norm(s) for s in learned or {}}  # the wordings that came from learned.yaml (they can be forgotten)
+        self.wrong = {}
+        for said, phrases in (wrong or {}).items():
+            self.wrong.setdefault(_norm(said), set()).update(phrases)
         self.templates = []  # (regex of another wording with {slots}, known phrase with the same {slots})
         self.exact = {}  # another wording, word for word -> the known phrase (checked before anything else)
         for target, says in intents.items():
@@ -182,12 +187,16 @@ class IntentMatcher:
                 continue
             for s in [target] + list(says or []):
                 self.targets.append(target)
-                examples.append(s)
+                self.examples.append(s)
                 if s in own.get(target, ()):
                     self.exact.setdefault(_norm(s), target)
         self.templates.sort(key=lambda t: -len(re.sub(r"\(\?.*?\)", "", t[0].pattern)))  # most fixed words first
-        self.matrix = self._cached(examples)
+        for said in self.wrong:
+            if self.exact.get(said) in self.wrong[said]:
+                del self.exact[said]  # (a code wording found wrong: it's still a row, just never taken word for word)
+        self.matrix = self._cached(self.examples)
         self.nearest = (None, 0.0)
+        self.winner = None  # the wording that won the last match(): what to forget if it turns out wrong
 
     def _cached(self, examples):
         """Phrase vectors, reused from disk while the phrase list is unchanged (saves ~2 s at startup)."""
@@ -222,13 +231,41 @@ class IntentMatcher:
     def learn(self, said, target):
         """Add one wording while running (word for word, and by meaning); no rebuild needed."""
         self.exact[_norm(said)] = target
+        self.mine.add(_norm(said))
         self.targets.append(target)
+        self.examples.append(said)
         self.matrix = np.vstack([self.matrix, self.embed([said])])
+
+    def forget(self, said):
+        """Take back a learned wording, word for word and by meaning. The phrase it stood for, or None if it wasn't
+        one of the learned ones (config/intents.yaml's own wordings are the code's: those can only be blocked)."""
+        said = _norm(said)
+        if said not in self.mine:
+            return None
+        keep = [i for i, s in enumerate(self.examples) if _norm(s) != said]
+        gone = next((self.targets[i] for i in range(len(self.examples)) if i not in set(keep)), None)
+        self.targets = [self.targets[i] for i in keep]
+        self.examples = [self.examples[i] for i in keep]
+        self.matrix = self.matrix[keep]
+        self.mine.discard(said)
+        if self.exact.get(said) == gone:
+            del self.exact[said]
+        return gone
+
+    def block(self, said, phrase):
+        """`said`, word for word, never means `phrase` again."""
+        said = _norm(said)
+        self.wrong.setdefault(said, set()).add(phrase)
+        if self.exact.get(said) == phrase:
+            del self.exact[said]
 
     def early(self, text):
         """A listed other wording, said word for word: its known phrase, before any pattern can misread it
         ("kill the wifi" isn't "kill {app}", "start working" isn't a project)."""
-        return self.exact.get(_norm(text))
+        phrase = self.exact.get(_norm(text))
+        if phrase:
+            self.winner = text
+        return phrase
 
     def fill(self, text):
         """Another wording with a value in it -> the known phrase with that value ("shut chrome" -> "close chrome")."""
@@ -242,7 +279,7 @@ class IntentMatcher:
         """`phrase` goes the other way ("on" said, "off" in it), only asks when you asked to do something, or would
         ask for a value you already said."""
         return opposite_direction(text, phrase) or wrong_kind(text, phrase) or wrong_thing(text, phrase) or (
-            phrase in self.bare and bool(re.search(r"\d", text)))
+            phrase in self.bare and bool(re.search(r"\d", text))) or phrase in self.wrong.get(_norm(text), ())
 
     def candidates(self, text, n=2):
         """The n best different phrases for `text`, as [(phrase, score)] (going the same way as what was said)."""
@@ -257,15 +294,35 @@ class IntentMatcher:
 
     def match(self, text):
         """(known phrase, score), or (None, best score) when nothing is close enough."""
-        scores = self.matrix @ self.embed([text])[0]
-        order = [i for i in np.argsort(-scores) if not self._against(text, self.targets[i])]
-        if not order:
-            return None, 0.0
-        best = order[0]
+        phrase, score, best = self.pick(text, self.matrix @ self.embed([text])[0])
+        self.nearest = (self.targets[best], score) if best is not None else (None, 0.0)  # for the miss log
+        self.winner = self.examples[best] if phrase else None
+        return phrase, score
+
+    def pick(self, text, scores):
+        """(phrase, score, row) from `text`'s scores against every row; phrase is None when nothing is close enough
+        (row is still the nearest one), row is None when nothing goes the same way."""
+        order, against = (i for i in np.argsort(-scores)), {}  # (checked lazily: only the top few ever are)
+        fits = lambda i: not against.setdefault(self.targets[i], self._against(text, self.targets[i]))  # noqa: E731
+        best = next((i for i in order if fits(i)), None)
+        if best is None:
+            return None, 0.0, None
         # The runner-up must be clearly worse unless it points at the same phrase.
-        rival = next((i for i in order[1:] if self.targets[i] != self.targets[best]), None)
+        rival = next((i for i in order if self.targets[i] != self.targets[best] and fits(i)), None)
         score = float(scores[best])
-        self.nearest = (self.targets[best], score)  # for the miss log, even when it's not a match
         if score < self.threshold or (rival is not None and score - scores[rival] < self.margin):
-            return None, score
-        return self.targets[best], score
+            return None, score, best
+        return self.targets[best], score, best
+
+    def predict(self, texts, vectors):
+        """[(phrase or None, the wording that won or None)] for many sentences whose vectors are already known:
+        what early() then match() would give, without embedding anything (core/heldout.py)."""
+        out, all_scores = [], vectors @ self.matrix.T
+        for text, scores in zip(texts, all_scores):
+            phrase = self.exact.get(_norm(text))
+            if phrase:
+                out.append((phrase, text))
+                continue
+            phrase, _, best = self.pick(text, scores)
+            out.append((phrase, self.examples[best]) if phrase else (None, None))
+        return out

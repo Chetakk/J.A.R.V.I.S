@@ -1,5 +1,5 @@
 """"Did you learn anything new?": what JARVIS taught itself (core/teaching.py) and learned from you, since you last
-asked. It learns without asking, so this is how you find out."""
+asked, and what it took back as wrong. It learns without asking, so this is how you find out."""
 import time
 
 from core import learned
@@ -44,6 +44,13 @@ class Learning(Skill):
             since, nothing = self.j.memory.pref("learned_asked") or "", "Nothing new since you last asked."
         fresh = [r for r in rows if r.get("time", "") > since or (when == "today" and r.get("time", "") >= since)]
         self.j.memory.set_pref("learned_asked", time.strftime("%Y-%m-%d %H:%M"))
+        back = [r for r in fresh if r.get("unlearned")]
+        gone = {(r["said"], r["means"]) for r in back}
+        fresh = [r for r in fresh if not r.get("unlearned") and (r["said"], r["means"]) not in gone]
+        if not fresh and back:
+            self.say("Nothing new, but I took back %d %s I'd got wrong." % (len(back), "way" if len(back) == 1 else "ways"))
+            self.j.show({"title": "What I've learned", "text": self._took_back(back) + self._score()})
+            return True
         if not fresh:
             self.say("%s The last thing I learned was on %s." % (nothing, rows[-1]["time"].split()[0]))
             return True
@@ -53,10 +60,28 @@ class Learning(Skill):
         first = fresh[-1]
         count = "%d new %s" % (len(fresh), "way" if len(fresh) == 1 else "ways")
         things = "%d %s" % (len(by_phrase), "thing" if len(by_phrase) == 1 else "things")
-        self.say("I learned %s of saying %s. For example, %s now means %s." % (count, things, first["said"], first["means"]))
+        self.say("I learned %s of saying %s. For example, %s now means %s.%s" % (
+            count, things, first["said"], first["means"],
+            " I also took back %d I'd got wrong." % len(back) if back else ""))
         lines = []
         for phrase, says in by_phrase.items():
             lines.append("**%s**" % phrase)
             lines += ["- %s" % s for s in says]
-        self.j.show({"title": "What I've learned", "text": "\n".join(lines)})
+        self.j.show({"title": "What I've learned",
+                     "text": "\n".join(lines) + ("\n\n" + self._took_back(back) if back else "") + self._score()})
         return True
+
+    @staticmethod
+    def _took_back(rows):
+        return "**Taken back**\n" + "\n".join("- %s (not %s)" % (r["said"], r["means"]) for r in rows)
+
+    @staticmethod
+    def _score():
+        """The last teaching pass's score on sentences it was never taught (core/heldout.py)."""
+        from core import teaching  # (here: core.teaching reads the skills registry)
+        scores = teaching._state()["scores"]
+        if not scores:
+            return ""
+        after = scores[-1]["after"]
+        return "\n\nOn %d sentences I was never taught: %d right, %d wrong." % (after["out_of"], after["right"],
+                                                                                 after["wrong"])

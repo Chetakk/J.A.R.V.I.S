@@ -1,0 +1,2314 @@
+# Held-out sentences for scoring the meaning matcher (core/heldout.py). Never taught from: teaching only
+# checks itself against them. sentence: [phrases that would be right] or none (the matcher must leave it);
+# "none" in a list: leaving it is right too (a skill's pattern takes most of those before the matcher sees them).
+# From Amazon MASSIVE (en-US test split), CC BY 4.0, https://github.com/alexa/massive; wake word
+# removed, sentences with numbers left out, each labelled by its MASSIVE intent.
+wake me up at five am this week: [none, set an alarm, set a reminder, set a timer]
+it's dirty here make some noise: none
+hoover the hallway: none
+i want the status on my screen brightness: none
+what's up: none
+tell me the time in g. m. t. plus five: none
+what alarms i have set: [what are my reminders]
+tell me about my alarms: [what are my reminders]
+tell me today's date: [what time is it, what's the date]
+what date is it today: [what time is it, what's the date]
+could you order sushi for tonight dinner: none
+what's the week's forecast: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+what's this week's weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+tell me the weather this week: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+send a giggle my way: none
+tell me a joke: none
+what's the date: [what time is it, what's the date]
+order a takeaway: none
+can they provide takeaway: none
+can they do delivery: none
+do they deliver home: none
+set wake up thursday seven am: [none, set an alarm, set a reminder, set a timer]
+tell me some business news: none
+tell me international news: none
+mute volume: [mute the sound, quiet mode, pause the music, pause]
+what time is it: [what time is it, what's the date]
+how is the weather like today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+should i bring an umbrella tomorrow: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+i can't hear you: [volume up]
+i can barely hear you: [volume up]
+what is today's forecast for berlin: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+what is the exchange rate of us dollar to pound sterling: none
+start a vacuum cleaner: none
+turn on the vacuum cleaner: none
+what is the weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+what day is new year's eve this year: [what time is it, what's the date]
+please be quiet for another hour: [mute the sound, quiet mode, pause the music, pause]
+do not speak today: [mute the sound, quiet mode, pause the music, pause]
+will it be rainy tomorrow: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+will it rain tomorrow: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+what day of the week is first april: [what time is it, what's the date]
+what is the current time: [what time is it, what's the date]
+please tell me the latest news: none
+what's sensational in time of india: none
+can you tell me a joke: none
+tell me a funny joke: none
+what are the breaking news: none
+what is the weather like right now: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+what are the latest news headlines: none
+what's happening in the news: none
+raise volume: [volume up]
+run coffee maker: none
+get me the latest stock price for costco: none
+what mistakes do you usually make: none
+is it cold outside: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+what's a good joke: none
+what alarms are set: [what are my reminders]
+by get marks: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell me]
+prepare the order as soon as possible: none
+do you know any jokes: none
+set an alarm for nine am: [none, set an alarm, set a reminder, set a timer]
+show latest news: none
+what is new news for today: none
+what is the current weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+unmute after: [volume up]
+please ring the wake up alarm at eight am next saturday: [none, set an alarm, set a reminder, set a timer]
+set notification for news about the dakota pipeline: none
+please start vacuum cleaner: none
+i want two burgers and one coke order it fast: none
+keep me informed about bitcoin price: none
+i want to hear the last news from c. n. n: none
+summarize week's weather details: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+how cold is it outside today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+don't talk until i ask you to: [mute the sound, quiet mode, pause the music, pause]
+what is the weather forecast for this week: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+could you please give me up to date news headlines from my newest provider: none
+tell me about the latest political news: none
+mild or heavy weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+confirm my alarm settings: [what are my reminders]
+hey siri mute the speakers: [mute the sound, quiet mode, pause the music, pause]
+what is the current temperature outside: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+hey what will be the predicted weather for tomorrow: [how is the weather, weather tomorrow, temperature outside, search the
+    web for weather today and tell me]
+what are the b. b. c. poll predictions for the upcoming us elections: none
+start the robot roomba: none
+my set alarms: [what are my reminders]
+alarm settings: [what are my reminders]
+robot vacuum the living room now: none
+set alarm for eight am: [none, set an alarm, set a reminder, set a timer]
+set my alarm for seven am: [none, set an alarm, set a reminder, set a timer]
+turn my morning alarm on: [none, set an alarm, set a reminder, set a timer]
+what is the time difference between here and japan: none
+can i get take-out from pf changs: none
+news articles on a particular subject: none
+open the folder app please: none
+call the nearest thai restaurant with delivery: none
+lower the speaker volume: [volume down]
+turn on the robot vacuum cleaner: none
+give me up to date on sports news: none
+get hourly notification on sports news: none
+user friendly: none
+go to the washington post website: none
+what day of the week does the fifteenth of march fall on: [what time is it, what's the date]
+is there any special in politic: none
+start vacuum cleaner: none
+latest new on international women's day: none
+crack a joke: none
+how cold will it get each night this week: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+find today's wapo articles about trump: none
+if it's sunrise in stockholm what time is it in okinawa: none
+i need to know if mr. pizza delivers: none
+how is the weather likely to be this week: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+tell me the current time: [what time is it, what's the date]
+what's the funniest joke you know: none
+is my alarm set for tomorrow morning: [what are my reminders]
+if it's five am in berlin what time is it here: none
+i want a coffee: none
+fast me the news of academy awards: none
+tell me about the new foreign policy of trump: none
+get todays climate forecast here: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+will it be nice outside this week: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+please slow down volume of speaker: [volume down]
+what do we have on new york time's front page: none
+can you turn up your volume: [volume up]
+does pizza hut have delivery: none
+i mostly pay attention: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+i occasionally pay attention: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+can you make me some coffee: none
+tell me about trump: none
+let me know when you hear about france: none
+what are today's sports news: none
+what alarms did i set: [what are my reminders]
+do not make any noise until morning alarm: [mute the sound, quiet mode, pause the music, pause]
+quiet mode on until i am home from work: [mute the sound, quiet mode, pause the music, pause]
+what's the temperature outside: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+order a pizza with sausage from domino's: none
+what news has happened on c. n. n. today: none
+the sun is shinning bright will we have this weather for the rest of the day: [how is the weather, weather tomorrow, temperature
+    outside, search the web for weather today and tell me]
+what's the weather for my location this week: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+will it rain this week: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+start the vacuum cleaner: none
+find me a joke related to baseball: none
+what is the current day month and year: [what time is it, what's the date]
+is it going to be sunny next tuesday: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+set notification from world news: none
+can you tell me the latest news: none
+once a new topic on politics comes up alert me: none
+raise the volume of the current music: [volume up]
+what times do my alarms go off: [what are my reminders]
+show me the latest news from the guardian: none
+please turn the volume down: [volume down]
+turn it up: [volume up]
+are there any alarms going off today: [what are my reminders]
+when is the next time it will rain: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+will it snow tomorrow at noon: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+i want to see all set alarms: [what are my reminders]
+so clean news in past six hours is what: none
+tomorrow's temperature is to be hot yes or no: [how is the weather, weather tomorrow, temperature outside, search the web
+    for weather today and tell me]
+yes or no tomorrow's temperature is to be hot: [how is the weather, weather tomorrow, temperature outside, search the web
+    for weather today and tell me]
+my vacuum cleaner should start between ten to eleven am everyday: none
+lower volume by fifty percent: [volume down]
+set alarm of only monday morning six am: [none, set an alarm, set a reminder, set a timer]
+give me news on president trump: none
+latest news on terrorism: none
+will trump visit russia anytime soon: none
+date today: [what time is it, what's the date]
+which teams are playing today in the premier league: none
+please make me coffee without sweetener: none
+i want to eat some spicy thing: none
+order one pizza from pizza hut: none
+when does my alarm go off: [what are my reminders]
+weather report now: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+what month is today: [what time is it, what's the date]
+get me match highlights: none
+wake me up at five am: [none, set an alarm, set a reminder, set a timer]
+turn on vacuum cleaner: none
+clean my house: none
+set alarm at six thirty am: [none, set an alarm, set a reminder, set a timer]
+coffee make now: none
+where is my food: none
+what's going on in the world these days: none
+tell me all the current events in my hometown: none
+wake me up: [none, set an alarm, set a reminder, set a timer]
+what's the date of the winter solstice two years from now: [what time is it, what's the date]
+i need to know the time right now what is it: [what time is it, what's the date]
+hows the food order going: none
+when can we eat: none
+is dinner ready yet: none
+set an alarm for tomorrow at six in the morning: [none, set an alarm, set a reminder, set a timer]
+get me up in half an hour: [none, set an alarm, set a reminder, set a timer]
+what day of the week was december four one thousand nine hundred and eighty two: [what time is it, what's the date]
+c. n. n. headlines: none
+b. b. c. world headlines: none
+silence for two hours: [mute the sound, quiet mode, pause the music, pause]
+from now on mute: [mute the sound, quiet mode, pause the music, pause]
+silently adjust: [mute the sound, quiet mode, pause the music, pause]
+read me the latest international news: none
+can i order take out from licari's: none
+do i need a sweater today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+start coffee at six am: none
+keep me up to date with today's n. b. a. scores: none
+it is seven am in pacific standard time: none
+what's the news for today: none
+alexa give me the headline news: none
+what is the weather this friday: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+what's the weather like tomorrow: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+add an alarm for tomorrow morning at six am: [none, set an alarm, set a reminder, set a timer]
+noodles one pack make it as takeaway: none
+make an order for noodles one pack make it as takeaway order: none
+what's happening around the world: none
+give me the latest news: none
+i want to order a pizza from michael's pizza: none
+how is my order: none
+start robot vacuum cleaner: none
+send tech news: none
+i feel like having soup for lunch order from wangs kitchen restaurant a chicken manchow soup: none
+seven hundred: none
+is the time currently correct for where i am located: [what time is it, what's the date]
+call for take-out: none
+daily news: none
+today is what date: [what time is it, what's the date]
+siri today is what date: [what time is it, what's the date]
+how do i set my coffee machine to make coffee: none
+how do i start the robot vacuum cleaner: none
+how is the weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+anything interesting from bob's news: none
+please set the alarm for next friday at six thirty am: [none, set an alarm, set a reminder, set a timer]
+what's the latest news from c. n. n. please: none
+tell me about the latest environmental news: none
+i've canceled the order placed at mcd did it go through: none
+current weather forecast: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+will i need to wear a jacket next wednesday: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+show me news about trump: none
+show me news about the environment: none
+latest news from the area: none
+did i remember to set a reminder alarm for my next doctor's appointment: [what are my reminders]
+is it raining tonight: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+will the temperature stay about the same or is it going to get colder: [how is the weather, weather tomorrow, temperature
+    outside, search the web for weather today and tell me]
+is the last order is ready: none
+do you have a funny joke for me: none
+give me news from c. n. n: none
+start a pot of coffee please: none
+i need a cup of coffee: none
+how long until my order is ready: none
+should i bring an umbrella today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+silence speakers: [mute the sound, quiet mode, pause the music, pause]
+silence volume on speakers: [mute the sound, quiet mode, pause the music, pause]
+can you make me a cup of coffee: none
+what day is december thirteenth: [what time is it, what's the date]
+the second of next mont lands on what day: [what time is it, what's the date]
+is there takeaway at papa john's: none
+please get the coffee machine to make me some coffee: none
+tell me my alarms: [what are my reminders]
+please show me any articles related to weather in the morning news: none
+current weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell me]
+are there any updates in regard to the election: none
+please start the vacuum cleaner: none
+tell me if taco bell delivers: none
+tell me what the date is today: [what time is it, what's the date]
+weekly weather report: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+what are the news stories on the c. n. n. website: none
+is there an alarm for ten am: [what are my reminders]
+initialize the robot vacuum: none
+start the vacuum: none
+please tell me news related to the stock market: none
+does louie's do take out: none
+take out available louies: none
+tell me the temperature: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+front page news articles please: none
+what's new in the news: none
+what is the news from that newsource: none
+it's time for junk food: none
+show me some current events: none
+turn the news on: none
+what is eastern standard time right noe: [what time is it, what's the date]
+how many tornadoes have there been this month: none
+make me a cup of coffee with salted carmel flavored cream: none
+do i have any alarms set for six am tomorrow: [what are my reminders]
+show me my alarms i have set: [what are my reminders]
+turn off the speakers: [mute the sound, quiet mode, pause the music, pause]
+hey can you please make me a creamy coffee: none
+remind me to do something then: [none, set a reminder, set an alarm, add a todo]
+set a new alarm for that time: [none, set an alarm, set a reminder, set a timer]
+what is the current state of the investigation into trump's ties with russia: none
+what day of the week does christmas fall on this year: [what time is it, what's the date]
+should we expect rain this afternoon: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+does shibaru sushi deliver: none
+does the nearby dominoes have delivery: none
+what is the weather this week for miami: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+what is the forecast for the week: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+please activate my coffee pot for me: none
+please make me a cup of coffee: none
+please turn on my coffee pot: none
+i want to see the news: none
+i want to hear a joke: none
+report weather for thirty three thousand seven hundred and seventy four: [how is the weather, weather tomorrow, temperature
+    outside, search the web for weather today and tell me]
+report weather for largo: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+where is the car: [volume up]
+what is the date for next tuesday: [what time is it, what's the date]
+knock knock: none
+please set my alarm for five p. m: [none, set an alarm, set a reminder, set a timer]
+what is the ten day forecast: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+are there any forecasts of rain or snow this week: [how is the weather, weather tomorrow, temperature outside, search the
+    web for weather today and tell me]
+is the weather going to be nice this weekend: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+do you know the eta of my order: none
+can you set my coffee machine to make me coffee at seven am: none
+what degree is it outside: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+is the twenty second on a wednesday: [what time is it, what's the date]
+is it ten: [what time is it, what's the date]
+does the weather call for rain saturday: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+quiet time: [mute the sound, quiet mode, pause the music, pause]
+please lower music volume: [volume down]
+speak softer please: [volume down]
+please change time zone to canada: none
+set my coffee machine: none
+what is the latest story from fox news: none
+turn off sound: [mute the sound, quiet mode, pause the music, pause]
+mute please: [mute the sound, quiet mode, pause the music, pause]
+speak loudly: [volume up]
+how about you: none
+remind me after ten minutes: [none, set a reminder, set an alarm, add a todo]
+what's the latest news from xinhua: none
+what's the latest news on c. n. n: none
+it is a sunny day today right: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+what is going on in the world today: none
+news from c. n. n: none
+tell me the time in someplace: none
+can i carry out with this restaurant: none
+i need an alarm set for five hundred and thirty am tomorrow: [none, set an alarm, set a reminder, set a timer]
+i want an alarm for three today: [none, set an alarm, set a reminder, set a timer]
+do i have an alarm set for tomorrow: [what are my reminders]
+today is which date: [what time is it, what's the date]
+if any new news comes out about the flood can you let me know right away: none
+get me up at eight am: [none, set an alarm, set a reminder, set a timer]
+tell me about alarms: [what are my reminders]
+give me a weather report for las vegas: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+slow down the speaker volume: [volume down]
+mute for fifteen minutes: [mute the sound, quiet mode, pause the music, pause]
+find me info on cars: none
+i want to order chinese take-out: none
+mute the music: [mute the sound, quiet mode, pause the music, pause]
+turn off the sounds: [mute the sound, quiet mode, pause the music, pause]
+activate the roomba: none
+list current set alarms: [what are my reminders]
+any alarms currently listed: [what are my reminders]
+what is the temperature: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+say the time: [what time is it, what's the date]
+set an alarm at six am: [none, set an alarm, set a reminder, set a timer]
+what day of the week is halloween: [what time is it, what's the date]
+what happened on the walking dead: none
+let's suck out the dust: none
+what's in the news: none
+run the vacuum: none
+please find out of charley's steakhouse delivers: none
+what day is the fifth: [what time is it, what's the date]
+make a coffee: none
+turn up the volume on my speakers: [volume up]
+convert current time from g. m. t. to e. s. t: none
+i want to know everything that breaks about the dam breaking in california: none
+what time have you set the alarm: [what are my reminders]
+where can i get a shot of tequila and some to go mexican food: none
+is my reminder alarm set for dance class: [what are my reminders]
+could you please confirm if paradise does takeaway: none
+what alarms did i set today: [what are my reminders]
+activate the vacuum cleaner and use it: none
+give me the latest political headlines across the world: none
+is there any news about the presidency: none
+hey what time is it: [what time is it, what's the date]
+hey siri what's the time: [what time is it, what's the date]
+am i going to be able to mow the grass this evening: [how is the weather, weather tomorrow, temperature outside, search the
+    web for weather today and tell me]
+tell me the funniest joke that was ever told: none
+i would like to hear some good funny jokes: none
+when will my chinese food be delivered: none
+is it afternoon yet: [what time is it, what's the date]
+switch on the roomba: none
+please stop talking: [mute the sound, quiet mode, pause the music, pause]
+turn on the coffee machine to make me some coffee: none
+what time is it on the east coast of the united states: [what time is it, what's the date]
+what's the latest news: none
+what is todays weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+prepare coffee now: none
+my coffee is cold please make more coffee: none
+should i bring a jacket with me tonight: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+i need to get up at ten tomorrow: [none, set an alarm, set a reminder, set a timer]
+what does my facebook feed look like: [none, open twitter explore]
+how is the weather where i am: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+review all alarms: [what are my reminders]
+how is it outside today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+what's the current weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+what will the weather be tomorrow: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+what are the headlines on c. n. n: none
+what are the trending articles on the new york times: none
+will i need to carry around a brolly today: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+what jacket should i wear: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+make coffee at three: none
+start the coffee machine at three: none
+is it going to rain at one p. m. today: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+is fongs dine in only: none
+will i need to shovel my driveway this morning: [how is the weather, weather tomorrow, temperature outside, search the web
+    for weather today and tell me]
+give me the weather forecast for this week: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+will it be raining on thursday: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+what is the latest news on donald trump: none
+what are the latest crime statistics for me area: none
+what did vogue post today: none
+what is the weather forecast for today: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+can you make some coffee: none
+read me the latest headlines from nytimescom: none
+set a notification for sports game: [none, set a reminder, set an alarm, add a todo]
+tell me when it is five p. m: [none, set an alarm, set a reminder, set a timer]
+find information on today's stocks: none
+will the temperature be higher than forty tomorrow: [how is the weather, weather tomorrow, temperature outside, search the
+    web for weather today and tell me]
+set the speakers to mute: [mute the sound, quiet mode, pause the music, pause]
+set an alarm for six thirty am: [none, set an alarm, set a reminder, set a timer]
+do not talk: [mute the sound, quiet mode, pause the music, pause]
+the news from c. b. s. alexa: none
+please list all my alarms: [what are my reminders]
+should i wear sandals or shoes with socks: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+do you know the weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+please turn my speakers on google: [volume up]
+what day is halloween this year: [what time is it, what's the date]
+is it going to rain on monday: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+is there any new information regarding the mexican american border wall: none
+please tell me what alarms are on: [what are my reminders]
+what day does my birthday fall on this year june twenty seventh: [what time is it, what's the date]
+do i need a jacket: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+i want coffee everyday: none
+speaker volume increase: [volume up]
+clear data: [mute the sound, quiet mode, pause the music, pause]
+is there any news: none
+how many hours distance is between my location and new york: none
+wake me up in thirty minutes: [none, set an alarm, set a reminder, set a timer]
+is my alarm set: [what are my reminders]
+shut down the sound: [mute the sound, quiet mode, pause the music, pause]
+how is it outside: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell me]
+set notifications on the current weather disasters in america: [none, set a reminder, set an alarm, add a todo]
+are you aware this joke: none
+temperature outside: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+turn on an alarm for three thirty p. m. today: [none, set an alarm, set a reminder, set a timer]
+will it rain now: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell me]
+what time is my domino's order expected to arrive: none
+i'd like to know what time it is right now: [what time is it, what's the date]
+news of the train wreck: none
+what day of the week is the twenty third of this month: [what time is it, what's the date]
+who won the presidential election this year: none
+what is the funniest joke ever: none
+prepare a cup of coffee for me: none
+please mute my speaker: [mute the sound, quiet mode, pause the music, pause]
+what times are my alarms set for: [what are my reminders]
+will i need an umbrella this week: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+make my usual: none
+tell me the news about share market ups and downs: none
+can you please make a coffee: none
+when is the next friday the thirteenth: [what time is it, what's the date]
+how cold is today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell me]
+what is the weather for this week: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+what's the weather now: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+set my alarm for twelve p. m: [none, set an alarm, set a reminder, set a timer]
+make a new alarm: [none, set an alarm, set a reminder, set a timer]
+what was the weather for the week: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+new alarm for six am: [none, set an alarm, set a reminder, set a timer]
+what is the forecast for saturday: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+check if default alarm is set: [what are my reminders]
+here's the truth about meals on wheels in someone's budget: none
+confirm a travel ticket to german: none
+set the coffee maker to on: none
+what kind of weather should i expect this week: [how is the weather, weather tomorrow, temperature outside, search the web
+    for weather today and tell me]
+i want to know about the brexit: none
+convert eight am manila time to new york time: none
+please reduce the speaker volume: [volume down]
+turn the vibrate off from speaker: [mute the sound, quiet mode, pause the music, pause]
+what is the date next wednesday: [what time is it, what's the date]
+set environmental news notification: none
+what is currently breaking news: none
+show b. b. c. news of migration: none
+fix alarm: [none, set an alarm, set a reminder, set a timer]
+get me the popular news from b. b. c: none
+what is the weather going to be like on march twentieth two thousand and seventeen: [how is the weather, weather tomorrow,
+  temperature outside, search the web for weather today and tell me]
+is it twentieth march today: [what time is it, what's the date]
+show weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell me]
+hey do you have home delivery: none
+put on the vacuum on now and clean the living room: none
+time between us and canada: none
+time difference between u. k. and us: none
+low cooling condition: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+please alert me to the time: [what time is it, what's the date]
+update to current time: [what time is it, what's the date]
+set alarm six am: [none, set an alarm, set a reminder, set a timer]
+what's the latest trump controversy: none
+does pings do takeaway: none
+read me the latest new york times headlines: none
+what are the top stories on c. n. n: none
+is it going to rain later: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+do i need umbrella for night: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+can i wear my sandals today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+have i need to take a sun glass: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+i need you to get me up at six am: [none, set an alarm, set a reminder, set a timer]
+cut down the volume: [volume down]
+order pizza for delivery: none
+what is the time difference between california and new york: none
+convert eight thirty from gtm four to g. m. t. five thirty: none
+weather at the moment: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+mute for one hour: [mute the sound, quiet mode, pause the music, pause]
+what time should i go for a hike: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+don't make any sounds: [mute the sound, quiet mode, pause the music, pause]
+who takes less of duration of time for delivery: none
+set alarm at nine am on next sunday: [none, set an alarm, set a reminder, set a timer]
+find food and order: none
+open temperature: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell me]
+check the dish price and all: none
+reduce volume: [volume down]
+alarm ten am: [none, set an alarm, set a reminder, set a timer]
+ensure i have to get up at six in morning: [none, set an alarm, set a reminder, set a timer]
+display date: [what time is it, what's the date]
+ask for the weather today evening: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+should i take my raincoat with me now: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+august fifteenth is what day of the week: [what time is it, what's the date]
+please tell me the news headlines: none
+begin vacuuming: none
+time now: [what time is it, what's the date]
+display the seven day forecast for this week: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+shall i change my car tires to snow tires soon: [how is the weather, weather tomorrow, temperature outside, search the web
+    for weather today and tell me]
+a quarter to two: [what time is it, what's the date]
+should i wear raincoat before getting out: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+decrease twenty percent: [volume down]
+tell me about this week's weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+i need to order some food from papa john's: none
+hows mysore climate today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+hot topic: none
+check if alarm is set for six am: [what are my reminders]
+make a coffee please: none
+what is the latest update on the new york bridge proposal: none
+any breaking news from the huffington post: none
+say a good joke for me right now: none
+is the city cheaper or costlier to live: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+how safe is the city regarding law and order: [how is the weather, weather tomorrow, temperature outside, search the web for
+    weather today and tell me]
+can you please stop speaking: [mute the sound, quiet mode, pause the music, pause]
+can you please order some food for me: none
+did i set an alarm to have tablets in the noon: [what are my reminders]
+show me the latest news from the un: none
+will i need my snow boots this afternoon: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+will it be a sticky night: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+should i take a sweater or a coat to work today: [how is the weather, weather tomorrow, temperature outside, search the web
+    for weather today and tell me]
+will i need sunscreen this afternoon: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+will it be rainy day tomorrow: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+will i need sunscreen later: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+please start the coffee pot: none
+make the coffee: none
+don't speak for an hour: [mute the sound, quiet mode, pause the music, pause]
+are storms likely today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+i want to hear the latest world news from today: none
+create an alarm for today at ten am: [none, set an alarm, set a reminder, set a timer]
+should i open the sun roof: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+are there any alarms currently set: [what are my reminders]
+hey order two wings with french fries from the chinese food store: none
+info on this week weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+do you recommend an umbrellas: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+keep me up to date with the world news: none
+find funny jokes: none
+i want to know today's weather: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+clean the floor: none
+please mute for five minutes: [mute the sound, quiet mode, pause the music, pause]
+are sunglasses a good choice for today: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+will i need an umbrella today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today
+    and tell me]
+should i wear a jacket: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and tell
+    me]
+hey i missed you: none
+how's the weather today: [how is the weather, weather tomorrow, temperature outside, search the web for weather today and
+    tell me]
+what's on your mind: none
+my day was full of work: none
+hey tell me more about my meetings today: none
+when is my friend's birthday coming up: none
+please see what you wrote for this question: none
+i do not know how to answer this question you left a word or two out: none
+i am going to work today: none
+i had a bad day: none
+i helped a poor needy today: none
+i'm so happy today i got tickets for the concert: none
+how old are you: none
+what is your name: none
+lets have a chat: none
+i had food as soon as i got up: none
+hey what is the weather like today: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+what would you recommend for me to read: none
+hey i met one of my old classmates today: none
+i just cleaned my car: none
+i hate how long the traffic jams get: none
+what's shakin bacon: none
+how are you feeling today: none
+what do you want to do today: none
+today i saw a bulldog: none
+do you think i should go to the theater today: none
+please tell me the score of the game: none
+my day was extremely hard: none
+i bought pre season baseball tickets: none
+i have to tell you about my day: none
+i went to the store: none
+i need to buy gas: none
+tell me some best tourist places to visit in america: none
+what's my upcoming week look like: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+plant based news: none
+what is a good iranian film from two thousand and sixteen: none
+what do you do with my data and information: none
+hey what has been happening interesting in sports lately: none
+what features do you have planned to release in the future: none
+my day was great: none
+give me some health tips: none
+how to get somewhere: [none, get directions]
+what sound does a dog make: none
+what's happening in france today: none
+what's the weather next wednesday: [how is the weather, weather tomorrow, temperature outside, search the web for weather
+    today and tell me]
+my day is going well add a memo: none
+hello how is your day: none
+today i had a meeting with george: none
+today the following happened to me i had a meeting with george: none
+please know that today i had a meeting with george: none
+can you tell me a little about yourself: none
+today i searched all over for my phone and couldn't find it: none
+have you heard any good music lately: none
+is there a groomer in town for cats only: none
+are you smart: none
+anything on your mind: none
+the weather was bad today: none
+baseball scores: none
+what i like today: none
+web searches: none
+can you please advise: none
+new gadgets: none
+social media: [none, open twitter explore]
+i was chased by a dog: none
+ask trivia questions: none
+how has your day been today: none
+has it been a busy day: none
+are you happy: none
+mark today as the start of my diet: [none, set a reminder, set an alarm, add a todo]
+is soft cheese better than hard: none
+i got promoted today it feels so good: none
+play videos: none
+hey do you like my girlfriend: none
+searching information online: none
+what happens to me if you become sentient: none
+do you have a boyfriend: none
+hi you there: none
+start a gossip: none
+where i went today: none
+when i came back from this place: none
+what is your age: none
+what do you think about future: none
+tell interesting news: none
+latest movies in theaters: none
+who are your developers: none
+best paid jobs in digital marketing in my area: none
+are you working for the n. s. a: none
+what is the top searches in google today: none
+alexa how much do you know about me: none
+sticking to diet: none
+vacation spots: none
+do you know of any good free knitting patterns: none
+go on sweet talk me: none
+elections in up: none
+economic affairs: none
+hey i am having a bad day today what can i watch to cheer me up: none
+general health tips: none
+friend updates: none
+are you real: none
+what do you know about fringe in edinburgh next year: none
+is there anything i should be reminded about: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+remind me about my schedule for the afternoon: [none, set a reminder, set an alarm, add a todo]
+add meeting reminder for sunday with my parents in law: [none, set a reminder, set an alarm, add a todo]
+i am taking day off tomorrow: none
+put meeting with pawel for tomorrow ten am: [none, set a reminder, set an alarm, add a todo]
+set first week of june as holiday in my calendar: [none, set a reminder, set an alarm, add a todo]
+how many reminders do i have: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+remind me to wash the windows: [none, set a reminder, set an alarm, add a todo]
+set an event for friday: [none, set a reminder, set an alarm, add a todo]
+what is my next reminder: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+set meeting with joanna on saturday four p. m: [none, set a reminder, set an alarm, add a todo]
+show me my meetings this friday: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+show me my calendar event this friday afternoon: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+remind me my mom's birthday a week before: [none, set a reminder, set an alarm, add a todo]
+there's a good band playing tonight at nine at jazz bar i want to go: [none, set a reminder, set an alarm, add a todo]
+remind me about the meeting tomorrow at six: [none, set a reminder, set an alarm, add a todo]
+list out my schedule today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+give me a reminder notification on tomorrow's meeting at ten am: [none, set a reminder, set an alarm, add a todo]
+is there any upcoming events: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+set up a notification about tomorrow's meeting at ten: [none, set a reminder, set an alarm, add a todo]
+schedule a meeting with the accounting department on two thirty p. m. on friday: [none, set a reminder, set an alarm, add
+    a todo]
+are there morning shows available: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+can you give me the movie schedule: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+remind me to pick up linda at five in the evening on seventh: [none, set a reminder, set an alarm, add a todo]
+remind me tomorrow at ten am about the meeting: [none, set a reminder, set an alarm, add a todo]
+set a reminder up next month to get my oil changed: [none, set a reminder, set an alarm, add a todo]
+what is happening after one and before three p. m: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+set reminder to print the documents on tuesday morning: [none, set a reminder, set an alarm, add a todo]
+is it friday: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+remind me to take my medicine at nine am: [none, set a reminder, set an alarm, add a todo]
+set reminder for noon to get lunch with boss: [none, set a reminder, set an alarm, add a todo]
+are there any meetings set for next wednesday: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+remind me about my meeting an hour before it begins: [none, set a reminder, set an alarm, add a todo]
+can i know what i have to do the next saturday at six p. m: [none, set a reminder, set an alarm, add a todo]
+can you remind my next meeting with my boss one hour before it will happen: [none, set a reminder, set an alarm, add a todo]
+can you check the facts on this issue: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+i need to confirm all meetings for today can the invite person: [none, what are my reminders, how's my day going, open google
+    calendar, what's pending, what's the date]
+add a reminder of a conference for tomorrow in new york: [none, set a reminder, set an alarm, add a todo]
+i have a function at washington tomorrow remind it: [none, set a reminder, set an alarm, add a todo]
+give me to do list: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+show future events: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+remind me at: [none, set a reminder, set an alarm, add a todo]
+new event: [none, set a reminder, set an alarm, add a todo]
+add a reminder to my calendar every year on this date: [none, set a reminder, set an alarm, add a todo]
+when is the event going to start: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+give me the schedule for today's events: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+what events are going in my town this week: none
+set me a meeting next tuesday at eleven am with jesse: [none, set a reminder, set an alarm, add a todo]
+remind me to start getting ready by five p. m. please: [none, set a reminder, set an alarm, add a todo]
+add tal meeting on twenty first at seven: [none, set a reminder, set an alarm, add a todo]
+schedule a meeting with matt at eleven am on thursday: [none, set a reminder, set an alarm, add a todo]
+schedule a lunch meeting with brent on wednesday at noon: [none, set a reminder, set an alarm, add a todo]
+give me a reminder twenty four hours before my friday meeting with edg: [none, set a reminder, set an alarm, add a todo]
+search my calendar for my next event and notify me before it occurs: [none, set a reminder, set an alarm, add a todo]
+add my car payment on the twelfth in my calendar: [none, set a reminder, set an alarm, add a todo]
+remind me the day before my car is due: [none, set a reminder, set an alarm, add a todo]
+what time is my doctor appointment on march thirty first: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+will there any events downtown this weekend: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+what's my schedule like today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+could you repeat this event: [none, set a reminder, set an alarm, add a todo]
+set a reminder to notify me one hour before lunch meeting: [none, set a reminder, set an alarm, add a todo]
+is this program is scheduled: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+for every odd numbered sunday set a reminder for: [none, set a reminder, set an alarm, add a todo]
+set lunch every day at twelve thirty: [none, set a reminder, set an alarm, add a todo]
+remind this event in future: [none, set a reminder, set an alarm, add a todo]
+can you give me the details of upcoming annual function on twenty sixth march: none
+it's my mother's birthday today send me a notification every year on this date: [none, set a reminder, set an alarm, add a
+    todo]
+wake me at six am thursday so i have time for the meeting: [none, set a reminder, set an alarm, add a todo]
+when is my next appointment with doctor smith: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+do i have anything planned: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+i am having a meeting on tomorrow set it: [none, set a reminder, set an alarm, add a todo]
+remind me the meeting with allen on fifteenth march: [none, set a reminder, set an alarm, add a todo]
+set a notification for three two and one hours before next week's english final: [none, set a reminder, set an alarm, add
+    a todo]
+can you remind me to take the garbage out on tuesday: [none, set a reminder, set an alarm, add a todo]
+a good first impression: none
+did you place the reminder about the meeting for tomorrow: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+where is the venue in which the marriage of tom is going to take place: [none, what are my reminders, how's my day going,
+  open google calendar, what's pending, what's the date]
+what are the events next week: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+please remind me to call mom in half an hour: [none, set a reminder, set an alarm, add a todo]
+remind me to send email to boss after one hour: [none, set a reminder, set an alarm, add a todo]
+create a notification reminder for meeting tomorrow: [none, set a reminder, set an alarm, add a todo]
+what are my pending tasks: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+remind me of rita's birthday twenty four hours in advance: [none, set a reminder, set an alarm, add a todo]
+remind me about my anniversary in one day advance: [none, set a reminder, set an alarm, add a todo]
+block one hour from ten tomorrow morning: [none, set a reminder, set an alarm, add a todo]
+i am unavailable from four to six in the evening tomorrow mark my calendar: [none, set a reminder, set an alarm, add a todo]
+schedule a one hour appointment for saturday: [none, set a reminder, set an alarm, add a todo]
+what's for today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+do i have any appointments: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+what is going on today from two four p. m: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+just let me know next weeks weather in california: none
+remind me to check the stew at six o'clock: [none, set a reminder, set an alarm, add a todo]
+please show today meeting with clients: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+is there any events planned for the next three months: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+please schedule a meeting with this person: [none, set a reminder, set an alarm, add a todo]
+i need a meeting to be schedule with this person: [none, set a reminder, set an alarm, add a todo]
+remind me about the party tomorrow: [none, set a reminder, set an alarm, add a todo]
+invite people to the calendar event: [none, set a reminder, set an alarm, add a todo]
+inform my group that the new meeting date is tomorrow: [none, set a reminder, set an alarm, add a todo]
+give me the time of the events: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+remind me on fifth march of every year to arrange wedding anniversary presents: [none, set a reminder, set an alarm, add a
+    todo]
+do i have appointments today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+make new schedule for tomorrow meeting: [none, set a reminder, set an alarm, add a todo]
+what is on the agenda for the four p. m. meeting with joe: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+where in d. c. is that meeting at one p. m. on friday: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+remind me everyday at two p. m. for lunch: [none, set a reminder, set an alarm, add a todo]
+thirteenth june is a day of election result please set it: [none, set a reminder, set an alarm, add a todo]
+please add my pay days: [none, set a reminder, set an alarm, add a todo]
+do i have anything going on: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+please remind me about this tomorrow: [none, set a reminder, set an alarm, add a todo]
+i want a meeting till three o'clock: [none, set a reminder, set an alarm, add a todo]
+set my calendar to remind me to buy groceries every friday: [none, set a reminder, set an alarm, add a todo]
+make a reminder of location a on calendar: [none, set a reminder, set an alarm, add a todo]
+remind me tonight to pick up my dry cleaning at eight p. m: [none, set a reminder, set an alarm, add a todo]
+remind me about the meeting tomorrow one hour before: [none, set a reminder, set an alarm, add a todo]
+meeting reminder: [none, set a reminder, set an alarm, add a todo]
+plan for tomorrow: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+what is the plan today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+buddy adding event in your calendar: [none, set a reminder, set an alarm, add a todo]
+please schedule a meeting with derrick in haysi at noon: [none, set a reminder, set an alarm, add a todo]
+please set a meeting to discuss terrorism with fred on the next available meeting day: [none, set a reminder, set an alarm,
+  add a todo]
+meet with joe tomorrow at three: [none, set a reminder, set an alarm, add a todo]
+what's was the upcoming event: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+remind me when i am at the library to get a new library card: [none, set a reminder, set an alarm, add a todo]
+mark april twenty as my brother's birthday: [none, set a reminder, set an alarm, add a todo]
+add a reminder for april twenty as my bro's birthday: [none, set a reminder, set an alarm, add a todo]
+can you list out my meetings today: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+add a lunch with mike: [none, set a reminder, set an alarm, add a todo]
+will you mark that i have a meeting with tom at three tomorrow: [none, set a reminder, set an alarm, add a todo]
+include mike and jack to festival calendar: [none, set a reminder, set an alarm, add a todo]
+what do i have coming up: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+do i have anything planned for the twenty first: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+set a reminder for this: [none, set a reminder, set an alarm, add a todo]
+i need to something every monday set a reminder for it: [none, set a reminder, set an alarm, add a todo]
+i need you to mark next monday: [none, set a reminder, set an alarm, add a todo]
+remind me every monday to take out the trash: [none, set a reminder, set an alarm, add a todo]
+what reminders do i have: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+add practice to calendar on feb four at king's park at two p. m: [none, set a reminder, set an alarm, add a todo]
+please add practice on feb four at king's park at two p. m: [none, set a reminder, set an alarm, add a todo]
+add shopping to my calendar for tomorrow: [none, set a reminder, set an alarm, add a todo]
+do i have an appointment today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+remind me what i am doing on sunday afternoon: [none, set a reminder, set an alarm, add a todo]
+remind me i take mom to the hairdresser's thursday at one thousand one hundred am: [none, set a reminder, set an alarm, add
+    a todo]
+is this true about this date: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+what reminders did i set: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+alert me when registration opens: [none, set a reminder, set an alarm, add a todo]
+i have a meeting at noon today: [none, set a reminder, set an alarm, add a todo]
+remind me to start supper this afternoon at five: [none, set a reminder, set an alarm, add a todo]
+what's been happening for the last two months: none
+what are my next three events: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+what time will the soccer match be tonight: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+give me an update on the election in one hour: [none, set a reminder, set an alarm, add a todo]
+set a meeting between myself and john at two p. m. tomorrow: [none, set a reminder, set an alarm, add a todo]
+do i need to do anything today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+remind me to take out the garbage at six p. m: [none, set a reminder, set an alarm, add a todo]
+calendar event send invite bill malinda: [none, set a reminder, set an alarm, add a todo]
+new meeting add bill and malinda as attendees: [none, set a reminder, set an alarm, add a todo]
+what do i have to do this week: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+what are the upcoming concerts in dallas: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+put this event in a repeating pattern on my calendar: [none, set a reminder, set an alarm, add a todo]
+can you make this event repetitive: [none, set a reminder, set an alarm, add a todo]
+did i tell you to remind me something: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+remind me the wedding on time to buy a present: [none, set a reminder, set an alarm, add a todo]
+set a reminder for two days prior of the event: [none, set a reminder, set an alarm, add a todo]
+is there valet service at the event: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+what reminders do i have scheduled before noon tomorrow: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+tell me when i have an event: [none, set a reminder, set an alarm, add a todo]
+send an alert before meeting: [none, set a reminder, set an alarm, add a todo]
+on monday the twentieth i need to have a conversation with greg about our weekend trip: [none, set a reminder, set an alarm,
+  add a todo]
+show me my meeting for the next month: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+what events are upcoming today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+what day does easter fall on: [what time is it, what's the date]
+remind me to get the oil changed: [none, set a reminder, set an alarm, add a todo]
+remind me to something in sometime: [none, set a reminder, set an alarm, add a todo]
+how many people are attending my next meeting: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+what time is my next appointment: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+what's my schedule today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+do i have a date on friday: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+do i have a sales meeting today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+schedule a sales meeting for wednesday at eleven am: [none, set a reminder, set an alarm, add a todo]
+set a reminder in one hour for my bread to bake: [none, set a reminder, set an alarm, add a todo]
+what is the event agenda: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+i'd like to set a date for this week: [none, set a reminder, set an alarm, add a todo]
+email my appointments to reschedule: none
+set a birthday event for martin: [none, set a reminder, set an alarm, add a todo]
+please add supervision to my calendar: [none, set a reminder, set an alarm, add a todo]
+during the timeframe of february one and march sixteen what meetings occurred: [none, what are my reminders, how's my day
+    going, open google calendar, what's pending, what's the date]
+where is mary's birthday party being held: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+create a meeting event in my calendar: [none, set a reminder, set an alarm, add a todo]
+schedule a meeting event in my calendar: [none, set a reminder, set an alarm, add a todo]
+what reminders do i still have: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+set a reminder for the thirteenth that i have a lunch with dale: [none, set a reminder, set an alarm, add a todo]
+did i leave myself any reminders: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+do i have any remainder about birthday party: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+what date is it: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+please remind me to go to the post office: [none, set a reminder, set an alarm, add a todo]
+don't let me forget to buy a gift for my sister: [none, set a reminder, set an alarm, add a todo]
+how long will my lunch meeting be on tuesday: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+i would need to be notified of church services on sundays at eleven am: [none, set a reminder, set an alarm, add a todo]
+add tomorrows dinner date to the calendar: [none, set a reminder, set an alarm, add a todo]
+i need next week's lunch put on the calendar: [none, set a reminder, set an alarm, add a todo]
+please alert me a day before jeff's birthday: [none, set a reminder, set an alarm, add a todo]
+send me an alert and hour before my next appointment: [none, set a reminder, set an alarm, add a todo]
+thirty minute reminder on meeting for tuesday: [none, set a reminder, set an alarm, add a todo]
+i need to set reminder on fifteenth march: [none, set a reminder, set an alarm, add a todo]
+set a reminder about todays faculty meeting at four: [none, set a reminder, set an alarm, add a todo]
+open a reminder about next weeks managers meeting on tuesday: [none, set a reminder, set an alarm, add a todo]
+add to calendar and repeat: [none, set a reminder, set an alarm, add a todo]
+save event for five p. m. to six p. m. on march eighteenth: [none, set a reminder, set an alarm, add a todo]
+yesterday at noontime in times square what was the protest about: none
+i need to know more about the parade this weekend: none
+i want to know more about the fair this weekend: none
+when is my brunch with jennifer: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+is it wednesday: [what time is it, what's the date]
+let me know when the meeting is gonna happen: [none, set a reminder, set an alarm, add a todo]
+what is going on on december fourth: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+remind me about this: [none, set a reminder, set an alarm, add a todo]
+make march eighteen a repeating appointment for pearl's birthday: [none, set a reminder, set an alarm, add a todo]
+create reminder for laundry at eight p. m: [none, set a reminder, set an alarm, add a todo]
+i want to do laundry at eight p. m. create reminder: [none, set a reminder, set an alarm, add a todo]
+remind me of my meeting on: [none, set a reminder, set an alarm, add a todo]
+set a reminder every day at noon to take medication: [none, set a reminder, set an alarm, add a todo]
+tell me more about my events: none
+i want to know more about this event: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+please alert me: [none, set a reminder, set an alarm, add a todo]
+remind me to go to dinner with dave on friday at five p. m: [none, set a reminder, set an alarm, add a todo]
+add a meeting at the office with brian for three p. m. on tuesday: [none, set a reminder, set an alarm, add a todo]
+tell me current events between yesterday and this morning: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+please set lunch meeting at twelve p. m. for every wednesday in march: [none, set a reminder, set an alarm, add a todo]
+please modify my calendar with this event: [none, set a reminder, set an alarm, add a todo]
+set a reminder for my daughters birthday: [none, set a reminder, set an alarm, add a todo]
+please put event into my calendar and mark it as a repeating event: [none, set a reminder, set an alarm, add a todo]
+show me my events: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+what are my plans for the month of may: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+i have a nine am meeting on wednesday send me a reminder: [none, set a reminder, set an alarm, add a todo]
+what is scheduled on my calendar today: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+what does my schedule look like today: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+tell my meetings for tomorrow morning: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+let's go through all pending reminders: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+add event to calendar app: [none, set a reminder, set an alarm, add a todo]
+meeting reminders from three to five: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+will you remind me of the dentist appointment i have in two hours: [none, set a reminder, set an alarm, add a todo]
+remind me about: [none, set a reminder, set an alarm, add a todo]
+remind me please: [none, set a reminder, set an alarm, add a todo]
+add a meeting to my calendar for nine am with tom: [none, set a reminder, set an alarm, add a todo]
+do i have anything scheduled for today: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+will you mark that i am busy for an event tomorrow at two p. m: [none, set a reminder, set an alarm, add a todo]
+what information should i know for my meetings today: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+remind me that i have a birthday party on the thirtieth: [none, set a reminder, set an alarm, add a todo]
+remind me to pick up mark at the airport at six p. m: [none, set a reminder, set an alarm, add a todo]
+remind me to water my plants every tuesday thursday and saturday: [none, set a reminder, set an alarm, add a todo]
+can you remind me to order the turkey three weeks before thanksgiving: [none, set a reminder, set an alarm, add a todo]
+i want to make a note on my calendar for the event tomorrow at the library: [none, set a reminder, set an alarm, add a todo]
+add conference call at four p. m. to my reminders for today: [none, set a reminder, set an alarm, add a todo]
+notify me about the event in my calendar: [none, set a reminder, set an alarm, add a todo]
+remind me of the event in my calendar: [none, set a reminder, set an alarm, add a todo]
+within the past three months how many meetings did i have with mr. richards: [none, what are my reminders, how's my day going,
+  open google calendar, what's pending, what's the date]
+where is the kiss concert: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+where is my meeting at nine am: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+is today saint patricks day: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+is it any ones birthday: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+the event will include walter and gemma: [none, set a reminder, set an alarm, add a todo]
+please set a reminder in my calendar for my meeting on march twenty five: [none, set a reminder, set an alarm, add a todo]
+set a repeating reminder alarm for the facebook event i have to attend on seventh april: [none, set an alarm, set a reminder,
+  set a timer]
+set an alert for two p. m: [none, set an alarm, set a reminder, set a timer]
+tell me my schedule for later this afternoon: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+put my dinner at red lobster on the calendar for today at nine: [none, set a reminder, set an alarm, add a todo]
+do i have a meeting on saturday march twenty fifth: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+is jessica's birthday on april twelfth: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+is my schedule for july seventh completely open: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+am i free at four p. m: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+do i have a meeting this afternoon: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+more information on this event: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+show pending reminders: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+info of the upcoming events: none
+what do i have scheduled for the nineteenth at two p. m: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+send me a reminder of my meeting with tom next friday: [none, set a reminder, set an alarm, add a todo]
+is calendar event true: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+do i have anything set for the fourth of july this year: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+remind upcoming meeting with eminem: [none, set a reminder, set an alarm, add a todo]
+set alarm for reminder: [none, set an alarm, set a reminder, set a timer]
+remind me to call mom every tuesday at ten am: [none, set a reminder, set an alarm, add a todo]
+set a reminder about tomorrow's meeting at nine am: [none, set a reminder, set an alarm, add a todo]
+make an alarm for the meeting with bob at seven today: [none, set an alarm, set a reminder, set a timer]
+set repeating reminder for every sunday: [none, set a reminder, set an alarm, add a todo]
+information of recent events: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+set event date in calendar with others: [none, set a reminder, set an alarm, add a todo]
+mention event in calendar with others: [none, set a reminder, set an alarm, add a todo]
+give me today's calendar events after six p. m: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+what time is my appointment on april fourth: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+what is my schedule for the day: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+hayathis daughter baby shower: [none, set a reminder, set an alarm, add a todo]
+add event for meeting with james: [none, set a reminder, set an alarm, add a todo]
+open meeting time: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+i want you to make alert in the evening about upcoming meeting: [none, set a reminder, set an alarm, add a todo]
+remind me two days before my wife birthday: [none, set a reminder, set an alarm, add a todo]
+tell me something to remind this week: [none, set a reminder, set an alarm, add a todo]
+what are meeting scheduled for today: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+just set me reminders about pending bill payments: [none, set a reminder, set an alarm, add a todo]
+just let me know the important meetings with my boss over the week: [none, set a reminder, set an alarm, add a todo]
+make event: [none, set a reminder, set an alarm, add a todo]
+show meetings: [none, set a reminder, set an alarm, add a todo]
+is the thanks giving event on fourteenth of this month true: [none, what are my reminders, how's my day going, open google
+    calendar, what's pending, what's the date]
+please set a notification on twenty third october about meeting with my colleague: [none, set a reminder, set an alarm, add
+    a todo]
+meetings from twenty to twenty five june: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+rahul marriage reminder: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+upcoming events in calendar: [none, set a reminder, set an alarm, add a todo]
+set a meeting event reminder with mona on tuesday: [none, set a reminder, set an alarm, add a todo]
+event reminder mona tuesday: [none, set a reminder, set an alarm, add a todo]
+alert me at the time of the event: [none, set a reminder, set an alarm, add a todo]
+what information do i have on reminders: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+can you put in lee's birthday on the twenty second of june: [none, set a reminder, set an alarm, add a todo]
+is there a meeting on my calendar this afternoon: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+what time does the zach brown concert on june third begin: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+do add this on my calendar: [none, set a reminder, set an alarm, add a todo]
+make a repeating reminder for this calendar event: [none, set a reminder, set an alarm, add a todo]
+could you reschedule my meeting: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+what days do i have booked: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+show me the events in my work calendar for next week: [none, set a reminder, set an alarm, add a todo]
+at what time is the italian cafe closed between lunch and dinner: [none, what are my reminders, how's my day going, open google
+    calendar, what's pending, what's the date]
+when does the super bowl officially start: none
+what time is the black tie gala dinner supposed to begin: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+please add dinner with mary to my calendar on saturday: [none, set a reminder, set an alarm, add a todo]
+on friday please put dentist appointment at three: [none, set a reminder, set an alarm, add a todo]
+has my calendar been updated in the last ten minutes: [none, what are my reminders, how's my day going, open google calendar,
+  what's pending, what's the date]
+research the clients that will attend the meeting: [none, set a reminder, set an alarm, add a todo]
+please set this date to repeat: [none, set a reminder, set an alarm, add a todo]
+what do i have planned for this week: [none, what are my reminders, how's my day going, open google calendar, what's pending,
+  what's the date]
+please check my reminders: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+how long should i boil the eggs: none
+how do i make a pizza: none
+how long should i boil an egg: none
+tell me the recipe of: none
+how long should i boil the egg: none
+find me a chocolate cake recipe: none
+how do i cook butter chicken: none
+what all goes into a red velvet cake: none
+how long does it take to make vegetable lasagna: none
+give me a cooking tutorial: none
+show me a video on cooking fried chicken: none
+what can i substitute butter with: none
+what is the best oven temperature to roast potatoes: none
+what is the best way to cook pasta al dente: none
+knowledge about food processing: none
+what's the easiest way to cook pasta: none
+what ingredient can be used instead of saffron: none
+what conducts heat better copper bottomed pots or cast iron: none
+hey robot give me a list of ingredients for welsh rarebit: none
+please search the internet and display the suitable youtube videos for cooking italian foods: none
+cook me some oats: none
+what is the menu today add some boiled vegetables also to it: none
+can you tell me the recipe to cook pav bhaji: none
+thanksgiving turkey cooking procedure in five sentences is what: none
+please tell me how to i bake twelve oatmeal cookies: none
+what do i need to make lamb pathia: none
+instructions to make a meal: none
+i need a recipe that is from ingredients on my shopping list: none
+i need good ideas for cooking: none
+can you give me a recipe for homemade chicken noodle soup: none
+how do i make a turkey: none
+tell me how to make a poor boy sandwich: none
+how do i make pizza: none
+what's the recipe for fried chicken: none
+what should i make for dinner: none
+baking times for chicken in the oven: none
+can you substitute baking soda for baking powder: none
+find a recipe for dinner tonight: none
+what should i cook for supper: none
+let's cook meatballs together: none
+tell me how to cook meatballs: none
+can i get a recipe for tuna: none
+how is lasagne made: none
+i would like a cheeseburger: none
+do you know how to cook risotto: none
+do you know recipe for risotto: none
+how long should i cook a steak to achieve medium rare: none
+i need a recipe of veg pulav: none
+how long do you cook a fifteen pound turkey: none
+what is the difference between bake and broil: none
+how long should i cook a steak to be medium: none
+how to make taco: none
+i need to know how to make stuffed peppers: none
+how long do i cook maccoroni: none
+look for apple pie recipe: none
+what's the recipe for fish soup: none
+how to cook spaghetti squash: none
+how many eggs do i need for an omelet: none
+show me the best recipe for spaghetti: none
+how is rice prepared: none
+list of famous biryani recipes: none
+recipes that can be cooked in an hour: none
+search in the web for buying bakeware for muffins: none
+find the recipe for sambar in cookingforu application: none
+what ingredients do i need to bake a large cake: none
+it must be taste: none
+let me know the recipe for preparing pasta: none
+what else is missing in the diary: [what's on my todo list, list my notes]
+any special events on my list: [what's on my todo list, list my notes]
+what i am going to do today: [what's on my todo list, list my notes]
+what's on my to-do list: [what's on my todo list, list my notes]
+i need to create a new to do list: [none, add a todo, add a note]
+help me start my kitchen list: [none, add a todo, add a note]
+what is on my to do list: [what's on my todo list, list my notes]
+may i have a list of five star hotels in paris: none
+add broccoli to my grocery list: [none, add a todo, add a note]
+add the post office to my list of errands for saturday: [none, add a todo, add a note]
+list everything left on my query: [what's on my todo list, list my notes]
+i want to make this week's shopping list: [none, add a todo, add a note]
+how the to do list for today: [what's on my todo list, list my notes]
+please repeat my shopping list: [what's on my todo list, list my notes]
+can you create a list for me: [none, add a todo, add a note]
+check my to do list: [what's on my todo list, list my notes]
+give me all my lists: [what's on my todo list, list my notes]
+show me the contents of the list: [what's on my todo list, list my notes]
+please update my grocery list with one gallon of two percent milk: [none, add a todo, add a note]
+search the item: [none, add a todo, add a note]
+add paav bhaji in menu card: [none, add a todo, add a note]
+create a list that is available: [none, add a todo, add a note]
+add detergent to the list of things i need to buy: [none, add a todo, add a note]
+add red wine to my shopping list: [none, add a todo, add a note]
+recite the schedules of the list: [what's on my todo list, list my notes]
+add spent five dollars in my expenses list: [none, add a todo, add a note]
+what is on my to do list today: [what's on my todo list, list my notes]
+what lists do i have queried: [what's on my todo list, list my notes]
+inform me on the items on the list: [what's on my todo list, list my notes]
+add this to the list: [none, add a todo, add a note]
+create a new list: [none, add a todo, add a note]
+read what is on my list: [what's on my todo list, list my notes]
+can you please add an item to my grocery list: [none, add a todo, add a note]
+what did i put down already on the walmart list: [what's on my todo list, list my notes]
+what items are on my shopping list: [what's on my todo list, list my notes]
+read me my list for shopping: [what's on my todo list, list my notes]
+tell me that list i wrote two days ago: [what's on my todo list, list my notes]
+do i have a grocery list ready: [what's on my todo list, list my notes]
+i need to make a list: [none, add a todo, add a note]
+read my grocery list: [what's on my todo list, list my notes]
+please show me the list that i have: [what's on my todo list, list my notes]
+add bananas to my shopping list: [none, add a todo, add a note]
+add toothpaste to my shopping list: [none, add a todo, add a note]
+create a playlist: [none, add a todo, add a note]
+what do i have planned next: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's
+    the date]
+what are my available lists: [what's on my todo list, list my notes]
+need to check my list: [what's on my todo list, list my notes]
+new list: [none, add a todo, add a note]
+anything else left on the list: [what's on my todo list, list my notes]
+make a grocery list please: [none, add a todo, add a note]
+please add list of things to buy for party: [none, add a todo, add a note]
+read my lists to me: [what's on my todo list, list my notes]
+begin a new list: [none, add a todo, add a note]
+let me hear my list: [what's on my todo list, list my notes]
+what is on my playlist: [what's on my todo list, list my notes]
+please add sugar to my grocery list: [none, add a todo, add a note]
+make a new shopping list: [none, add a todo, add a note]
+how many lists do i have in contacts: [what's on my todo list, list my notes]
+what groups are listed in my contacts: [what's on my todo list, list my notes]
+remind me of how many lists i have: [what's on my todo list, list my notes]
+what's on your list right now: [what's on my todo list, list my notes]
+let me know the list: [what's on my todo list, list my notes]
+put hamburger on my grocery list: [none, add a todo, add a note]
+add bob to my list of contacts: [none, add a todo, add a note]
+say the list: [what's on my todo list, list my notes]
+add new item to list: [none, add a todo, add a note]
+add to list: [none, add a todo, add a note]
+please add oranges to my grocery list: [none, add a todo, add a note]
+how many lists do i have: [what's on my todo list, list my notes]
+what lists are in my notebook: [what's on my todo list, list my notes]
+what are my current list: [what's on my todo list, list my notes]
+list items on my work list: [what's on my todo list, list my notes]
+give me the details on purchase order: [what's on my todo list, list my notes]
+set list: [none, add a todo, add a note]
+please find all name start with alphabetic of a and create a list: [none, add a todo, add a note]
+add business contacts to contact list: [none, add a todo, add a note]
+check recent to do list: [what's on my todo list, list my notes]
+please create new list: [none, add a todo, add a note]
+open google keep: [what's on my todo list, list my notes]
+give me all available lists: [what's on my todo list, list my notes]
+list all the lists on this device: [what's on my todo list, list my notes]
+add a wrist watch to the shopping list: [none, add a todo, add a note]
+my party planning: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the date]
+i have my clothes list: [what's on my todo list, list my notes]
+find the list: [what's on my todo list, list my notes]
+important house information: [what's on my todo list, list my notes]
+please create a new list for me: [none, add a todo, add a note]
+read back my grocery list to me: [what's on my todo list, list my notes]
+most viewed list: [what's on my todo list, list my notes]
+what can i do in berlin: none
+what's happening around my town: none
+is there anything happening on jazz scene around edinburgh: none
+any cultural events in california: none
+please let me know the dog shows events going on in my home town: none
+what movie can i watch tonight on the theater here in boston: none
+give the list of theaters in the vicinity: none
+give me the list of circus shows going on in the city right now: none
+what gun shows are in tulsa: none
+are there any events going on downtown tonight: none
+where is the pharmacy in leavenworth: none
+what movies are showing in cinema today: none
+what movie should i watch today: none
+what movies are going around me: none
+what events are happening soon: none
+show me events in sacramento: none
+i'm looking for a bar do you know a good one: none
+i'm looking for some dress shows can you find clothing stores within one mile: none
+locate me the amazon restaurants: none
+i would like to know the best rating pubs in the local area: none
+please show me marathon nearby me: none
+i would be happy if you update me the events going on our area: none
+do you have any suggestion action movies: none
+show me reviews of my nearest location food court: none
+show me painting exhibition in bay area: none
+what shops are round here: none
+how is the new movie swat: none
+what are new drama movies opening this weekend: none
+what shops are within ten miles: none
+cisco system: none
+what events are happening in pondichery this weekend: none
+any events this weekend in pondichery: none
+find an oscar nominee movie: none
+where is a good wine bar near me: none
+are there any special events near me this weekend: none
+which bar has the most affordable drinks near sixth street: none
+what's the next event at the library: none
+are there any good pizza places around here: none
+what movies are playing tonight: none
+look for shopping mall in sacramento for women's clothes: none
+where can i go tonight: none
+what's happening around me: none
+are there any crafts fairs happening in this area: none
+anything interesting going on in the bay area: none
+hit me up with some exciting events in the bay area: none
+movies with good reviews: none
+tell me the local events: none
+what is the highest rated movie now out: none
+recommend a movie for me: none
+is there a sporting event tomorrow in chicago: none
+recommend a movie playing in my area: none
+is there a food festival in the area: none
+search for local shops: none
+what's going on around here this weekend: none
+tell me about activities in my area this weekend: none
+anything good happening this weekend in the area: none
+i need a drink: none
+what are some theme parks nearby: none
+what movies are out this week: none
+please look up local restaurants that are open now: none
+what should i watch today: none
+can you find me a furniture store near me: none
+what are some restaurants near me: none
+where is the nearest walmart: none
+where is a theater in my area: none
+tell me what shops are nearby: none
+is there anything special going on nearby: none
+look up movies near me: none
+what's a movie in theaters that doesn't suck: none
+tell me all events for today in my city: none
+please list the best clothing shops near me: none
+are there any fun events in la today: none
+find gluten free bakery near me: none
+tell me what clothing stores are within five miles of me: none
+i need to find a gift what stores are within a one mile radius: none
+what's happening around town: none
+what shops are near me: none
+when does panama city mall open: none
+refer local current events: none
+show me nearby musical events: none
+kung fu panda three: none
+book me a taxi to leith in half an hour: none
+i need to go to dundee at five am on sunday by train: none
+book me a ticket to paris on eurostar this weekend: none
+can you book an uber for me: none
+can you book an uber tomorrow: none
+can you book an uber after i left for office: none
+can you book a train ticket: none
+book my train ticket from las vegas to los angeles: none
+what are the traffic conditions on the one hundred and one: none
+how do i get to the train station for a ticket: [none, get directions]
+call city cab to airport: none
+get city cab here to airport: none
+google train tickets to washington d. c: none
+please purchase a train ticket for this weekend: none
+what is the traffic like on my commute home at five: [none, get directions]
+book a taxi to go to the movies at one: none
+when is the next train to glasgow from aberdeen: [none, get directions]
+find the nearest uber: none
+get me the local train timing to destination cstm: [none, get directions]
+what time are the trains going to chennai leaving: [none, get directions]
+tell me about city traffic: none
+how is the traffic presently near central park road: none
+tell me my options for a train to los angles next wednesday or thursday: [none, get directions]
+new york: [none, get directions]
+please book a train ticket from london to manchester: none
+is there a traffic jam on my route: none
+ticket for bombay: none
+ticket for delhi: none
+show me the train schedules to the metropolitan opera house: [none, get directions]
+call me a taxi: none
+book a first class ticket in the next train to miami: none
+book me a train ticket: none
+give me the list of available train tickets from edinburgh to leeds: [none, get directions]
+call yellow cab: none
+book a train ticket for one one way for this tuesday at nine am: none
+can you please book train tickets for two for this friday: none
+check time of ten thousand eight hundred and eighty seven train from luni station on tuesday: [none, get directions]
+give me the train time: [none, get directions]
+is there a connecting train from london to paris and what time: [none, get directions]
+what's the best way to sheffield: [none, get directions]
+what is the first metro to d. c: [none, get directions]
+get me a uber: none
+book a train ticket from baltimore maryland to new york new york: none
+find a taxi to book: none
+tell me today's direction: [none, get directions]
+when does the next train traveling the city leave here: [none, get directions]
+where is the nearest gas station: none
+what is the current traffic situation: none
+fastest route to turiellos: [none, get directions]
+tell me the train arrival time to new york: [none, get directions]
+how long will it take to get to the airport: [none, get directions]
+what is the commute time to the theater: [none, get directions]
+what is the traffic situation at the bazaar highway: none
+can you tell me the times the train leaves for chicago: [none, get directions]
+uber me to the airport: none
+book train best deal: none
+find a train ticket to philadelphia: none
+purchase ticket to new york city on train: none
+how do i get home from here: [none, get directions]
+travel book a train ticket: none
+what is the fastest way to get to starbucks: [none, get directions]
+lead the way to the place: [none, get directions]
+book me a train ticket to barcelona please: none
+find me the cheapest train ticket to spain: none
+i need a ride home: none
+book me a cab going to location: none
+please book me a taxi uber: none
+when does the f. train run today: [none, get directions]
+what time does the first metrolink arrive in the morning: [none, get directions]
+how do i book a train ticket online: [none, get directions]
+i need to get a ticket via train to orlando from hwood: none
+schedule taxi pickup for monday at noon: none
+how much is a round trip train ticket to go to new york: [none, get directions]
+do you have the train times for beaumont tx: [none, get directions]
+what time does the first train depart from chicago: [none, get directions]
+when is the next train leaving for austin: [none, get directions]
+how is traffic in city: none
+is traffic light: none
+what is the traffic like right now: none
+book a train ticket from here to charleston west virginia at eight am today: none
+what does the traffic look like on my usual route to work: none
+navigation search: [none, get directions]
+call taxi: none
+call an uberpool to get me at long island bar: none
+what is the traffic like now: none
+order a train ticket to boston: none
+buy me a ticket to boston: none
+find me a train ticket to boston: none
+road traffic: none
+book an uber to pick me up now: none
+driving time to los angeles: [none, get directions]
+reserve the closest uber: none
+can you tell me about the traffic: none
+train times from near me to location: [none, get directions]
+where is the public library: [none, get directions]
+book a ticket to ny by train: none
+please book a ticket of rajdhani express train from jaipur: none
+please book a ticket form jaipur to mumbai on tuesday: none
+how do i get to the mall: [none, get directions]
+how much is a train ticket to chicago: [none, get directions]
+list all train times to ny: [none, get directions]
+what time does the train to place leave: [none, get directions]
+how is the traffic at the moment: none
+take me to layfayette saint and canal: [none, get directions]
+book a cab to office for me: none
+please book train ticket from mumbai to sangli for tomorrow morning: none
+show me direction to my home: [none, get directions]
+directions please: [none, get directions]
+what is the timing of bagmati express: [none, get directions]
+traffic report: none
+train ticket: none
+train ticket please: none
+book a train ticket weekend of the twenty sixth phoenix to los angeles: none
+please reserve the next taxi a nine am: none
+what time does the train arrive in sacremento: [none, get directions]
+look up the map to stores near me: [none, get directions]
+i need directions to madison street: [none, get directions]
+what is the highest building in the world: none
+define elaborate: none
+please define forensic: none
+what is the definition of forensic: none
+which is the highest peak in the world: none
+what does turbulence mean: none
+check definition of capricious: none
+can you track my emotions based on the way i speak: none
+how old is mariah carey: none
+look up the definition of blunder: none
+show me recipes: none
+what is the nearest pizza shop: none
+what is two hundred divided by ten: none
+what is the square root of nine: none
+i want sweet potato pie from a local bakery: [none, add a todo, add a note]
+i want tickets to the sold out concert on saturday night: none
+explain quantum physics to me in language i understand: none
+what are the definitions of orange: none
+why isn't adam sandler funny: none
+what is robin williams birthday: none
+tell me billy crytals address: none
+drive the car and bring my friends over: none
+who was the current prime minister of britain: none
+what is one plus one: none
+how much is one plus one: none
+what is the capital of nigeria: none
+what is the factorial of ten: none
+how big is the cosmos: none
+when is the birth date of taylor lautner: none
+tell me all about hurricane: none
+can you cook something special for me and my wife: none
+do you know jessica snout's phone number: none
+what does oscillate mean: none
+spell and define oscillate: none
+calculate two multiplied by two: none
+check celebrity where abouts: none
+remind me to move so there is no weight gain: [none, set a reminder, set an alarm, add a todo]
+i need to talk to mom: none
+tell me how are the results of assembly elections in delhi going to come out: none
+what is the root of six hundred and twenty five: none
+i wish it could give me advice: none
+do you know math: none
+what is the quickest way to my work downtown without hitting any traffic: [none, get directions]
+what does priyanka chopra do to look beautiful: none
+where does kate middleton buy her kids clothes: none
+why does sofia vergara look so young: none
+what is the best chocolate chip cookies recipe: none
+what was george eliot's first november el: none
+please give me information about john abraham lincon: none
+how much money did bill gates make: none
+what is the definition of the word perpetual: none
+who is celebrity: none
+what does celebrity do: none
+can you make dinner for me: none
+what's two plus two: none
+alexa i've got dollars for the month how much can i spend every day this month: none
+i want to know what supermarket near me has the best price on gluten free bread: none
+what size is a sperm whale: none
+just idle chit chat: none
+i need to ask you how many angels can dance on a pinhead: none
+what is twelve plus one hundred and ninety six: none
+what is the definition of timeliness: none
+when will the world end: none
+what's the sum of the two numbers four and six: none
+what time are the hockey games tonight: none
+how many states have the death penalty: none
+what's ten percent off forty dollars: none
+send a funny message to all of my friends: none
+what store is having sales tomorrow: none
+what causes osteoperosis: none
+what is four plus five: none
+how old is j. k. rowling: none
+i would like my robot to feed and pet my dog when i'm not home: none
+tell me when i should leave for a scheduled event so that i am on time: [none, set a reminder, set an alarm, add a todo]
+what is twelve divided by four: none
+tell me what the product of eighteen and thirty one is: none
+why are we here: none
+it would be great if can give you law consultations: none
+when was the us got freedom: none
+can you show me a list of all my recent commands: none
+what is the capital of california: none
+please give me the winning lottery numbers for this weekend: none
+give the definition of motivation: none
+can you tell me the time it is: [what time is it, what's the date]
+how many legs does a dog have: none
+why are whales big: none
+why is the earth round: none
+i would like it to help analyze ideas: none
+wanna netflix and chill: none
+what was the last movie will smith was in: none
+where was will ferrell seen last night: none
+what is six divided by two: none
+how tall is brad pitt: none
+currency converter please: none
+when was last academy award winning movie: none
+how tall is mount everest: none
+what is the capitol of west virginia: none
+where is new zealand located on a map: none
+tell me where steve jobs was born: none
+could you please confirm if leonardo is married: none
+where do most celebrities hang out: none
+tell me something i can do to help my community today: none
+are there any free events on in my area today: none
+what is the largest desk: none
+where's the closest zoo to where i'm at: none
+what is arnold schwarzenegger's birthday: none
+what is the increase in stock value over the past week of disney: none
+what are pounds worth right now: none
+can you tell me how many stomachs a cow has: none
+how many plays has patrick stewart been in: none
+what brand hair spray does donald trump use: none
+what is the dollar price in inr: none
+has the dollar rate increased: none
+what is the most current exchange rate in china: none
+what is a chair: none
+what color are chairs: none
+where is the prime meridian: none
+biography of person: none
+what is an electronic emissions system: none
+describe a rotor: none
+what is a mango: none
+can you really see russia from alaska: none
+list exchange rate information for the day for u. s. d. to jpy: none
+what is terranova stock going for: none
+what's the exchange rates between u. s. a. and china: none
+what's the currency exchange rate for china: none
+please pull up the wikipedia article on glass blowing: none
+tell me the current price of exxon mobil stock: none
+how old is marian carey: none
+what's a parsec: none
+how much wood could a woodchuck chuck if a woodchuck could chuck wood: none
+two by two is: none
+how far is california from georgia: none
+can you describe a credit card: none
+is steph curry married: none
+what is the exchange rate between us and mexico: none
+how many square miles is the average country on earth: none
+what is the definition of subjegant: none
+what happened to the dow jones today: none
+how far away is the sun: none
+what is the exchange rate for mexico money: none
+where on earth has the most volcanoes: none
+when did elvis die: none
+list me the stock of apple right now: none
+what is the definition of logic: none
+where is yosemite park: none
+please google location and information of mount rushmore: none
+how would you describe a happy birthday: none
+please give me information on michael jackson: none
+what is the temperature in indianapolis indiana: none
+can you tell me about wayne gretszky: none
+from dollar to euro: none
+the definition of life: none
+define flabbergasted: none
+can you tell me what flabbergasted means: none
+what is the birthday of hemingway: none
+how much is lebron james worth: none
+tell me a place that has snow now: none
+how is the stock going in general: none
+what is the yen worth: none
+where is laos located: none
+dollar rate at present: none
+suffering consequences: none
+consequences to actions: none
+top model car: none
+how much is the average house: none
+describe a sloth: none
+tell me everything you know about sloths: none
+what is dolly parton's birthday: none
+what are the coordinates of the equator: none
+describe hell: none
+one plus two equal: none
+what is the us dollar and euro exchange rate: none
+tell me when obama was born: none
+what is the location of moldova: none
+how tall is hulk hogan: none
+what is the exchange rates in this region: none
+what year did george clooney start acting: none
+what was elvis presley's birthday: none
+tell me what i wore yesterday: none
+one dolla equals how much inr: none
+where jackie chan currently live: none
+facebook current stock rate: none
+where are the rocky mountains: none
+what's jlo up to: none
+give details of rock sand: none
+describe rock sand: none
+where are pyramids located: none
+show geographic details of pyramids: none
+show bio of rihana: none
+what is googs current price: none
+please tell me what is the definition of cylinder: none
+how much is the british pound: none
+define blanket: none
+what are converse shoes: none
+what kinds of sunglasses are considered aviators: none
+africa info: none
+search the locality: none
+where did amal clooney go to college: none
+does kim kardashian wear converse: none
+how far is canada from my current location: none
+what is the price of starbuck's stock: none
+how much is starbuck's stock these days: none
+find the ways of travel for the same: [none, get directions]
+answer for three times four: none
+how much is the us dollar worth in canada: none
+what movies has emma watson acted in: none
+how much is the us dollar versus the pound: none
+how much is the euro worth versus u. s. dollar: none
+details on person: none
+how can you get basalt: none
+how much is amazon stock: none
+can you do nine plus two: none
+hey what's a book: none
+tell me about jaipur: none
+what's the rate between pesos and yen: none
+explain the geographical location of india: none
+what is leonardo dicaprio's networth: none
+is this the least or most important moment in history ever: none
+how large is alaska: none
+what is the size of the united states: none
+what color is a dragon fruit: none
+where was steve jobs born: none
+tell me about economy and g. d. p. about india versus china: none
+what is the stock price of hdfc: none
+what is a hypothesis: none
+google what are the basic things humans need: none
+what's the answer to the universe: none
+can many seashells did sally sell by the seashore: none
+i think i can travel the whole world in a day: none
+will there be a world war four: none
+how much will be the world population after twenty years: none
+tell me the profession of celebrity: none
+definition of velocity: none
+how big is the empire state building: none
+what is the deepest point on earth: none
+give the stock price details of motorolla: none
+describe the new football game rules: none
+describe about the computer hard disk: none
+which ocean touches at our continent: none
+what does obama do in his day to day life: none
+is angeline having a new movie this year: none
+what is a caftan: none
+find exchange rate for u. s. d. to pound: none
+what is the capital of mexico: none
+where is fiji: none
+what was the first movie of morgan freeman: none
+does pink have a new baby: none
+exchange rate of euro with dollar: none
+find route: none
+features of google pixel: none
+directions to disney land: [none, get directions]
+open stock price for name: none
+detail for stock price: none
+can we go to sun: none
+when was the bolshoi theater constructed: none
+give me the description about smartphone: none
+how many meetings did mahatma gandhi undertake: none
+who is the current prime minister of russia: none
+please summarize the latest george r. r. martin ice and fire book: none
+where did mahatma gandhi born: none
+what is price of dollar: none
+notify me when g. b. p. to u. s. d. rate as i expected: none
+find geographic details of this place: none
+please find out the share price of microsoft in nasdaq: none
+tell me about india location: none
+make a list about selena gomez concert schedule: [none, add a todo, add a note]
+tell me if global warming is true: none
+let me know up and down in stock price of this company stock: none
+explain how is u. s. a. better than other countries: none
+what is the largest active volcano on earth: none
+how long will it take to travel to japan from south korea: none
+give me the description of a television circuit: none
+give me the description of a smartphone circuit: none
+what is the population of new york: none
+currency exchange: none
+for how many years was abraham lincoln president of united states: none
+did angelina jolie leave brad pitt: none
+what new movie is jennifer lawrence working on: none
+divide two hundred by four: none
+foreign exchange rates: none
+describe what a sphere is: none
+stock price: none
+tell me about the cheapest flight fares to nj today: none
+recipe please: none
+what is the population of russia: none
+what is the exchange rate of euro and dollar: none
+what is the birth year of barack obama: none
+describe item xy: none
+can you tell me about animal kingdom in amazon forest: none
+what is the hobby of ajay devgn: none
+who is the prime minister of russia: none
+ok google what is a president: none
+what exactly is a resin tooth filling: none
+describe the heart stone card game: none
+ok google where does sophia vergara live: none
+where does sophia vergara live: none
+what's euro u. s. d. right now: none
+what's the capital of kazakhstan: none
+divide seventy six in two parts: none
+give me the definition for the word pontificate: none
+dollar to euro exchange rate: none
+how much is the dollar worth compared to the euro: none
+how would you describe a ball: none
+tell me the largest ocean in the world: none
+what is the difference between roman and grigorean calendar: none
+what is the make up of the chair: none
+where is a walking trail near me: none
+what is elvis favorite ride: none
+his hardword is properly quead: none
+more stock price: none
+to compare in people: none
+could you explain the meaning of exorbitant for me please: none
+what is the exchange rate with in one british pound: none
+check stock price for dinky donuts: none
+what are the climatic conditions in that area: none
+meaning of: none
+what is the least tornado prone state in the entire us: none
+please describe that object for me: none
+in which field does that person excel in: none
+were the stocks rising or declining: none
+where was president madison born: none
+when's mark lanegan's next album out: none
+how have megatel shares done last week: none
+did the price of walmart stock go up or down: none
+how much would it cost to buy stock in apple: none
+let me know about the exchange rate of rupee to dirham: none
+tell me the info about india's geography: none
+i need some details about bruce lee please assist: none
+look up: none
+internet please: none
+how do i figure women out: none
+what is the prevailing exchange rate us versus indian rupees: none
+iphone seven description: none
+what is denzel washington's next movie: none
+what does situation mean: none
+how much is one american dollars worth in england: none
+how old is clint eastwood: none
+how much is one dollar in pounds: none
+where do the rocky mountains start: none
+which pole is colder south or north: none
+how old is emma watson newest boyfriend: none
+info on lisa ann please: none
+where did the first americans settle: none
+find a description about a samsung t. v: none
+look up the number of people living in miami florida: none
+what region is miami located: none
+siri please check exchange rates: none
+what is the geology of this location: none
+how many euros can i get for one dollar: none
+define speaker: none
+how is i. b. m. doing: none
+become a helicopter: none
+check my social networks: [none, open twitter explore]
+can you upload my latest selfie in my facebook account: none
+post my business on twitter: none
+please retweet this post on twitter: none
+do i have any new friend requests: [none, open twitter explore]
+birthday wishes: none
+wedding wishes: none
+share in friends post: none
+post in twitter my visit to japan: none
+what going on: [none, open twitter explore]
+get me latest updates from facebook: [none, open twitter explore]
+new updates: [none, open twitter explore]
+give me my facebook update every three hours: [none, open twitter explore]
+post hey everyone on facebook: none
+what is the trending now: none
+what is the news today: none
+tweet something for me: none
+show me latest notifications: [none, open twitter explore]
+is there any post from my friend mike in facebook: [none, open twitter explore]
+my trip to goa photo post it on instagram: none
+did anyone like my photo i just posted: [none, open twitter explore]
+post this to my facebook l. o. l: none
+please scan my social media and tell me what's happening: [none, open twitter explore]
+post i am happy to facebook: none
+post a new status on facebook saying that i am enjoying the nice weather: none
+post the message now: none
+read me new post on my feed: [none, open twitter explore]
+what's hot social media topics: [none, open twitter explore]
+has anyone follow me today on twitter today: [none, open twitter explore]
+do i have any notifications from social media: [none, what are my reminders, how's my day going, open google calendar, what's
+    pending, what's the date]
+tell me what's going on with facebook: [none, open twitter explore]
+i want to thank everyone for the birthday wishes: none
+has anyone commented on my status: [none, open twitter explore]
+please read my facebook feed: [none, open twitter explore]
+anything new on insta: [none, open twitter explore]
+post this video to facebook: none
+please check the trending topics on twitter: [none, open twitter explore]
+who is doing facebook live right now: [none, open twitter explore]
+i'm unhappy with tesco please help me: none
+tweet apple that the iphone doesn't work: none
+open tweet to apple that my iphone's battery is always drained: none
+can you let amazon know that this new phone case is junk: none
+can you contact samsung and say my washer is on fire: none
+tweet my current location: none
+forward a complaint to aircel for network related issues: none
+open twitter send message: none
+tweet that product sucks: none
+open twitter type my complaint and post to at consumer service: none
+get me a person a. s. a. p: none
+two thumbs down at companyname: none
+tell me what's happening on instagram: [none, open twitter explore]
+send a tweet about sonys volume issues: none
+tweet at united airlines i'm angry you lost my bags: none
+i want to send a tweet to united airlines i'm angry you lost my bags: none
+i had a problem with my burger can you tweet bk: none
+send a twitter complaint: none
+i didn't get the product on time send a tweet to jcpenney: none
+tell comcast i hate them: none
+tweet a complaint for the online bookstore: none
+tweet kohls about the cleanliness of their store: none
+please tweet at pizzahut i've been waiting for my delivery for now number nothappy: none
+new tweet to consumer service: none
+siri open twitter tweet at potus sucks: none
+show me my latest social media activity: [none, open twitter explore]
+is there anything important happening on social media: [none, open twitter explore]
+send complaint via tweet to j. crew: none
+tweet walmart and tell them their customer service is horrible: none
+tweet about cold pizza to papa johns: none
+tweet mobile complaint to samsung: none
+please negative response tweet on daikin service: none
+please tweet on dell service for delay services: none
+let's tweet a complaint: none
+i need you to tweet a complaint: none
+post to facebook i'm hungry: none
+please look in to the matter: none
+clear out the problem: none
+can you let delta know i'm never using them again: none
+open gallery post picture name: none
+tweet complain at comcast: none
+open company name and find complaints: none
+tweet esurance and tell them they suck: none
+please tweet a complaint to comcast for bad customer service: none
+ok google tweet what a jerk the owner is at the gas station: none
+tweet mcdonald's down reseda has terrible service: none
+tweet complaint to at: none
+send report to consumer service: none
+help complaint to consumer service: none
+tweet to google costumer service my new nexus phone stop working help please: none
+tweet a message to suqcom that i am still waiting for my delivery: none
+post my latest entry to twitter at n.s.a: none
+send a complaint tweet: none
+tweet to apple about non receipt of iphone i sent for repairs last week: none
+please add complaint about the service in tweet to olive garden: none
+hello my item which i bought from some one has gone out of order: none
+tweet that there was an insect in the chocolate packet: none
+expired products in recent market: none
+twitter to destination x. l. that they run out of sizes too fast: none
+tweet at: none
+lets send a tweet: none
+post complaint about service a: none
+tweet a disgusted face about mcdonalds: none
+set feeling happy status on facebook: none
+tweet a message to a. t. & t. and tell them my service is bad: none
+tweet samsung and tell them to stop killing people with their products: none
+submit a negative review about a company: none
+add this person's email: none
+please email my team: none
+please check for new emails: none
+answer to pawel's email: none
+tell me if i have new emails: none
+is there anything new in my mailbox: none
+do i have any new emails: none
+who am i meeting today: [none, what are my reminders, how's my day going, open google calendar, what's pending, what's the
+    date]
+where seth lives: none
+email chelsea: none
+reply an email to jason that i will not come tonight: none
+has robert emails me yet: none
+what is a work phone number of emilia: none
+reply to dad write i will be late: none
+here is a new email address to be added to the contacts: none
+go to contacts and enter a new email address: none
+compose a new email to ray: none
+how its come to us: none
+how we can get credit: none
+send an email to my boss: none
+please send to new email address listed: none
+check email for received from mom: none
+please check my mails: none
+check to see if i have any new emails from my dad: none
+check my new emails and tell me what are they about: none
+reply thank you to john: none
+prepare email for susan: none
+what new emails do i have: none
+send this email to reply to the latest emails: none
+find john smith in contacts: none
+open contacts and call john smith: none
+respond to the email from john doe: none
+email alice to let her know we are on the way: none
+do i have any new emails from kellogg: none
+send a reply if it is very important: none
+if it is from a very familiar place mark it as important: none
+what was the subject of the last email from mom: none
+what was the last email from work: none
+give me petey's telephone number: none
+what is the email address for tessa: none
+add this new email with contact: none
+send an email to john asking him what time works for the meeting: none
+email karen about the budget meeting: none
+check my emails for something from name: none
+check for new email: none
+send email to joseph at gmail dot com: none
+tell me if i have any new messages in my inbox: none
+send an email to rohit saying i am busy tomorrow: none
+hey siri start an email to coworker: none
+please compose a new email to coworker: none
+please send an email to sally regarding tomorrows meeting: none
+hey has john sent me any email lately: none
+send mail to ismail for office opening time table: none
+show me recent emails: none
+i want to send an email to my family do you help me: none
+check gmail: none
+check outlook: none
+reply to email: none
+have i received any emails in the last ten minutes: none
+display recent email from john: none
+have i received new emails in the last ten minutes: none
+has amy sent me any new emails: none
+check unread emails from amy: none
+please check email contain job listing: none
+send an email to my brother and say wedding anniversary: none
+help is to be sent only to jane: none
+this new email should be added to my contact: none
+show me the most recent emails: none
+give me the latest updates: none
+quick reply to jack so please send a mail: none
+check meeting schedule in todays mail: none
+remember this email: none
+send reply: none
+who mailed me yesterday: none
+did charlotte responded: none
+have any emails arrived in the last fifteen minutes: none
+open inbox to check unread mails: none
+any mail from amazon today: none
+check email about my job: none
+please load new email for bruce and send message now: none
+pull up kate's email and write that i will let her know: none
+tell me about mary s: none
+open contacts: none
+is it anyone i knows birthday this month: none
+which contact haven't i called in twelve months: none
+send email to joe at a. o. l. dot com: none
+please check my mail: none
+did i receive any new email from robert: none
+write an email to my family saying i love you all: none
+refresh my inbox and inform me about new emails: none
+how do i reach sarah: none
+initiate polling for new email: none
+do i have new emails: none
+please send an email to cassy who is there on my family and friend list: none
+send an email to my assistant clara to cancel all appointments for tomorrow: none
+send an email to mom to tell her wyatt's birthday party is on sunday: none
+send an email to jake to tell him thank you: none
+send an email to margaret: none
+did i get new emails from sarah: none
+respond to email: none
+i want to reply to bob smith's email: none
+check for emails from steve: none
+check for emails from my employer: none
+did i email tom on the subject of gun control: none
+has tom emailed me about ammunition: none
+do i have any new emails in the last hour: none
+have i received any emails with tracking numbers: none
+compose an email to bob: none
+alexa please send an email to mom: none
+send mom an email now: none
+hey do i have any new emails: none
+please read new emails: none
+please send the email to jeff: none
+have i gotten any new email: none
+text an email to donna hey what are you doing today: none
+email donna plans for today: none
+alexa start email: none
+compose email: none
+show all emails sent to me from my boss: none
+please send an email to uncle john with the following yes i can make it: none
+how many new emails have i received today: none
+please send mom and dad an email asking how they are: none
+please sent this email to my friend: none
+i need this email sent now: none
+please check for recent emailstudy from this sender: none
+add new email to my contacts macs at gmail dot com: none
+new message to newmail at gmail dot com: none
+do i have any unread emails: none
+do i have any new emails from my contact q: none
+please add this email to my contacts: none
+check emails from john: none
+send a replay email: none
+please send a mail to my friend divya how are you: none
+add new email address and send email: none
+add a new email for julie smith: none
+i need to add a new email to my contacts: none
+can you tell me the contact information of jo: none
+check mom's number: none
+make a call to: none
+can you write an email to chelsea: none
+check my email: none
+does my company worker have a home phone number: none
+who is the contact that last called me: none
+i just got an email from bill i need to answer it right now: none
+that last email needs to be answer a. s. a. p: none
+what does the email say that was sent thirty minutes ago from mom: none
+write and send email to my boss: none
+tell me if i have any unread new emails: none
+send email to boss saying i will be late: none
+send an email to this contact: none
+i need an email to be sent to comcastcom about my service issues: none
+check most current emails: none
+send a reply to the last email: none
+check mail for anything from shelly: none
+please check my emails for me: none
+did ben's email have an attachment: none
+did i receive any new emails from dan: none
+do i have any incoming emails: none
+have any emails come in since four hundred today: none
+did i get an email from paul: none
+has ben got in touch: none
+do i have any new emails in my inbox today: none
+add lowes hardware to my contact emails located in cleveland ohio: none
+locate the email to giant eagle and put it into my contact list: none
+write a reply to my mother's email: none
+i would like to reply to sarah's email: none
+i would like to reply to the most recent email: none
+how many of my contacts live or work in detroit: none
+are my contacts mostly female or male: none
+do i have any new email: none
+please check my emails and notify me if exists any new email: none
+could you please email john saying i'm on leave: none
+let me know any new emails i've received: none
+respond to my email from bob letting them know i'll see them tomorrow: none
+please check new email from andy: none
+show me the latest emails from amazon: none
+are their any new emails for me today: none
+dictate email: none
+any new email since last time: none
+emails in the last ten minutes: none
+what is the interview time from yesterday's email: none
+check new email: none
+show all emails regarding the breach: none
+show john's contact information: none
+send an email to juanpedro at gmail dot com: none
+add this email address to my contacts and send an email to: none
+what is mr. taxi's phone number it is in my contacts: none
+have i received any emails since noon: none
+has cassie sent me any emails about tom: none
+beep when i get an email from john: none
+check emails: none
+can you send the email to the new email id: none
+please add an email for john doe to my contacts johndoe at yahoo dot com: none
+email notifications: none
+what did i tell susan in my last email: none
+find naty from my contacts and send her an email: none
+email naty for her birthday: none
+how many phone numbers do i have for brenden: none
+email jerry regarding the meeting: none
+send an email to jerry ask what time will he be home tonight: none
+reply this mail: none
+what about new mail: none
+what new email says: none
+send john smith and email: none
+start and email to john smith: none
+have i received any emails from jeffrey burnette: none
+jay's phone number: none
+please place my new email address to the contact: none
+do i have emails from this sender: none
+hey reply a mail which i received: none
+please check my gmail for new mail: none
+show latest email: none
+reply to johns email: none
+send an email to grandma saying we are dropping by on saturday see you then: none
+reply email: none
+email to new contact: none
+send email to new contact: none
+respond with: none
+please check all new email of income tax department: none
+please find a contact number of jayesh and tell me: none
+do we have morgan's office's number: none
+any new email from john: none
+please say to the email that sent me george i need the money now it's urgent: none
+has jane doe emailed me: none
+send email to jessica: none
+please check for new email: none
+can you send an email to: none
+start reply: none
+compose a reply to last email: none
+reply to last received email: none
+email mom and ask how the weather is there: none
+write an email for john at gmail dot com: none
+send email to tim at hotmail dot com: none
+get me new email: none
+search nandy: none
+just add a new email in my contacts from michael: none
+are there any new emails in outlook: none
+are there any new emails received after four o'clock today: none
+create an email for my company worker with my recently saved documents: none
+check for me new emails received from sara: none
+contacts please: none
+what's leon's email: none
+show me any emails received in the last hour: none
+check new emails: none
+give me my latest email: none
+contact detail of paul: none
+create email to yulia: none
+read list of new emails: none
+display list of recent emails: none
+check any mail from amazon: none
+email form for regional v. p: none
+any lighting news emails: none
+please read my new mails: none
+please archive my read messages: none
+what's in my inbox since we last looked: none
+hey send email to john: none
+hey check email: none
+reply to the mail with the following content hello you: none
+alexa reply to the mail with the following content hello you: none
+check my email for any new email from joe: none
+do i have any new email from joe: none
+notify me when joshua emails me: none
+has john sent me an email: none

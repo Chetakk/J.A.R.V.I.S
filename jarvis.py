@@ -158,6 +158,14 @@ OPEN_QUESTION = re.compile(r"^(?:who|whom|whose|why|explain|describe|define|comp
 SPLIT = re.compile(r",? (?:and then|and also|and after that|after that|then|and) |, ", re.IGNORECASE)
 UNSURE = 0.62  # from here up to the matcher's threshold, a guess is asked about (real questions scored lower)
 YES = re.compile(r"^\W*(y|yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|correct)\b", re.IGNORECASE)
+NO = re.compile(r"^\W*(?:no|nope|nah|not that|neither|wrong)\b", re.IGNORECASE)
+# "That's not what I said", "no, I meant pause the music": right after a match by meaning, it was the wrong one.
+CORRECTION = re.compile(
+    r"^(?:(?:no|nope|nah)[\s,.!]*)?(?:(?:that'?s|that is|it'?s|that was) (?:not what i (?:said|meant|asked for|asked|"
+    r"wanted)|wrong|the wrong (?:one|thing)|not it|not right)|not that(?: one)?|wrong(?: one| thing)?|"
+    r"i (?:didn'?t|did not) (?:say|mean|ask for|want) that|you got (?:it|that|me) wrong|you misheard(?: me)?|"
+    r"(?=i (?:said|meant)\b))(?:[\s,.!]*i (?:said|meant|wanted|asked for) (?P<meant>.+?))?[\s.!]*$", re.IGNORECASE)
+FIX_SECONDS = 30  # how long after a match by meaning "that's not what I said" is about it
 # Beyond a plain yes: "it's okay, close it", "that's fine", or the question's own verb ("close it", "I said close it").
 FINE = re.compile(r"^\W*(?:(?:it|that)(?:'s| is)\s+)?(?:okay|ok|fine|alright|all right)\b", re.IGNORECASE)
 NOT_YES = re.compile(r"\b(?:no|nope|nah|not|don't|do not|never ?mind|cancel|stop|wait|hold on|leave it|keep it)\b",
@@ -215,6 +223,8 @@ class Jarvis:
         self.last_request = None  # for "do that again"
         self.last_app = None  # process of the last app opened, for "close it"
         self.last_undo = None  # saved command (or a skill's function) that reverses the last one, for "undo that"
+        self._guess = None  # (when, what you said, the phrase a match by meaning made of it): "that's not what I said"
+        self._correcting = None  # what you said that JARVIS got wrong, while "no, I meant X" is handled
         self.context = Context()  # what JARVIS just did, for "a bit more", "make it 70", "and firefox too"
         self._text = ""
         self._splitting = False  # handling the parts of "X and Y" one by one (they aren't split again)
@@ -292,7 +302,7 @@ class Jarvis:
             cfg = self.settings.get("intents") or {}
             self.intents = IntentMatcher(os.path.join(CONFIG, "intents.yaml"), cfg.get("threshold", 0.72),
                                          extra=dict(self.apps.intents(), **command_phrases(self.registry)),
-                                         learned=learned.load()["wordings"])
+                                         learned=learned.load()["wordings"], wrong=learned.load()["wrong"])
         except Exception as e:
             print("[intent] meaning matcher off: %r" % e)
         self.chat_replies = None  # its own replies to chat ("do you have any pets?"), before Claude
@@ -401,7 +411,14 @@ class Jarvis:
             self._chat_asked = self.chat_replies.take() if self.chat_replies else None
         # "cancel that" with nothing to undo is just a never mind (small talk below)
         if undo.UNDO.match(text) and (self.last_undo or not re.fullmatch(persona.NEVER_MIND, low.strip(" .!?,"))):
+            if self._guess and time.time() - self._guess[0] < FIX_SECONDS:  # maybe the wrong one: Claude checks
+                outcomes.log("undone", self._guess[1], self._guess[2])
             return self._undo()
+        fix = None if self._rewording or self.from_claude else CORRECTION.match(text)
+        if fix and self._guess and time.time() - self._guess[0] < FIX_SECONDS:
+            return self._wrong(fix.group("meant"))
+        if not self._rewording and not self.from_claude:
+            self._guess = None  # anything else said: "that's wrong" next is about whatever this does
         phrase = None if self._rewording else self.context.follow_up(text)
         if phrase:  # "a bit more", "make it 70", "and firefox too": about what JARVIS just did
             self.heard(text, "means \"%s\"" % phrase)
@@ -545,13 +562,20 @@ class Jarvis:
         """Record a request JARVIS handled (core/outcomes.py), so teaching knows what you lean on and which of its
         matches only just got there. What was said is only kept when it could be taught from: no value in it, no
         number or secret, not a private request. `teaching.log: false` turns it off."""
-        if self._rewording or self.from_claude or self._private \
-                or not (self.settings.get("teaching") or {}).get("log", True):
+        if self._rewording or self.from_claude or self._private:
             return
         if value or not teaching.fit_to_send(text):
             text = ""
         elif how == "pattern":
             phrase = text.lower().strip()  # no value in it: what you said is itself a phrase JARVIS knows
+        if text and how in ("meaning", "wording") and phrase and "{" not in phrase:
+            self._guess = (time.time(), text, phrase)  # for "that's not what I said"
+        if self._correcting and text and phrase and "{" not in phrase and how != "fuzzy":
+            said, self._correcting = self._correcting, None  # "no, I meant X": what you said means X's phrase
+            kept, refused = teaching.teach(self, [(said, phrase)], "you corrected me")
+            print("[teaching] %s" % ("learned %r means %r" % kept[0] if kept else "not keeping %r for %r: %s" % refused[0]))
+        if not (self.settings.get("teaching") or {}).get("log", True):
+            return
         outcomes.log(how, text, "" if "{" in phrase else phrase, skill, score)
 
     def _miss(self, text, outcome):
@@ -1000,7 +1024,12 @@ class Jarvis:
             if phrase:
                 self.context.chose([best, other], phrase)  # for "the other one"
         elif UNSURE <= score < threshold:  # one likely meaning (no close second: that was the case above)
-            phrase = best if self.ask("Did you mean %s?" % best) else None
+            question = "Did you mean %s?" % best
+            answer = self._answer(question)
+            phrase = best if is_yes(answer, question) else None
+            if answer and NO.match(answer) and teaching.fit_to_send(text) and not self._private:
+                self.intents.block(text, best)  # you said no: never asked about, nor taken as, that one again
+                learned.wrong(text, best, why="you said no to “%s”" % question)
         else:
             return False
         if not phrase:
@@ -1011,6 +1040,26 @@ class Jarvis:
         self.heard(text, "you meant \"%s\"" % phrase)
         self.handled(text, "confirmed", phrase)
         return self._reword(phrase)
+
+    def _wrong(self, meant):
+        """"That's not what I said" right after a match by meaning: what you said never means that phrase again, and
+        the learned wording that took it there is taken back. "No, I meant X" then does X, and learns it."""
+        _, said, phrase = self._guess
+        self._guess = None
+        teaching.unlearn(self, said, phrase, "you said it was wrong")
+        self.heard(said, "doesn't mean \"%s\"" % phrase)
+        user = persona.address(self.settings)
+        back = " Say undo that to reverse it." if self.last_undo else ""
+        if not meant:
+            self.speaker.say(["Sorry %s, my mistake. I won't take \u201c%s\u201d that way again.%s" % (user, said, back),
+                              "My mistake. I won't do that for \u201c%s\u201d again.%s" % (said, back)])
+            return True
+        self.speaker.say(["Sorry, my mistake.", "My mistake."])
+        self._correcting = said
+        try:
+            return self.handle(meant)
+        finally:
+            self._correcting = None
 
     def _learn(self, said, phrase):
         """Claude turned `said` into a JARVIS phrase that worked: learn the wording, so next time needs no Claude.
