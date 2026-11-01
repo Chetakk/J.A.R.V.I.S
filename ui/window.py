@@ -16,6 +16,7 @@ from gi.repository import AppIndicator3, Gdk, GLib, Gtk, Pango  # noqa: E402
 import cairo  # noqa: E402
 
 from system.terminal import RUN_DIR  # noqa: E402
+from voice.level import level as mic_level  # noqa: E402
 
 STATE_FILE = os.path.expanduser("~/.local/share/jarvis/ui.json")
 LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "thinking": "Thinking...",
@@ -115,6 +116,7 @@ class UI:
         self.state = "starting"
         self._shown = None
         self._anim = None
+        self._voice = 0.0  # the mic level, smoothed: jumps up with your voice, eases back down
         self._pos = self._load_pos()
 
         provider = Gtk.CssProvider()
@@ -269,14 +271,22 @@ class UI:
         cr.stroke()
 
         if s == "listening":
-            # Ripples drawn in from the rim, speeding up as they sink into a softly pulsing core.
-            for i in range(3):
-                p = (t * 0.9 + i / 3) % 1.0
-                cr.set_source_rgba(1, 1, 1, 0.75 * min(1, p * 5) * (1 - p) ** 0.7)
-                cr.set_line_width(1.0 + 1.6 * p)
-                cr.arc(cx, cy, r * (0.94 - 0.72 * p ** 2), 0, tau)
+            # Like Google's: four white bars in a row that jump with your voice and idle as bobbing dots.
+            heard = mic_level()
+            self._voice += (heard - self._voice) * (0.6 if heard > self._voice else 0.15)
+            v, bw, gap = self._voice, r * 0.15, r * 0.09
+            x0 = cx - (4 * bw + 3 * gap) / 2 + bw / 2
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(bw)
+            for k in range(4):
+                wobble = 0.5 + 0.5 * math.sin(t * 11 + k * 1.9)
+                tall = r * (0.05 * math.sin(t * 4 + k * 0.8) + v * (0.35 + 0.45 * wobble) * (1.0 if k in (1, 2) else 0.75))
+                x = x0 + k * (bw + gap)
+                cr.set_source_rgba(1, 1, 1, 0.95)
+                cr.move_to(x, cy - max(tall, 0) / 2 - 0.01)
+                cr.line_to(x, cy + max(tall, 0) / 2 + 0.01)
                 cr.stroke()
-            self._core(cr, cx, cy, r * (0.20 + 0.025 * math.sin(t * 5)), 0.95)
+            cr.set_line_cap(cairo.LINE_CAP_BUTT)
         elif s == "thinking":
             # A comet: a bright head with a fading tail that stretches and shrinks as it spins.
             a, span, n = t * 5.0, 2.0 + 0.6 * math.sin(t * 1.7), 16

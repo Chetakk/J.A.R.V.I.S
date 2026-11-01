@@ -19,6 +19,7 @@ import numpy as np
 import sentencepiece
 import sherpa_onnx
 
+from voice.level import hear
 from voice.listen import RATE, beep
 from core.registry import NAME_AS_THING, _names_regex
 from skills.status import STOP as INTERRUPT  # "stop", "be quiet", "enough"...
@@ -100,6 +101,7 @@ class WakeWord:
             raw = mic.stdout.read(chunk_bytes)
             if not raw:
                 return
+            hear(raw)
             if self.is_deaf():
                 continue
             recent.append(raw)
@@ -246,6 +248,7 @@ class WhisperWake:
             raw = mic.stdout.read(VAD_WINDOW * 2)
             if not raw:
                 return
+            hear(raw)
             self.audio_at = time.time()
             if self.is_deaf():
                 pending = np.zeros(0, dtype=np.float32)
@@ -453,6 +456,7 @@ def record_until_silence(vad, mic, max_seconds):
         raw = mic.stdout.read(VAD_WINDOW * 2)
         if not raw:
             break
+        hear(raw)
         audio.append(raw)
         pending = np.concatenate([pending, np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768])
         while len(pending) >= VAD_WINDOW:
