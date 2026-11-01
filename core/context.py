@@ -12,20 +12,35 @@ import time
 FRESH = 90
 
 MORE = re.compile(r"^(?:(?:a |just a )?(?:little|bit|tiny bit|touch)(?: bit)? more|more|even more|more please|"
+                  r"(?:a lot|lots|way|much|a bit|a little) more|"
                   r"some more|keep going|further|again please|one more time|a little further)$", re.IGNORECASE)
-LESS = re.compile(r"^(?:(?:a |just a )?(?:little|bit|tiny bit|touch)(?: bit)? less|less|(?:that'?s |way )?too much|"
-                  r"the other way|other way|not that much|go back a bit|back a bit|too far)$", re.IGNORECASE)
+LESS = re.compile(r"^(?:no,? |oops,? )?(?:(?:a |just a )?(?:little|bit|tiny bit|touch)(?: bit)? less|less|"
+                  r"(?:that'?s |way |it'?s )?too (?:much|far|loud|quiet|bright|dark|big|small|fast|slow)|"
+                  r"the other way|other way|not that much|go back a bit|back a bit)$", re.IGNORECASE)
 VALUE = re.compile(r"^(?:no,? |actually,? |make (?:it|that) |set it to |change it to |put it at |"
-                   r"make it |go to )*(\d+)(?: ?(?:percent|%))?(?: instead| please)?$", re.IGNORECASE)
+                   r"make it |go to )*(\d+|[a-z]+(?:[ -][a-z]+)?)(?: ?(?:percent|%))?(?: instead| please)?$",
+                   re.IGNORECASE)
 TOO = re.compile(r"^(?:and |also |same for |now |do the same for |and also |same with |the same for )+"
                  r"(?:the |my )?(.+?)(?: too| as well| also)?$|^(?:and )?(?:the |my )?(.+?) (?:too|as well)$",
                  re.IGNORECASE)
 OTHER = re.compile(r"^(?:no,? )?(?:i meant )?(?:the other(?: one)?|other one|the second one instead)$", re.IGNORECASE)
 
 # "volume up" <-> "volume down": the words swapped for "too much" / "the other way".
-SWAP = [("up", "down"), ("in", "out"), ("next", "previous"), ("forward", "back"), ("louder", "quieter"),
-        ("brighter", "darker"), ("faster", "slower"), ("high", "low"), ("bigger", "smaller"), ("on", "off"),
-        ("left", "right"), ("top", "bottom")]
+SWAP = [("up", "down"), ("next", "previous"), ("louder", "quieter"), ("brighter", "darker"), ("faster", "slower"),
+        ("high", "low"), ("bigger", "smaller"), ("left", "right"), ("top", "bottom")]
+# Also everyday little words ("in the hall", "back to"): swapped only when none of the above is there.
+SWAP_WEAK = [("on", "off"), ("in", "out"), ("forward", "back")]
+NUMBERS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+                                       "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+NUMBERS.update({w: 10 * i for i, w in enumerate("_ _ twenty thirty forty fifty sixty seventy eighty ninety".split())
+                if w != "_"})
+NUMBERS["hundred"] = 100
+# Not a name: "thank you too", "good night too", "and all apps too", "and please"
+NOT_A_NAME = re.compile(r"\b(?:me|you|i|it|that|this|us|them|we|him|her|he|she|they|same|so|thanks?|love|night|"
+                        r"morning|evening|day|please|all|everything|every|both|everyone|anything)\b", re.IGNORECASE)
+# What follows "open" / "close" is the name, when JARVIS didn't say which part it was ("open firefox")
+NAMED = re.compile(r"^(?:open|close|quit|kill|launch|start)\s+(?:the |my )?(.+)$", re.IGNORECASE)
+ADDED = re.compile(r"^(?:add|put)\s+(.+?)\s+(?:to|on|in)\s+(?:my |the )?\S", re.IGNORECASE)
 # What "a bit more" can repeat: steps, not one-off actions (no "more" after "shut down").
 STEP = re.compile(r"\b(?:up|down|louder|quieter|in|out|next|previous|forward|back|brighter|darker|scroll|skip|"
                   r"high|low|bigger|smaller|faster|slower)\b", re.IGNORECASE)
@@ -46,6 +61,9 @@ class Context:
         self.choice = None  # (options, picked) from the last "X, or Y?"
 
     def done(self, text, value=None):
+        if value is None:
+            m = NAMED.match(text) or ADDED.match(text)
+            value = m and m.group(1)
         self.text, self.value, self.at = text, value, time.time()
 
     def forget(self):
@@ -62,7 +80,7 @@ class Context:
         said = said.strip().rstrip(".!?")
         if OTHER.match(said) and self.choice and self.choice[1].lower() == self.text.lower():
             options, picked = self.choice  # (only while the pick is still the last thing done)
-            others = [o for o in options if o != picked]
+            others = [o for o in options if o.lower() != picked.lower()]
             return others[0] if len(others) == 1 else None
         if MORE.match(said):
             return self.text if STEP.search(self.text) and not ONE_OFF.match(self.text) else None
@@ -72,8 +90,14 @@ class Context:
             swapped = _swap(self.text)
             return swapped if swapped != self.text else None
         m = VALUE.match(said)
-        if m and self.value and self.value.isdigit():
-            return re.sub(r"\b%s\b" % re.escape(self.value), m.group(1), self.text, count=1)
+        n = m and _number(m.group(1))
+        if n is not None and self.value and self.value.isdigit():
+            spot = r"\b%s\b" % re.escape(self.value)
+            if len(re.findall(spot, self.text)) != 1:
+                return None  # "make it seventy" yes; "set volume to 40 in 40 seconds": which 40?
+            if n > 100 and re.search(r"volume|brightness|percent|%", self.text, re.IGNORECASE):
+                return None  # not "volume to 400"
+            return re.sub(spot, str(n), self.text, count=1)
         m = TOO.match(said)
         if m and self.value and not self.value.isdigit():
             new = (m.group(1) or m.group(2)).strip()
@@ -83,9 +107,8 @@ class Context:
             elif VERB.match(new):
                 return None  # "now open youtube" after "open chrome": its own request
             # a name, not a sentence ("me too", "i love you too" aren't "close me")
-            if (new.lower() != self.value.lower() and len(new.split()) <= 3
-                    and not re.match(r"^(?:me|you|i|it|that|this|us|them|we|same|so)\b", new, re.IGNORECASE)):
-                return re.sub(re.escape(self.value), new, self.text, count=1, flags=re.IGNORECASE)
+            if new.lower() != self.value.lower() and len(new.split()) <= 3 and not NOT_A_NAME.search(new):
+                return re.sub(re.escape(self.value), lambda _: new, self.text, count=1, flags=re.IGNORECASE)
         return None
 
 
@@ -97,6 +120,22 @@ def sounds_like_follow_up(said):
 
 
 def _swap(text):
-    pairs = dict(SWAP + [(b, a) for a, b in SWAP])
-    return re.sub(r"\b(%s)\b" % "|".join(pairs), lambda m: pairs[m.group(1).lower()], text, count=1,
-                  flags=re.IGNORECASE)
+    for swap in (SWAP, SWAP_WEAK):  # "scroll down in chrome": down, not in
+        pairs = dict(swap + [(b, a) for a, b in swap])
+        new = re.sub(r"\b(%s)\b" % "|".join(pairs), lambda m: pairs[m.group(1).lower()], text, count=1,
+                     flags=re.IGNORECASE)
+        if new != text:
+            return new
+    return text
+
+
+def _number(said):
+    """"70" or "seventy" or "twenty five" -> 70 / 25, else None."""
+    if said.isdigit():
+        return int(said)
+    words = re.split(r"[ -]", said.lower())
+    if not all(w in NUMBERS for w in words) or len(words) > 2:
+        return None
+    if len(words) == 2 and not (NUMBERS[words[0]] >= 20 and NUMBERS[words[0]] % 10 == 0 and NUMBERS[words[1]] < 10):
+        return None
+    return sum(NUMBERS[w] for w in words)
