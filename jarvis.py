@@ -80,7 +80,9 @@ OPEN_CLAUDE = {"open claude terminal", "open claude in the terminal", "open clau
                "open claude in a terminal", "open claude code in the terminal", "open claude code in terminal",
                "open claude code terminal"}
 OPEN_CLAUDE_VSCODE = {"open claude", "open claude code", "talk to claude", "open claude in vs code",
-                      "open claude in vscode", "open claude code in vs code", "open claude code in vscode"}
+                      "open claude in vscode", "open claude code in vs code", "open claude code in vscode",
+                      "open claude in this", "open claude here", "open claude in vs code in this",
+                      "open claude in vscord", "open claude in vscord in this"}
 # /mute <what>: the three things that can be muted, and the words for each.
 MUTE_WHAT = {"voice": "voice", "speech": "voice", "me": "voice", "jarvis": "voice", "yourself": "voice",
              "mic": "mic", "microphone": "mic", "input": "mic",
