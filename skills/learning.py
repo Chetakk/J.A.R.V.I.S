@@ -3,6 +3,7 @@ asked, and what it took back as wrong. It learns without asking, so this is how 
 import time
 
 from core import learned
+from core.intent import LEAVE
 from skills.base import Skill
 
 NEW = r"(?:phrases?|sentences?|wordings?|words?|things?|commands?|ways of saying things)"
@@ -57,15 +58,16 @@ class Learning(Skill):
         by_phrase = {}
         for r in fresh:
             by_phrase.setdefault(r["means"], []).append(r["said"])
-        first = fresh[-1]
+        first = next((r for r in reversed(fresh) if r["means"] != LEAVE), None)
         count = "%d new %s" % (len(fresh), "way" if len(fresh) == 1 else "ways")
         things = "%d %s" % (len(by_phrase), "thing" if len(by_phrase) == 1 else "things")
-        self.say("I learned %s of saying %s. For example, %s now means %s.%s" % (
-            count, things, first["said"], first["means"],
-            " I also took back %d I'd got wrong." % len(back) if back else ""))
+        example = (" For example, %s now means %s." % (first["said"], first["means"]) if first else
+                   " They're all things I now leave to Claude, like %s." % fresh[-1]["said"])
+        self.say("I learned %s of saying %s.%s%s" % (count, things, example,
+                                                     " I also took back %d I'd got wrong." % len(back) if back else ""))
         lines = []
         for phrase, says in by_phrase.items():
-            lines.append("**%s**" % phrase)
+            lines.append("**%s**" % ("Left for Claude" if phrase == LEAVE else phrase))
             lines += ["- %s" % s for s in says]
         self.j.show({"title": "What I've learned",
                      "text": "\n".join(lines) + ("\n\n" + self._took_back(back) if back else "") + self._score()})

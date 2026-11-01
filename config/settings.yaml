@@ -176,6 +176,7 @@ teaching:
   every: 3            # hours between passes (at most two questions to Claude each)
   phrases: 6          # phrases per pass to write wordings for
   wordings: 6         # wordings asked for per phrase
+  near: 3             # sentences per phrase that sound close but mean something else ("turn it down" by "volume up")
   misses: 6           # things you said to work out per pass
   days: 30            # how far back it looks at what you said
   doubt: 0.06         # a match this close above the threshold counts as only just placed

@@ -1011,7 +1011,8 @@ class Jarvis:
         if not self.intents or self._rewording or self.from_claude:
             return False
         (best, score), (other, second) = (self.intents.candidates(text) + [(None, 0.0)] * 2)[:2]
-        if not best or best.startswith("/") or OPEN_QUESTION.search(text) or len(text.split()) < 2:
+        if not best or best.startswith("/") or OPEN_QUESTION.search(text) or len(text.split()) < 2 \
+                or self.intents.left(text):  # (taught as near one of its phrases but meaning none of them)
             return False
         threshold = (self.settings.get("intents") or {}).get("threshold", 0.72)
         if second >= UNSURE and score - second < 0.06 and not other.startswith("/"):  # two close meanings

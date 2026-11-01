@@ -22,6 +22,9 @@ DOING = re.compile(r"^(?:(?:i want you to|i need you to|i'd like you to|i want t
                    r"go ahead and|let's) )?(?:set|add|make|create|start|new|put|save|schedule|book|write|record|change|"
                    r"switch|adjust|connect|join|install|remind|(?:give|get) me an?|(?:i'd like|i want|i need) an?)\b", re.I)
 ASK_FOR_VALUE = "ask for the value"
+# A learned wording that "means" this is near one of JARVIS's phrases but means none of them ("what's the volume
+# of a sphere" by "volume up"): when it's the nearest, the matcher leaves the request alone, for Claude.
+LEAVE = "(leave it)"
 ASKING = re.compile(r"^(?:what|what's|which|how|show|list|read|tell me|any|is|am|are|where|when|who|did|do i|does|"
                     r"has|have i)\b", re.I)
 
@@ -170,7 +173,7 @@ class IntentMatcher:
         intents.update(intents.pop(ASK_FOR_VALUE, None) or {})
         for said, target in (learned or {}).items():
             intents[target] = list(intents.get(target) or []) + [said]
-        own = {k: set(v or []) for k, v in intents.items()}  # only this file's wordings get the word-for-word check
+        own = {k: set(v or []) for k, v in intents.items() if k != LEAVE}  # only these get the word-for-word check
         for target, says in (extra or {}).items():
             intents[target] = list(intents.get(target) or []) + list(says)
         self.targets, self.examples = [], []  # one row each: the phrase, and the wording that stands for it
@@ -230,7 +233,8 @@ class IntentMatcher:
 
     def learn(self, said, target):
         """Add one wording while running (word for word, and by meaning); no rebuild needed."""
-        self.exact[_norm(said)] = target
+        if target != LEAVE:  # (leaving it alone word for word would stop nothing: only by meaning counts)
+            self.exact[_norm(said)] = target
         self.mine.add(_norm(said))
         self.targets.append(target)
         self.examples.append(said)
@@ -286,16 +290,24 @@ class IntentMatcher:
         scores = self.matrix @ self.embed([text])[0]
         out = []
         for i in np.argsort(-scores):
-            if self.targets[i] not in [t for t, _ in out] and not self._against(text, self.targets[i]):
+            if self.targets[i] != LEAVE and self.targets[i] not in [t for t, _ in out] \
+                    and not self._against(text, self.targets[i]):
                 out.append((self.targets[i], float(scores[i])))
                 if len(out) == n:
                     break
         return out
 
+    def left(self, text):
+        """True if the nearest row is a "leave it" one: this is for Claude, so don't ask "did you mean" either."""
+        scores = self.matrix @ self.embed([text])[0]
+        best = next((i for i in np.argsort(-scores) if not self._against(text, self.targets[i])), None)
+        return best is not None and self.targets[best] == LEAVE
+
     def match(self, text):
         """(known phrase, score), or (None, best score) when nothing is close enough."""
         phrase, score, best = self.pick(text, self.matrix @ self.embed([text])[0])
-        self.nearest = (self.targets[best], score) if best is not None else (None, 0.0)  # for the miss log
+        self.nearest = (self.targets[best], score) if best is not None and self.targets[best] != LEAVE \
+            else (None, 0.0)  # for the miss log
         self.winner = self.examples[best] if phrase else None
         return phrase, score
 
@@ -310,12 +322,14 @@ class IntentMatcher:
         # The runner-up must be clearly worse unless it points at the same phrase.
         rival = next((i for i in order if self.targets[i] != self.targets[best] and fits(i)), None)
         score = float(scores[best])
-        if score < self.threshold or (rival is not None and score - scores[rival] < self.margin):
+        if self.targets[best] == LEAVE or score < self.threshold or (
+                rival is not None and score - scores[rival] < self.margin):
             return None, score, best
         return self.targets[best], score, best
 
     def predict(self, texts, vectors):
-        """[(phrase or None, the wording that won or None)] for many sentences whose vectors are already known:
+        """[(phrase or None, the wording that won or None)] for many sentences whose vectors are already known
+        (a "leave it" row that won gives (None, it)):
         what early() then match() would give, without embedding anything (core/heldout.py)."""
         out, all_scores = [], vectors @ self.matrix.T
         for text, scores in zip(texts, all_scores):
@@ -324,5 +338,6 @@ class IntentMatcher:
                 out.append((phrase, text))
                 continue
             phrase, _, best = self.pick(text, scores)
-            out.append((phrase, self.examples[best]) if phrase else (None, None))
+            left = best is not None and self.targets[best] == LEAVE  # (a "leave it" row did that: it can be blamed)
+            out.append((phrase, self.examples[best]) if phrase or left else (None, None))
         return out

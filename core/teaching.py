@@ -33,7 +33,7 @@ import numpy as np
 import yaml
 
 from core import heldout, learned, misslog, outcomes
-from core.intent import ASK_FOR_VALUE, _norm, wrong_kind
+from core.intent import ASK_FOR_VALUE, LEAVE, _norm, wrong_kind
 from core.registry import opposite_direction
 from core.store import load_json, save_json
 from skills.notes import SECRET
@@ -74,6 +74,12 @@ Rules:
   has to say what it acts on, even inside a longer sentence.
 - Stay on the same thing the phrase is about. A card on screen is not a window, a note is not a reminder.
 
+Also give, under "not", up to %d sentences that sound close to the phrase but must NOT do it, each with what it
+does mean: the other phrase from this list or one JARVIS surely has ("volume down" for "volume up"), or "none" when
+it's a question or chat for you, or something JARVIS can't do. The tricky ones: the opposite way round, asking
+instead of doing ("what's the volume at"), the same word about something else ("the volume of a sphere").
+Same rules for these: spoken, lower case, no values in them.
+
 A phrase may show "knows:", the wordings JARVIS already has, and "they said:", how this person really says it.
 Write new ways, in that person's style. It is your call when a phrase has enough: set "enough" to true when
 more wordings would add nothing, and JARVIS won't ask about that phrase again. Give no wordings for a phrase
@@ -82,7 +88,8 @@ you have nothing safe to say for.
 Phrases:
 %s
 
-Reply with one JSON object, nothing else: {"the phrase": {"wordings": ["wording", "wording"], "enough": false}, ...}."""
+Reply with one JSON object, nothing else: {"the phrase": {"wordings": ["wording", "wording"], "not": {"sentence":
+"what it means, or none"}, "enough": false}, ...}."""
 
 MEANT = """Someone said each of these to JARVIS, a voice assistant. It didn't understand them, or only just did.
 
@@ -110,7 +117,7 @@ def fit_to_send(text):
 def known(matcher=None, path=None):
     """Every wording and phrase the matcher already holds, word for word -> the phrase it runs."""
     if matcher is not None:
-        out = {_norm(t): t for t in matcher.targets}
+        out = {_norm(t): t for t in matcher.targets if t != LEAVE}
         out.update(matcher.exact)
         return out
     with open(path, encoding="utf-8") as f:
@@ -173,15 +180,20 @@ def parse(reply, keys):
     return {back[k.lower()]: v for k, v in (got.items() if isinstance(got, dict) else ()) if k.lower() in back}
 
 
-def ask_wordings(once, phrases, wanted=6, notes=None):
+def ask_wordings(once, phrases, wanted=6, notes=None, near=3, nots=None):
     """({phrase: [wordings]}, {phrases Claude says have enough}). once(prompt, system) -> its reply text.
-    notes: {phrase: what to show beside it} (what JARVIS knows already, how you really say it)."""
+    notes: {phrase: what to show beside it} (what JARVIS knows already, how you really say it).
+    nots: a dict to fill with {sentence close to a phrase: what it means instead, or "none"}."""
     lines = "\n".join("- %s%s" % (p, "  (%s)" % notes[p] if notes and notes.get(p) else "") for p in phrases)
     says, enough = {}, set()
-    for p, v in parse(once(RULES % (wanted, lines), SYSTEM), phrases).items():
+    for p, v in parse(once(RULES % (wanted, near, lines), SYSTEM), phrases).items():
         if isinstance(v, dict):
             if v.get("enough") is True:
                 enough.add(p)
+            if nots is not None and isinstance(v.get("not"), dict):
+                for s, means in list(v["not"].items())[:near]:
+                    if isinstance(means, str) and means.strip().lower() != p.lower():
+                        nots[str(s).strip().lower().rstrip("?.!")] = means.strip()
             v = v.get("wordings")
         if isinstance(v, list) and v:
             says[p] = [str(w).strip().lower().rstrip("?.!") for w in v]
@@ -267,6 +279,25 @@ def pulls(jarvis, wording, phrase):
     return None
 
 
+def stopped(jarvis, wording):
+    """A known sentence JARVIS handles itself that a "leave it" row for this wording would stop, or None: one of
+    tests/phrases.yaml's, near enough that the new row would beat (or nearly tie) the phrase it reaches now."""
+    matcher = jarvis.intents
+    texts, matrix, cases = _guarded_sentences(matcher)
+    if not texts:
+        return None
+    scores = matrix @ matcher.embed([wording])[0]
+    for i in scores.argsort()[::-1]:
+        if scores[i] < NEARLY:
+            return None
+        if cases[texts[i]] == "claude":
+            continue  # going to Claude anyway
+        best = (matcher.candidates(texts[i], n=1) + [(None, 0.0)])[0]
+        if best[0] and scores[i] > best[1] - matcher.margin:
+            return texts[i]
+    return None
+
+
 def why_not(jarvis, wording, phrase, data=None):
     """Why this wording can't be taught, or "" when it can. Learning happens without asking, so anything already
     spoken for is left alone."""
@@ -275,11 +306,14 @@ def why_not(jarvis, wording, phrase, data=None):
         return "not worth learning (too long, a number or secret in it, already known, or found wrong)"
     if _norm(wording) in heldout.sentences(jarvis.intents):
         return "it's one of the held-out sentences, which are never taught"
-    if opposite_direction(wording, phrase) or wrong_kind(wording, phrase):
+    if phrase != LEAVE and (opposite_direction(wording, phrase) or wrong_kind(wording, phrase)):
         return "it goes the other way from “%s”" % phrase
     takes = claimed(jarvis, wording)
     if takes:
         return "%s already takes it" % takes
+    if phrase == LEAVE:  # near a phrase, meaning none: it mustn't stop what JARVIS rightly does itself
+        kept = stopped(jarvis, wording)
+        return "it would stop “%s” working" % kept if kept else ""
     close = dict(jarvis.intents.candidates(wording, n=8))
     best, score = (list(close.items()) + [(None, 0.0)])[0]
     if best and best != phrase and score >= jarvis.intents.threshold \
@@ -420,6 +454,18 @@ def wanted(jarvis, state, rows, cfg):
     return order[:cfg.get("phrases", 6)]
 
 
+def near_misses(jarvis, nots):
+    """[(sentence, the phrase it means or LEAVE)] from Claude's "not" sentences: tidy ones only, and only a phrase
+    JARVIS really has (any other answer is dropped, not guessed at)."""
+    have, mine = known(jarvis.intents), offered(jarvis)
+    out = []
+    for sentence, means in nots.items():
+        target = LEAVE if means.lower() == "none" else have.get(_norm(means), means if means in mine else None)
+        if target and tidy(target, [sentence], have):
+            out.append((sentence, target))
+    return out
+
+
 def _notes(jarvis, want, rows):
     """What to show Claude beside each phrase: the ways JARVIS knows already, and how you really say it."""
     out = {}
@@ -465,7 +511,9 @@ def run(jarvis, cfg=None):
 
     want = wanted(jarvis, state, rows, cfg)
     if want:
-        says, enough = ask_wordings(once, want, cfg.get("wordings", 6), _notes(jarvis, want, rows))
+        nots = {}
+        says, enough = ask_wordings(once, want, cfg.get("wordings", 6), _notes(jarvis, want, rows),
+                                    cfg.get("near", 3), nots)
         for p in want:
             entry = state["phrases"].setdefault(p, {})
             entry["asked"] = entry.get("asked", 0) + 1
@@ -478,6 +526,11 @@ def run(jarvis, cfg=None):
         learnt += kept
         if kept:
             done.append("%d new wordings for %d phrases" % (len(kept), len({p for _, p in kept})))
+        kept, refused = teach(jarvis, near_misses(jarvis, nots), "near one of mine, but different")
+        _log(kept, refused)
+        learnt += kept
+        if kept:
+            done.append("%d near but different" % len(kept))
 
     score = check(jarvis, state, before, learnt) if learnt else None
     if score:
