@@ -498,6 +498,7 @@ class Desktop:
             return ((w.text or "")[:limit], "terminal" in w.wm_class) if w else ("", False)
         monkeypatch.setattr(accessibility, "window_text", window_text)
         monkeypatch.setattr(accessibility, "controls", lambda pid, title="", seconds=2.0, limit=300: [])
+        monkeypatch.setattr(accessibility, "text_boxes", lambda pid, title="", seconds=2.0, limit=40: [])
 
 
 class FakeClaude:

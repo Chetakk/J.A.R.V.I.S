@@ -126,6 +126,83 @@ def controls(pid, title="", seconds=2.0, limit=300):
     return out
 
 
+class TextBox:
+    """A box you can type into: where it is on screen (x, y, w, h), and whether the cursor is already in it."""
+
+    def __init__(self, name, role, multi_line, box, focused, acc):
+        self.name, self.role, self.multi_line, self.box, self.focused, self.acc = (
+            name, role, multi_line, box, focused, acc)
+
+    def __repr__(self):
+        return "<TextBox %s %r%s>" % (self.role, self.name, " focused" if self.focused else "")
+
+    def focus(self):
+        """True if the app put the cursor in it."""
+        try:
+            return bool(self.acc.grab_focus())
+        except Exception:
+            return False
+
+
+SEARCHY = re.compile(r"\b(search|find|filter|jump to|go to|url|address|quick ?switch)", re.IGNORECASE)
+
+
+def text_boxes(pid, title="", seconds=2.0, limit=40):
+    """The boxes you can type into in that window, on screen and not for passwords ([TextBox], tree order)."""
+    Atspi = _atspi()
+    frame = Atspi and _frame(Atspi, pid, title)
+    if not frame:
+        return []
+    deadline = time.time() + seconds
+    out = []
+
+    def walk(acc, depth):
+        if depth > 60 or time.time() > deadline or len(out) >= limit:
+            return
+        try:
+            states = acc.get_state_set()
+            if not states.contains(Atspi.StateType.SHOWING):
+                return
+            role = acc.get_role_name()
+            if states.contains(Atspi.StateType.EDITABLE) and role != "password text":
+                r = acc.get_extents(Atspi.CoordType.SCREEN)
+                attrs = acc.get_attributes() or {}
+                name = " ".join(s for s in (acc.get_name(), acc.get_description(), attrs.get("placeholder-text"))
+                                if s)
+                out.append(TextBox(re.sub(r"\s+", " ", name).strip(), role,
+                                   states.contains(Atspi.StateType.MULTI_LINE), (r.x, r.y, r.width, r.height),
+                                   states.contains(Atspi.StateType.FOCUSED), acc))
+                return  # what's inside an editable box is its text, not more boxes
+            for i in range(acc.get_child_count()):
+                walk(acc.get_child_at_index(i), depth + 1)
+        except Exception:
+            pass
+
+    walk(frame, 0)
+    return out
+
+
+def main_text_box(boxes):
+    """The box you'd write in (a chat's message box, an editor's page), not a search box; None if there's
+    none. The one the cursor is already in wins, unless it's a search box."""
+    def score(b):
+        x, y, w, h = b.box
+        if w <= 0 or h <= 0:
+            return None
+        if SEARCHY.search(b.name):
+            return None
+        if b.focused:
+            return 1e9
+        s = w * h / 1000 + y / 10  # bigger, and lower down (chat boxes sit at the bottom)
+        if b.multi_line:
+            s += 500
+        if re.search(r"\b(message|reply|write|compose|comment|chat)", b.name, re.IGNORECASE):
+            s += 1000
+        return s
+    scored = [(s, b) for b in boxes for s in [score(b)] if s is not None]
+    return max(scored, key=lambda sb: sb[0])[1] if scored else None
+
+
 def norm(words):
     """"Find…" → "find", "_File" → "file": how a control's name is said."""
     words = re.sub(r"\.\.\.|…|[_&]", "", (words or "").lower())

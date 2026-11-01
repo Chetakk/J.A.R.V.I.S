@@ -165,7 +165,7 @@ ask for the value:
   search maps: [search google maps, look something up on the map, find a place on the map]
   get directions: [navigate somewhere, how do i get somewhere, directions, give me directions, navigate]
   find a file: [find my file, search my files, look for a file, find a document, look through my files]
-  type something: [type this, type for me, write something for me, type some text]
+  type something: [type this, write something for me, type some text]
   go to a workspace: [switch workspace, change workspace, switch workspaces, go to another workspace]
   move this window: [move this to another workspace, move this window somewhere, put this window somewhere else, move the window]
   change the resolution: [set the resolution, set the screen resolution, change the screen resolution, adjust the resolution]

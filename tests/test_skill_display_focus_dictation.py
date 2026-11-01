@@ -225,3 +225,77 @@ def test_typing_with_jarvis_in_front_asks_you_to_click_first(jv):
     jv.do("type hello")
     assert jv.said == ["Click where you want it typed first."]
     assert not jv.desktop.did("keys") and not pasted(jv)
+
+
+# --- typing into the main text box ---
+
+class Grabs:
+    """A box's accessible: takes focus (or won't), and remembers being asked."""
+
+    def __init__(self, takes=True):
+        self.takes, self.grabbed = takes, False
+
+    def grab_focus(self):
+        self.grabbed = True
+        return self.takes
+
+
+def boxes(monkeypatch, *found):
+    from system import accessibility
+    monkeypatch.setattr(accessibility, "text_boxes", lambda pid, title="", seconds=2.0, limit=40: list(found))
+
+
+def discord_boxes(takes=True):
+    from system import accessibility
+    search = accessibility.TextBox("Search", "entry", False, (1500, 40, 240, 28), False, Grabs())
+    message = accessibility.TextBox("Message #general", "entry", True, (300, 980, 1200, 44), False, Grabs(takes))
+    return search, message
+
+
+def test_type_in_discord_switches_there_and_dictates_into_the_message_box(jv, monkeypatch):
+    jv.desktop.add("(2) Discord | #general", "vesktop vesktop", pid=42)
+    jv.desktop.add("Untitled - gedit", "gedit Gedit")
+    search, message = discord_boxes()
+    boxes(monkeypatch, search, message)
+    jv.do("type in discord")
+    assert jv.desktop.did("focus") == ["(2) Discord | #general"]
+    assert message.acc.grabbed and not search.acc.grabbed
+    jv.do("see you at five")
+    jv.do("send it")
+    jv.do("stop dictation")
+    assert [t for t in pasted(jv) if t] == ["see you at five "]
+    assert jv.desktop.did("keys") == ["ctrl+v", "Return"]
+
+
+def test_a_box_that_wont_take_focus_is_clicked(jv, monkeypatch):
+    jv.desktop.add("(2) Discord | #general", "vesktop vesktop", pid=42)
+    boxes(monkeypatch, *discord_boxes(takes=False))
+    jv.do("type: on my way")
+    assert jv.desktop.did("click") == [(900, 1002, 1)]
+    assert pasted(jv)[0] == "on my way"
+
+
+def test_the_box_youre_already_in_is_left_alone(jv, monkeypatch):
+    from system import accessibility
+    jv.desktop.add("(2) Discord | #general", "vesktop vesktop", pid=42)
+    search, message = discord_boxes()
+    reply = accessibility.TextBox("Reply", "entry", True, (300, 600, 600, 30), True, Grabs())
+    boxes(monkeypatch, search, message, reply)
+    jv.do("type")
+    assert not message.acc.grabbed and not reply.acc.grabbed
+    assert jv.says("Dictation on")
+
+
+def test_type_in_an_app_thats_not_open_types_the_words(jv):
+    jv.desktop.add("Untitled - gedit", "gedit Gedit")
+    jv.do("type in lowercase")
+    assert pasted(jv)[0] == "in lowercase"
+
+
+def test_the_main_box_is_never_a_search_box():
+    from system import accessibility
+    search, message = discord_boxes()
+    focused_search = accessibility.TextBox("Search", "entry", False, (1500, 40, 240, 28), True, None)
+    assert accessibility.main_text_box([search, message]) is message
+    assert accessibility.main_text_box([focused_search, message]) is message
+    assert accessibility.main_text_box([search]) is None
