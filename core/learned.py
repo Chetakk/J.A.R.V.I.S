@@ -111,3 +111,10 @@ def worth_learning(said, phrase, data, longest=10):
     s = said.lower().strip(" .!?")
     return (s != phrase.lower().strip(" .!?") and not re.search(r"\d", s) and 1 < len(s.split()) <= longest
             and s not in data["wordings"] and s not in data["declined"] and phrase not in data["wrong"].get(s, ()))
+
+
+def points(said, phrase):
+    """ "open claude in this" -> "open day-tracker project in vs code": "this" was the project on screen then.
+    A wording that points at what's on screen only meant that phrase once."""
+    here = r"\b(?:this|that|it|here|there|these|those)\b"
+    return bool(re.search(here, said.lower())) and not re.search(here, phrase.lower())

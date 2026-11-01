@@ -1089,7 +1089,8 @@ class Jarvis:
         """Claude turned `said` into a JARVIS phrase that worked: learn the wording, so next time needs no Claude.
         settings learn: ask (default; you said to ask before saving), quiet, or off."""
         mode = self.settings.get("learn", "ask")
-        if mode == "off" or not self.intents or not learned.worth_learning(said, phrase, learned.load()):
+        if mode == "off" or not self.intents or not learned.worth_learning(said, phrase, learned.load()) \
+                or learned.points(said, phrase):  # Claude read "this" off the screen: right only that once
             return
         if mode == "ask" and not self.ask("Should I remember that \u201c%s\u201d means %s?" % (said, phrase)):
             learned.decline(said)  # never asked about again
