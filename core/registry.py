@@ -40,12 +40,18 @@ def _names_regex(names):
     return r"(?:%s)(?![a-z])" % "|".join(sorted(alts, key=len, reverse=True))
 
 
-def clean(text, names=("jarvis",)):
-    """Strip the assistant's name, politeness and punctuation; keeps the original case."""
+def clean(text, names=("jarvis",), heard_as=()):
+    """Strip the assistant's name, politeness and punctuation; keeps the original case.
+    heard_as: what speech recognition writes instead of a name ("asset" for "EV"); only taken off the very start,
+    and only when more follows ("asset show chat" -> "show chat"); said alone it's the name alone ("")."""
     if isinstance(names, str):
         names = [names]
     name = _names_regex(names)
     text = text.strip()
+    if heard_as:
+        if re.fullmatch(r"%s[\s,.!?]*" % _names_regex(heard_as), text, re.IGNORECASE):
+            return ""  # just the name, misheard: as if you'd only said "Jarvis"
+        text = re.sub(r"^%s[\s,.!?]+(?=\w)" % _names_regex(heard_as), "", text, flags=re.IGNORECASE)
     # Speech can pick up a stray word or two before the name ("page arguments. Hey Jarvis, ...").
     # Only cut when the name is used to address the assistant, not when it's part of a question.
     m = re.search(r"(?:[.!?,]\s*|\b%s[\s,]+)%s(?!%s)[\s,.!?]*" % (_GREETING, name, NAME_AS_THING), text[:40],

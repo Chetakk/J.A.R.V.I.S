@@ -392,7 +392,7 @@ class Jarvis:
 
         self.memory.seen()
         self._private = False
-        text = clean(raw, self.names)
+        text = clean(raw, self.names, self.settings.get("heard_as") or ())
         if not text:
             self.speaker.say(["Yes?", "I'm listening.", "Yeah, what's up?", "Go ahead."])
             return True
