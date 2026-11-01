@@ -133,8 +133,8 @@ class UI:
         self.mutes = {"voice": False, "mic": False, "speaker": False}  # kept up to date by set_mutes()
         self._build_orb()
         self._build_panel()
-        from ui.card import Card  # needs the names above, so imported here
-        self.card = Card(lambda: self._orb_xy, self.panel.get_visible, self.on_command)  # a choice = said it
+        from ui.card import Deck  # needs the names above, so imported here
+        self.card = Deck(lambda: self._orb_xy, self.panel.get_visible, self.on_command)  # a choice = said it
         self._build_tray()
         if self.orb_mode is True:
             self.orb.show_all()
@@ -161,21 +161,34 @@ class UI:
         GLib.idle_add(self._set_orb, on)
 
     def show_card(self, card=None):
-        """Show a card ({"title", "text" markdown, "image" path}); None shows the last one again."""
+        """Open a card ({"title", "text" markdown, "image" path}) beside any already up; one with the id of a card
+        on screen updates it in place. None shows the last one again."""
         def show():
             self._quiet_since = None  # full time on screen; live cards and timers stay while they update
             return self.card.show(card)
         GLib.idle_add(show)
 
-    def close_card(self):
-        GLib.idle_add(self.card.close)
+    def show_cards(self, cards):
+        """Several cards at once, side by side."""
+        def show():
+            self._quiet_since = None
+            return self.card.show_many(cards)
+        GLib.idle_add(show)
+
+    def close_card(self, card_id=None, every=False):
+        """Close the newest card, the one with `card_id`, or every card (pinned copies stay)."""
+        GLib.idle_add(lambda: self.card.close(card_id, every))
 
     def card_visible(self):
         return self.card.visible
 
+    def card_open(self, card_id):
+        """Is the card with this id on screen (newest or not)?"""
+        return card_id in self.card.ids()
+
     def current_card(self):
-        """The card on screen (or last shown), or None."""
-        return self.card.last
+        """The newest card on screen (or the last shown), or None."""
+        return self.card.current()
 
     def card_step(self, delta):
         """-1: the previous card from the history, +1: the next one."""
@@ -476,7 +489,7 @@ class UI:
         if self.panel.get_visible() and self.entry.get_text():
             return True
         _screen, px, py = Gdk.Display.get_default().get_default_seat().get_pointer().get_position()
-        for w in (self.panel, self.card.win):
+        for w in [self.panel] + self.card.windows():
             gw = w.get_window()
             if w.get_visible() and gw:
                 _ok, x, y = gw.get_origin()
@@ -487,7 +500,7 @@ class UI:
     def _auto_hide(self, active):
         """While JARVIS is busy or you're on the chat or card, nothing hides. After a quiet spell the card goes
         (card_hide_after), then the chat (chat_hide_after); in auto mode the orb follows orb_hide_after seconds
-        after both are gone, and shows while either is up. Pinned copies stay."""
+        after both are gone, and shows while either is up. Every card goes together; pinned copies stay."""
         chat, card = self.panel.get_visible(), self.card.visible
         auto = self.orb_mode == "auto"
         if active or self._touching():
@@ -501,7 +514,7 @@ class UI:
         now = time.time()
         self._quiet_since = self._quiet_since or now
         if card and now - self._quiet_since >= self.card_hide_after:
-            self.card.close()
+            self.card.close(every=True)
             card = False
         if chat and now - self._quiet_since >= self.chat_hide_after:
             self._set_chat(False)

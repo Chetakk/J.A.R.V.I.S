@@ -478,9 +478,9 @@ class Tasks(Skill):
             self._show()
 
     def _show(self, always=False):
-        """The task's card: shown when asked, else only updated while it's the card on screen."""
+        """The task's card: shown when asked, else only updated while it's on screen."""
         task, ui = self.task, self.j.ui
-        if task and (always or ui and ui.card_visible() and (ui.current_card() or {}).get("id") == "task"):
+        if task and (always or ui and ui.card_open("task")):
             self.j.show(tasks.card(task))
 
 

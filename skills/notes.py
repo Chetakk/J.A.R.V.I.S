@@ -126,7 +126,7 @@ class Notes(Skill):
             (r"(?:change|update|edit|correct) %s%s (?:to|so it says) (.+)" % (_ITEM, _NTH), self.edit_nth),
             (r"(?:make|keep|mark) (?:that|it|this|the last one|%s%s)(?: one)? (private|secret|public|not private)|"
              r"(?:you can )?share (?:that|it|this|%s%s) with claude" % (_ITEM, _NTH, _ITEM, _NTH), self.set_private),
-            (r"(?:what(?:'s| is| was)|tell me|show me|give me|remind me of) (?:my |the |our )(.+?(?:password|passcode|"
+            (r"(?:what(?:'s| is| was)|tell me|show(?: me)?|give me|remind me of) (?:my |the |our )(.+?(?:password|passcode|"
              r"passphrase|pin|code|otp|combination|secret))", lambda m: self.secret(m.group(1))),
             (r"(?:list |show |what are )?(?:my |your )?secrets|what secrets do you (?:have|keep)",
              lambda m: self.list_secrets()),
@@ -307,11 +307,10 @@ class Notes(Skill):
         threading.Timer(SHOW_SECRET, self._hide_secret, [name]).start()
 
     def _hide_secret(self, name):
-        card = self.j.ui.current_card() if self.j.ui else None
-        if card and card.get("id") == "secret":  # replaced in place, so it's gone from the card history too
+        if self.j.ui and self.j.ui.card_open("secret"):  # replaced in place, so it's gone from the card history too
             self.j.ui.show_card({"id": "secret", "title": name.capitalize(),
                                  "text": "Hidden. Say “what's my %s” to see it again." % name})
-            self.j.ui.close_card()
+            self.j.ui.close_card("secret")
 
     def list_secrets(self):
         if not keyring.available():

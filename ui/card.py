@@ -7,8 +7,9 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
   ``` blocks, a ```bars block ("Label: 55%" per line), [[55%]] meters, "> quote", "---", **bold**, *italic*,
   `code`, [links](https://...).
 - choices: buttons ("Open it", or {"label", "do"}); clicking one says its phrase to JARVIS.
-- id: a card with the same id as the one on screen updates it in place (progress, live values).
-Built from plain GTK widgets and a little Cairo, so it costs nothing while hidden.
+- id: a card with the same id as one on screen updates it in place (progress, live values).
+Several cards can be up at once (Deck): each new one opens where a card always goes and the earlier ones move
+along beside it, up to MAX_OPEN. Built from plain GTK widgets and a little Cairo, so it costs nothing while hidden.
 """
 import json
 import math
@@ -26,6 +27,8 @@ from ui.window import ORB, PANEL_W, _clear, _make_transparent  # noqa: E402
 
 CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel (PANEL_H)
 HISTORY = 10
+MAX_OPEN = 10  # cards on screen at once; opening one more closes the oldest
+GAP = 10
 BUTTONS = 6  # a card shows this many choices as buttons; the rest you pick by number
 POS_FILE = os.path.expanduser("~/.local/share/jarvis/card.json")
 
@@ -216,24 +219,19 @@ def build(text):
 
 
 class Card:
-    """GTK-thread only; ui.UI wraps it with thread-safe calls. `last`, `visible` and `history` are safe to
-    read from any thread."""
+    """One card window. GTK-thread only; ui.UI wraps the Deck with thread-safe calls. `last` and `visible` are safe
+    to read from any thread."""
 
-    def __init__(self, orb_xy, chat_visible, on_choice, pinned=False):
+    def __init__(self, orb_xy, chat_visible, on_choice, pinned=False, deck=None):
         self.orb_xy, self.chat_visible = orb_xy, chat_visible  # callables, for placing next to the orb/chat
         self.on_choice = on_choice  # callback(phrase) when a choice button is clicked
         self.pinned = pinned  # a pinned copy: closing it destroys it; it never moves on its own
+        self.deck = deck  # the Deck that places it (None for a pinned copy)
         self.last = None
         self.visible = False
-        self.history, self.pos = [], -1  # recent cards, and which one is on screen
-        self.pins = []
-        self.user_xy = None if pinned else _load_xy()  # where you dragged it, if you did
+        self.user_xy = None  # where you dragged it, if you did
         self._dragging = False
-        if not pinned:
-            provider = Gtk.CssProvider()
-            provider.load_from_data(CSS)
-            Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
-                                                     Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        _load_css()
         w = self.win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         _make_transparent(w)
         w.connect("draw", lambda widget, cr: _clear(cr) or False)
@@ -279,18 +277,8 @@ class Card:
         w.add(outer)
         w.set_size_request(CARD_W, -1)
 
-    def show(self, card, record=True):
-        """Show a card; None shows the last one again. A card with the on-screen card's id updates it in place."""
-        card = card or self.last
-        if not card:
-            return False
-        if record:
-            same = self.last and card.get("id") and card.get("id") == self.last.get("id")
-            if same and self.history:
-                self.history[self.pos] = card
-            else:
-                self.history = (self.history[:self.pos + 1] + [card])[-HISTORY:]
-                self.pos = len(self.history) - 1
+    def show(self, card):
+        """Put `card` in this window (replacing what it showed)."""
         self.last = card
         for child in self.body.get_children() + self.buttons.get_children():
             child.destroy()
@@ -304,7 +292,7 @@ class Card:
                 pass
         for widget in build(card.get("text")):
             self.body.pack_start(widget, False, False, 0)
-        for n, (label, phrase) in enumerate(choices(card)[:BUTTONS], 1):
+        for n, (label, phrase) in enumerate(choices(card), 1):
             button = Gtk.Button()
             text = Gtk.Label()
             text.set_markup('<span alpha="50%%">%d</span>  %s' % (n, GLib.markup_escape_text(label)))
@@ -323,38 +311,14 @@ class Card:
         self._place()
         return False
 
-    def step(self, delta):
-        """Show the previous (-1) or next (+1) card from the history."""
-        if 0 <= self.pos + delta < len(self.history):
-            self.pos += delta
-            self.show(self.history[self.pos], record=False)
-        return False
-
-    def pin(self):
-        """Keep a copy of this card on screen; new cards then use the main card as usual."""
-        if not self.last:
-            return False
-        copy = Card(self.orb_xy, self.chat_visible, self.on_choice, pinned=True)
-        x, y = self.win.get_position()
-        offset = 24 * (len(self.pins) + 1)
-        copy.user_xy = (x - offset, max(0, y - offset))
-        copy.show(self.last, record=False)
-        self.pins.append(copy)
-        self.close()
-        return False
-
-    def unpin_all(self):
-        for copy in self.pins:
-            copy.win.destroy()
-        self.pins = []
-        return False
-
     def close(self):
         if self.pinned:
             self.win.destroy()
         else:
             self.win.hide()
         self.visible = False
+        if self.deck:
+            self.deck._closed(self)
         return False
 
     def _press(self, widget, ev):
@@ -364,35 +328,211 @@ class Card:
         return True
 
     def _moved(self, widget, ev):
-        if self._dragging:  # you moved it: it stays where you put it from now on
+        if self._dragging:  # you moved it: it stays where you put it
             self.user_xy = (ev.x, ev.y)
-            if not self.pinned:
-                GLib.timeout_add(800, self._save_xy)
+            GLib.timeout_add(800, self._dropped)
         return False
 
-    def _save_xy(self):
+    def _dropped(self):
+        if not self._dragging:
+            return False
         self._dragging = False
-        try:
-            with open(POS_FILE, "w") as f:
-                json.dump({"x": self.user_xy[0], "y": self.user_xy[1]}, f)
-        except OSError:
-            pass
+        if self.deck:
+            self.deck._dropped(self)
         return False
 
     def _place(self):
         if not self.win.get_visible() or self._dragging:
             return
+        if self.deck and not self.user_xy:
+            self.deck._place()
+            return
         geo = Gdk.Display.get_default().get_monitor(0).get_workarea()
         h = self.win.get_allocated_height()
-        if self.user_xy:
-            x, y = self.user_xy
-            self.win.move(int(x), int(min(max(geo.y, y), geo.y + geo.height - h)))
+        x, y = self.user_xy or (geo.x, geo.y)
+        self.win.move(int(x), int(min(max(geo.y, y), geo.y + geo.height - h)))
+
+
+class Deck:
+    """The cards on screen: up to MAX_OPEN at once. The newest opens where a card always goes (beside the orb, or
+    where you last dragged one); the earlier ones line up beside it, then in a row above, and overlap a little once
+    the screen is full. A card with the id of one on screen updates that one in place, wherever it is.
+    GTK-thread only; `last`, `visible`, `history`, current() and ids() are safe to read from any thread."""
+
+    def __init__(self, orb_xy, chat_visible, on_choice):
+        self.orb_xy, self.chat_visible, self.on_choice = orb_xy, chat_visible, on_choice
+        self.open = []  # windows on screen, oldest first
+        self.spare = []  # closed windows, reused for the next card
+        self.pins = []
+        self.history, self.pos = [], -1  # recent cards, and which one "previous card" / "next card" is on
+        self.last = None  # the card shown most recently (for showing it again)
+        self.anchor = _load_xy()  # top-left of the newest card, once you've dragged one
+        self._placing = False
+
+    @property
+    def visible(self):
+        return bool(self.open)
+
+    def current(self):
+        """The newest card on screen, else the last one shown."""
+        return self.open[-1].last if self.open else self.last
+
+    def ids(self):
+        return [(w.last or {}).get("id") for w in list(self.open)]
+
+    def windows(self):
+        return [w.win for w in self.open + self.pins]
+
+    def show(self, card, record=True):
+        """Open a card beside the others; None shows the last one again. A card with the id of one on screen
+        updates that one in place."""
+        card = card or self.last
+        if not card:
+            return False
+        same = card.get("id") and next((w for w in self.open if (w.last or {}).get("id") == card.get("id")), None)
+        if record:
+            kept = same and self.history and self.history[self.pos].get("id") == card.get("id")
+            if kept:
+                self.history[self.pos] = card
+            else:
+                self.history = (self.history[:self.pos + 1] + [card])[-HISTORY:]
+                self.pos = len(self.history) - 1
+        if same:
+            if same is self.open[-1]:
+                self.last = card
+            return same.show(card)
+        if card is self.last and self.open and self.open[-1].last is card:
+            return False  # already up
+        win = self.spare.pop() if self.spare else Card(self.orb_xy, self.chat_visible, self.on_choice, deck=self)
+        win.user_xy = None
+        self.open.append(win)
+        while len(self.open) > MAX_OPEN:
+            self.open[0].close()
+        self.last = card
+        win.show(card)
+        return False
+
+    def show_many(self, cards):
+        for card in cards:
+            self.show(card)
+        return False
+
+    def step(self, delta):
+        """Show the previous (-1) or next (+1) card from the history, in the newest card's window."""
+        if not 0 <= self.pos + delta < len(self.history):
+            return False
+        self.pos += delta
+        card = self.history[self.pos]
+        if self.open:
+            self.last = card
+            self.open[-1].show(card)
+        else:
+            self.show(card, record=False)
+        return False
+
+    def close(self, card_id=None, every=False):
+        """Close the newest card, the one with `card_id`, or every card (pinned copies stay)."""
+        if every:
+            targets = list(self.open)
+        elif card_id:
+            targets = [w for w in self.open if (w.last or {}).get("id") == card_id]
+        else:
+            targets = self.open[-1:]
+        for w in targets:
+            w.close()
+        return False
+
+    def pin(self):
+        """Keep a copy of the newest card on screen; it stays when the others are closed or hidden."""
+        if not self.open:
+            return False
+        win = self.open[-1]
+        copy = Card(self.orb_xy, self.chat_visible, self.on_choice, pinned=True)
+        x, y = win.win.get_position()
+        offset = 24 * (len(self.pins) + 1)
+        copy.user_xy = (x - offset, max(0, y - offset))
+        copy.show(win.last)
+        self.pins.append(copy)
+        win.close()
+        return False
+
+    def unpin_all(self):
+        for copy in self.pins:
+            copy.win.destroy()
+        self.pins = []
+        return False
+
+    def _closed(self, win):
+        if win in self.open:
+            self.open.remove(win)
+            self.spare.append(win)
+            self._place()
+
+    def _dropped(self, win):
+        """You dragged a card. The newest one moves where new cards open from now on; any other just stays put."""
+        if self.open and win is self.open[-1]:
+            self.anchor, win.user_xy = win.user_xy, None
+            try:
+                with open(POS_FILE, "w") as f:
+                    json.dump({"x": self.anchor[0], "y": self.anchor[1]}, f)
+            except OSError:
+                pass
+        self._place()
+
+    def _place(self):
+        """Newest at the anchor, the rest beside it in rows towards the free side; overlapping once full."""
+        if self._placing:
             return
-        ox, oy = self.orb_xy()
-        right = ox - (PANEL_W + 10 if self.chat_visible() else 0)  # beside the chat when it's open
-        x = right - CARD_W - 10 if right - CARD_W - 10 >= geo.x else ox + ORB + 10
-        y = min(max(geo.y, oy + ORB - h), geo.y + geo.height - h)
-        self.win.move(x, y)
+        self._placing = True
+        try:
+            auto = [w for w in reversed(self.open) if not w.user_xy and not w._dragging and w.win.get_visible()]
+            for w in self.open:
+                if w.user_xy and not w._dragging:
+                    Card._place(w)
+            if not auto:
+                return
+            geo = Gdk.Display.get_default().get_monitor(0).get_workarea()
+            ox, oy = self.orb_xy()
+            heights = [w.win.get_allocated_height() for w in auto]
+            if self.anchor:
+                right, bottom, step = self.anchor[0] + CARD_W, self.anchor[1] + heights[0], -1
+            else:
+                right = ox - (PANEL_W + 10 if self.chat_visible() else 0) - GAP  # beside the chat when it's open
+                bottom, step = oy + ORB, -1
+                if right - CARD_W < geo.x:  # no room on the left: open to the right of the orb
+                    right, step = ox + ORB + GAP + CARD_W, 1
+            room = right - geo.x if step < 0 else geo.x + geo.width - (right - CARD_W)
+            per_row = max(1, (room + GAP) // (CARD_W + GAP))
+            row_bottom, row_h, full = bottom, 0, 0
+            for i, (w, h) in enumerate(zip(auto, heights)):
+                col = i % per_row
+                if i and not col:
+                    row_bottom -= row_h + GAP
+                    row_h = 0
+                row_h = max(row_h, h)
+                x, y = right - CARD_W + step * col * (CARD_W + GAP), row_bottom - h
+                if y < geo.y:  # the screen is full: lay the rest over the newest, a little apart
+                    full += 1
+                    x, y = right - CARD_W - step * 28 * full, bottom - h - 28 * full
+                x = min(max(geo.x, x), geo.x + geo.width - CARD_W)
+                y = min(max(geo.y, y), geo.y + geo.height - h)
+                if w.win.get_position() != (int(x), int(y)):
+                    w.win.move(int(x), int(y))
+        finally:
+            self._placing = False
+
+
+_css_loaded = False
+
+
+def _load_css():
+    global _css_loaded
+    if not _css_loaded:
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        _css_loaded = True
 
 
 def _load_xy():

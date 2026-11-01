@@ -707,7 +707,7 @@ class Jarvis:
             self.skills.notes.offer(answer["remember"])
         if answer["suggest"]:
             self._suggest(answer["suggest"])
-        if isinstance(answer["show"], dict):
+        if isinstance(answer["show"], (dict, list)):
             self.show(answer["show"])
         misheard = answer["misheard"]
         if isinstance(misheard, dict) and misheard.get("meant"):
@@ -838,7 +838,7 @@ class Jarvis:
 
     def control(self, msg):
         """A message from tools/jarvis (the Claude terminal, a fix task, VS Code): show a card or do a phrase."""
-        if isinstance(msg.get("show"), dict):
+        if isinstance(msg.get("show"), (dict, list)):
             self.show(msg["show"])
         elif msg.get("say"):  # e.g. a Claude task terminal finishing, with why for "why did you say that"
             self.skills.proactive.note("claude", str(msg["say"]), str(msg.get("why") or "Claude Code sent it."))
@@ -865,7 +865,13 @@ class Jarvis:
                 self.from_claude = False
 
     def show(self, card):
-        """Put a card on screen: {"title", "text" (markdown), "image", "choices", "id", "refresh"} (see ui/card.py)."""
+        """Put a card on screen: {"title", "text" (markdown), "image", "choices", "id", "refresh"} (see ui/card.py),
+        or a list of them, side by side. Each opens beside any already up."""
+        if isinstance(card, list):
+            for one in card[:10]:
+                if isinstance(one, dict):
+                    self.show(one)
+            return
         if not (card.get("text") or card.get("image") or card.get("choices")):
             return
         if self.ui:
@@ -897,7 +903,7 @@ class Jarvis:
             self.claude_says(answer["say"])
         else:
             self.speaker.say("It's on your screen.")
-        self.show(answer["show"] if isinstance(answer["show"], dict) else
+        self.show(answer["show"] if isinstance(answer["show"], (dict, list)) and answer["show"] else
                   {"title": command, "text": "```\n%s\n```" % out[-3000:]})
         if answer["details"]:
             self.chat("claude", str(answer["details"]))
@@ -1223,7 +1229,7 @@ class Jarvis:
             if not self.ui:
                 print("  The UI isn't running.")
             elif arg.strip().lower() == "off":
-                self.ui.close_card()
+                self.ui.close_card()  # the newest; "close all the cards" (skills/cards.py) closes every one
             else:
                 self.ui.show_card()  # the last card again
         elif cmd == "/desk":

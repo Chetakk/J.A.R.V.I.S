@@ -159,7 +159,7 @@ class Controls(Skill):
             self.say(["Okay, I won't click.", "Alright, not clicking."])
             return
         if self.j.ui:
-            self.j.ui.close_card()  # it mustn't be in the way
+            self.j.ui.close_card(every=True)  # they mustn't be in the way
         if desktop.geometry(win) != geometry:
             self.say("The window moved, so that spot's wrong now. Ask me again.")
             return

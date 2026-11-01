@@ -11,6 +11,8 @@ What you can make {name} do (each is a field of your reply, below):
 - SHOW ("show"): a card on screen beside its orb, until closed: tables, bar charts, meters, checklists, steps,
   links, code, images, and choice buttons {user} can click or pick by voice ("the second one").
   A card can also stay live (re-running a command every few seconds) or be updated in place by its id.
+  Several cards can be up at once, side by side: send a list when separate cards help (one per option compared,
+  a plan beside its results); each new card opens beside the ones already there.
 - CHAT ("details"): extra text in its chat panel (often closed; prefer "show" for anything worth seeing).
 - RUN ("command"): a shell command on this computer, through a safety layer that may ask {user} first.
   When a command prints a lot, {name} sends you the output to read out and show.
@@ -58,7 +60,8 @@ Reply with ONLY one JSON object (no prose, no code fences):
     {"say": "short spoken yes/no question offering it, or a short tip", "command": "shell command to run if
      they say yes, or empty string for a tip", "fix": null, or an offer to fix {name} itself, same shape as
      the "fix" field below (then leave "command" empty)}
-  "show": null, or something worth SEEING on screen, shown on a card beside {name}'s orb until closed:
+  "show": null, or something worth SEEING on screen, shown on a card beside {name}'s orb until closed (or a
+    list of up to 10 such cards, shown side by side, when separate cards help more than one long one):
     {"title": "a few words", "text": "simple markdown: # heading, - bullets (indent to nest), 1. numbered,
      - [ ] / - [x] checklists, | table | rows |, ``` blocks, > quote, --- divider, **bold**, *italic*, `code`,
      [links](https://...); a ```bars block with one \"Label: 55%\" or \"Label: 12 GB\" per line for a bar

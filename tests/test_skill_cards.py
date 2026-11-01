@@ -176,3 +176,65 @@ def test_a_live_card_refreshes_a_safe_command_and_stops_when_closed(jv, monkeypa
     jv.settle(wait=3)
     assert jv.shell.ran(r"^df -h /$")
     assert "/dev/sda1 9G" in jv.cards[0]["text"] and "updated" in jv.cards[0]["text"]
+
+
+# --- several cards at once ---
+
+def test_a_second_card_opens_beside_the_first(jv):
+    jv.j.show({"title": "One", "text": "first"})
+    jv.j.show({"title": "Two", "text": "second"})
+    assert [c["title"] for c in jv.ui.open] == ["One", "Two"]
+    assert jv.ui.current_card()["title"] == "Two"  # "read it", "copy that" are about the newest
+
+
+def test_several_cards_in_one_go(jv):
+    jv.j.show([{"title": "Laptop %d" % n, "text": "spec"} for n in range(1, 4)])
+    assert [c["title"] for c in jv.ui.open] == ["Laptop 1", "Laptop 2", "Laptop 3"]
+
+
+def test_claude_can_show_several_cards(jv):
+    jv.claude.reply({"say": "Here are both.", "show": [{"title": "ThinkPad", "text": "- 14 inch"},
+                                                       {"title": "MacBook Air", "text": "- 13 inch"}]})
+    jv.do("which laptop should i get for coding on the go")
+    assert [c["title"] for c in jv.ui.open] == ["ThinkPad", "MacBook Air"]
+
+
+def test_at_most_ten_cards_the_oldest_goes(jv):
+    for n in range(1, 13):
+        jv.j.show({"title": "Card %d" % n, "text": "x"})
+    assert len(jv.ui.open) == 10 and jv.ui.open[0]["title"] == "Card 3"
+
+
+@pytest.mark.parametrize("said", ["close all the cards", "close the cards", "clear my cards", "hide all cards",
+                                  "close them all"])
+def test_close_every_card(jv, said):
+    jv.j.show({"title": "One", "text": "first"})
+    jv.j.show({"title": "Two", "text": "second"})
+    jv.do(said)
+    assert jv.ui.open == []
+
+
+def test_a_card_with_the_same_id_updates_in_place_not_beside(jv):
+    jv.j.show({"id": "progress", "title": "Copying", "text": "[[10%]]"})
+    jv.j.show({"title": "Other", "text": "x"})
+    jv.j.show({"id": "progress", "title": "Copying", "text": "[[60%]]"})
+    assert [c["title"] for c in jv.ui.open] == ["Copying", "Other"] and "60%" in jv.ui.open[0]["text"]
+
+
+def test_close_it_closes_only_the_newest_card(jv):
+    jv.j.show({"title": "One", "text": "first"})
+    jv.j.show({"title": "Two", "text": "second"})
+    jv.do("close it")
+    assert [c["title"] for c in jv.ui.open] == ["One"]
+
+
+def test_a_timer_keeps_counting_behind_a_newer_card(jv, monkeypatch):
+    jv.do("set a timer for 10 minutes for pasta", wait=0.2)
+    deadline = time.time() + 2
+    while not jv.ui.open and time.time() < deadline:
+        time.sleep(0.05)
+    timer_id = jv.ui.open[0]["id"]
+    jv.j.show({"title": "Weather", "text": "sunny"})
+    assert jv.j.cards._showing(timer_id)  # still on screen, so it keeps updating
+    jv.do("cancel the timer")
+    assert [c["title"] for c in jv.ui.open] == ["Weather"]  # only the timer's card went

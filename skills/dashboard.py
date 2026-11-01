@@ -50,9 +50,9 @@ class Dashboard(Skill):
 
     def close(self):
         ui = self.j.ui
-        if not (ui and ui.card_visible() and (ui.current_card() or {}).get("id") == CARD_ID):
+        if not (ui and ui.card_open(CARD_ID)):
             return False
-        ui.close_card()
+        ui.close_card(CARD_ID)
 
     def _keep_fresh(self, shown):
         """Update the card while it's on screen; stop once it's closed or another card replaces it."""
@@ -60,7 +60,7 @@ class Dashboard(Skill):
         while time.time() < until:
             time.sleep(EVERY)
             ui = self.j.ui
-            if not (ui and ui.card_visible() and (ui.current_card() or {}).get("id") == CARD_ID):
+            if not (ui and ui.card_open(CARD_ID)):
                 return
             _, text, choices = self.build()
             if text != shown:
@@ -102,9 +102,9 @@ class Dashboard(Skill):
             running.append("- `%s` in %s · %s%s" % (job.command, where, _took(now - job.started),
                                                    " · I'll tell you when it's done" if id(job) in watched else ""))
         parts["jobs"] = len(jobs)
-        tasks = desktop.windows_with_role(TASK_ROLE)
-        running += ["- Claude task: %s" % (w.title or "terminal") for w in tasks]
-        parts["claude"] = len(tasks)
+        claude_tasks = desktop.windows_with_role(TASK_ROLE)
+        running += ["- Claude task: %s" % (w.title or "terminal") for w in claude_tasks]
+        parts["claude"] = len(claude_tasks)
         if desktop.window_with_role(TERMINAL_ROLE):
             running.append("- Claude terminal open")
         web = getattr(j.skills, "web", None)

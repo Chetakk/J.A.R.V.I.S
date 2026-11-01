@@ -1,0 +1,3224 @@
+JARVIS - what to say for each card
+Every phrase below was run through JARVIS's real router and brings up that card.
+Pattern key: [x] optional, (a | b) one of them, <...> a name you fill in.
+
+======================================================================
+TIMERS, DASHBOARD & TASKS
+======================================================================
+
+Timer  (JARVIS alone)
+  Say:
+    - timer 3 minutes
+    - countdown 3 minutes
+    - set a 2 minute timer
+    - wake me in 20 minutes
+    - start a 5 minute timer
+    - set a timer for 10 minutes
+    - set up a timer for 3 minutes
+    - set our timer for two minutes
+    - start a 10 minute pasta timer
+    - set a timer for 10 minutes for pasta
+    - 10 min timer
+    - 10 sec timer
+    - timer 10 min
+    - timer 10 sec
+    - 10 hour timer
+    - timer 10 hour
+    - 10 minute timer
+    - 10 second timer
+    - a few min timer
+    - a few sec timer
+    - pastamin timer
+    - pastasec timer
+    - timer 10 minute
+    - timer 10 second
+    - timer a few min
+    - timer a few sec
+    - timer pastamin
+    - timer pastasec
+    - a few hour timer
+    - countdown 10 min
+    - countdown 10 sec
+    - pasta min timer
+    - pasta sec timer
+    - pastahour timer
+    - timer a few hour
+    - timer pasta min
+    - timer pasta sec
+    - timer pastahour
+    - countdown 10 hour
+    - half an min timer
+    - half an sec timer
+    - pasta hour timer
+    - timer half an min
+    - timer half an sec
+    - timer pasta hour
+    - a few minute timer
+    - a few second timer
+    - half an hour timer
+    - pastaminute timer
+    - pastasecond timer
+    - timer a few minute
+    - timer a few second
+    - timer half an hour
+    - timer pastaminute
+    - timer pastasecond
+    - countdown 10 minute
+    - countdown 10 second
+    - countdown a few min
+    - countdown a few sec
+    - countdown pastamin
+    - countdown pastasec
+    - pasta minute timer
+    - pasta second timer
+    - timer pasta minute
+    - timer pasta second
+    - countdown a few hour
+    - countdown pasta min
+    - countdown pasta sec
+    - countdown pastahour
+    - half an minute timer
+    - half an second timer
+    - timer half an minute
+    - timer half an second
+    - a couple of min timer
+    - a couple of sec timer
+    - countdown half an min
+    - countdown half an sec
+    - countdown pasta hour
+    - timer a couple of min
+    - timer a couple of sec
+    - a couple of hour timer
+    - countdown a few minute
+    - countdown a few second
+    - countdown half an hour
+    - countdown pastaminute
+    - countdown pastasecond
+    - timer a couple of hour
+    - countdown pasta minute
+    - countdown pasta second
+    - a couple of minute timer
+    - a couple of second timer
+    - countdown half an minute
+    - countdown half an second
+    - timer a couple of minute
+    - timer a couple of second
+    - countdown a couple of min
+    - countdown a couple of sec
+    - countdown a couple of hour
+    - countdown a couple of minute
+    - countdown a couple of second
+  Full pattern:
+    [s(et [up] | tart)] [a | an | the | my | our | one] (timer | countdown) [for] (<n> [.<n>] | half an | a couple of | a few | <amount> [-<amount>]) (second[s] | sec[s] | minute[s] | min[s] | hour[s]) [for <amount>]
+    (<n> [.<n>] | half an | a couple of | a few | <amount> [-<amount>]) (second[s] | sec[s] | minute[s] | min[s] | hour[s]) timer [for <amount>]
+
+Dashboard  (JARVIS alone)
+  Note: Live: updates every 2 s while open
+  Say:
+    - what's going on right now   (learned from you)
+    - i want to see my dashboard   (learned from you)
+    - what's happening right now   (learned from you)
+    - pull up the dashboard, i need to check it   (learned from you)
+    - dashboard
+    - task card
+    - taskboard
+    - activity board
+    - any jobs running
+    - list active jobs
+    - show active jobs
+    - any tasks running
+    - list active tasks
+    - list running jobs
+    - show active tasks
+    - show running jobs
+    - list running tasks
+    - show running tasks
+    - what's in progress
+    - what is in progress
+    - list background jobs
+    - show background jobs
+    - what are in progress
+    - list background tasks
+    - show background tasks
+    - what are you busy with
+    - what tasks are running
+    - what are you working on
+    - what's running in the background
+    - what is running in the background
+    - what are running in the background
+  Full pattern:
+    ([show | open | bring up | pull up] [me] [my | the | your] (dashboard | taskboard | task[s] card | activity board) | what are you (working on | busy with) [[right] now | right | for me] | what('s | is | are) [still] (in progress | running in the background) | (show | list) [me] [the | my | your] (running | active | background) (tasks | jobs) | what tasks are running | [are there] any (tasks | jobs) running)
+
+Task progress  (JARVIS alone)
+  Note: Only while a task is running or paused
+  Say:
+    - what's the task at   (learned from you)
+    - has the task finished
+    - show job
+    - show plan
+    - show task
+    - job status
+    - is job done
+    - plan status
+    - task status
+    - is plan done
+    - is task done
+    - how far is job
+    - how far is plan
+    - how far is task
+    - how's job going
+    - is job finished
+    - how is job going
+    - how's plan going
+    - how's task going
+    - is plan finished
+    - is task finished
+    - how is plan going
+    - how is task going
+    - what's left in job
+    - what's left of job
+    - what's left on job
+    - what is left in job
+    - what is left of job
+    - what is left on job
+    - what's left in plan
+    - what's left in task
+    - what's left of plan
+    - what's left of task
+    - what's left on plan
+    - what's left on task
+    - what is left in plan
+    - what is left in task
+    - what is left of plan
+    - what is left of task
+    - what is left on plan
+    - what is left on task
+    - where is it at on job
+    - where is it at on plan
+    - where is it at on task
+    - where are you at on job
+    - where is it at with job
+    - where are you at on plan
+    - where are you at on task
+    - where is it at with plan
+    - where is it at with task
+    - where is it up to on job
+    - where are you at with job
+    - where is it up to on plan
+    - where is it up to on task
+    - where are you at with plan
+    - where are you at with task
+    - where are you up to on job
+    - where is it up to with job
+    - where are you up to on plan
+    - where are you up to on task
+    - where is it up to with plan
+    - where is it up to with task
+    - where are you up to with job
+    - where are you up to with plan
+    - where are you up to with task
+  Full pattern:
+    (how('s | is) [the | this | my | that] (task | job | plan) going | [the | this | my | that] (task | job | plan) status | what('s | is) left (on | in | of) [the | this | my | that] (task | job | plan) | where (are you | is it) (up to | at) (with | on) [the | this | my | that] (task | job | plan) | show [me] [the | this | my | that] (task | job | plan) [card] | how far [along] is [the | this | my | that] (task | job | plan) [along] | is [the | this | my | that] (task | job | plan) (done | finished) [yet])
+
+Recent tasks  (JARVIS alone)
+  Say:
+    - old tasks
+    - last tasks
+    - past tasks
+    - recent tasks
+    - task history
+    - earlier tasks
+    - previous tasks
+    - what tasks did you do
+    - what tasks did you run
+    - which tasks did you do
+    - what tasks have you run
+    - which tasks did you run
+    - what tasks have you done
+    - which tasks have you run
+    - which tasks have you done
+  Full pattern:
+    (wh(at | ich) tasks (did you (do | run) | have you (done | run)) [today] | [(show | list) [me]] [the | my | your] (recent | past | last | old | previous | earlier) tasks | task history)
+
+======================================================================
+YOUR DAY
+======================================================================
+
+Briefing  (JARVIS alone)
+  Note: Also comes up by itself the first time you're around each morning
+  Say:
+    - how does my day look like   (learned from you)
+    - rundown
+    - brief me
+    - briefing
+    - whats on today
+    - whats my day got
+    - whats plan today
+    - how does day look
+    - whats on my plate
+    - whats agenda today
+    - what is there today
+    - what do i have today
+    - what have i got today
+    - whats happening today
+    - whats my day look like
+    - what does day look like
+    - what will day look like
+  Full pattern:
+    ([give me | read me | do | start | what ['] s] [my | the | a | today ['] s] [daily | morning | day ['] s] (briefing | rundown) [for t(oday | he day)] | brief me [(on [my | the] day | for t(he | o)day)] | what (does | will) [my | the] day look like [today] | how does [my | the] day look [today] | what ['] s my day (look [ing] like | got [for me]) | what ['] s [on] [my | the] (plan | agenda) [for] today | what (do i have | have i got | is there) [on | going on | to do] today | what ['] s on [for] today | what ['] s on my plate [today] | what ['] s happening today)
+
+Where you left off  (JARVIS alone)
+  Say:
+    - where was I
+    - what was i up to
+    - what was i doing before
+    - continue where I left off
+    - wertaltings i was looking on   (learned from you)
+    - catch me up
+    - where was i
+    - pick up where i left
+    - where did i stop off
+    - carry on where i left
+    - continue where i left
+    - what did i leave open
+    - where did i leave off
+    - pick up where i stopped
+    - carry on where i stopped
+    - continue where i stopped
+    - start again where i left
+    - what did i leave running
+    - start again where i stopped
+  Full pattern:
+    (where was i | where did i (leave | stop) off | catch me up | what did i leave (open | running) | (continue | carry on | pick up | start again) [from] where i (left | stopped) [off])
+
+What you've been working on  (JARVIS alone)
+  Say:
+    - recent work please
+    - my last five projects
+    - what i was working on
+    - list my recent projects
+    - what did i last work on
+    - what were we working on
+    - summarise my recent work
+    - where are my projects at
+    - what things were we doing
+    - catch me up on my projects
+    - kya kya kaam chal raha hai
+    - show me my recent projects
+    - what am i in the middle of
+    - what projects are going on
+    - any projects i left halfway
+    - mere recent projects dikhao
+    - quick update on my projects
+    - what was i busy with lately
+    - what were we doing recently
+    - what's been keeping me busy
+    - hum kis pe kaam kar rahe the
+    - what are my current projects
+    - what have we been working on
+    - what's in progress right now
+    - what's on my plate right now
+    - top five projects i worked on
+    - what did we work on this week
+    - what have i been doing lately
+    - what projects am i working on
+    - what projects do i have going
+    - what have we been up to lately
+    - what was i working on recently
+    - remind me what i was working on
+    - show me what i've been building
+    - what did i work on last few days
+    - what have i been building lately
+    - what projects did we do recently
+    - what's the status of my projects
+    - tell me what i've been working on
+    - kaunse projects pe kaam kiya maine
+    - what all projects i was working on
+    - what all things were we working on
+    - what have i been working on lately
+    - what all am i working on these days
+    - what projects have i been coding on
+    - which projects did i work on recently
+    - give me a quick rundown of my projects
+    - what are all the things i'm working on
+    - which projects have i touched recently
+    - what projects were we working on recently
+    - recent projects
+    - what did i work on
+    - what was i working on
+  Full pattern:
+    (what was i (working on | doing) [la(tely | st)] | [my] recent projects | what did i work on [last])
+
+What I brought up today  (JARVIS alone)
+  Say:
+    - what did i miss
+    - pull up my recent alerts   (learned from you)
+    - what alerts came in lately   (learned from you)
+    - what alerts did i get recently   (learned from you)
+    - any alerts from today, show them   (learned from you)
+    - alert
+    - headsup
+    - warning
+    - what did you tell me
+    - what alerts did i miss
+    - what headsups did i miss
+    - what warnings did i miss
+    - what alerts did you give me
+    - what headsups did you give me
+    - what warnings did you give me
+  Full pattern:
+    ([show | list | read] [me] [my | the | your] [recent | last | latest | today ['] s] (alert[s] | headsup[s] | warning[s]) [today | from today | i missed] | what did (you tell me | i miss) [(today | earlier | while i was (away | out | focusing | busy))] | what (alerts | headsups | warnings) did (i miss | you give me))
+
+Everything: <project or topic>  (JARVIS alone)
+  Say:
+    - everything about jarvis
+    - what do i have on avtec
+    - what's linked to biztel
+    - all my notes about the nano
+    - all my stuff about the nano
+    - all the stuff about the nano
+    - everything i have on recipes
+    - what do I have on study buddy
+    - what have i got about the camera calibration
+    - my stuff on study buddy
+    - my stuff for study buddy
+    - my things on study buddy
+    - everything on study buddy
+    - my things for study buddy
+    - everything for study buddy
+    - my stuff about study buddy
+    - all my files on study buddy
+    - all my notes on study buddy
+    - all my stuff on study buddy
+    - my things about study buddy
+    - what s there on study buddy
+    - whats linked to study buddy
+    - all my files for study buddy
+    - all my notes for study buddy
+    - all my stuff for study buddy
+    - all my things on study buddy
+    - all the files on study buddy
+    - all the notes on study buddy
+    - all the stuff on study buddy
+    - everything about study buddy
+    - what is there on study buddy
+    - what s there for study buddy
+    - whats related to study buddy
+    - all my things for study buddy
+    - all the files for study buddy
+    - all the notes for study buddy
+    - all the stuff for study buddy
+    - all the things on study buddy
+    - what do i have on study buddy
+    - what is there for study buddy
+    - all my files about study buddy
+    - all my notes about study buddy
+    - all my stuff about study buddy
+    - all the things for study buddy
+    - what do i have for study buddy
+    - what do we have on study buddy
+    - what have i got on study buddy
+    - what s there about study buddy
+    - whats connected to study buddy
+    - all my things about study buddy
+    - all stuff i have on study buddy
+    - all the files about study buddy
+    - all the notes about study buddy
+    - all the stuff about study buddy
+    - what do we have for study buddy
+    - what do you have on study buddy
+    - what have i got for study buddy
+    - what is there about study buddy
+    - all stuff i have for study buddy
+    - all stuff we have on study buddy
+    - all the things about study buddy
+    - all things i have on study buddy
+    - everything i have on study buddy
+    - what do i have about study buddy
+    - what do you have for study buddy
+    - all stuff i ve got on study buddy
+    - all stuff we have for study buddy
+    - all stuff you have on study buddy
+    - all things i have for study buddy
+    - all things we have on study buddy
+    - everything i have for study buddy
+    - everything related to study buddy
+    - everything to do with study buddy
+    - everything we have on study buddy
+    - my files and notes on study buddy
+    - my notes and files on study buddy
+    - what do we have about study buddy
+    - what have i got about study buddy
+    - all stuff i have about study buddy
+    - all stuff i ve got for study buddy
+    - all stuff you have for study buddy
+    - all things i ve got on study buddy
+    - all things we have for study buddy
+    - all things you have on study buddy
+    - everything i ve got on study buddy
+    - everything we have for study buddy
+    - everything you have on study buddy
+    - my files and notes for study buddy
+    - my notes and files for study buddy
+    - what do you have about study buddy
+    - all stuff we have about study buddy
+    - all things i have about study buddy
+    - all things i ve got for study buddy
+    - all things you have for study buddy
+    - everything i have about study buddy
+    - everything i ve got for study buddy
+    - everything you have for study buddy
+    - what s there to do with study buddy
+    - all stuff i ve got about study buddy
+    - all stuff you have about study buddy
+    - all things we have about study buddy
+    - everything we have about study buddy
+    - my files and notes about study buddy
+    - my notes and files about study buddy
+    - what is there to do with study buddy
+    - all things i ve got about study buddy
+    - all things you have about study buddy
+    - everything i ve got about study buddy
+    - everything you have about study buddy
+    - what do i have to do with study buddy
+    - what do we have to do with study buddy
+    - what have i got to do with study buddy
+    - all stuff i have related to study buddy
+    - all stuff i have to do with study buddy
+    - what do you have to do with study buddy
+    - all stuff we have related to study buddy
+    - all stuff we have to do with study buddy
+    - all things i have related to study buddy
+    - all things i have to do with study buddy
+    - everything i have related to study buddy
+    - everything i have to do with study buddy
+    - all stuff i ve got related to study buddy
+    - all stuff i ve got to do with study buddy
+    - all stuff you have related to study buddy
+    - all stuff you have to do with study buddy
+    - all things we have related to study buddy
+    - all things we have to do with study buddy
+    - everything we have related to study buddy
+    - everything we have to do with study buddy
+    - all things i ve got related to study buddy
+    - all things i ve got to do with study buddy
+    - all things you have related to study buddy
+    - all things you have to do with study buddy
+    - everything i ve got related to study buddy
+    - everything i ve got to do with study buddy
+    - everything you have related to study buddy
+    - everything you have to do with study buddy
+  Full pattern:
+    [show me | pull up | give me | find | list] (everything | all [the] (stuff | things)) (i (have | ['] ve got) | you have | we have)(about | on | for | to do with | related to) [the | my] <project> [project | station]
+    what (do i have | have i got | do you have | do we have | is there | ['] s there) (on | about | for | to do with) [the | my] <project> [project | station]
+    (what ['] s (linked | connected | related) to [the | my] <project> [project | station] | [show me] [all] my (stuff | things | notes and files | files and notes) (about | on | for) [the | my] <project> [project | station] | [show me] all (my | the) (stuff | things | notes | files) (about | on | for) [the | my] <project> [project | station])
+    [show me | pull up | give me] everything (about | on | for | to do with | related to) [the | my] <project> [project | station]
+
+======================================================================
+NOTES & MEMORY
+======================================================================
+
+Your notes  (JARVIS alone)
+  Say:
+    - what's in my notes
+    - what notes do you have
+    - what have i asked you to remember
+    - my notes
+    - what do you remember
+    - what did i ask you to remember
+    - what did i tell you to remember
+  Full pattern:
+    (what did i (ask | tell) you to remember | what do you remember | [list | read] my notes)
+
+Secret (shows, then hides)  (JARVIS alone)
+  Note: Only for something you saved as a secret
+  Say:
+    - what's my locker code
+    - what is the wifi password
+    - show my bank otp
+    - show my bank pin
+    - show my locker code
+    - show our bank otp
+    - show our bank pin
+    - show the bank otp
+    - show the bank pin
+    - show our locker code
+    - show the locker code
+    - what's my bank otp
+    - what's my bank pin
+    - give me my bank otp
+    - give me my bank pin
+    - show my club secret
+    - tell me my bank otp
+    - tell me my bank pin
+    - what is my bank otp
+    - what is my bank pin
+    - what's our bank otp
+    - what's our bank pin
+    - what's the bank otp
+    - what's the bank pin
+    - give me my locker code
+    - give me our bank otp
+    - give me our bank pin
+    - give me the bank otp
+    - give me the bank pin
+    - show our club secret
+    - show the club secret
+    - tell me my locker code
+    - tell me our bank otp
+    - tell me our bank pin
+    - tell me the bank otp
+    - tell me the bank pin
+    - what is my locker code
+    - what is our bank otp
+    - what is our bank pin
+    - what is the bank otp
+    - what is the bank pin
+    - what was my bank otp
+    - what was my bank pin
+    - what's our locker code
+    - what's the locker code
+    - give me our locker code
+    - give me the locker code
+    - show my phone passcode
+    - show my wifi password
+    - tell me our locker code
+    - tell me the locker code
+    - what is our locker code
+    - what is the locker code
+    - what was my locker code
+    - what was our bank otp
+    - what was our bank pin
+    - what was the bank otp
+    - what was the bank pin
+    - what's my club secret
+    - give me my club secret
+    - show our phone passcode
+    - show our wifi password
+    - show the phone passcode
+    - show the wifi password
+    - tell me my club secret
+    - what is my club secret
+    - what was our locker code
+    - what was the locker code
+    - what's our club secret
+    - what's the club secret
+    - give me our club secret
+    - give me the club secret
+    - show my wifi passphrase
+    - tell me our club secret
+    - tell me the club secret
+    - what is our club secret
+    - what is the club secret
+    - what was my club secret
+    - what's my phone passcode
+    - what's my wifi password
+    - give me my phone passcode
+    - give me my wifi password
+    - remind me of my bank otp
+    - remind me of my bank pin
+    - show my lock combination
+    - show our wifi passphrase
+    - show the wifi passphrase
+    - tell me my phone passcode
+    - tell me my wifi password
+    - what is my phone passcode
+    - what is my wifi password
+    - what was our club secret
+    - what was the club secret
+    - what's our phone passcode
+    - what's our wifi password
+    - what's the phone passcode
+    - what's the wifi password
+    - give me our phone passcode
+    - give me our wifi password
+    - give me the phone passcode
+    - give me the wifi password
+    - remind me of my locker code
+    - remind me of our bank otp
+    - remind me of our bank pin
+    - remind me of the bank otp
+    - remind me of the bank pin
+    - show our lock combination
+    - show the lock combination
+    - tell me our phone passcode
+    - tell me our wifi password
+    - tell me the phone passcode
+    - tell me the wifi password
+    - what is our phone passcode
+    - what is our wifi password
+    - what is the phone passcode
+    - what was my phone passcode
+    - what was my wifi password
+    - what's my wifi passphrase
+    - give me my wifi passphrase
+    - remind me of our locker code
+    - remind me of the locker code
+    - tell me my wifi passphrase
+    - what is my wifi passphrase
+    - what was our phone passcode
+    - what was our wifi password
+    - what was the phone passcode
+    - what was the wifi password
+    - what's my lock combination
+    - what's our wifi passphrase
+    - what's the wifi passphrase
+    - give me my lock combination
+    - give me our wifi passphrase
+    - give me the wifi passphrase
+    - remind me of my club secret
+    - tell me my lock combination
+    - tell me our wifi passphrase
+    - tell me the wifi passphrase
+    - what is my lock combination
+    - what is our wifi passphrase
+    - what is the wifi passphrase
+    - what was my wifi passphrase
+    - what's our lock combination
+    - what's the lock combination
+    - give me our lock combination
+    - give me the lock combination
+    - remind me of our club secret
+    - remind me of the club secret
+    - tell me our lock combination
+    - tell me the lock combination
+    - what is our lock combination
+    - what is the lock combination
+    - what was my lock combination
+    - what was our wifi passphrase
+    - what was the wifi passphrase
+    - remind me of my phone passcode
+    - remind me of my wifi password
+    - what was our lock combination
+    - what was the lock combination
+    - remind me of our phone passcode
+    - remind me of our wifi password
+    - remind me of the phone passcode
+    - remind me of the wifi password
+    - remind me of my wifi passphrase
+    - remind me of my lock combination
+    - remind me of our wifi passphrase
+    - remind me of the wifi passphrase
+    - remind me of our lock combination
+    - remind me of the lock combination
+  Full pattern:
+    (what('s | is | was) | tell me | show [me] | give me | remind me of) (my | the | our)<name>(password | passcode | passphrase | pin | code | otp | combination | secret)
+
+What I know about you  (JARVIS alone)
+  Say:
+    - list my memory
+    - open my memory
+    - show my memory
+    - list my memories
+    - list your memory
+    - open my memories
+    - open your memory
+    - show my memories
+    - show your memory
+    - list your memories
+    - open your memories
+    - show your memories
+    - whats in your memory
+    - everything you remember
+    - what do you know about me
+    - what have you kept about me
+    - what have you saved about me
+    - what do you remember about me
+    - what have you stored about me
+    - tell me what you know about me
+    - what have you learned about me
+    - tell me what do you know about me
+    - what have you remembered about me
+    - tell me what you remember about me
+    - tell me what do you remember about me
+  Full pattern:
+    (what do you (know | remember) about me | what have you (learned | remembered) about me | (show | open | list) [me] (your | my) memor(y | ies) | what ['] s in your memory | tell me what (you | do you) (know | remember) about me | what have you (saved | stored | kept) about me | everything you (know | remember) [about me])
+
+What I've learned  (JARVIS alone)
+  Say:
+    - did you get any new skills   (learned from you)
+    - anything new you've learned
+    - what have you been learning
+    - what's new in what you know
+    - have you got any new phrases
+    - what new stuff did you learn   (learned from you)
+    - have you been learning anything
+    - have you learned any new sentences
+    - have you added anything new to what you know   (learned from you)
+    - i lost track, what have you learned so far today   (learned from you)
+    - you've been learning all day, what did you pick up   (learned from you)
+    - any new word
+    - any new thing
+    - did you learn
+    - list new word
+    - any new phrase
+    - have you learn
+    - list new thing
+    - any new command
+    - any new wording
+    - did you pick up
+    - list new phrase
+    - any new sentence
+    - have you pick up
+    - list new command
+    - list new wording
+    - show me new word
+    - tell me new word
+    - did you picked up
+    - list new sentence
+    - show me new thing
+    - tell me new thing
+    - what are new word
+    - have you picked up
+    - show me new phrase
+    - tell me new phrase
+    - what are new thing
+    - what did you learn
+    - list what you learn
+    - show me new command
+    - show me new wording
+    - tell me new command
+    - tell me new wording
+    - what are new phrase
+    - what have you learn
+    - show me new sentence
+    - tell me new sentence
+    - what are new command
+    - what are new wording
+    - what did you pick up
+    - list what you pick up
+    - what are new sentence
+    - what have you pick up
+    - did you teach yourself
+    - show me what you learn
+    - tell me what you learn
+    - what did you picked up
+    - did you taught yourself
+    - have you teach yourself
+    - list what you picked up
+    - what have you picked up
+    - have you taught yourself
+    - show me what you pick up
+    - tell me what you pick up
+    - what new word do you know
+    - show me what you picked up
+    - tell me what you picked up
+    - what new thing do you know
+    - what did you teach yourself
+    - what new phrase do you know
+    - list what you teach yourself
+    - what did you taught yourself
+    - what have you teach yourself
+    - what new wording do you know
+    - any new ways of saying things
+    - list what you taught yourself
+    - what have you taught yourself
+    - what new sentence do you know
+    - list new ways of saying things
+    - show me what you teach yourself
+    - tell me what you teach yourself
+    - show me what you taught yourself
+    - tell me what you taught yourself
+    - show me new ways of saying things
+    - tell me new ways of saying things
+    - what are new ways of saying things
+  Full pattern:
+    (did | have) you [been] (learn [ed | t] | picked up | pick up | taught yourself | teach yourself) [any | anything | something | some] [new] [phrase[s] | sentence[s] | wording[s] | word[s] | thing[s] | command[s] | ways of saying things] [today | this week | lately | recently | yet | so far]
+    what [new] [phrase[s] | sentence[s] | wording[s] | word[s] | thing[s] | command[s] | ways of saying things] (have | did) you (learn [ed | t] | picked up | pick up | taught yourself | teach yourself) [today | this week | lately | recently | yet | so far]
+    what new (phrase[s] | sentence[s] | wording[s] | word[s] | thing[s] | command[s] | ways of saying things) do you know [today | this week | lately | recently | yet | so far]
+    (any | show me | tell me | list | what are) [your | the | any] new (phrase[s] | sentence[s] | wording[s] | word[s] | thing[s] | command[s] | ways of saying things) [[that] you [have | 've] ((learn [ed | t] | picked up | pick up | taught yourself | teach yourself) | know)] [today | this week | lately | recently | yet | so far]
+    (tell me | show me | list) what you [have | 've] (learn [ed | t] | picked up | pick up | taught yourself | teach yourself) [today | this week | lately | recently | yet | so far]
+
+Clipboard history  (JARVIS alone)
+  Say:
+    - show my recent copies   (learned from you)
+    - bring up my copy history   (learned from you)
+    - list the things i copied   (learned from you)
+    - show what i copied recently   (learned from you)
+    - i copied a few things earlier, what were they   (learned from you)
+    - clipboard history
+    - what have i copied
+    - what did i copy before
+  Full pattern:
+    ([show | read | what ['] s in] [my | the] clipboard history | what did i copy before | what [else] have i copied)
+
+======================================================================
+FILES
+======================================================================
+
+Files (by kind / changed)  (JARVIS alone)
+  Say:
+    - find pdfs from last week
+    - what files did I change today
+    - what files did i change today
+    - show the zip files in downloads
+    - show me my files i changed today
+    - show my spreadsheets in documents
+    - find .py files from yesterday in projects
+    - which files have i edited this week in projects
+    - get doc
+    - get pdf
+    - get zip
+    - find doc
+    - find pdf
+    - find zip
+    - get deck
+    - get docs
+    - get pdfs
+    - get song
+    - list doc
+    - list pdf
+    - list zip
+    - show doc
+    - show pdf
+    - show zip
+    - find deck
+    - find docs
+    - find pdfs
+    - find song
+    - get audio
+    - get excel
+    - get image
+    - get music
+    - get photo
+    - get sheet
+    - get video
+    - list deck
+    - list docs
+    - list pdfs
+    - list song
+    - show deck
+    - show docs
+    - show pdfs
+    - show song
+    - find audio
+    - find excel
+    - find image
+    - find music
+    - find photo
+    - find sheet
+    - find video
+    - get images
+    - get photos
+    - get slides
+    - get videos
+    - list audio
+    - list excel
+    - list image
+    - list music
+    - list photo
+    - list sheet
+    - list video
+    - show audio
+    - show excel
+    - show image
+    - show music
+    - show photo
+    - show sheet
+    - show video
+    - find images
+    - find photos
+    - find slides
+    - find videos
+    - get archive
+    - get picture
+    - list images
+    - list photos
+    - list slides
+    - list videos
+    - show images
+    - show photos
+    - show slides
+    - show videos
+    - find archive
+    - find picture
+    - get document
+    - get pictures
+    - list archive
+    - list picture
+    - show archive
+    - show picture
+    - find pictures
+    - get documents
+    - get installer
+    - list document
+    - list pictures
+    - show document
+    - show pictures
+    - find documents
+    - find installer
+    - get screenshot
+    - list documents
+    - list installer
+    - show documents
+    - show installer
+    - find screenshot
+    - get spreadsheet
+    - list screenshot
+    - show screenshot
+    - find spreadsheet
+    - get presentation
+    - list spreadsheet
+    - show spreadsheet
+    - find file i saved
+    - find presentation
+    - list file i saved
+    - list presentation
+    - show file i saved
+    - show presentation
+    - find file i edited
+    - list file i edited
+    - show file i edited
+    - find file i changed
+    - get documents files
+    - list file i changed
+    - show file i changed
+    - find documents files
+    - find file i modified
+    - list documents files
+    - list file i modified
+    - show documents files
+    - show file i modified
+    - what file did i edit
+    - what file did i save
+    - find file i worked on
+    - list file i worked on
+    - show file i worked on
+    - what file did i saved
+    - what file did i touch
+    - what file have i edit
+    - what file have i save
+    - which file did i edit
+    - which file did i save
+    - what file did i change
+    - what file did i edited
+    - what file did i modify
+    - what file have i saved
+    - what file have i touch
+    - which file did i saved
+    - which file did i touch
+    - which file have i edit
+    - which file have i save
+    - what file did i changed
+    - what file did i touched
+    - what file did i work on
+    - what file have i change
+    - what file have i edited
+    - what file have i modify
+    - which file did i change
+    - which file did i edited
+    - which file did i modify
+    - which file have i saved
+    - which file have i touch
+    - what file did i modified
+    - what file have i changed
+    - what file have i touched
+    - what file have i work on
+    - which file did i changed
+    - which file did i touched
+    - which file did i work on
+    - which file have i change
+    - which file have i edited
+    - which file have i modify
+    - what file have i modified
+    - which file did i modified
+    - which file have i changed
+    - which file have i touched
+    - which file have i work on
+    - which file have i modified
+  Full pattern:
+    (wh(at | ich) file[s] (did | have) i (change | changed | edit | edited | save | saved | modify | modified | work on | touch | touched) [(today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago)] [in ([my | the] (documents | downloads | desktop | pictures | videos | music | projects | home) [folder] | <folder><folder>)] | (show | list | find) [me] [the | my] file[s] i (changed | edited | saved | modified | worked on) [(today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago)] [in ([my | the] (documents | downloads | desktop | pictures | videos | music | projects | home) [folder] | <folder><folder>)])
+    (find | show | list | get) [me] [all] [my | the] ((presentation | spreadsheet | screenshot | installer | documents | pictures | document | picture | archive | images | photos | videos | slides | image | photo | video | audio | music | sheet | excel | pdfs | song | docs | deck | pdf | zip | doc)[s] | [.] <folder> files) [((from | modified | changed | edited | saved | made | created) (today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago) | (today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago))] [(in | from) ([my | the] (documents | downloads | desktop | pictures | videos | music | projects | home) [folder] | <folder><folder>)] [((from | modified | changed | edited | saved | made | created) (today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago) | (today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago))]
+
+Folder contents  (JARVIS alone)
+  Note: Only for a folder that exists
+  Say:
+    - list the files in downloads
+    - show me what's in downloads
+    - what folders are in projects
+    - what's in the downloads folder
+    - how many files are in downloads
+    - what folders do we have in projects
+    - whats in documents
+    - what is in documents
+    - list file in documents
+    - list file of documents
+    - list item in documents
+    - list item of documents
+    - show file in documents
+    - show file of documents
+    - show item in documents
+    - show item of documents
+    - what file in documents
+    - what file of documents
+    - what item in documents
+    - what item of documents
+    - whats inside documents
+    - list stuff in documents
+    - list stuff of documents
+    - list whats in documents
+    - show stuff in documents
+    - show stuff of documents
+    - show whats in documents
+    - what stuff in documents
+    - what stuff of documents
+    - which file in documents
+    - which file of documents
+    - which item in documents
+    - which item of documents
+    - list folder in documents
+    - list folder of documents
+    - list things in documents
+    - list things of documents
+    - show folder in documents
+    - show folder of documents
+    - show things in documents
+    - show things of documents
+    - what folder in documents
+    - what folder of documents
+    - what is inside documents
+    - what things in documents
+    - what things of documents
+    - which stuff in documents
+    - which stuff of documents
+    - list file under documents
+    - list item under documents
+    - show file under documents
+    - show item under documents
+    - what file under documents
+    - what item under documents
+    - which folder in documents
+    - which folder of documents
+    - which things in documents
+    - which things of documents
+    - how many file in documents
+    - how many file of documents
+    - how many item in documents
+    - how many item of documents
+    - list contents of documents
+    - list file inside documents
+    - list item inside documents
+    - list stuff under documents
+    - show contents of documents
+    - show file inside documents
+    - show item inside documents
+    - show stuff under documents
+    - what file inside documents
+    - what item inside documents
+    - what stuff under documents
+    - which file under documents
+    - which item under documents
+    - how many stuff in documents
+    - how many stuff of documents
+    - list folder under documents
+    - list stuff inside documents
+    - list subfolder in documents
+    - list subfolder of documents
+    - list things under documents
+    - list whats inside documents
+    - show folder under documents
+    - show stuff inside documents
+    - show subfolder in documents
+    - show subfolder of documents
+    - show things under documents
+    - show whats inside documents
+    - what folder under documents
+    - what stuff inside documents
+    - what subfolder in documents
+    - what subfolder of documents
+    - what things under documents
+    - which file inside documents
+    - which item inside documents
+    - which stuff under documents
+    - how many folder in documents
+    - how many folder of documents
+    - how many things in documents
+    - how many things of documents
+    - list folder inside documents
+    - list things inside documents
+    - show folder inside documents
+    - show things inside documents
+    - what folder inside documents
+    - what things inside documents
+    - which folder under documents
+    - which stuff inside documents
+    - which subfolder in documents
+    - which subfolder of documents
+    - which things under documents
+    - how many file under documents
+    - how many item under documents
+    - list directories in documents
+    - list directories of documents
+    - show directories in documents
+    - show directories of documents
+    - what directories in documents
+    - what directories of documents
+    - which folder inside documents
+    - which things inside documents
+    - how many file inside documents
+    - how many item inside documents
+    - how many stuff under documents
+    - list subfolder under documents
+    - show subfolder under documents
+    - what subfolder under documents
+    - which directories in documents
+    - which directories of documents
+    - how many folder under documents
+    - how many stuff inside documents
+    - how many subfolder in documents
+    - how many subfolder of documents
+    - how many things under documents
+    - list subfolder inside documents
+    - show subfolder inside documents
+    - what subfolder inside documents
+    - which subfolder under documents
+    - how many folder inside documents
+    - how many things inside documents
+    - list directories under documents
+    - show directories under documents
+    - what directories under documents
+    - which subfolder inside documents
+    - how many directories in documents
+    - how many directories of documents
+    - list directories inside documents
+    - show directories inside documents
+    - what directories inside documents
+    - which directories under documents
+    - how many subfolder under documents
+    - which directories inside documents
+    - how many subfolder inside documents
+    - how many directories under documents
+    - how many directories inside documents
+  Full pattern:
+    ((what | which | how many) | (list | show) [me] [all] [the]) (folder[s] | sub [-] folder[s] | directories | file[s] | things | item[s] | stuff) [are | is | do we have | have we got | do i have | are there] [there] (in | inside | under | of) <folder>
+    (what(['] s | is) in(side) <folder> | (list | show) [me] [the] contents of <folder> | (show | list) [me] what ['] s in(side) <folder>)
+
+Downloads  (JARVIS alone)
+  Say:
+    - what did I download today
+    - where's the zip I downloaded
+    - show me my downloads from this week
+    - open the file I downloaded yesterday
+    - open the pdf I downloaded this morning
+    - find the file I downloaded this morning
+    - get i downloaded
+    - find i downloaded
+    - open i downloaded
+    - locate i downloaded
+    - what did i download
+    - wheres i downloaded
+    - list downloads today
+    - show downloads today
+    - show me i downloaded
+    - tell downloads today
+    - what have i download
+    - where is i downloaded
+    - list downloads earlier
+    - list downloads tonight
+    - list what i downloaded
+    - show downloads earlier
+    - show downloads tonight
+    - show what i downloaded
+    - tell downloads earlier
+    - tell downloads tonight
+    - tell what i downloaded
+    - list downloads recently
+    - show downloads recently
+    - tell downloads recently
+    - list downloads a day ago
+    - list downloads last week
+    - list downloads this week
+    - list downloads yesterday
+    - show downloads a day ago
+    - show downloads last week
+    - show downloads this week
+    - show downloads yesterday
+    - tell downloads a day ago
+    - tell downloads last week
+    - tell downloads this week
+    - tell downloads yesterday
+    - what file did i download
+    - list downloads 10 day ago
+    - list downloads a hour ago
+    - list downloads last month
+    - list downloads last night
+    - list downloads this month
+    - show downloads 10 day ago
+    - show downloads a hour ago
+    - show downloads last month
+    - show downloads last night
+    - show downloads this month
+    - tell downloads 10 day ago
+    - tell downloads a hour ago
+    - tell downloads last month
+    - tell downloads last night
+    - tell downloads this month
+    - what file have i download
+    - what stuff did i download
+    - which file did i download
+    - list downloads 10 hour ago
+    - list downloads one day ago
+    - list downloads two day ago
+    - list the file i downloaded
+    - show downloads 10 hour ago
+    - show downloads one day ago
+    - show downloads two day ago
+    - show the file i downloaded
+    - tell downloads 10 hour ago
+    - tell downloads one day ago
+    - tell downloads two day ago
+    - tell the file i downloaded
+    - what stuff have i download
+    - which file have i download
+    - list downloads a minute ago
+    - list downloads last 10 days
+    - list downloads one hour ago
+    - list downloads past 10 days
+    - list downloads this evening
+    - list downloads this morning
+    - list downloads two hour ago
+    - show downloads a minute ago
+    - show downloads last 10 days
+    - show downloads one hour ago
+    - show downloads past 10 days
+    - show downloads this evening
+    - show downloads this morning
+    - show downloads two hour ago
+    - tell downloads a minute ago
+    - tell downloads last 10 days
+    - tell downloads one hour ago
+    - tell downloads past 10 days
+    - tell downloads this evening
+    - tell downloads this morning
+    - tell downloads two hour ago
+    - list downloads 10 minute ago
+    - list downloads a few day ago
+    - list downloads last few days
+    - list downloads last two days
+    - list downloads past few days
+    - list downloads past two days
+    - list downloads three day ago
+    - show downloads 10 minute ago
+    - show downloads a few day ago
+    - show downloads last few days
+    - show downloads last two days
+    - show downloads past few days
+    - show downloads past two days
+    - show downloads three day ago
+    - tell downloads 10 minute ago
+    - tell downloads a few day ago
+    - tell downloads last few days
+    - tell downloads last two days
+    - tell downloads past few days
+    - tell downloads past two days
+    - tell downloads three day ago
+    - list downloads a few hour ago
+    - list downloads one minute ago
+    - list downloads this afternoon
+    - list downloads three hour ago
+    - list downloads two minute ago
+    - show downloads a few hour ago
+    - show downloads one minute ago
+    - show downloads this afternoon
+    - show downloads three hour ago
+    - show downloads two minute ago
+    - tell downloads a few hour ago
+    - tell downloads one minute ago
+    - tell downloads this afternoon
+    - tell downloads three hour ago
+    - tell downloads two minute ago
+    - list downloads last three days
+    - list downloads past three days
+    - show downloads last three days
+    - show downloads past three days
+    - tell downloads last three days
+    - tell downloads past three days
+    - list downloads a few minute ago
+    - list downloads three minute ago
+    - show downloads a few minute ago
+    - show downloads three minute ago
+    - tell downloads a few minute ago
+    - tell downloads three minute ago
+    - list downloads a couple of day ago
+    - show downloads a couple of day ago
+    - tell downloads a couple of day ago
+    - list downloads a couple of hour ago
+    - show downloads a couple of hour ago
+    - tell downloads a couple of hour ago
+    - list downloads a couple of minute ago
+    - show downloads a couple of minute ago
+    - tell downloads a couple of minute ago
+  Full pattern:
+    (wh(at | ich file[s] | at file[s] | at stuff) (did | have) i [just] download [ed] [(today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago)] | (show | list | tell) [me] [my | the] [presentation | spreadsheet | screenshot | installer | documents | pictures | document | picture | archive | images | photos | videos | slides | image | photo | video | audio | music | sheet | excel | pdfs | song | docs | deck | pdf | zip | doc] downloads [from] (today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago) | (show | list | tell) [me] (what | the file[s]) i downloaded [(today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago)])
+    (open | find | show me | where ['] s | where is | locate | get) [me] [the | that | my] [presentation | spreadsheet | screenshot | installer | documents | pictures | document | picture | archive | images | photos | videos | slides | image | photo | video | audio | music | sheet | excel | pdfs | song | docs | deck | pdf | zip | doc | file | thing | one] [that] i [just] downloaded [(today | this morning | this afternoon | this evening | tonight | earlier [today] | yesterday [morning | afternoon | evening] | last night | this week | last week | this month | last month | recently | just now | [in the] (last | past) (<n> | two | three | few) days | (a [n] | one | two | three | a few | a couple of | <n>) (minute[s] | hour[s] | day[s]) ago)]
+
+Found files  (JARVIS alone)
+  Note: Only when the file is found on disk
+  Say:
+    - find my <file>
+    - look for my <file>
+    - can you find my <file>
+    - look for my invoice
+    - find my offer letter
+    - where did i put my <file>
+    - where is my invoice pdf
+    - find the file budget.xlsx
+  Full pattern:
+    (find | locate | where ['] s | where is | where are) [my | the] <file> [file(s)]
+
+Tidy plan  (JARVIS alone)
+  Say:
+    - sort desktop
+    - tidy desktop
+    - sort downloads
+    - tidy downloads
+    - tidy up desktop
+    - clean up desktop
+    - organise desktop
+    - tidy up downloads
+    - clean up downloads
+    - organise downloads
+  Full pattern:
+    (tidy | tidy up | organi<folder>e | clean up | sort [out]) [my | the] d(ownloads | esktop) [folder]
+
+Duplicates  (JARVIS alone)
+  Say:
+    - any duplicate
+    - find duplicate
+    - show duplicate
+    - look for duplicate
+    - are there duplicate
+    - check for duplicate
+  Full pattern:
+    ((find | show | any | are there [any] | check for | look for) [the] duplicate[s] [files] [(in | on) ([my | the] (documents | downloads | desktop | pictures | videos | music | projects | home) [folder] | <folder><folder>)] | (find | show) [the] duplicate [files] [(in | on) ([my | the] (documents | downloads | desktop | pictures | videos | music | projects | home) [folder] | <folder><folder>)])
+
+======================================================================
+COMPUTER & SYSTEM
+======================================================================
+
+JARVIS status  (JARVIS alone)
+  Say:
+    - system check
+    - how's the system
+    - run a diagnostic   (learned from you)
+    - what's your status   (learned from you)
+    - how are your systems
+    - give me a status report   (learned from you)
+    - is everything running fine on your end   (learned from you)
+    - the system's acting weird, give me a status   (learned from you)
+    - status
+    - are you okay
+    - health check
+    - are you working
+    - how are you running
+  Full pattern:
+    ([jarvis | system] status | health check | are you (ok | okay | working) | how are you running)
+
+System usage  (JARVIS alone)
+  Say:
+    - cpu ram gpu
+    - system usage
+    - cpu memory gpu
+    - show cpu memory gpu
+    - check cpu memory gpu
+  Full pattern:
+    ([check | show | what ['] s] [the] system usage | (check | show) [the] cpu [,] memory [,] [and] gpu [usage | load] | [check | show] cpu [,] (ram | memory) [,] [and] gpu [usage | load])
+
+What's using the computer  (JARVIS alone)
+  Say:
+    - the computer is slow
+    - what's eating my memory
+    - top processes
+    - why is it slow
+    - whats using cpu
+    - whats using ram
+    - whats hogging cpu
+    - whats hogging ram
+    - whats slowing cpu
+    - whats slowing ram
+    - whats using jetson
+    - whats using memory
+    - whats using system
+    - why is jetson slow
+    - why is system slow
+    - whats hogging jetson
+    - whats hogging memory
+    - whats hogging system
+    - whats slowing jetson
+    - whats slowing memory
+    - whats slowing system
+    - whats using computer
+    - why is computer slow
+    - whats hogging computer
+    - whats slowing computer
+    - why is everything slow
+  Full pattern:
+    (what ['] s (slowing [down] | hogging | using [up]) [my | the] (computer | system | jetson | cpu | memory | ram) [down] | why is [my | the] (computer | system | jetson | it | everything) [so] slow | what ['] s using [all] [my | the] (cpu | memory | ram) | [show] [the] top processes)
+
+Network check  (JARVIS alone)
+  Say:
+    - the internet is down
+    - why is my wifi flaky   (learned from you)
+    - why is the wifi flaky   (learned from you)
+    - my wifi keeps dropping
+    - websites aren't loading
+    - why is my network flaky   (learned from you)
+    - why is my internet flaky   (learned from you)
+    - is my internet slow today
+    - what's wrong with my wifi
+    - why is the internet flaky   (learned from you)
+    - why isn't my wifi working
+    - why is my connection flaky   (learned from you)
+    - why won't the wifi connect
+    - my internet is disconnecting   (learned from you)
+    - my internet keeps disconnecting   (learned from you)
+    - the internet keeps disconnecting   (learned from you)
+    - why does the wifi keep dropping out   (learned from you)
+    - the wifi keeps cutting out what's going on   (learned from you)
+    - fix net
+    - fix wifi
+    - test net
+    - check net
+    - debug net
+    - test wifi
+    - wifi test
+    - check wifi
+    - debug wifi
+    - wifi check
+    - fix network
+    - look at net
+    - diagnose net
+    - fix internet
+    - look at wifi
+    - network test
+    - test network
+    - check network
+    - debug network
+    - diagnose wifi
+    - internet test
+    - network check
+    - test internet
+    - check internet
+    - debug internet
+    - fix connection
+    - internet check
+    - why is net bad
+    - wifi diagnosis
+    - look at network
+    - test connection
+    - why is net down
+    - why is net load
+    - why is net slow
+    - why is net work
+    - why is wifi bad
+    - wifi diagnostic
+    - check connection
+    - debug connection
+    - diagnose network
+    - look at internet
+    - troubleshoot net
+    - why is wifi down
+    - why is wifi load
+    - why is wifi slow
+    - why is wifi work
+    - diagnose internet
+    - network diagnosis
+    - troubleshoot wifi
+    - internet diagnosis
+    - look at connection
+    - network diagnostic
+    - why is net connect
+    - why is net lagging
+    - why is net loading
+    - why is net so slow
+    - why is net working
+    - why is network bad
+    - diagnose connection
+    - fix wifi connection
+    - internet diagnostic
+    - why is internet bad
+    - why is net dropping
+    - why is network down
+    - why is network load
+    - why is network slow
+    - why is network work
+    - why is wifi connect
+    - why is wifi lagging
+    - why is wifi loading
+    - why is wifi so slow
+    - why is wifi working
+    - test wifi connection
+    - troubleshoot network
+    - why is internet down
+    - why is internet load
+    - why is internet slow
+    - why is internet work
+    - why is net acting up
+    - why is wifi dropping
+    - check wifi connection
+    - debug wifi connection
+    - troubleshoot internet
+    - why is connection bad
+    - why is net connecting
+    - why is wifi acting up
+    - why isnt internet bad
+    - fix network connection
+    - why is connection down
+    - why is connection load
+    - why is connection slow
+    - why is connection work
+    - why is net cutting out
+    - why is network connect
+    - why is network lagging
+    - why is network loading
+    - why is network so slow
+    - why is network working
+    - why is wifi connecting
+    - why isnt internet down
+    - why isnt internet load
+    - why isnt internet slow
+    - why isnt internet work
+    - fix internet connection
+    - look at wifi connection
+    - test network connection
+    - troubleshoot connection
+    - why is internet connect
+    - why is internet lagging
+    - why is internet loading
+    - why is internet so slow
+    - why is internet working
+    - why is net dropping out
+    - why is network dropping
+    - why is wifi cutting out
+    - check network connection
+    - debug network connection
+    - diagnose wifi connection
+    - test internet connection
+    - why is internet dropping
+    - why is network acting up
+    - why is wifi dropping out
+    - check internet connection
+    - debug internet connection
+    - why is connection connect
+    - why is connection lagging
+    - why is connection loading
+    - why is connection so slow
+    - why is connection working
+    - why is internet acting up
+    - why is network connecting
+    - why isnt internet connect
+    - why isnt internet lagging
+    - why isnt internet loading
+    - why isnt internet working
+    - look at network connection
+    - why is connection dropping
+    - why is internet connecting
+    - why is network cutting out
+    - why is wifi connection bad
+    - why isnt internet dropping
+    - diagnose network connection
+    - look at internet connection
+    - why is connection acting up
+    - why is internet cutting out
+    - why is network dropping out
+    - why is wifi connection down
+    - why is wifi connection load
+    - why is wifi connection slow
+    - why is wifi connection work
+    - diagnose internet connection
+    - troubleshoot wifi connection
+    - why is connection connecting
+    - why is internet dropping out
+    - why isnt internet connecting
+    - why is connection cutting out
+    - why is network connection bad
+    - why is connection dropping out
+    - why is internet connection bad
+    - why is network connection down
+    - why is network connection load
+    - why is network connection slow
+    - why is network connection work
+    - why is wifi connection connect
+    - why is wifi connection lagging
+    - why is wifi connection loading
+    - why is wifi connection so slow
+    - why is wifi connection working
+    - why isnt internet dropping out
+    - troubleshoot network connection
+    - why is internet connection down
+    - why is internet connection load
+    - why is internet connection slow
+    - why is internet connection work
+    - why is wifi connection dropping
+    - troubleshoot internet connection
+    - why is wifi connection acting up
+    - why is network connection connect
+    - why is network connection lagging
+    - why is network connection loading
+    - why is network connection so slow
+    - why is network connection working
+    - why is wifi connection connecting
+    - why is internet connection connect
+    - why is internet connection lagging
+    - why is internet connection loading
+    - why is internet connection so slow
+    - why is internet connection working
+    - why is network connection dropping
+    - why is wifi connection cutting out
+    - why is internet connection dropping
+    - why is network connection acting up
+    - why is wifi connection dropping out
+    - why is internet connection acting up
+    - why is network connection connecting
+    - why is internet connection connecting
+    - why is network connection cutting out
+    - why is internet connection cutting out
+    - why is network connection dropping out
+    - why is internet connection dropping out
+  Full pattern:
+    ([can you | please] (diagnose | check | test | troubleshoot | look at | debug | fix) [my | the] (internet | internet connection | wi [-] fi | wifi connection | network | network connection | connection | net) [for me] | [run] [a] (network | internet | wi [-] fi) (check | test | diagnostic[s] | diagnosis) | why (is | isn ['] t | is not | won ['] t | wont | doesn ['] t | does not | can ['] t | cannot | did) [my | the] (internet | internet connection | wi [-] fi | wifi connection | network | network connection | connection | net) [so] (working | work | slow | down | loading | load | connecting | connect | lagging | bad | dropping | dropping out | so slow | cutting out | acting up) [today | now | right now | anymore] | what ['] s (wrong | up | going on) with [my | the] (internet | internet connection | wi [-] fi | wifi connection | network | network connection | connection | net) | [my | the] (internet | internet connection | wi [-] fi | wifi connection | network | network connection | connection | net) [is | keeps] [so] (slow | down | bad | laggy | lagging | not working | broken | dropping | dropping out | acting up | flaky | unstable | weird | keep[s] dropping | cutting out | keep[s] cutting out) | is [my | the] (internet | internet connection | wi [-] fi | wifi connection | network | network connection | connection | net) (slow | down | okay | ok | fine | good | bad | stable) [today | now | right now] | (website[s] | webpage[s] | page[s] | the web | site[s]) (aren ['] t | are not | won ['] t | wont | don ['] t | do not) (load | loading | open | opening) | how ['] s [my | the] (internet | internet connection | wi [-] fi | wifi connection | network | network connection | connection | net) [doing | today | now])
+
+Audio devices  (JARVIS alone)
+  Say:
+    - list my speaker devices   (learned from you)
+    - show my speaker devices   (learned from you)
+    - list the speaker devices   (learned from you)
+    - show the speaker devices   (learned from you)
+    - what devices can play sound   (learned from you)
+    - show me the audio devices i can pick from   (learned from you)
+    - my sound's coming out wrong, what sound devices are there   (learned from you)
+    - list mics
+    - show mics
+    - list speakers
+    - show speakers
+    - list microphones
+    - show microphones
+    - what audio inputs
+    - what sound inputs
+    - list audio devices
+    - list sound devices
+    - show audio devices
+    - show sound devices
+    - what audio devices
+    - what audio outputs
+    - what sound devices
+    - what sound outputs
+    - which audio inputs
+    - which sound inputs
+    - what mics are there
+    - what mics do i have
+    - which audio devices
+    - which audio outputs
+    - which sound devices
+    - which sound outputs
+    - which mics are there
+    - which mics do i have
+    - what mics can you see
+    - list speakers and mics
+    - show speakers and mics
+    - which mics can you see
+    - what mics are connected
+    - what speakers are there
+    - what speakers do i have
+    - which mics are connected
+    - which speakers are there
+    - which speakers do i have
+    - what speakers can you see
+    - what microphones are there
+    - what microphones do i have
+    - which speakers can you see
+    - what speakers are connected
+    - which microphones are there
+    - which microphones do i have
+    - what microphones can you see
+    - which speakers are connected
+    - list speakers and microphones
+    - show speakers and microphones
+    - which microphones can you see
+    - what microphones are connected
+    - which microphones are connected
+  Full pattern:
+    (wh(at | ich) (audio | sound) (devices | outputs | inputs) [are there | do i have | are connected] | (list | show) [me] [my | the] (audio devices | sound devices | speakers and mic(s | rophones) | speakers | microphones | mics) | wh(at | ich) (speakers | microphones | mics) (are there | do i have | are connected | can you see))
+
+Screens  (JARVIS alone)
+  Say:
+    - screen info
+    - display info
+    - monitor info
+    - screen details
+    - display details
+    - monitor details
+    - screen settings
+    - display settings
+    - monitor settings
+    - what screens are
+    - what displays are
+    - what monitors are
+    - what's resolution
+    - which screens are
+    - what is resolution
+    - which displays are
+    - which monitors are
+    - what's refresh rate
+    - what is refresh rate
+    - what screens do i have
+    - what displays do i have
+    - what monitors do i have
+    - which screens do i have
+    - which displays do i have
+    - which monitors do i have
+    - what resolution is screen
+    - what resolution is display
+    - what resolution is monitor
+    - what refresh rate is screen
+    - what refresh rate is display
+    - what refresh rate is monitor
+  Full pattern:
+    (what('s | is) [my | the] [screen | display | monitor] re(solution | fresh rate) | what re(solution | fresh rate) is [the | my] (screen | display | monitor) [at | using | set to] | wh(at | ich) (screens | displays | monitors) (are | do i have) [connected | plugged in] | (screen | display | monitor) (info | settings | details))
+
+Ports in use  (JARVIS alone)
+  Say:
+    - list open ports   (learned from you)
+    - show open ports   (learned from you)
+    - show the open ports   (learned from you)
+    - list listening ports   (learned from you)
+    - show listening ports   (learned from you)
+    - show me the open ports   (learned from you)
+    - show the listening ports   (learned from you)
+    - what ports are open
+    - what ports are taken
+    - which ports are open
+    - what ports are in use
+    - which ports are taken
+    - which ports are in use
+    - what ports are listening
+    - what ports are being used
+    - which ports are listening
+    - which ports are being used
+    - whats listening on what port
+    - whats listening on which port
+  Full pattern:
+    wh((at | ich) ports are (open | in use | taken | listening | being used) [now | right now] | at ['] s listening on wh(ich | at) port[s])
+
+Project log  (JARVIS alone)
+  Note: Card when the project has a log or terminal output
+  Say:
+    - why won't it start
+    - why did the server crash
+    - why isn't my app running
+    - what's wrong with my project
+    - why is study buddy die
+    - why cant study buddy go
+    - why did study buddy die
+    - why is study buddy fail
+    - why is study buddy stop
+    - why isnt study buddy go
+    - why wont study buddy go
+    - why cant study buddy run
+    - why did study buddy died
+    - why did study buddy down
+    - why did study buddy exit
+    - why did study buddy fail
+    - why did study buddy quit
+    - why did study buddy stop
+    - why didnt study buddy go
+    - why does study buddy die
+    - why is study buddy crash
+    - why isnt study buddy run
+    - why wont study buddy run
+    - why cannot study buddy go
+    - why cant study buddy load
+    - why cant study buddy open
+    - why cant study buddy work
+    - why did study buddy break
+    - why did study buddy broke
+    - why did study buddy crash
+    - why did study buddy dying
+    - why didnt study buddy run
+    - why does study buddy died
+    - why does study buddy down
+    - why does study buddy exit
+    - why does study buddy fail
+    - why does study buddy quit
+    - why does study buddy stop
+    - why doesnt study buddy go
+    - why is not study buddy go
+    - why is study buddy failed
+    - why isnt study buddy load
+    - why isnt study buddy open
+    - why isnt study buddy work
+    - why wont study buddy load
+    - why wont study buddy open
+    - why wont study buddy work
+    - why cannot study buddy run
+    - why cant study buddy going
+    - why cant study buddy start
+    - why did not study buddy go
+    - why did study buddy broken
+    - why did study buddy exited
+    - why did study buddy failed
+    - why didnt study buddy load
+    - why didnt study buddy open
+    - why didnt study buddy work
+    - why does study buddy break
+    - why does study buddy broke
+    - why does study buddy crash
+    - why does study buddy dying
+    - why doesnt study buddy run
+    - why is not study buddy run
+    - why is study buddy crashed
+    - why is study buddy failing
+    - why is study buddy stopped
+    - why isnt study buddy going
+    - why isnt study buddy start
+    - why wont study buddy going
+    - why wont study buddy start
+    - why cannot study buddy load
+    - why cannot study buddy open
+    - why cannot study buddy work
+    - why did not study buddy run
+    - why did study buddy crashed
+    - why did study buddy failing
+    - why did study buddy go down
+    - why did study buddy stopped
+    - why didnt study buddy going
+    - why didnt study buddy start
+    - why does not study buddy go
+    - why does study buddy broken
+    - why does study buddy exited
+    - why does study buddy failed
+    - why doesnt study buddy load
+    - why doesnt study buddy open
+    - why doesnt study buddy work
+    - why is not study buddy load
+    - why is not study buddy open
+    - why is not study buddy work
+    - why is study buddy crashing
+    - why is study buddy stopping
+    - why cannot study buddy going
+    - why cannot study buddy start
+    - why cant study buddy come up
+    - why cant study buddy connect
+    - why cant study buddy loading
+    - why cant study buddy opening
+    - why cant study buddy running
+    - why cant study buddy working
+    - why did not study buddy load
+    - why did not study buddy open
+    - why did not study buddy work
+    - why did study buddy crashing
+    - why did study buddy stopping
+    - why does not study buddy run
+    - why does study buddy crashed
+    - why does study buddy failing
+    - why does study buddy go down
+    - why does study buddy stopped
+    - why doesnt study buddy going
+    - why doesnt study buddy start
+    - why is not study buddy going
+    - why is not study buddy start
+    - why isnt study buddy come up
+    - why isnt study buddy connect
+    - why isnt study buddy loading
+    - why isnt study buddy opening
+    - why isnt study buddy running
+    - why isnt study buddy working
+    - why wont study buddy come up
+    - why wont study buddy connect
+    - why wont study buddy loading
+    - why wont study buddy opening
+    - why wont study buddy running
+    - why wont study buddy working
+    - why cant study buddy starting
+    - why did not study buddy going
+    - why did not study buddy start
+    - why did study buddy went down
+    - why didnt study buddy come up
+    - why didnt study buddy connect
+    - why didnt study buddy loading
+    - why didnt study buddy opening
+    - why didnt study buddy running
+    - why didnt study buddy working
+    - why does not study buddy load
+    - why does not study buddy open
+    - why does not study buddy work
+    - why does study buddy crashing
+    - why does study buddy stopping
+    - why isnt study buddy starting
+    - why wont study buddy starting
+    - why cannot study buddy come up
+    - why cannot study buddy connect
+    - why cannot study buddy loading
+    - why cannot study buddy opening
+    - why cannot study buddy running
+    - why cannot study buddy working
+    - why cant study buddy coming up
+    - why didnt study buddy starting
+    - why does not study buddy going
+    - why does not study buddy start
+    - why does study buddy went down
+    - why doesnt study buddy come up
+    - why doesnt study buddy connect
+    - why doesnt study buddy loading
+    - why doesnt study buddy opening
+    - why doesnt study buddy running
+    - why doesnt study buddy working
+    - why is not study buddy come up
+    - why is not study buddy connect
+    - why is not study buddy loading
+    - why is not study buddy opening
+    - why is not study buddy running
+    - why is not study buddy working
+    - why isnt study buddy coming up
+    - why wont study buddy coming up
+    - why cannot study buddy starting
+    - why cant study buddy connecting
+    - why did not study buddy come up
+    - why did not study buddy connect
+    - why did not study buddy loading
+    - why did not study buddy opening
+    - why did not study buddy running
+    - why did not study buddy working
+    - why did study buddy not running
+    - why did study buddy not working
+    - why didnt study buddy coming up
+    - why doesnt study buddy starting
+    - why is not study buddy starting
+    - why isnt study buddy connecting
+    - why wont study buddy connecting
+    - why cannot study buddy coming up
+    - why did not study buddy starting
+    - why didnt study buddy connecting
+    - why does not study buddy come up
+    - why does not study buddy connect
+    - why does not study buddy loading
+    - why does not study buddy opening
+    - why does not study buddy running
+    - why does not study buddy working
+    - why does study buddy not running
+    - why does study buddy not working
+    - why doesnt study buddy coming up
+    - why is not study buddy coming up
+    - why cannot study buddy connecting
+    - why did not study buddy coming up
+    - why does not study buddy starting
+    - why doesnt study buddy connecting
+    - why is not study buddy connecting
+    - why did not study buddy connecting
+    - why does not study buddy coming up
+    - why does not study buddy connecting
+  Full pattern:
+    (why (isn ['] t | is not | won ['] t | wont | doesn ['] t | does not | didn ['] t | did not | can ['] t | cannot) [my | the] <project> (run | running | work | working | start | starting | load | loading | open | opening | come up | coming up | go | going | connect | connecting) [anymore | any more | properly | now] | why (did | does | is | has | was | do) [my | the] <project> [keep] (crash | crashed | crashing | stop | stopped | stopping | fail | failed | failing | die | died | dying | quit | exit | exited | break | broke | broken | go down | went down | down | not working | not running) | what ['] s wrong with [my | the] <project> | (is | did | has) [my | the] <project> (crash | crashed | die | died | fail | failed | go down | gone down | stopped))
+
+Window layouts  (JARVIS alone)
+  Say:
+    - what are my layouts   (learned from you)
+    - list my window layouts   (learned from you)
+    - show my window layouts   (learned from you)
+    - list layouts
+    - show layouts
+    - what layout are there
+    - what layout do i have
+    - what layout have i got
+    - which layout are there
+    - which layout do i have
+    - which layout have i got
+    - what layout have i saved
+    - which layout have i saved
+  Full pattern:
+    (wh(at | ich) layout[s] (do i have | are there | have i (got | saved)) | (list | show) [me] [my | the] layouts)
+
+Install / package choice  (JARVIS alone)
+  Note: Card when it isn't installed yet
+  Say:
+    - install vlc
+    - please install obs on my computer
+    - can you install the app called gimp for me
+    - install htop
+  Full pattern:
+    [please | can you | could you | go ahead and | i want to | i need to | help me] install [the | a] [app | application | program | package | software | tool] [called | named] <app> [(for me | please | on (my | this | the) (computer | jetson | machine | system))]
+
+Notifications  (JARVIS alone)
+  Say:
+    - what just popped up   (learned from you)
+    - what was that popup   (learned from you)
+    - any new notifications
+    - read out my notifications
+    - do i have any notifications
+    - is there a new notification
+    - read my gmail notifications
+    - brief me on my notifications
+    - read the notifications to me
+    - what do my notifications say
+    - say my notifications out loud
+    - what notifications did i miss
+    - show me my recent notifications
+    - anything new in my notifications
+    - boil my notifications down for me
+    - quick rundown of my notifications
+    - read me what notifications i have
+    - give me the gist of my notifications
+    - go through my notifications out loud
+    - what's new in notifications, anything
+    - i wonder if i missed any notifications
+    - i have too many notifications, summarise them
+    - i can't look at the screen, read my notifications
+    - any notif
+    - got notif
+    - any popups
+    - got popups
+    - list notif
+    - read notif
+    - show notif
+    - check notif
+    - list popups
+    - read popups
+    - show popups
+    - check popups
+    - sum up notif
+    - give me notif
+    - go over notif
+    - sum up popups
+    - tell me notif
+    - give me popups
+    - go over popups
+    - tell me popups
+    - what are notif
+    - any slack notif
+    - are there notif
+    - did i get notif
+    - do i have notif
+    - summarise notif
+    - what are popups
+    - any notification
+    - any slack popups
+    - are there popups
+    - did i get popups
+    - do i have popups
+    - go through notif
+    - got notification
+    - have i got notif
+    - notif from slack
+    - read slack notif
+    - show slack notif
+    - summarise popups
+    - go through popups
+    - have i got popups
+    - list notification
+    - popups from slack
+    - read notification
+    - read slack popups
+    - show notification
+    - show slack popups
+    - check notification
+    - what notif came in
+    - sum up notification
+    - what popups came in
+    - give me notification
+    - go over notification
+    - tell me notification
+    - what notif are there
+    - what notif did i get
+    - what are notification
+    - what notif did i miss
+    - what notif have i got
+    - what notif have i had
+    - what popups are there
+    - what popups did i get
+    - any alert on my screen
+    - any slack notification
+    - are there notification
+    - did i get notification
+    - do i have notification
+    - got alert on my screen
+    - summarise notification
+    - what did slack send me
+    - what popups did i miss
+    - what popups have i got
+    - what popups have i had
+    - any alert on my desktop
+    - go through notification
+    - got alert on my desktop
+    - have i got notification
+    - list alert on my screen
+    - notification from slack
+    - read alert on my screen
+    - read slack notification
+    - show alert on my screen
+    - show slack notification
+    - what notif have come in
+    - check alert on my screen
+    - list alert on my desktop
+    - read alert on my desktop
+    - show alert on my desktop
+    - what notif have i missed
+    - what popups have come in
+    - check alert on my desktop
+    - sum up alert on my screen
+    - what notification came in
+    - what popups have i missed
+    - give me a summary of notif
+    - give me alert on my screen
+    - go over alert on my screen
+    - sum up alert on my desktop
+    - tell me alert on my screen
+    - give me a summary of popups
+    - give me alert on my desktop
+    - go over alert on my desktop
+    - tell me alert on my desktop
+    - what are alert on my screen
+    - what notification are there
+    - what notification did i get
+    - any slack alert on my screen
+    - are there alert on my screen
+    - did i get alert on my screen
+    - do i have alert on my screen
+    - summarise alert on my screen
+    - what are alert on my desktop
+    - what notification did i miss
+    - what notification have i got
+    - what notification have i had
+    - alert on my screen from slack
+    - any slack alert on my desktop
+    - are there alert on my desktop
+    - did i get alert on my desktop
+    - do i have alert on my desktop
+    - go through alert on my screen
+    - have i got alert on my screen
+    - read slack alert on my screen
+    - show slack alert on my screen
+    - summarise alert on my desktop
+    - alert on my desktop from slack
+    - go through alert on my desktop
+    - have i got alert on my desktop
+    - read slack alert on my desktop
+    - show slack alert on my desktop
+    - what did slack notify me about
+    - what notification have come in
+    - what alert on my screen came in
+    - what notification have i missed
+    - what alert on my desktop came in
+    - give me a summary of notification
+    - what alert on my screen are there
+    - what alert on my screen did i get
+    - what alert on my desktop are there
+    - what alert on my desktop did i get
+    - what alert on my screen did i miss
+    - what alert on my screen have i got
+    - what alert on my screen have i had
+    - what alert on my desktop did i miss
+    - what alert on my desktop have i got
+    - what alert on my desktop have i had
+    - what alert on my screen have come in
+    - what alert on my desktop have come in
+    - what alert on my screen have i missed
+    - what alert on my desktop have i missed
+    - give me a summary of alert on my screen
+    - give me a summary of alert on my desktop
+  Full pattern:
+    (summari<app>e | sum up | give me a summary of | go through) [all] [my | the] [new | recent | latest | today ['] s] (notification[s] | notif[s] | alert[s] on my (screen | desktop) | pop [-] ups) [for me]
+    ((read | show | tell me | give me | list | check | what are | go over) [me] [all] [my | the] [new | recent | latest | last few | today ['] s] (notification[s] | notif[s] | alert[s] on my (screen | desktop) | pop [-] ups) [today | i missed | from today | i got] | (do i have | have i got | did i get | are there | got | any) [any] [new] (notification[s] | notif[s] | alert[s] on my (screen | desktop) | pop [-] ups) [today | yet | for me] | what (notification[s] | notif[s] | alert[s] on my (screen | desktop) | pop [-] ups) (did i (get | miss) | have i (got | had | missed) | came in | have come in | are there) [(today | earlier | while i was (away | out | busy | focusing))])
+    ([read | show | any] [my | the] (notification[s] | notif[s] | alert[s] on my (screen | desktop) | pop [-] ups) from <app> | what did <app> (notify me about | send me) [today] | (read | show | any) [me] [my | the] <app> (notification[s] | notif[s] | alert[s] on my (screen | desktop) | pop [-] ups))
+
+======================================================================
+APPS, SCREEN & DEV
+======================================================================
+
+Window text  (JARVIS alone)
+  Note: Card when the window's text is long
+  Say:
+    - read this screen out   (learned from you)
+    - can you read this page
+    - read my app
+    - read my box
+    - read my page
+    - read the app
+    - read the box
+    - read it aloud
+    - read my error
+    - read my popup
+    - read that app
+    - read that box
+    - read the page
+    - read this app
+    - read this box
+    - read my dialog
+    - read my window
+    - read that page
+    - read the error
+    - read the popup
+    - read this page
+    - read my message
+    - read that aloud
+    - read that error
+    - read that popup
+    - read the dialog
+    - read the window
+    - read this aloud
+    - read this error
+    - read this popup
+    - read my terminal
+    - read that dialog
+    - read that window
+    - read the message
+    - read this dialog
+    - read this window
+    - read that message
+    - read the terminal
+    - read this message
+    - read that out loud
+    - read that terminal
+    - read this out loud
+    - read this terminal
+  Full pattern:
+    read ([out | aloud] (this | the | my | that) (window | page | terminal | dialog | box | popup | error | message | app) [aloud | out loud | out | to me | for me] | (this | that | it) (aloud | out loud | out))
+
+What you can click / menu  (JARVIS alone)
+  Say:
+    - show the buttons   (learned from you)
+    - read the edit menu
+    - show the buttons here   (learned from you)
+    - what can I click here
+    - what is there to press   (learned from you)
+    - what are my options here   (learned from you)
+    - what is there to click here   (learned from you)
+    - what is there to press here   (learned from you)
+    - list the buttons in this app   (learned from you)
+    - show the buttons in this app   (learned from you)
+    - list the buttons on this window   (learned from you)
+    - show the buttons on this window   (learned from you)
+    - tell me the buttons in this app   (learned from you)
+    - what can i click on this window   (learned from you)
+    - list menus
+    - read menus
+    - list buttons
+    - list options
+    - read buttons
+    - read options
+    - list controls
+    - read controls
+    - show me menus
+    - tell me menus
+    - what menus are
+    - show me buttons
+    - show me options
+    - tell me buttons
+    - tell me options
+    - show me controls
+    - tell me controls
+    - what buttons are
+    - what can i click
+    - what can i press
+    - what options are
+    - list the file menu
+    - read the file menu
+    - what should i click
+    - what should i press
+    - what menus do i have
+    - show me the file menu
+    - what buttons do i have
+    - what menus can i click
+    - what menus can i press
+    - what options do i have
+    - whats in the file menu
+    - what buttons can i click
+    - what buttons can i press
+    - what options can i click
+    - what options can i press
+  Full pattern:
+    (what (can | should) i (click | press) [on] [(here | in this window | on (this | the | my) screen)] | what (buttons | options | menus) (are | do i have | can i (click | press)) [there | here | on [the | my] screen | in this window] | (list | show me | read [out] | tell me) [the | all the | all] (buttons | menus | options | controls) [here | in this window | on [the | my] screen] | what ['] s in the <menu> menu | (show me | list | read [out]) the <menu> menu)
+
+Git status  (JARVIS alone)
+  Say:
+    - git status of avtec hs
+    - git status of study buddy
+    - git status
+    - changes in jarvis
+    - what changed in jarvis
+  Full pattern:
+    (git status [of | for | in] [[the] <project> [project]] | [any] changes in [the] <project> [project] | what changed in [the] <project> [project])
+
+Nano output  (JARVIS alone)
+  Note: Card when the output is long
+  Say:
+    - run df -h on the nano
+    - run uptime on nano
+  Full pattern:
+    run <command> on [the] nano
+
+======================================================================
+WEB & LOOKUPS
+======================================================================
+
+Weather  (JARVIS alone)
+  Note: Card for the week's forecast; today/tomorrow are spoken
+  Say:
+    - how is it outside   (learned from you)
+    - is it warm outside   (learned from you)
+    - what's the weather
+    - temperature outside
+    - how cold is it out there   (learned from you)
+    - what's it like out there   (learned from you)
+    - weather tomorrow in mumbai
+    - what's the weather in delhi
+    - what's the temperature today
+    - what's the outdoor temperature   (learned from you)
+    - is it going to be nice tomorrow   (learned from you)
+    - what's it like out there temperature wise   (learned from you)
+    - weather
+    - forecast
+    - weather report
+    - weather forecast
+  Full pattern:
+    [(what('s | is | will be) | how('s | is) | tell me | give me | check | get | show me | i want to know) [me]] [the] [to(day's | morrow's | night's)] [current] ((weather | forecast | weather forecast | weather report) | [outside] temperature [outside]) [like | going to be [like] | report] [(in | at | for) [the] <place>] [today | tonight | tomorrow | this week | this weekend | right now | now | outside | later] [(in | at | for) [the] <place>]
+
+Bookmarks  (JARVIS alone)
+  Say:
+    - search my bookmarks for recipes
+    - what's in my recipes bookmarks folder
+    - list bookmarks
+    - open bookmarks
+    - show bookmarks
+    - find bookmarks for work
+    - look bookmarks for work
+    - find bookmarks about work
+    - look bookmarks about work
+    - search bookmarks for work
+    - search bookmarks about work
+    - what did i bookmark on work
+    - what did i bookmark for work
+    - whats in work bookmark folder
+    - what did i bookmark about work
+  Full pattern:
+    ((search | find | look) [in | through] [my] bookmarks (for | about) <folder> | what did i bookmark (about | on | for) <folder> | (show | list | open) [me] [my | the] bookmarks [(in | from) [the | my] <folder> [folder]] | what ['] s in [my | the] <folder> bookmark[s] folder)
+
+Wikipedia  (JARVIS alone)
+  Say:
+    - wikipedia {q}
+    - what does wikipedia say about {q}
+    - what does wikipedia say about black holes
+    - wikipedia alan turing
+    - tell me about alan turing in wikipedia
+    - tell me about alan turing on wikipedia
+    - tell me about alan turing from wikipedia
+  Full pattern:
+    ([what does | what ['] s | check | ask] wikipedia [say(s)] [about | on] <topic> | (find out about | tell me about) <topic> (from | on | in) wikipedia [([,] and (tell | read) [it] [to] me [what (it | they) say[s]] | [,] [and] tell me)])
+
+======================================================================
+STUDY BUDDY
+======================================================================
+
+Study Buddy suggestion  (needs the Study Buddy app)
+  Note: Needs the Study Buddy app running
+  Say:
+    - what do i learn
+    - what do i study
+    - what do i watch
+    - study suggestion
+    - what shall i learn
+    - what shall i study
+    - what shall i watch
+    - what should i learn
+    - what should i study
+    - what should i watch
+    - whats next to study
+    - whats next in study buddy
+    - what should i do in study buddy
+  Full pattern:
+    (what (should | shall | do) i (study | learn | watch) [now | next | today] | what ['] s next (to study | in study buddy) | [any] study suggestion[s] | what should i do in study buddy)
+
+Study progress  (needs the Study Buddy app)
+  Note: Needs the Study Buddy app running
+  Say:
+    - my study stats
+    - my study overview
+    - my study progress
+    - how far am i overall
+    - my study buddy stats
+    - how much am i overall
+    - my study buddy overview
+    - my study buddy progress
+    - how far have i done overall
+    - how much have i done overall
+  Full pattern:
+    ([show | what ['] s] [me] my study(buddy) (progress | stats | overview) | how (far | much) (am i | have i done) overall)
+
+Study notes (video)  (needs the Study Buddy app)
+  Note: Needs the Study Buddy app running
+  Say:
+    - notes on class
+    - notes on video
+    - notes for class
+    - notes for video
+    - notes on lesson
+    - notes for lesson
+    - notes on lecture
+    - notes for lecture
+    - read notes in class
+    - read notes in video
+    - read notes on class
+    - read notes on video
+    - show notes in class
+    - show notes in video
+    - show notes on class
+    - show notes on video
+    - notes on study video
+    - read notes for class
+    - read notes for video
+    - read notes in lesson
+    - read notes on lesson
+    - show notes for class
+    - show notes for video
+    - show notes in lesson
+    - show notes on lesson
+    - notes for study video
+    - read notes for lesson
+    - read notes from class
+    - read notes from video
+    - read notes in lecture
+    - read notes on lecture
+    - show notes for lesson
+    - show notes from class
+    - show notes from video
+    - show notes in lecture
+    - show notes on lecture
+    - read notes for lecture
+    - read notes from lesson
+    - show notes for lecture
+    - show notes from lesson
+    - read notes from lecture
+    - show notes from lecture
+    - what are notes in class
+    - what are notes in video
+    - what are notes on class
+    - what are notes on video
+    - what are notes for class
+    - what are notes for video
+    - what are notes in lesson
+    - what are notes on lesson
+    - read notes in study video
+    - read notes on study video
+    - show notes in study video
+    - show notes on study video
+    - what are notes for lesson
+    - what are notes from class
+    - what are notes from video
+    - what are notes in lecture
+    - what are notes on lecture
+    - read notes for study video
+    - show notes for study video
+    - what are notes for lecture
+    - what are notes from lesson
+    - read notes from study video
+    - show notes from study video
+    - what are notes from lecture
+    - what are notes in study video
+    - what are notes on study video
+    - what are notes for study video
+    - what are notes from study video
+    - what did i write in notes in class
+    - what did i write in notes in video
+    - what did i write in notes on class
+    - what did i write in notes on video
+    - what did i write in notes for class
+    - what did i write in notes for video
+    - what did i write in notes in lesson
+    - what did i write in notes on lesson
+    - what did i write in notes for lesson
+    - what did i write in notes from class
+    - what did i write in notes from video
+    - what did i write in notes in lecture
+    - what did i write in notes on lecture
+    - what did i write in notes for lecture
+    - what did i write in notes from lesson
+    - what did i write in notes from lecture
+    - what did i write in notes in study video
+    - what did i write in notes on study video
+    - what did i write in notes for study video
+    - what did i write in notes from study video
+  Full pattern:
+    ((read | show | what are | what did i write in) [me] [my] notes (on | for | from | in) [the | this | my] (video | lecture | lesson | study video | class) | [my] notes (on | for) [the | this | my] (video | lecture | lesson | study video | class))
+
+Study notes (search)  (needs the Study Buddy app)
+  Note: Needs the Study Buddy app running
+  Say:
+    - what did i note about queues
+    - find queues in my study notes
+    - find queues in my video notes
+    - search study notes for queues
+    - search video notes for queues
+    - what did i write about queues
+    - find in study notes for queues
+    - find in video notes for queues
+    - find queues in my lecture notes
+    - search lecture notes for queues
+    - search study notes about queues
+    - search video notes about queues
+    - find in lecture notes for queues
+    - find in study notes about queues
+    - find in video notes about queues
+    - search lecture notes about queues
+    - find in lecture notes about queues
+    - look through study notes for queues
+    - look through video notes for queues
+    - look through lecture notes for queues
+    - look through study notes about queues
+    - look through video notes about queues
+    - look through lecture notes about queues
+  Full pattern:
+    ((search | look through | find in) [my] (study | video | lecture) notes (for | about) <topic> | find <topic> in my (study | video | lecture) notes | what did i (note | write) about <topic> [in study buddy])
+
+Study problem  (needs the Study Buddy app)
+  Note: Needs the Study Buddy app running
+  Say:
+    - next problem
+    - whats next problem
+  Full pattern:
+    (what ['] s [the | my] next [leetcode | coding] problem [(in | for | from) <group>] | [give me | show me] [the | my] next [leetcode | coding] problem [(in | for | from) <group>])
+
+======================================================================
+CLAUDE WRITES THESE
+======================================================================
+
+Click here? (Claude finds the spot)  (Claude writes it)
+  Say:
+    - press f5
+    - click save
+    - press control shift t
+    - press the back button
+    - tap the settings icon
+    - click on the sign in link
+    - click reset in the terminal menu
+    - tap sign up
+    - click sign up
+    - press sign up
+  Full pattern:
+    (click [on] | press | tap) <button> [(in | from | under | on) the <button> menu]
+
+Web lookup (Claude's answer)  (Claude writes it)
+  Say:
+    - look up cuda online
+    - i said how is the weather   (learned from you)
+    - what does the web say about whisper.cpp
+    - now i am saying who that rockazone guy is   (learned from you)
+    - search the web for jetson orin nx and tell me
+    - quick lookup jetson orin
+    - quick search jetson orin
+    - search jetson orin online
+    - google jetson orin tell me
+    - look up jetson orin online
+    - search jetson orin tell me
+    - find out jetson orin online
+    - look up jetson orin tell me
+    - google jetson orin and read me
+    - google jetson orin and tell me
+    - search jetson orin and read me
+    - search jetson orin and tell me
+    - search web jetson orin tell me
+    - look up jetson orin and read me
+    - look up jetson orin and tell me
+    - whats the web say on jetson orin
+    - search online jetson orin tell me
+    - search web jetson orin and read me
+    - search web jetson orin and tell me
+    - search internet jetson orin tell me
+    - whats the web say about jetson orin
+    - what does the web say on jetson orin
+    - search online jetson orin and read me
+    - search online jetson orin and tell me
+    - whats the internet say on jetson orin
+    - search internet jetson orin and read me
+    - search internet jetson orin and tell me
+    - what does the web say about jetson orin
+    - whats the internet say about jetson orin
+    - what does the internet say on jetson orin
+    - what does the internet say about jetson orin
+  Full pattern:
+    ((search [the] (web | internet | online) [for] | search [for] | google | look up) <topic>([,] and (tell | read) [it] [to] me [what (it | they) say[s]] | [,] [and] tell me) | what(does | ['] s) the (web | internet) say [ing] (about | on) <topic> | (look up | find out | search [for]) <topic> online [([,] and (tell | read) [it] [to] me [what (it | they) say[s]] | [,] [and] tell me)] | quick (search | lookup) [for | on] <topic>)
+
+Document summary  (Claude writes it)
+  Say:
+    - summarise this pdf
+    - what's in budget.xlsx
+    - what does my resume say about python
+    - in this document, what's the deadline
+    - compare offer.pdf and offer_signed.pdf
+    - summarise ~/Downloads/Documents/Deployment Guide.docx
+    - skim lease.pdf
+    - tldr lease.pdf
+    - sum up lease.pdf
+    - whats in lease.pdf
+    - summarise lease.pdf
+    - go through lease.pdf
+    - what is in lease.pdf
+    - what do lease.pdf say
+    - read through lease.pdf
+    - whats inside lease.pdf
+    - in lease.pdf, lease.pdf
+    - what does lease.pdf say
+    - what is inside lease.pdf
+    - from lease.pdf, lease.pdf
+    - whats the gist of lease.pdf
+    - give me the gist of lease.pdf
+    - compare lease.pdf to lease.pdf
+    - compare lease.pdf vs lease.pdf
+    - give me a summary of lease.pdf
+    - compare lease.pdf and lease.pdf
+    - compare lease.pdf with lease.pdf
+    - according to lease.pdf, lease.pdf
+    - compare lease.pdf versus lease.pdf
+  Full pattern:
+    ((summari<file>e | sum up | give me (the gist | a summary) of | what ['] s the gist of | tl [;] dr [of] | skim | go through) <file> | what(['] s | is) in(side) <file> | read through <file>)
+    what do(es | —) <file> say [about <file>]
+    (in | from | according to) <file>, <file>
+    compare <file> (and | with | to | vs [.] | versus) <file>
+
+Page / video / tabs / research  (Claude writes it)
+  Say:
+    - group my tabs   (learned from you)
+    - group the tabs   (learned from you)
+    - sum up my tabs   (learned from you)
+    - sum up the tabs   (learned from you)
+    - group all my tabs   (learned from you)
+    - group my open tabs   (learned from you)
+    - sum up all my tabs   (learned from you)
+    - sum up my open tabs   (learned from you)
+    - summarise example.com
+    - on this page, who wrote it
+    - how much is it on this page   (learned from you)
+    - what's the price on this page
+    - find sources on whisper models
+    - what does this page say it costs   (learned from you)
+    - can you boil this page down for me   (learned from you)
+    - how much is this item on this page   (learned from you)
+    - what's the cost listed on this page   (learned from you)
+    - do some research on the best usb mic
+    - what's this item priced at on this page   (learned from you)
+    - i'm looking at this page, how much is it   (learned from you)
+    - compare jetson orin nx and raspberry pi 5
+    - research the best budget mechanical keyboard
+    - this page is too long, just give me the summary   (learned from you)
+    - i don't have time to read this page, tell me the main points   (learned from you)
+    - tldr
+    - read video
+    - list my tabs
+    - sum up video
+    - tldr the tab
+    - what my tabs
+    - list the tabs
+    - tldr that tab
+    - tldr the page
+    - tldr the post
+    - tldr the site
+    - tldr this tab
+    - what the tabs
+    - sum up the tab
+    - tldr that page
+    - tldr that post
+    - tldr that site
+    - tldr this page
+    - tldr this post
+    - tldr this site
+    - sum up that tab
+    - sum up the page
+    - sum up the post
+    - sum up the site
+    - sum up this tab
+    - summarise video
+    - sum up that page
+    - sum up that post
+    - sum up that site
+    - sum up this page
+    - sum up this post
+    - sum up this site
+    - tldr the article
+    - tldr the website
+    - what are my tabs
+    - summarise my tabs
+    - summarise the tab
+    - tldr that article
+    - tldr that website
+    - tldr this article
+    - tldr this website
+    - what are the tabs
+    - sum up the article
+    - sum up the website
+    - summarise that tab
+    - summarise the page
+    - summarise the post
+    - summarise the site
+    - summarise the tabs
+    - summarise this tab
+    - what tabs are open
+    - sum up that article
+    - sum up that website
+    - sum up this article
+    - sum up this website
+    - summarise that page
+    - summarise that post
+    - summarise that site
+    - summarise this page
+    - summarise this post
+    - summarise this site
+    - whats the tab about
+    - dig into jetson orin
+    - research jetson orin
+    - whats that tab about
+    - whats the page about
+    - whats the post about
+    - whats the site about
+    - whats the tab saying
+    - whats this tab about
+    - look into jetson orin
+    - summarise the article
+    - summarise the website
+    - what is the tab about
+    - whats that page about
+    - whats that post about
+    - whats that site about
+    - whats that tab saying
+    - whats the page saying
+    - whats the post saying
+    - whats the site saying
+    - whats the video about
+    - whats this page about
+    - whats this post about
+    - whats this site about
+    - whats this tab saying
+    - jetson orin in the tab
+    - jetson orin on the tab
+    - on the tab jetson orin
+    - summarise that article
+    - summarise that website
+    - summarise this article
+    - summarise this website
+    - what is that tab about
+    - what is the page about
+    - what is the post about
+    - what is the site about
+    - what is the tab saying
+    - what is this tab about
+    - whats that page saying
+    - whats that post saying
+    - whats that site saying
+    - whats this page saying
+    - whats this post saying
+    - whats this site saying
+    - whats this video about
+    - jetson orin in that tab
+    - jetson orin in the page
+    - jetson orin in the post
+    - jetson orin in the site
+    - jetson orin in this tab
+    - jetson orin on that tab
+    - jetson orin on the page
+    - jetson orin on the post
+    - jetson orin on the site
+    - jetson orin on this tab
+    - on that tab jetson orin
+    - on the page jetson orin
+    - on the post jetson orin
+    - on the site jetson orin
+    - on this tab jetson orin
+    - what is that page about
+    - what is that post about
+    - what is that site about
+    - what is that tab saying
+    - what is the page saying
+    - what is the post saying
+    - what is the site saying
+    - what is the video about
+    - what is this page about
+    - what is this post about
+    - what is this site about
+    - what is this tab saying
+    - whats the article about
+    - whats the website about
+    - from the tab jetson orin
+    - jetson orin in that page
+    - jetson orin in that post
+    - jetson orin in that site
+    - jetson orin in this page
+    - jetson orin in this post
+    - jetson orin in this site
+    - jetson orin on that page
+    - jetson orin on that post
+    - jetson orin on that site
+    - jetson orin on this page
+    - jetson orin on this post
+    - jetson orin on this site
+    - on that page jetson orin
+    - on that post jetson orin
+    - on that site jetson orin
+    - on this page jetson orin
+    - on this post jetson orin
+    - on this site jetson orin
+    - what is that page saying
+    - what is that post saying
+    - what is that site saying
+    - what is this page saying
+    - what is this post saying
+    - what is this site saying
+    - what is this video about
+    - what tabs do i have open
+    - whats that article about
+    - whats that website about
+    - whats the article saying
+    - whats the website saying
+    - whats this article about
+    - whats this website about
+    - from that tab jetson orin
+    - from the page jetson orin
+    - from the post jetson orin
+    - from the site jetson orin
+    - from this tab jetson orin
+    - what is the article about
+    - what is the website about
+    - whats that article saying
+    - whats that website saying
+    - whats the gist of the tab
+    - whats this article saying
+    - whats this website saying
+    - do research on jetson orin
+    - find out about jetson orin
+    - from that page jetson orin
+    - from that post jetson orin
+    - from that site jetson orin
+    - from this page jetson orin
+    - from this post jetson orin
+    - from this site jetson orin
+    - get sources on jetson orin
+    - jetson orin in the article
+    - jetson orin in the website
+    - jetson orin on the article
+    - jetson orin on the website
+    - on the article jetson orin
+    - on the website jetson orin
+    - what is that article about
+    - what is that website about
+    - what is the article saying
+    - what is the website saying
+    - what is this article about
+    - what is this website about
+    - whats the gist of that tab
+    - whats the gist of the page
+    - whats the gist of the post
+    - whats the gist of the site
+    - whats the gist of this tab
+    - find jetson orin on the tab
+    - find sources on jetson orin
+    - get sources for jetson orin
+    - give me the gist of the tab
+    - jetson orin in that article
+    - jetson orin in that website
+    - jetson orin in this article
+    - jetson orin in this website
+    - jetson orin on that article
+    - jetson orin on that website
+    - jetson orin on this article
+    - jetson orin on this website
+    - on that article jetson orin
+    - on that website jetson orin
+    - on this article jetson orin
+    - on this website jetson orin
+    - what is that article saying
+    - what is that website saying
+    - what is this article saying
+    - what is this website saying
+    - whats the gist of that page
+    - whats the gist of that post
+    - whats the gist of that site
+    - whats the gist of this page
+    - whats the gist of this post
+    - whats the gist of this site
+    - do research into jetson orin
+    - find jetson orin on that tab
+    - find jetson orin on the page
+    - find jetson orin on the post
+    - find jetson orin on the site
+    - find jetson orin on this tab
+    - find sources for jetson orin
+    - from the article jetson orin
+    - from the website jetson orin
+    - give me the gist of that tab
+    - give me the gist of the page
+    - give me the gist of the post
+    - give me the gist of the site
+    - give me the gist of this tab
+    - do research about jetson orin
+    - find jetson orin on that page
+    - find jetson orin on that post
+    - find jetson orin on that site
+    - find jetson orin on this page
+    - find jetson orin on this post
+    - find jetson orin on this site
+    - from that article jetson orin
+    - from that website jetson orin
+    - from this article jetson orin
+    - from this website jetson orin
+    - get sources about jetson orin
+    - give me the gist of that page
+    - give me the gist of that post
+    - give me the gist of that site
+    - give me the gist of this page
+    - give me the gist of this post
+    - give me the gist of this site
+    - whats the gist of the article
+    - whats the gist of the website
+    - find sources about jetson orin
+    - give me sources on jetson orin
+    - whats the gist of that article
+    - whats the gist of that website
+    - whats the gist of this article
+    - whats the gist of this website
+    - find jetson orin on the article
+    - find jetson orin on the website
+    - give me sources for jetson orin
+    - give me the gist of the article
+    - give me the gist of the website
+    - find jetson orin on that article
+    - find jetson orin on that website
+    - find jetson orin on this article
+    - find jetson orin on this website
+    - give me the gist of that article
+    - give me the gist of that website
+    - give me the gist of this article
+    - give me the gist of this website
+    - give me sources about jetson orin
+    - compare jetson orin to jetson orin
+    - compare jetson orin vs jetson orin
+    - compare jetson orin and jetson orin
+    - compare jetson orin with jetson orin
+    - compare jetson orin versus jetson orin
+  Full pattern:
+    ((summari<topic>e | sum up | tl [;] dr | give me the gist of | what ['] s the gist of) th(is | e | at) (page | tab | article | site | website | post) | what(['] s | is) th(is | e | at) (page | tab | article | site | website | post) (about | saying) | tl [;] dr)
+    (summari<topic>e | sum up | read) (http[s] ://<topic> | [www.] <topic> [.<topic>] .<topic> [/[<topic>]])
+    ((on | from) th(is | e | at) (page | tab | article | site | website | post) [,] <topic> | <topic> (on | in) th(is | e | at) (page | tab | article | site | website | post) | find <topic> on th(is | e | at) (page | tab | article | site | website | post))
+    ((summari<topic>e | sum up | read) [th(e | is)] [youtube] video | what(['] s | is) th(is | e) video about | summari<topic>e [th(e | is)] [youtube] video http[s] ://<topic> | summari<topic>e http[s] :// [www.] youtu(be.com | .be)/<topic>)
+    ((summari<topic>e | what are | list | what) [all] (my | the) [open] tabs [about | i have open | are open | do i have open] | what tabs (do i have | are) open)
+    (research | look into | find out about | dig into | do [some] research (on | into | about) | (find | get | give me) [some] sources (on | about | for)) <topic> [(with | and give me | and cite) sources] [in depth | properly | thoroughly | deeply]
+    compare <topic> (and | vs [.] | versus | with | to) <topic>
+
+Browser agent  (Claude writes it)
+  Say:
+    - attach resume.pdf to this form
+    - complete the signup form for me
+    - upload my resume onto this page
+    - fill in the form on this page with my work email
+    - in the agent browser, find the cheapest flight to goa
+    - fill form
+    - complete form
+    - download the pdf on the page
+    - download the zip on the page
+    - download that pdf on the page
+    - download that zip on the page
+    - download the file on the page
+    - download the pdf on this page
+    - download the zip on this page
+    - download this pdf on the page
+    - download this zip on the page
+    - download that file on the page
+    - download that pdf on this page
+    - download that zip on this page
+    - download the file on this page
+    - download the image on the page
+    - download the pdf from the page
+    - download the video on the page
+    - download the zip from the page
+    - download this file on the page
+    - download this pdf on this page
+    - download this zip on this page
+    - download that file on this page
+    - download that image on the page
+    - download that pdf from the page
+    - download that video on the page
+    - download that zip from the page
+    - download the file from the page
+    - download the image on this page
+    - download the pdf from this page
+    - download the video on this page
+    - download the zip from this page
+    - download this file on this page
+    - download this image on the page
+    - download this pdf from the page
+    - download this video on the page
+    - download this zip from the page
+    - download that file from the page
+    - download that image on this page
+    - download that pdf from this page
+    - download that video on this page
+    - download that zip from this page
+    - download the file from this page
+    - download the image from the page
+    - download the picture on the page
+    - download the video from the page
+    - download this file from the page
+    - download this image on this page
+    - download this pdf from this page
+    - download this video on this page
+    - download this zip from this page
+    - agent go to find flights to delhi
+    - download that file from this page
+    - download that image from the page
+    - download that picture on the page
+    - download that video from the page
+    - download the document on the page
+    - download the image from this page
+    - download the picture on this page
+    - download the video from this page
+    - download this file from this page
+    - download this image from the page
+    - download this picture on the page
+    - download this video from the page
+    - download that document on the page
+    - download that image from this page
+    - download that picture on this page
+    - download that video from this page
+    - download the document on this page
+    - download the picture from the page
+    - download this document on the page
+    - download this image from this page
+    - download this picture on this page
+    - download this video from this page
+    - download that document on this page
+    - download that picture from the page
+    - download the attachment on the page
+    - download the document from the page
+    - download the picture from this page
+    - download this document on this page
+    - download this picture from the page
+    - download that attachment on the page
+    - download that document from the page
+    - download that picture from this page
+    - download the attachment on this page
+    - download the document from this page
+    - download this attachment on the page
+    - download this document from the page
+    - download this picture from this page
+    - download that attachment on this page
+    - download that document from this page
+    - download the attachment from the page
+    - download this attachment on this page
+    - download this document from this page
+    - download that attachment from the page
+    - download the attachment from this page
+    - download this attachment from the page
+    - download that attachment from this page
+    - download this attachment from this page
+    - the browser agent find flights to delhi
+    - attach find flights to delhi on the form
+    - attach find flights to delhi on the page
+    - attach find flights to delhi on the site
+    - attach find flights to delhi to the form
+    - attach find flights to delhi to the page
+    - attach find flights to delhi to the site
+    - on the page upload find flights to delhi
+    - upload find flights to delhi on the form
+    - upload find flights to delhi on the page
+    - upload find flights to delhi on the site
+    - upload find flights to delhi to the form
+    - upload find flights to delhi to the page
+    - upload find flights to delhi to the site
+    - attach find flights to delhi on this form
+    - attach find flights to delhi on this page
+    - attach find flights to delhi on this site
+    - attach find flights to delhi to this form
+    - attach find flights to delhi to this page
+    - attach find flights to delhi to this site
+    - on this page upload find flights to delhi
+    - upload find flights to delhi on this form
+    - upload find flights to delhi on this page
+    - upload find flights to delhi on this site
+    - upload find flights to delhi to this form
+    - upload find flights to delhi to this page
+    - upload find flights to delhi to this site
+    - attach find flights to delhi into the form
+    - attach find flights to delhi into the page
+    - attach find flights to delhi into the site
+    - attach find flights to delhi onto the form
+    - attach find flights to delhi onto the page
+    - attach find flights to delhi onto the site
+    - from the page upload find flights to delhi
+    - in the agent browser find flights to delhi
+    - on the page download find flights to delhi
+    - upload find flights to delhi into the form
+    - upload find flights to delhi into the page
+    - upload find flights to delhi into the site
+    - upload find flights to delhi onto the form
+    - upload find flights to delhi onto the page
+    - upload find flights to delhi onto the site
+    - attach find flights to delhi into this form
+    - attach find flights to delhi into this page
+    - attach find flights to delhi into this site
+    - attach find flights to delhi onto this form
+    - attach find flights to delhi onto this page
+    - attach find flights to delhi onto this site
+    - from this page upload find flights to delhi
+    - in the agents browser find flights to delhi
+    - on this page download find flights to delhi
+    - upload find flights to delhi into this form
+    - upload find flights to delhi into this page
+    - upload find flights to delhi into this site
+    - upload find flights to delhi onto this form
+    - upload find flights to delhi onto this page
+    - upload find flights to delhi onto this site
+    - from the page download find flights to delhi
+    - with the agent browser find flights to delhi
+    - from this page download find flights to delhi
+    - using the agent browser find flights to delhi
+    - with the agents browser find flights to delhi
+    - using the agents browser find flights to delhi
+    - agent open find flights to delhi and find flights to delhi
+    - attach find flights to delhi on the formfind flights to delhi
+    - attach find flights to delhi on the pagefind flights to delhi
+    - attach find flights to delhi on the sitefind flights to delhi
+    - attach find flights to delhi to the formfind flights to delhi
+    - attach find flights to delhi to the pagefind flights to delhi
+    - attach find flights to delhi to the sitefind flights to delhi
+    - upload find flights to delhi on the formfind flights to delhi
+    - upload find flights to delhi on the pagefind flights to delhi
+    - upload find flights to delhi on the sitefind flights to delhi
+    - upload find flights to delhi to the formfind flights to delhi
+    - upload find flights to delhi to the pagefind flights to delhi
+    - upload find flights to delhi to the sitefind flights to delhi
+    - attach find flights to delhi on this formfind flights to delhi
+    - attach find flights to delhi on this pagefind flights to delhi
+    - attach find flights to delhi on this sitefind flights to delhi
+    - attach find flights to delhi to this formfind flights to delhi
+    - attach find flights to delhi to this pagefind flights to delhi
+    - attach find flights to delhi to this sitefind flights to delhi
+    - upload find flights to delhi on this formfind flights to delhi
+    - upload find flights to delhi on this pagefind flights to delhi
+    - upload find flights to delhi on this sitefind flights to delhi
+    - upload find flights to delhi to this formfind flights to delhi
+    - upload find flights to delhi to this pagefind flights to delhi
+    - upload find flights to delhi to this sitefind flights to delhi
+    - attach find flights to delhi into the formfind flights to delhi
+    - attach find flights to delhi into the pagefind flights to delhi
+    - attach find flights to delhi into the sitefind flights to delhi
+    - attach find flights to delhi onto the formfind flights to delhi
+    - attach find flights to delhi onto the pagefind flights to delhi
+    - attach find flights to delhi onto the sitefind flights to delhi
+    - upload find flights to delhi into the formfind flights to delhi
+    - upload find flights to delhi into the pagefind flights to delhi
+    - upload find flights to delhi into the sitefind flights to delhi
+    - upload find flights to delhi onto the formfind flights to delhi
+    - upload find flights to delhi onto the pagefind flights to delhi
+    - upload find flights to delhi onto the sitefind flights to delhi
+    - attach find flights to delhi into this formfind flights to delhi
+    - attach find flights to delhi into this pagefind flights to delhi
+    - attach find flights to delhi into this sitefind flights to delhi
+    - attach find flights to delhi onto this formfind flights to delhi
+    - attach find flights to delhi onto this pagefind flights to delhi
+    - attach find flights to delhi onto this sitefind flights to delhi
+    - upload find flights to delhi into this formfind flights to delhi
+    - upload find flights to delhi into this pagefind flights to delhi
+    - upload find flights to delhi into this sitefind flights to delhi
+    - upload find flights to delhi onto this formfind flights to delhi
+    - upload find flights to delhi onto this pagefind flights to delhi
+    - upload find flights to delhi onto this sitefind flights to delhi
+  Full pattern:
+    ((on | from) th(is | e) page [,] (download <task> | upload <task>) | (upload | attach) <task> (to | on | onto | into) th(is | e) (page | form | site)[<task>] | download th(e | is | at) (file | pdf | image | picture | video | attachment | document | zip)[s] (on | from) th(is | e) page)
+    (fill [in | out] | complete) [th(e | is)] [sign [-] up | registration | contact] form [(on th(is | e) page | here)] [(with | using) <task>]
+    ((in | using | with) the agent(['] s) browser [,] <task> | [use] the browser agent [to] [,] <task> | agent [,] (go to <task> | open <task> and <task>))
+

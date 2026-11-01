@@ -37,7 +37,7 @@ JARVIS_TOOL = (
     "the user's screen until they close it (# heading, - bullets (indent to nest), 1. numbered, - [ ] / - [x] "
     "checklists, | table |, ``` blocks, > quote, --- divider, **bold**, *italic*, `code`, [links](https://...); "
     "--image /path.png adds a picture, --choice \"phrase\" adds a button, --id NAME updates that card in place for "
-    "progress, --refresh \"command\" --every 5 keeps it live), `jarvis say \"text\"` speaks a short update mid-task, "
+    "progress, --refresh \"command\" --every 5 keeps it live; each new card opens beside those already up, up to 10), `jarvis say \"text\"` speaks a short update mid-task, "
     "and `jarvis do \"phrase\"` has JARVIS do one of its own abilities as if the user said it (`jarvis do --wait "
     "\"phrase\"` waits and prints what came of it: done, unchecked, failed, declined or refused, with what JARVIS "
     "saw; use it when the next step depends on it). Show things worth "

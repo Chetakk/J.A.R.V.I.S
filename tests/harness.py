@@ -561,27 +561,47 @@ class FakeClaude:
 
 
 class FakeUI:
-    """j.ui: cards and the chat panel. Every call is recorded in .calls; shown cards in .cards."""
+    """j.ui: cards and the chat panel. Every call is recorded in .calls; shown cards in .cards, the ones still on
+    screen in .open (oldest first, up to 10, a card with the id of an open one replacing it in place)."""
 
     def __init__(self):
         self.calls = []
         self.cards = []
-        self.visible = False
+        self.open = []
 
-    def show_card(self, card, *a, **k):
+    def show_card(self, card=None, *a, **k):
         self.calls.append(("show_card", card))
+        card = card or (self.cards[-1] if self.cards else None)
+        if not card:
+            return
         self.cards.append(card)
-        self.visible = True
+        at = next((i for i, c in enumerate(self.open) if card.get("id") and c.get("id") == card.get("id")), None)
+        if at is None:
+            self.open = (self.open + [card])[-10:]
+        else:
+            self.open[at] = card
+
+    def show_cards(self, cards):
+        for card in cards:
+            self.show_card(card)
 
     def current_card(self):
-        return self.cards[-1] if self.cards and self.visible else None
+        return self.open[-1] if self.open else None
 
     def card_visible(self, *a):
-        return self.visible
+        return bool(self.open)
 
-    def close_card(self, *a, **k):
-        self.calls.append(("close_card", a))
-        self.visible = False
+    def card_open(self, card_id):
+        return any(c.get("id") == card_id for c in self.open)
+
+    def close_card(self, card_id=None, every=False):
+        self.calls.append(("close_card", (card_id, every)))
+        if every:
+            self.open = []
+        elif card_id:
+            self.open = [c for c in self.open if c.get("id") != card_id]
+        else:
+            self.open = self.open[:-1]
 
     def __getattr__(self, name):
         if name.startswith("__"):

@@ -1,8 +1,9 @@
 """What you can say about the card on screen, plus cards that keep themselves up to date.
 
 "the second one" / "open the third link" (choices and links), "read it to me", "copy that", "save that",
-"show the previous card" / "next card", "pin it" / "unpin", live cards (a command re-run every few
-seconds while the card is open) and timers ("set a timer for 10 minutes for pasta", "cancel the timer").
+"show the previous card" / "next card", "pin it" / "unpin", "close all the cards", live cards (a command re-run
+every few seconds while the card is open) and timers ("set a timer for 10 minutes for pasta", "cancel the timer").
+Several cards can be up at once; "the second one", "read it", "copy that" are about the newest.
 """
 import itertools
 import os
@@ -30,7 +31,8 @@ class Cards(Skill):
     group = "cards"
     does = "Acts on the card on screen: picks a choice, opens a link, reads, copies, saves, pins; timers"
     phrases = ("the second one (a choice on the card)", "open the first link", "read it to me", "copy that", "save that",
-               "show the previous card", "pin it", "unpin", "set a timer for 10 minutes for <x>", "cancel the timer")
+               "show the previous card", "pin it", "unpin", "close all the cards", "set a timer for 10 minutes for <x>",
+               "cancel the timer")
     gives = "the chosen action, speech, or a card"
     permission = "auto"
     checks = ("a timer card counts down and says when it's up; live cards only repeat commands the safety rules run "
@@ -56,6 +58,10 @@ class Cards(Skill):
             (r"(?:show )?(?:me )?(?:the )?next card", lambda m: self.step(1)),
             (r"pin (?:it|that|this|the card)", self.pin),
             (r"unpin(?: it| that| everything| the cards?| all)?|close (?:the |all )?pinned cards?", self.unpin),
+            (r"(?:close|hide|clear|dismiss|get rid of) (?:all|every)(?: of)?(?: the| my| these| those)? cards?|"
+             r"(?:close|hide|clear|dismiss|get rid of) (?:the|my|these|those) cards|"
+             r"(?:close|hide|clear|dismiss) (?:them|these|those) all|(?:close|hide|clear) all (?:of )?(?:them|these)",
+             self.close_all),
             # "our"/"my": Whisper often hears "set a timer" as "set our timer".
             (r"(?:set(?: up)? |start )?(?:a |an |the |my |our |one )?(?:timer|countdown) (?:for )?%s(?: for (.+))?"
              % _AMOUNT, self.timer),
@@ -142,6 +148,11 @@ class Cards(Skill):
         self.j.ui.pin_card()
         self.say(["Pinned. It'll stay put.", "Okay, that one stays."])
 
+    def close_all(self, m):
+        if not (self.j.ui and self.j.ui.card_visible()):
+            return False  # no cards up: "close them all" is about windows
+        self.j.ui.close_card(every=True)
+
     def unpin(self, m):
         if not self.j.ui:
             return False
@@ -186,7 +197,7 @@ class Cards(Skill):
 
     def _showing(self, card_id):
         ui = self.j.ui
-        return bool(ui and ui.card_visible() and (ui.current_card() or {}).get("id") == card_id)
+        return bool(ui and ui.card_open(card_id))
 
     def timer(self, m):
         amount, unit, what = m.group(1).lower(), m.group(2).lower(), (m.group(3) or "").strip()
@@ -226,10 +237,12 @@ class Cards(Skill):
         if not self.timers:
             self.say("There's no timer running.")
             return
-        for stop in list(self.timers.values()):
+        running = list(self.timers.items())
+        for _card_id, stop in running:
             stop.set()
-        if self.j.ui and str((self.j.ui.current_card() or {}).get("id", "")).startswith("timer-"):
-            self.j.ui.close_card()
+        if self.j.ui:
+            for card_id, _stop in running:
+                self.j.ui.close_card(card_id)
         self.say(["Timer cancelled.", "Okay, cancelled."])
 
 
