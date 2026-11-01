@@ -90,3 +90,24 @@ def test_music_folder_isnt_the_music_player(jv, launched):
     os.makedirs(os.path.join(conftest.HOME, "Music"))
     jv.do("open the music folder")
     assert jv.shell.ran(r"^xdg-open .*/Music$") and launched == []
+
+
+def test_project_folder_in_claude(jv, launched, monkeypatch):
+    """"Project folder" is the project of the window you're in, else ~/Projects (it once went to Claude, which
+    opened JARVIS in VS Code)."""
+    cwd = []
+    monkeypatch.setattr(jv.j.claude, "open_terminal", lambda **k: cwd.append(k.get("cwd")))
+    monkeypatch.setattr(jv.j.projects, "focused", lambda: None)
+    jv.do("Open Project Folder in Claude")
+    assert cwd == [os.path.join(conftest.HOME, "Projects")]
+    assert not jv.claude.calls
+
+
+def test_this_in_vs_code_is_what_was_just_opened(jv, launched):
+    """"Open this in VS Code" right after "open projects folder" is that folder, not a project called "this"."""
+    need(jv, "vs code")
+    os.makedirs(os.path.join(conftest.HOME, "Projects", "J.A.R.V.I.S"))
+    jv.j.projects.refresh()
+    jv.do("open projects folder")
+    jv.do("Open this in VS Code")
+    assert launched == [("Visual Studio Code", [os.path.join(conftest.HOME, "Projects")])]

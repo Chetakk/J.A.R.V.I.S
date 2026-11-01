@@ -123,7 +123,10 @@ class Dev(Skill):
 
     def open_project(self, m):
         # m None: JARVIS's own project.
-        path = self._project_path(next(g for g in m.groups() if g)) if m else os.path.join(PROJECTS, "J.A.R.V.I.S")
+        name = next(g for g in m.groups() if g) if m else None
+        if name and re.fullmatch(THIS, name, re.IGNORECASE):
+            return False  # "open this in VS Code": what was just opened (open_in), not a project called "this"
+        path = self._project_path(name) if m else os.path.join(PROJECTS, "J.A.R.V.I.S")
         if not path:
             return False
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
