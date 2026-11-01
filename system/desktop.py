@@ -9,14 +9,21 @@ _NET = {}
 
 
 def go_to_jarvis_workspace():
-    """Switch to JARVIS's workspace (settings: workspace.number) before it opens a new window."""
+    """Switch to the first empty workspace from 1 to workspace.number (settings) before JARVIS opens a new
+    window; if none is empty, to workspace.number itself."""
     try:
         with open(SETTINGS) as f:
             cfg = (yaml.safe_load(f) or {}).get("workspace") or {}
     except OSError:
         cfg = {}
     if cfg.get("enabled", True):
-        switch_to(int(cfg.get("number", 5)))
+        switch_to(first_empty_workspace(int(cfg.get("number", 5))))
+
+
+def first_empty_workspace(last):
+    """First workspace 1..`last` with no app windows on it (JARVIS's own and all-workspace ones don't count); else `last`."""
+    used = {w.workspace for w in windows() if w.workspace and "jarvis" not in w.wm_class}
+    return next((n for n in range(1, last + 1) if n not in used), last)
 
 
 def bring_up(title):

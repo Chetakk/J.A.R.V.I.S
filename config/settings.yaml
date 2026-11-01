@@ -123,7 +123,7 @@ ui:
   show_hearing: true       # list everything speech recognition hears in the chat ("hide what you hear" to stop)
 
 workspace:
-  enabled: true            # new windows JARVIS opens go to this workspace, and it takes you there
+  enabled: true            # new windows JARVIS opens go to the first empty workspace up to this one (else this one)
   number: 5
 
 # Seconds to wait for a yes/no before cancelling a "confirm" command.
