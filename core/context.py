@@ -29,6 +29,13 @@ SWAP = [("up", "down"), ("in", "out"), ("next", "previous"), ("forward", "back")
 # What "a bit more" can repeat: steps, not one-off actions (no "more" after "shut down").
 STEP = re.compile(r"\b(?:up|down|louder|quieter|in|out|next|previous|forward|back|brighter|darker|scroll|skip|"
                   r"high|low|bigger|smaller|faster|slower)\b", re.IGNORECASE)
+# One-off actions with a step word in them: "shut down", "log out", "open X in VS Code" aren't repeated or reversed.
+ONE_OFF = re.compile(r"^(?:shut|log|sign|power|open|close|launch|quit|kill|restart|reboot|lock|start|delete|"
+                     r"send|install|run)\b", re.IGNORECASE)
+# "and close firefox", "now open youtube": a new request, not the last one with a new name
+VERB = re.compile(r"^(?:open|close|quit|kill|launch|start|stop|play|pause|resume|mute|unmute|set|turn|show|tell|"
+                  r"what|how|search|take|go|make|put|add|remind|read|call|send|switch|find|give|is|are|can|do)\b",
+                  re.IGNORECASE)
 
 
 class Context:
@@ -41,6 +48,10 @@ class Context:
     def done(self, text, value=None):
         self.text, self.value, self.at = text, value, time.time()
 
+    def forget(self):
+        """Talk that wasn't an action: "keep going" after it isn't about the volume from before."""
+        self.text = None
+
     def chose(self, options, picked):
         self.choice = (list(options), picked)
 
@@ -49,13 +60,15 @@ class Context:
         if not self.text or time.time() - self.at > FRESH:
             return None
         said = said.strip().rstrip(".!?")
-        if OTHER.match(said) and self.choice:
-            options, picked = self.choice
+        if OTHER.match(said) and self.choice and self.choice[1].lower() == self.text.lower():
+            options, picked = self.choice  # (only while the pick is still the last thing done)
             others = [o for o in options if o != picked]
             return others[0] if len(others) == 1 else None
         if MORE.match(said):
-            return self.text if STEP.search(self.text) else None
+            return self.text if STEP.search(self.text) and not ONE_OFF.match(self.text) else None
         if LESS.match(said):
+            if ONE_OFF.match(self.text):
+                return None
             swapped = _swap(self.text)
             return swapped if swapped != self.text else None
         m = VALUE.match(said)
@@ -64,6 +77,11 @@ class Context:
         m = TOO.match(said)
         if m and self.value and not self.value.isdigit():
             new = (m.group(1) or m.group(2)).strip()
+            verb = self.text.split()[0]
+            if new.lower().startswith(verb.lower() + " "):
+                new = new[len(verb):].strip()  # "close chrome", "and close firefox too": firefox
+            elif VERB.match(new):
+                return None  # "now open youtube" after "open chrome": its own request
             # a name, not a sentence ("me too", "i love you too" aren't "close me")
             if (new.lower() != self.value.lower() and len(new.split()) <= 3
                     and not re.match(r"^(?:me|you|i|it|that|this|us|them|we|same|so)\b", new, re.IGNORECASE)):

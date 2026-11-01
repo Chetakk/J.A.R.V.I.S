@@ -632,6 +632,7 @@ class Jarvis:
 
     def _ask_claude(self, text, image=None):
         recent = list(self.recent)[:-1]  # the last line is this request itself
+        self.context.forget()  # "keep going" after Claude's answer isn't "volume up" from before
         print("  [claude] not in the command list, asking Claude (%s)..." % self.claude.model)
         self.chat("sys", "Asking Claude (%s)..." % self.claude.model)
         self.state("claude")
