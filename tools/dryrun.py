@@ -49,6 +49,12 @@ class DryJarvis:
         j._slash = lambda raw: rec(("slash", raw)) or True
         j._miss = lambda text, outcome: rec(("miss", outcome))
         j.handled = lambda *a, **k: None  # a dry run isn't something you said
+        # Nor is anything learned or unlearned from it: it runs with the real ~/.local/share/jarvis. (Swapped in
+        # only while a phrase is routed: a test that makes a DryJarvis mustn't lose them for the tests after it.)
+        self.quiet = [(J.learned, name, lambda *a, _n=name, **k: rec(("note", "would " + _n)))
+                      for name in ("remember", "decline", "wrong")] + [(J.outcomes, "log", lambda *a, **k: None)]
+        if j.intents:
+            j.intents.learn = j.intents.block = j.intents.forget = lambda *a, **k: None
         j._open_app = lambda text: self._app(J.apps.OPEN, text, "open")
         j._close_app = lambda text: self._app(J.apps.CLOSE, text, "close")
         for name in ("seen", "used", "add_reminder", "clear_reminders", "set_pref", "set_preferences"):
@@ -157,7 +163,17 @@ class DryJarvis:
         """(result, details) for one phrase."""
         del self.log[:]
         self.j.last_request = None
-        if self.j.handle(text) is False:  # JARVIS would close ("close jarvis") or restart
+        for said in (self.j.recent, self.j.talk, self.j.transcript):  # each phrase on its own: no "you just asked
+            said.clear()                                                # for that one" from the phrase before
+        real = [(module, name, getattr(module, name)) for module, name, _ in self.quiet]
+        for module, name, stub in self.quiet:
+            setattr(module, name, stub)
+        try:
+            closed = self.j.handle(text) is False
+        finally:
+            for module, name, fn in real:
+                setattr(module, name, fn)
+        if closed:  # JARVIS would close ("close jarvis") or restart
             restart, self.j.exit_code = self.j.exit_code == J.RESTART_CODE, 0
             return ("restart" if restart else "quit"), ""
         acts = [(k, v) for k, v in self.log if k not in ("say", "note", "miss")]
