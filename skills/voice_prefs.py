@@ -1,6 +1,8 @@
 """How JARVIS talks, set by voice and kept across restarts (memory.json "prefs"): "talk faster" / "slow down",
 "be brief" / "give me detailed answers", private mode (only your headphones hear it) and quiet mode (nothing
 spoken, everything in the chat panel)."""
+import re
+
 from skills.base import Skill
 from voice import speech
 
@@ -25,18 +27,26 @@ QUIET_ON = r"(?:turn on |switch on |go into |use )?(?:quiet|silent|text|cards?) 
 QUIET_OFF = r"(?:turn off |switch off |stop |end |leave |exit )(?:quiet|silent|text) mode|" \
             r"(?:quiet|silent|text) mode off|(?:you can )?(?:talk|speak) (?:again|out loud(?: again)?)|" \
             r"unmute yourself|turn (?:on )?your (?:voice|speech)(?: on)?"
+STOP_ECHO = re.compile(r"(?:(?:please |okay |ok )?(?:stop|quit|end|enough)(?: (?:repeating|repeating me|repeating after "
+                       r"me|copying me|it|that|now|please))*|that'?s (?:enough|all)|(?:you can )?stop now)")
 
 
 class VoicePrefs(Skill):
     group = "voice"
     does = ("How JARVIS talks: speed, brief or detailed answers, private (headphones) and quiet mode; kept across "
-             "restarts")
+             "restarts. Repeats your words: one sentence, or everything after \"repeat after me\" until "
+             "\"stop repeating\"")
     phrases = ("talk faster", "slow down", "be brief", "give me detailed answers", "private mode",
-               "private mode off", "quiet mode", "you can talk again", "repeat after me <text>", "say <text>")
+               "private mode off", "quiet mode", "you can talk again", "repeat <text>", "repeat after me",
+               "say <text>")
     gives = "the setting changed, and said"
     permission = "auto"
     asks = "going quiet instead when private mode finds no headphones"
     checks = "the saved setting is applied again at start; lost headphones in private mode go silent, never loud"
+
+    def __init__(self, jarvis):
+        super().__init__(jarvis)
+        self.echoing = False  # "repeat after me" until "stop repeating"
 
     def patterns(self):
         return [
@@ -52,10 +62,15 @@ class VoicePrefs(Skill):
             (PRIVATE_ON, lambda m: self.private(True)),
             (QUIET_OFF, lambda m: self.quiet(False)),
             (QUIET_ON, lambda m: self.quiet(True)),
-            (r"(?:can you |could you |please )?(?:repeat after me|say after me|say this|repeat this|say the following|"
-             r"repeat the following)", lambda m: self.say_back("")),
-            (r"(?:can you |could you |please )?(?:repeat after me|say after me|say this|repeat this|say the following|"
-             r"repeat the following)[:,]? (.+)", lambda m: self.say_back(m.group(1))),
+            # "Repeat after me": everything you say is said back until "stop repeating" (see echoing).
+            (r"(?:can you |could you |please )?(?:repeat|say) after me(?: please)?", lambda m: self.echo_on("")),
+            (r"(?:can you |could you |please )?(?:repeat|say) after me[:,]? (.+)", lambda m: self.echo_on(m.group(1))),
+            # "Repeat ...": just the one sentence. Not "repeat that" / "repeat yourself" (its last line again).
+            (r"(?:can you |could you |please )?(?:say this|repeat this|say the following|repeat the following|repeat)",
+             lambda m: self.say_back("")),
+            (r"(?:can you |could you |please )?(?:say this|repeat this|say the following|repeat the following|"
+             r"repeat(?! (?:that|it|yourself|what|your|the last|again|my)\b))[:,]? (.+)",
+             lambda m: self.say_back(m.group(1))),
             # Not "say that again" (repeats its last line), "say less" (above) or "say my notifications".
             (r"(?:can you |could you |please )?say (?!(?:that|it|this|something|anything|again|my|what)\b)(.+?)"
              r"(?: out loud| aloud)?", lambda m: self.say_back(m.group(1))),
@@ -68,6 +83,23 @@ class VoicePrefs(Skill):
             text = (self.j._answer("Okay, what should I say?") or "").strip()
         if text:
             self.say(text)
+
+    def echo_on(self, text):
+        self.echoing = True
+        text = text.strip().strip("\"'\u201c\u201d")
+        self.say(text or "Okay, I'll repeat everything you say. Say stop repeating when you're done.")
+
+    def echo(self, text):
+        """While repeating after you: says your words back (or stops on "stop repeating"). True if it did."""
+        if not self.echoing:
+            return False
+        low = text.lower().strip(" .!?,")
+        if STOP_ECHO.fullmatch(low):
+            self.echoing = False
+            self.say("Okay, I've stopped repeating.")
+        else:
+            self.say(text.strip())
+        return True
 
     def apply(self):
         """At startup: what was set by voice last time."""

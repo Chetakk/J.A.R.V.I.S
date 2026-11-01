@@ -82,8 +82,8 @@ class Skills:
             self.all.append(skill)
 
     def first(self, text):
-        """Before everything else: types the words while dictating, and remembers the request for "where was I"."""
-        if self.dictation.typing(text):
+        """Before everything else: types the words while dictating, says them back while repeating after you, and remembers the request for "where was I"."""
+        if self.dictation.typing(text) or self.voice_prefs.echo(text):
             return True
         self.where_was_i.log(text)
         return False
