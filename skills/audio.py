@@ -111,7 +111,7 @@ class Audio(Skill):
     def which(self, kind):
         d = audio.current(kind)
         if not d:
-            self.say("There's no speaker in use." if kind == "sink" else "I can't find a microphone.")
+            self.fail("There's no speaker in use." if kind == "sink" else "I can't find a microphone.")
             return
         if kind == "sink":
             self.say("Sound is going to %s, at %d percent%s." % (d.label, d.volume, ", but it's muted" if d.mute else ""))
@@ -189,7 +189,7 @@ class Audio(Skill):
         the reply is in the chat panel even while you can't hear it."""
         d = audio.current("sink")
         if not d:
-            self.say("There's no speaker in use.")
+            self.fail("There's no speaker in use.")
             return
         if d.mute == on or not audio.set_mute(d, on):
             self.j.show_mutes(_asked=False, speaker=d.mute)  # the tray shows what's true, not what was asked

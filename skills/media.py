@@ -38,12 +38,12 @@ class Media(Skill):
             return
         if action in ("Play", "Pause"):
             return False  # nothing playing: let "play X" go to the browser / Claude
-        self.say("Nothing seems to be playing.")
+        self.fail("Nothing seems to be playing.")
 
     def playing(self):
         player = _mpris_player()
         if not player:
-            self.say("Nothing seems to be playing.")
+            self.fail("Nothing seems to be playing.")
             return
         md = player[1].get_cached_property("Metadata")
         md = md.unpack() if md else {}

@@ -238,6 +238,7 @@ class Jarvis:
         self.do_missed = False  # Claude's "do" phrase matched nothing (then it isn't learned)
         self.whisper = self.wake = None
         self.ignored = False  # last follow-up was chatter, not a request
+        self.failed = False  # set by a skill's fail()
         self.follow_up = lambda: None  # wake word: listen once more without the name (set by start_voice)
         self.keep_following = lambda: None  # wake word: noise doesn't end the follow-up window (set by start_voice)
         self.recent = deque(maxlen=8)  # what happened without Claude since its last answer, passed on next time
@@ -465,8 +466,12 @@ class Jarvis:
             return True
         if self.skills.first(text) or self._personal(text):
             return True
+        self.failed = False  # a skill's fail(): "I don't see a browser open"
         if self.skills.handle(text):
-            self.context.done(text)
+            if self.failed:
+                self.context.forget()  # "a bit more" after it couldn't zoom isn't another try
+            else:
+                self.context.done(text)
             self.last_request = text  # "do that again" after a skill too, not the command before it
             return True
         self.last_request = text
@@ -527,12 +532,14 @@ class Jarvis:
             reply = self.chat_replies.answer(self._chat_asked, text, persona.address(self.settings), self.name)
             if reply:
                 self.heard(text, "your answer to its question (%s)" % self._chat_asked)
+                self.context.forget()
                 self.speaker.say(reply)
                 return True
         reply = None if self.from_claude or not self.chat_replies else self.chat_replies.reply(
             text, persona.address(self.settings), self.name, self.settings.get("real_name"))
         if reply:
             self.heard(text, "chat (%s %.2f)" % self.chat_replies.last)
+            self.context.forget()  # "a bit more" after a chat isn't the volume from before
             self.speaker.say(reply)
             return True
 
@@ -620,6 +627,7 @@ class Jarvis:
             reply = reply or persona.small_talk(text, user, self.name, self.names, self.settings.get("real_name"))
             if not reply:
                 return False
+            self.context.forget()  # "thanks", "tell me a joke": talk, so "more" next means nothing
             self.speaker.say(reply)
         return True
 
@@ -1192,6 +1200,7 @@ class Jarvis:
     def _undo(self):
         if callable(self.last_undo):  # a skill's own way back (files moved, renamed, put in the Trash)
             reverse, self.last_undo = self.last_undo, None
+            self.context.forget()
             self.heard("undo", "reverses the last change")
             reverse()
             return True
@@ -1201,6 +1210,7 @@ class Jarvis:
             return True
         self.last_undo = None
         self.heard("undo", "runs %s" % cmd["name"])
+        self._text = cmd["say"][0]  # "more" after undoing "volume up" is more of the way back
         return self._run_match(self.registry.match_exact(cmd["say"][0]))
 
     def _slash(self, raw):

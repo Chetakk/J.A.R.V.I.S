@@ -34,6 +34,11 @@ class Skill:
         self.rules = [(re.compile("^(?:%s)$" % p, re.IGNORECASE) if isinstance(p, str) else p, fn)
                       for p, fn in self.patterns()]
 
+    def fail(self, line):
+        """Say why it couldn't, so "a bit more" next doesn't try it again."""
+        self.j.failed = True
+        self.say(line)
+
     def patterns(self):
         """[(regex string or compiled pattern, handler(match))], tried in order."""
         return []

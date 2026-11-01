@@ -49,7 +49,7 @@ class BrowserTabs(Skill):
 
     def tab(self, combo, reply):
         if not self._browser():
-            self.say("I don't see a browser open.")
+            self.fail("I don't see a browser open.")
             return
         desktop.keys(combo)
         if reply:
@@ -59,7 +59,7 @@ class BrowserTabs(Skill):
         target = m.group(1).lower()
         win = self._browser()
         if not win:
-            self.say("I don't see a browser open.")
+            self.fail("I don't see a browser open.")
             return
         first = None
         for _ in range(40):  # cycle through the tabs, reading the window title

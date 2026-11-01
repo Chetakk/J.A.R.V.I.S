@@ -217,7 +217,7 @@ class Web(Skill):
         win = self._browser_window() or next((desktop.find_window(b) for b in BROWSERS if desktop.find_window(b)),
                                              None)
         if not win:
-            self.say("I don't see a browser open.")
+            self.fail("I don't see a browser open.")
             return
         desktop.focus(win)
         time.sleep(0.3)
@@ -459,7 +459,7 @@ class Web(Skill):
     def bookmark_this(self):
         win = self._browser_window()
         if not win:
-            self.say("I don't see a browser open.")
+            self.fail("I don't see a browser open.")
             return
         desktop.focus(win)
         time.sleep(0.2)
