@@ -467,6 +467,7 @@ class Jarvis:
             return True
         if self.skills.handle(text):
             self.context.done(text)
+            self.last_request = text  # "do that again" after a skill too, not the command before it
             return True
         self.last_request = text
 
