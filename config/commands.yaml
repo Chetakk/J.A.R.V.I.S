@@ -27,52 +27,59 @@ sites:
   youtube:
     url: "https://www.youtube.com"
     title: YouTube
+    aliases: [yt, you tube, tube]
     search: "https://www.youtube.com/results?search_query={q}"
     pages: {playlists: feed/playlists, history: feed/history, watch history: feed/history,
             subscriptions: feed/subscriptions, watch later: "playlist?list=WL", liked videos: "playlist?list=LL",
-            shorts: shorts}
-  gmail:    {url: "https://mail.google.com"}
+            shorts: shorts, liked: "playlist?list=LL", videos i liked: "playlist?list=LL",
+            subscribed: feed/subscriptions}
+  gmail:    {url: "https://mail.google.com", aliases: [google mail]}
   github:
     url: "https://github.com"
     title: GitHub
     search: "https://github.com/search?q={q}"
     my: profile
     pages: {profile: "{me}", repos: "{me}?tab=repositories", repositories: "{me}?tab=repositories",
-            stars: "{me}?tab=stars", notifications: notifications, pull requests: pulls, prs: pulls, issues: issues,
-            new repo: new, new repository: new}
+            stars: "{me}?tab=stars", starred: "{me}?tab=stars", starred repos: "{me}?tab=stars",
+            notifications: notifications, pull requests: pulls, prs: pulls, open prs: pulls,
+            open pull requests: pulls, issues: issues, new repo: new, new repository: new}
     repo_pages: {pull requests: pulls, prs: pulls, pulls: pulls, issues: issues, actions: actions,
                  workflows: actions, settings: settings, commits: commits, branches: branches, releases: releases}
-  chatgpt:  {url: "https://chatgpt.com", title: ChatGPT}
+  chatgpt:  {url: "https://chatgpt.com", title: ChatGPT, aliases: [chat gpt, open ai, openai]}
   claude:
     url: "https://claude.ai"
-    pages: {new chat: new, new: new, chats: recents, recents: recents, projects: projects}
+    aliases: [claude ai]
+    pages: {new chat: new, new: new, fresh chat: new, conversation: new, new conversation: new, chats: recents,
+            recents: recents, recent chats: recents, history: recents, projects: projects}
   claude code: {url: "https://claude.ai/code"}
-  whatsapp: {url: "https://web.whatsapp.com", title: WhatsApp}
-  maps:     {url: "https://maps.google.com", search: "https://www.google.com/maps/search/{q}"}
-  wikipedia: {url: "https://en.wikipedia.org", search: "https://en.wikipedia.org/w/index.php?search={q}"}
-  amazon:   {url: "https://www.amazon.in", search: "https://www.amazon.in/s?k={q}"}
+  whatsapp: {url: "https://web.whatsapp.com", title: WhatsApp, aliases: [whatsapp web]}
+  maps:     {url: "https://maps.google.com", aliases: [google maps, map], search: "https://www.google.com/maps/search/{q}"}
+  wikipedia: {url: "https://en.wikipedia.org", aliases: [wiki], search: "https://en.wikipedia.org/w/index.php?search={q}"}
+  amazon:   {url: "https://www.amazon.in", aliases: [amazon india], search: "https://www.amazon.in/s?k={q}"}
   spotify:  {url: "https://open.spotify.com"}
   linkedin:
     url: "https://www.linkedin.com"
     title: LinkedIn
+    aliases: [linked in]
     search: "https://www.linkedin.com/search/results/all/?keywords={q}"
     my: profile
-    pages: {profile: in/me/, jobs: jobs/, messages: messaging/, notifications: notifications/,
-            network: mynetwork/}
+    pages: {profile: in/me/, jobs: jobs/, job search: jobs/, messages: messaging/, inbox: messaging/,
+            notifications: notifications/, network: mynetwork/, connections: mynetwork/}
   linkedin jobs: {url: "https://www.linkedin.com/jobs/", title: LinkedIn jobs,
                   search: "https://www.linkedin.com/jobs/search/?keywords={q}"}
   hotstar:
     url: "https://www.hotstar.com/in/home"
-    aliases: [jiohotstar, jio hotstar, hot star]
+    aliases: [jiohotstar, jio hotstar, hot star, disney hotstar, jio cinema hotstar]
     search: "https://www.hotstar.com/in/explore?search_query={q}"
-    pages: {my space: in/mypage, watchlist: in/mypage}
+    pages: {my space: in/mypage, watchlist: in/mypage, list: in/mypage, saved shows: in/mypage}
   kick:
     url: "https://kick.com"
     search: "https://kick.com/search?query={q}"
     channel: "https://kick.com/{name}"
-    pages: {events: events, live events: events/browse/live, drops: drops/campaigns}
+    pages: {events: events, live events: events/browse/live, live: events/browse/live, drops: drops/campaigns}
   twitch:
     url: "https://www.twitch.tv"
+    aliases: [twitch tv]
     search: "https://www.twitch.tv/search?term={q}"
     channel: "https://www.twitch.tv/{name}"
   x:
@@ -80,32 +87,35 @@ sites:
     title: X
     aliases: [twitter]
     search: "https://x.com/search?q={q}"
-    pages: {home: home, notifications: notifications, messages: messages, bookmarks: i/bookmarks, explore: explore}
+    pages: {home: home, feed: home, notifications: notifications, messages: messages, dms: messages,
+            bookmarks: i/bookmarks, saved tweets: i/bookmarks, explore: explore, trending: explore}
   instagram:
     url: "https://www.instagram.com"
+    aliases: [insta, ig, gram]
     search: "https://www.instagram.com/explore/search/keyword/?q={q}"
     pages: {messages: direct/inbox, dms: direct/inbox, inbox: direct/inbox, reels: reels, explore: explore}
   discord:
     url: "https://discord.com/channels/@me"
+    aliases: [discord web]
     app: true
     pages: {messages: channels/@me, dms: channels/@me, friends: channels/@me}
-  google drive: {url: "https://drive.google.com", aliases: [my drive], search: "https://drive.google.com/drive/search?q={q}"}
-  google docs: {url: "https://docs.google.com/document/"}
-  google sheets: {url: "https://docs.google.com/spreadsheets/"}
+  google drive: {url: "https://drive.google.com", aliases: [my drive, drive], search: "https://drive.google.com/drive/search?q={q}"}
+  google docs: {url: "https://docs.google.com/document/", aliases: [docs]}
+  google sheets: {url: "https://docs.google.com/spreadsheets/", aliases: [sheets]}
   google calendar: {url: "https://calendar.google.com"}
-  google meet: {url: "https://meet.google.com"}
+  google meet: {url: "https://meet.google.com", aliases: [meet]}
   google chat: {url: "https://chat.google.com"}
-  google cloud: {url: "https://console.cloud.google.com", aliases: [google cloud console, gcp, cloud console]}
+  google cloud: {url: "https://console.cloud.google.com", aliases: [google cloud console, gcp, cloud console, google console]}
   vercel:   {url: "https://vercel.com/dashboard"}
   supabase: {url: "https://supabase.com/dashboard"}
   tailscale: {url: "https://login.tailscale.com/admin"}
-  hugging face: {url: "https://huggingface.co", aliases: [huggingface], search: "https://huggingface.co/search/full-text?q={q}"}
+  hugging face: {url: "https://huggingface.co", aliases: [huggingface, hugging], search: "https://huggingface.co/search/full-text?q={q}"}
   kaggle:   {url: "https://www.kaggle.com", search: "https://www.kaggle.com/search?q={q}"}
   overleaf: {url: "https://www.overleaf.com/project"}
   zepto:    {url: "https://www.zepto.com", search: "https://www.zepto.com/search?query={q}"}
-  instamart: {url: "https://instamart.swiggy.com/instamart", search: "https://instamart.swiggy.com/instamart/search?custom_back=true&query={q}"}
+  instamart: {url: "https://instamart.swiggy.com/instamart", aliases: [swiggy instamart, swiggy], search: "https://instamart.swiggy.com/instamart/search?custom_back=true&query={q}"}
   moctale:  {url: "https://www.moctale.in/discover"}
-  capcut:   {url: "https://www.capcut.com"}
+  capcut:   {url: "https://www.capcut.com", aliases: [cap cut]}
   roblox:   {url: "https://www.roblox.com"}
 
 tab_groups:

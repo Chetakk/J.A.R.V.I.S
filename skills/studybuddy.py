@@ -562,6 +562,8 @@ class StudyBuddy(Skill):
 
     @_guard
     def resume_group(self, m):
+        if self.j.browser.parse(m.group(0), guess=False):
+            return False  # "watch bigg boss", "watch rakazone on kick": a site's page
         name = m.group(1)
         if re.match(r"^(?:study(?:ing)?|learning|lectures?|videos?)$", name, re.I):
             return self.resume()
@@ -879,8 +881,8 @@ class StudyBuddy(Skill):
 
     @_guard
     def open_group(self, m):
-        if self.j.browser.site(m.group(1)):
-            return False  # "open my youtube playlists" is the website
+        if self.j.browser.site(m.group(1)) or self.j.browser.parse(m.group(0), guess=False):
+            return False  # "open my youtube playlists", "open my playlists": the website
         group = self._group(m.group(1))
         if not group:
             return False  # "open the tab group"

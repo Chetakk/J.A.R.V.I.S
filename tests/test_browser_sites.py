@@ -131,6 +131,56 @@ def test_your_own_pages(mine, said, url):
     assert not mine.questions
 
 
+@pytest.mark.parametrize("said, url", [
+    # other ways of saying "open", and Hindi
+    ("fire up youtube", "https://www.youtube.com"),
+    ("i need youtube open", "https://www.youtube.com"),
+    ("can i get youtube", "https://www.youtube.com"),
+    ("youtube kholo", "https://www.youtube.com"),
+    ("youtube pe le chalo", "https://www.youtube.com"),
+    ("open insta", "https://www.instagram.com"),
+    ("open claude dot ai", "https://claude.ai"),
+    ("open www dot hotstar dot com", "https://www.hotstar.com"),
+    # searches
+    ("youtube pe lofi search karo", "https://www.youtube.com/results?search_query=lofi"),
+    ("lofi youtube pe chalao", "https://www.youtube.com/results?search_query=lofi"),
+    ("play deva deva song", "https://www.youtube.com/results?search_query=deva+deva+song"),
+    ("order milk on zepto", "https://www.zepto.com/search?query=milk"),
+    ("see if zepto has milk", "https://www.zepto.com/search?query=milk"),
+    ("cats google karo", "https://www.google.com/search?q=cats"),
+    ("search the web for cats", "https://www.google.com/search?q=cats"),
+    ("look for ML engineer jobs", "https://www.linkedin.com/jobs/search/?keywords=ML+engineer"),
+    ("where is the nearest pizza place", "https://www.google.com/maps/search/nearest+pizza+place"),
+    # saved names without the site's, and pages said other ways
+    ("watch bigg boss", "https://www.hotstar.com/in/shows/bigg-boss/1971002586"),
+    ("bigg boss lagao", "https://www.hotstar.com/in/shows/bigg-boss/1971002586"),
+    ("watch yatra rp", "https://kick.com/events/yatra-rp"),
+    ("open the tbone stream", "https://kick.com/tbone_gaming"),
+    ("go to rakazone's youtube", "https://www.youtube.com/@RakaZoneGaming"),
+    ("open my channel", "https://www.youtube.com/@ChetakKumar-kr6lm"),
+    ("watch shorts", "https://www.youtube.com/shorts"),
+    ("new claude chat", "https://claude.ai/new"),
+    ("open my linkedin inbox", "https://www.linkedin.com/messaging/"),
+    ("navigate to youtube", "https://www.youtube.com"),
+    # GitHub
+    ("open my company github", "https://github.com/chetak-biztel"),
+    ("open chetakk's github", "https://github.com/Chetakk"),
+    ("make a new github repo", "https://github.com/new"),
+    ("open the pull requests for jarvis", "https://github.com/Chetakk/J.A.R.V.I.S/pulls"),
+    ("did jarvis's build pass", "https://github.com/Chetakk/J.A.R.V.I.S/actions"),
+])
+def test_other_ways_of_saying_it(mine, said, url):
+    mine.do(said)
+    assert opened(mine) == ["xdg-open %s" % url] or opened(mine) == ["xdg-open '%s'" % url]
+    assert not mine.claude.calls
+
+
+@pytest.mark.parametrize("said", ["what's on youtube", "turn the volume up on youtube", "open home"])
+def test_not_a_site(jv, said):
+    jv.do(said)
+    assert not opened(jv)
+
+
 @pytest.mark.parametrize("answer, url", [("work", "https://github.com/chetak-biztel"),
                                          ("the biztel one", "https://github.com/chetak-biztel"),
                                          ("personal", "https://github.com/Chetakk"),

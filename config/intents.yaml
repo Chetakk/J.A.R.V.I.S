@@ -213,3 +213,16 @@ clear my notifications: [dismiss all my notifications, get rid of my notificatio
 
 # --- what JARVIS has taught itself (skills/learning.py)
 did you learn anything new: [anything new you've learned, have you been learning anything, what have you been learning, what have you picked up lately, have you got any new phrases, what's new in what you know]
+
+# --- added 2026-11-01: sites said as a question or by a name the site doesn't use (system/browser.py has the rest:
+# other verbs, Hindi, "dot com", channels and pages by name). Each one routed with tools/dryrun.py.
+open youtube subscriptions: [who am i subscribed to, which channels am i subscribed to]
+open liked videos on youtube: [show videos i liked, videos i liked]
+open google calendar: [open my calendar, show my calendar, my google calendar]
+open google sheets: [open my spreadsheets, my google sheets]
+open x bookmarks: [show my saved tweets, my saved tweets]
+open twitter explore: [what's trending on twitter, what's trending on x]
+open kick live events: [what's live on kick, who's live on kick]
+open new releases on myflixer: [what's new on myflixer, new on myflixer]
+open hotstar watchlist: [what's on my hotstar watchlist, my hotstar watchlist]
+open new chat on claude: [start a claude conversation, start a new claude conversation]

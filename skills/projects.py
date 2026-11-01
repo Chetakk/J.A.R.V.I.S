@@ -176,6 +176,8 @@ class Projects(Skill):
         self.say(_ports(st["links"]) + " The links are in the chat.")
 
     def open_frontend(self, m):
+        if self.j.browser.parse(m.group(0), guess=False):
+            return False  # "open my linkedin page", "open discord in the browser": a website
         p = self._target(m.group(1) if m.lastindex else None)
         if p == "asked":
             return

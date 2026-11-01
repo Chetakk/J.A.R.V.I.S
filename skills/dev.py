@@ -215,6 +215,9 @@ def open_in_plan(j, said):
     """(path, kind, app) for "<folder or file> in <app>" or "<app> in <folder>": kind is "claude", "terminal" or
     "app" (app: its menu entry). None when one side isn't a folder or file here, or the other isn't an app."""
     said = re.sub(r"^(?:a|an|the|my) ", "", said.strip(), flags=re.IGNORECASE)
+    asked = "open " + said
+    if j.browser._pop_browser(asked)[0] != asked and j.browser.parse(asked, guess=False):
+        return None  # "open discord in the browser": the website (not browser.py in Discord)
     for cut in reversed(list(_IN.finditer(said))):
         left, right = said[:cut.start()], said[cut.end():]
         for what, where in ((left, right), (right, left)):

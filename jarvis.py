@@ -448,7 +448,8 @@ class Jarvis:
         # 1. Other wording with a value ("put milk on my to-do list"), 2. exact command, 3. an installed app,
         # 4. browser phrase, 5. same meaning in other words, 6. close-enough spelling, 7. Claude.
         phrase = self.intents.fill(text) if self.intents and not self._rewording else None
-        if phrase:
+        if phrase and not self.browser.parse(text):
+            # (unless what was said opens a site itself: "navigate to youtube" isn't directions to "youtube")
             self.heard(text, "means \"%s\"" % phrase)
             return self._reword(phrase)
         if self._close_app(text):  # before the command list, whose "close {app}" can't find real process names
@@ -1072,10 +1073,13 @@ class Jarvis:
         """(installed app, the name as said) for "open X" / "close X", or (None, None)."""
         m = pattern.match(text)
         site = self.browser.site(m.group(1)) if m else None
-        if not m or (site and not self.registry.sites[site].get("app")):
-            return None, None  # "open gmail" is the website (not Thunderbird, which "gmail" sounds like)
+        if not m or (site and (not self.registry.sites[site].get("app") or m.group(1).lower() != site)):
+            return None, None  # "open gmail" is the website (not Thunderbird), and so is "open discord web"
         if self.browser._pop_browser(text)[0] != text and self.browser.parse(text):
             return None, None  # "open discord in chrome": the website, though Discord's installed
+        if re.search(r"\b(?:repo|repository|github|website|web ?site)$", m.group(1), re.IGNORECASE) and \
+                self.browser.parse(text):
+            return None, None  # "open study buddy repo": on GitHub, not the Study Buddy app
         return self.apps.find(m.group(1)), m.group(1)
 
     def _open_app(self, text):

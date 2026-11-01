@@ -19,6 +19,7 @@ sys.path.insert(0, HERE)
 import yaml  # noqa: E402
 
 import jarvis as J  # noqa: E402
+from skills import audio as J_audio  # noqa: E402
 from skills import controls as J_controls  # noqa: E402
 from skills import copy_between as J_copy  # noqa: E402
 from skills import dev as J_dev  # noqa: E402
@@ -115,7 +116,18 @@ class DryJarvis:
             passes["whats_in"] = lambda m: not J_files.NOT_A_FOLDER.search(_first(m)) and \
                 _folder_here(self.j, _first(m))
             passes["open_nth"] = lambda m: J_files.from_listing(m.group(1))
-            passes["find_file"] = J_files.worth_searching  # (the disk search itself isn't run)
+            # (the disk search itself isn't run; "find my resume in drive" is Google Drive's)
+            passes["find_file"] = lambda m: J_files.worth_searching(m) and not self.j.browser.parse(m.group(0), False)
+        site_page = lambda m: not self.j.browser.parse(m.group(0), guess=False)  # noqa: E731
+        if obj is self.j.skills.studybuddy:  # "watch bigg boss", "open my playlists": a site's page, handed on
+            passes["resume_group"] = site_page
+            passes["open_group"] = lambda m: not self.j.browser.site(m.group(1)) and site_page(m)
+        if obj is self.j.skills.projects:  # "open my linkedin page": a website, not a project's
+            passes["open_frontend"] = site_page
+        if obj is self.j.skills.audio:  # "put on youtube": not a speaker (no devices in a dry run, only the words)
+            passes["output"] = lambda m: J_re.search(r"\b(?:echo|alexa)\b", _first(m), J_re.I) or \
+                J_re.fullmatch(J_audio.NAMED, _first(m).strip(), J_re.I) or \
+                m.group(0).lower().startswith(("switch", "change", "move", "send", "set"))
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

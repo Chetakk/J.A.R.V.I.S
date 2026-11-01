@@ -264,8 +264,8 @@ class Files(Skill):
 
     def find_file(self, m):
         query = m.group(1)
-        if not worth_searching(m):
-            return False
+        if not worth_searching(m) or self.j.browser.parse(m.group(0), guess=False):
+            return False  # (and "find my resume in drive" is a search on Google Drive)
         hits = _find_files(query)
         meaning = not hits and self.j.intents and by_meaning(self.j.intents, query)
         if meaning:
