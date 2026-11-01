@@ -62,8 +62,8 @@ HELP = """Commands:
   /status   voice, speech recognition, Claude, disk and memory at a glance ("EV, status")
   /quit     exit
 Anything else is treated as a request, e.g. "open youtube in firefox".
-"open claude" opens Claude Code in a terminal, continuing JARVIS's conversation.
-"open claude in vs code" / "ask claude in vs code to ..." uses the Claude Code panel in VS Code.
+"open claude" opens the Claude Code panel in VS Code; "ask claude in vs code to ..." passes it a task.
+"open claude in the terminal" opens Claude Code in a terminal, continuing JARVIS's conversation.
 Built-in skills (skills/): "stop", "status", "what's on my screen", "close this tab", "next tab",
 "switch to the youtube tab", "scroll down", "pause", "next song", "what's playing", "what did I copy",
 "fix the grammar in what I copied", "remember that ...", "what did I ask you to remember", "find my resume",
@@ -75,9 +75,12 @@ terminal), "stop avtec hs", "what's running", "links for avtec hs", "open avtec 
 "what's study buddy about", "list my projects", "what was I working on", "note for avtec hs: <text>",
 "notes for avtec hs", "what's pending", "refresh projects". "run it" / "its links" = the project you last named."""
 
-OPEN_CLAUDE = {"open claude", "open claude terminal", "open claude code", "talk to claude"}
-OPEN_CLAUDE_VSCODE = {"open claude in vs code", "open claude in vscode", "open claude code in vs code",
-                      "open claude code in vscode"}
+# Plain "open claude" is the VS Code panel; the terminal only when you say so.
+OPEN_CLAUDE = {"open claude terminal", "open claude in the terminal", "open claude in terminal",
+               "open claude in a terminal", "open claude code in the terminal", "open claude code in terminal",
+               "open claude code terminal"}
+OPEN_CLAUDE_VSCODE = {"open claude", "open claude code", "talk to claude", "open claude in vs code",
+                      "open claude in vscode", "open claude code in vs code", "open claude code in vscode"}
 # /mute <what>: the three things that can be muted, and the words for each.
 MUTE_WHAT = {"voice": "voice", "speech": "voice", "me": "voice", "jarvis": "voice", "yourself": "voice",
              "mic": "mic", "microphone": "mic", "input": "mic",
