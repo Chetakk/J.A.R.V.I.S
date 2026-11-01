@@ -130,6 +130,7 @@ class Dev(Skill):
         if not path:
             return False
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
+        self.j.last_app = "code"  # "close this" right after
 
     def open_in(self, m):
         plan = open_in_plan(self.j, m.group(1))
@@ -168,6 +169,7 @@ class Dev(Skill):
         self.projects.current = p
         how = " You spent about %d minutes on it %s." % (minutes, when) if minutes >= 2 and when else ""
         self.j.executor.run("code %s" % shlex.quote(p.path), reply="Opening %s.%s" % (p.spoken, how), window=True)
+        self.j.last_app = "code"
 
     def _worked_on(self, when):
         """(project, minutes): the one with the most VS Code time then, from the Day Tracker; with no time

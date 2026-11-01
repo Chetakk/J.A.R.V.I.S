@@ -604,7 +604,11 @@ class Jarvis:
                 self.ui.close_card()  # the card on screen is the likeliest "it"
             elif self.last_app:
                 return self.handle("close %s" % self.last_app)
-            self.speaker.say("Sorry, I'm not sure what to close. Tell me the app's name.")
+            else:
+                name = (self._answer("I'm not sure what to close. Which app?") or "").strip(" .!?")
+                if name and not re.match(r"^(?:no|nope|nothing|never ?mind|cancel|leave it)\b", name, re.I):
+                    return self.handle("close %s" % name)  # "VSCode": close it, not open it
+                self.speaker.say(persona.lines("never_mind", persona.address(self.settings)))
         else:
             # Reminders live in the day tracker now (skills/todos.py).
             # A short "nope" or "pretty good" to its own question gets an answer that fits, not the usual small talk.
