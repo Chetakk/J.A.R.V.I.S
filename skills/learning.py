@@ -14,7 +14,8 @@ WHEN = r"(?: (today|this week|lately|recently|yet|so far))?"
 class Learning(Skill):
     group = "what I've learned"
     does = "Tells you the new phrases and sentences JARVIS has learned; it learns them without asking"
-    phrases = ("did you learn anything new", "what have you learned today", "what new phrases do you know")
+    phrases = ("did you learn anything new", "what have you learned today", "what new phrases do you know",
+               "save that command")
     gives = "speech and a card"
     permission = "auto"
     asks = ""
@@ -29,7 +30,22 @@ class Learning(Skill):
             (r"(?:any|show me|tell me|list|what are)(?: your| the| any)? new %s(?: (?:that )?you(?: have|'ve)? "
              r"(?:%s|know))?%s" % (NEW, LEARN, WHEN), self.whats_new),
             (r"(?:tell me|show me|list) what you(?: have|'ve)? %s%s" % (LEARN, WHEN), self.whats_new),
+            (r"(?:save|remember|keep|learn) (?:that|this|the last|my last) (?:command|one|wording)(?: for next time)?",
+             self.save_last),
+            (r"remember that for next time", self.save_last),
         ]
+
+    def save_last(self, m):
+        """"Save that command": what you just confirmed is already kept (jarvis.py learns it on your yes), so this
+        says so, instead of "save that" saving whatever card is on screen."""
+        rows = learned.history()
+        last = rows[-1] if rows else None
+        recent = last and last.get("time", "") >= time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - 600))
+        if not recent or last.get("unlearned") or last["means"] == LEAVE:
+            self.say("There's nothing new to save. When you say yes to one of my guesses, I keep it on my own.")
+            return True
+        self.say("Already saved. Next time, %s means %s." % (last["said"], last["means"]))
+        return True
 
     def whats_new(self, m):
         when = next((g for g in m.groups() if g), "").lower()

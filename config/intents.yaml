@@ -212,6 +212,7 @@ summarise my notifications: [quick rundown of my notifications, "i have too many
 clear my notifications: [dismiss all my notifications, get rid of my notifications, wipe out my notifications, "my notifications are piling up, clear them", "i've seen them all, clear the notifications", empty my notification list]
 
 # --- what JARVIS has taught itself (skills/learning.py)
+save that command: [save the last command, remember that command, remember that for next time, keep that one for next time, learn that one]
 did you learn anything new: [anything new you've learned, have you been learning anything, what have you been learning, what have you picked up lately, have you got any new phrases, what's new in what you know]
 
 # --- added 2026-11-01: sites said as a question or by a name the site doesn't use (system/browser.py has the rest:
