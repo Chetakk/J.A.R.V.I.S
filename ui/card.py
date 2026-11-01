@@ -5,7 +5,8 @@ or left alone for a while (ui.card_hide_after).
 A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "refresh" {...}}:
 - text: "# heading", "- bullet" (indent to nest), "1. step", "- [ ]"/"- [x]" checklists, "| table |" rows,
   ``` blocks, a ```bars block ("Label: 55%" per line), [[55%]] meters, "> quote", "---", **bold**, *italic*,
-  `code`, [links](https://...).
+  `code`, [links](https://...); drawn blocks (```ring, ```steps, ```weather, ```map... see ui/blocks.py) and
+  {ok}/{warn}/{bad} dots, {file:pdf} badges.
 - choices: buttons ("Open it", or {"label", "do"}); clicking one says its phrase to JARVIS.
 - id: a card with the same id as one on screen updates it in place (progress, live values).
 Several cards can be up at once (Deck): each new one opens where a card always goes and the earlier ones move
@@ -15,6 +16,7 @@ import json
 import math
 import os
 import re
+import time
 
 import gi
 
@@ -23,6 +25,7 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
+from ui import blocks  # noqa: E402
 from ui.window import ORB, PANEL_W, _clear, _make_transparent  # noqa: E402
 
 CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel (PANEL_H)
@@ -72,7 +75,7 @@ def _inline(text):
     s = re.sub(r"`([^`]+)`", r"<tt>\1</tt>", s)
     s = re.sub(r"(?<![\w*])\*(?!\s)([^*]+?)\*(?![\w*])", r"<i>\1</i>", s)  # *italic*, after **bold** is gone
     s = _METER.sub(lambda m: meter(int(m.group(1))), s)
-    return _LINK.sub(r'<a href="\2">\1</a>', s)
+    return blocks.markup(_LINK.sub(r'<a href="\2">\1</a>', s))
 
 
 def links(card):
@@ -94,10 +97,23 @@ def choices(card):
 
 def plain(card):
     """The card as plain sentences, to read aloud."""
-    lines = []
+    lines, kind, block = [], None, []
     for line in ((card or {}).get("text") or "").splitlines():
         line = line.strip()
-        if not line or line.startswith("```") or re.fullmatch(r"[|:\-\s]+|-{3,}", line):
+        if line.startswith("```"):
+            if kind is None:
+                kind, block = line[3:].strip().lower(), []
+            else:
+                said = blocks.spoken(kind, block) if kind in blocks.KINDS else \
+                    [] if kind in ("log", "git", "") else block
+                lines += [l.rstrip(".") + "." for l in said]
+                kind = None
+            continue
+        if kind is not None:
+            block.append(line)
+            continue
+        line = blocks.strip(line)
+        if not line or re.fullmatch(r"[|:\-\s]+|-{3,}", line):
             continue
         if line.startswith("|"):
             line = ", ".join(c.strip() for c in line.strip("|").split("|"))
@@ -189,7 +205,7 @@ def build(text):
             while i < len(lines) and not lines[i].startswith("```"):
                 block.append(lines[i])
                 i += 1
-            chart = _bars(block) if kind == "bars" else None
+            chart = _bars(block) if kind == "bars" else blocks.make(kind, block)
             widgets.append(chart or _label("\n".join(block), mono=True))
         elif line.lstrip().startswith("|"):
             rows = []
@@ -231,6 +247,8 @@ class Card:
         self.visible = False
         self.user_xy = None  # where you dragged it, if you did
         self._dragging = False
+        self._moving = []  # drawn blocks that animate, redrawn by _tick while this card is up
+        self._ticking = False
         _load_css()
         w = self.win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         _make_transparent(w)
@@ -290,8 +308,12 @@ class Card:
                 self.body.pack_start(Gtk.Image.new_from_pixbuf(pix), False, False, 0)
             except GLib.Error:
                 pass
+        self._moving = []
         for widget in build(card.get("text")):
             self.body.pack_start(widget, False, False, 0)
+            if getattr(widget, "every", None):
+                widget.due = 0.0
+                self._moving.append(widget)
         for n, (label, phrase) in enumerate(choices(card), 1):
             button = Gtk.Button()
             text = Gtk.Label()
@@ -309,7 +331,22 @@ class Card:
         self.win.resize(CARD_W, 1)  # shrink to fit the new content
         self.visible = True
         self._place()
+        if self._moving and not self._ticking:
+            self._ticking = True
+            GLib.timeout_add(50, self._tick)
         return False
+
+    def _tick(self):
+        """Redraw the animated blocks that are due; stops once the card is hidden or has none."""
+        if not self.visible or not self._moving:
+            self._ticking = False
+            return False
+        now = time.time()
+        for area in self._moving:
+            if now >= area.due:
+                area.due = now + area.every
+                area.queue_draw()
+        return True
 
     def close(self):
         if self.pinned:

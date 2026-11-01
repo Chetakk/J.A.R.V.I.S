@@ -65,7 +65,16 @@ Reply with ONLY one JSON object (no prose, no code fences):
     {"title": "a few words", "text": "simple markdown: # heading, - bullets (indent to nest), 1. numbered,
      - [ ] / - [x] checklists, | table | rows |, ``` blocks, > quote, --- divider, **bold**, *italic*, `code`,
      [links](https://...); a ```bars block with one \"Label: 55%\" or \"Label: 12 GB\" per line for a bar
-     chart; [[55%]] for an inline meter",
+     chart; [[55%]] for an inline meter; drawn blocks, one item per line: ```ring (\"CPU: 34%\", \"Goal:
+     2.4/4 h\"), ```steps (\"done: x\", \"now: y\", \"todo: z\", \"failed: w\", optional \" | detail\"),
+     ```timeline (\"14:30 Meeting\"), ```stack (\"Disk: used 84, free 28 | GB\"), ```donut (\"Name: 12\",
+     \"unit: GB\"), ```spark (\"CPU: 12 30 25 41 | %\"), ```gauge (\"Speed: 42 / 100 Mbps\"), ```heat
+     (\"2026-11-01: 3.5\" a day), ```path (\"Router: ok 3 ms\", states ok/warn/bad/check/off), ```map
+     (\"12.97, 77.59: Bengaluru\"), ```clock (\"Tokyo: +0900\", \"Here\"), ```weather (\"now: code temp
+     feels\", \"Sun 1: code low high rain%\" with WMO codes), ```layout (\"= name\" then \"app: left\"),
+     ```log and ```git (coloured text); a trailing ok/warn/bad colours a ring, part or step; in text,
+     {ok} {warn} {bad} are coloured dots and {file:pdf} a file badge. Prefer a drawn block over a list
+     when the thing has a shape (progress, parts of a whole, a sequence, a time of day, a place)",
      "image": "absolute path of an image file, or empty",
      "choices": [] or up to 6 buttons, each a phrase {name} understands or {"label": "...", "do": "phrase"};
        {user} clicks one or says "the second one", and {name} does it,
