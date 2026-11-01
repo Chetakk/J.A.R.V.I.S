@@ -603,6 +603,8 @@ class Jarvis:
         elif persona.CLOSE_IT.match(text):
             if self.ui and self.ui.card_visible():
                 self.ui.close_card()  # the card on screen is the likeliest "it"
+            elif self.skills.windows.close_window():  # then the window you're looking at
+                pass
             elif self.last_app:
                 return self.handle("close %s" % self.last_app)
             else:

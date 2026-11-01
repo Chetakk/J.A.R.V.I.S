@@ -144,6 +144,23 @@ def test_close_window_no_or_silence_keeps_it(jv, two_windows, answer):
     assert not jv.desktop.did("close")
 
 
+def test_close_this_closes_the_window_on_screen(jv, two_windows):
+    jv.do("close this", "yes")
+    assert jv.desktop.did("close") == ["biztelai@jetson: ~"]
+
+
+def test_close_this_skips_jarvis_own_window(jv, two_windows):
+    jv.desktop.add("J.A.R.V.I.S", "jarvis Jarvis")  # you're talking to it, so it's the active one
+    jv.do("close it", "yes")
+    assert jv.desktop.did("close") == ["biztelai@jetson: ~"]
+
+
+def test_close_this_with_no_window_asks_which_app(jv):
+    jv.do("close this")
+    assert jv.questions and "Which app" in jv.questions[0]
+    assert not jv.desktop.did("close")
+
+
 def test_focus_an_open_app(jv, two_windows):
     jv.do("switch to chrome")
     assert jv.desktop.did("focus") == ["Inbox - Gmail - Google Chrome"]
