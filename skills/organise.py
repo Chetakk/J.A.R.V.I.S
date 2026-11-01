@@ -202,7 +202,8 @@ class Organise(Skill):
             return
         count = sum(len(v) for v in plan.values())
         self.j.show({"title": "Tidy %s" % m.group(1).capitalize(),
-                     "text": "\n".join("- **%s/** ← %s" % (box, ", ".join(os.path.basename(p) for p in paths[:8])
+                     "text": "```stack\nFiles: %s | files\n```\n\n" % ", ".join(
+                         "%s %d" % (box, len(paths)) for box, paths in plan.items()) + "\n".join("- **%s/** ← %s" % (box, ", ".join(os.path.basename(p) for p in paths[:8])
                                                            + (" and %d more" % (len(paths) - 8) if len(paths) > 8
                                                               else "")) for box, paths in plan.items())})
         if not self.j.ask("Sort %d file%s into %s?" % (count, "" if count == 1 else "s",
@@ -232,8 +233,12 @@ class Organise(Skill):
             return
         extra = [p for g in groups for p in g[1:]]
         wasted = sum(os.path.getsize(p) for p in extra)
+        kept = sum(os.path.getsize(g[0]) for g in groups)
+        unit, div = next(((u, d) for u, d in (("GB", 2 ** 30), ("MB", 2 ** 20), ("KB", 2 ** 10))
+                          if wasted + kept >= d), ("bytes", 1))
         self.j.show({"title": "Duplicates in %s" % _where(folder),
-                     "text": "\n".join("- **%s** (keep) · copies: %s" % (
+                     "text": "```stack\nThese files: extra copies %.1f warn, one of each %.1f | %s\n```\n\n" % (
+                         wasted / div, kept / div, unit) + "\n".join("- **%s** (keep) · copies: %s" % (
                          g[0].replace(folder + "/", ""), ", ".join(p.replace(folder + "/", "") for p in g[1:]))
                                        for g in groups[:20]) + "\n\n%d extra copies, %s." % (len(extra),
                                                                                          _size(wasted))})

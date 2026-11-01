@@ -20,7 +20,7 @@ import urllib.parse
 import numpy as np
 
 from skills.base import Skill
-from skills.helpers import HOME, NTH, ORDINALS, PROJECTS, and_list, words
+from skills.helpers import HOME, NTH, ORDINALS, PROJECTS, and_list, file_badge, words
 from system import desktop
 
 WHEN = (r"today|this morning|this afternoon|this evening|tonight|earlier(?: today)?|yesterday(?: morning| afternoon|"
@@ -130,7 +130,7 @@ class Files(Skill):
         title = ("Files you changed" if label == "changed" else label.capitalize()) + (" " + when if when else "")
         title += where
         self.j.show({"title": title,
-                     "text": "\n".join("%d. **%s** in `%s` · %s" % (i, os.path.basename(h),
+                     "text": "\n".join("%d. %s**%s** in `%s` · %s" % (i, file_badge(h), os.path.basename(h),
                                                                     os.path.dirname(h).replace(HOME, "~"), _when(h))
                                        for i, h in enumerate(hits[:30], 1)) + ("\n\n…and %d more" % (len(hits) - 30)
                                                               if len(hits) > 30 else ""),
@@ -188,7 +188,8 @@ class Files(Skill):
         dirs = [p for p in items if os.path.isdir(p)]
         what = kind or ("folders" if len(dirs) == len(items) else "things")
         self.j.show({"title": "In %s" % folder.replace(HOME, "~"),
-                     "text": "\n".join("%d. **%s**%s" % (i, os.path.basename(p), "/" if os.path.isdir(p) else "")
+                     "text": "\n".join("%d. %s**%s**%s" % (i, file_badge(p), os.path.basename(p),
+                                                          "/" if os.path.isdir(p) else "")
                                        for i, p in enumerate(items[:30], 1))
                              + ("\n\n…and %d more" % (len(items) - 30) if len(items) > 30 else ""),
                      "choices": [{"label": os.path.basename(p)[:40], "do": "open file %s" % p.replace(HOME, "~")}
@@ -257,7 +258,7 @@ class Files(Skill):
     def _show(self, hits, when):
         remember_listing(hits)
         self.j.show({"title": "Downloaded %s" % when,
-                     "text": "\n".join("%d. **%s** · %s" % (i, os.path.basename(h), _when(h))
+                     "text": "\n".join("%d. %s**%s** · %s" % (i, file_badge(h), os.path.basename(h), _when(h))
                                        for i, h in enumerate(hits, 1)),
                      "choices": [{"label": os.path.basename(h)[:40], "do": "open file %s" % h.replace(HOME, "~")}
                                  for h in hits[:30]]})
@@ -276,7 +277,8 @@ class Files(Skill):
         best = hits[0]
         self.j.chat("sys", "found:\n" + "\n".join(h.replace(HOME, "~") for h in hits))
         self.j.show({"title": "Found %d file%s" % (len(hits), "" if len(hits) == 1 else "s"),
-                     "text": "\n".join("- **%s** in `%s`" % (os.path.basename(h), os.path.dirname(h).replace(HOME, "~"))
+                     "text": "\n".join("- %s**%s** in `%s`" % (file_badge(h), os.path.basename(h),
+                                                             os.path.dirname(h).replace(HOME, "~"))
                                        for h in hits)})
         where = os.path.relpath(os.path.dirname(best), HOME)
         where = "your home folder" if where == "." else where.replace("/", ", ")

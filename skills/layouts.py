@@ -186,9 +186,11 @@ class Layouts(Skill):
         if not layouts:
             self.say("You don't have any layouts yet.")
             return
-        self.j.show({"title": "Window layouts", "text": "\n".join(
+        self.j.show({"title": "Window layouts", "text": "```layout\n%s\n```\n\n%s" % ("\n".join(
+            "= %s\n%s" % (n, "\n".join("%s: %s" % (w.get("app"), w.get("place") or "full") for w in l["windows"]))
+            for n, l in sorted(layouts.items())[:6]), "\n".join(
             "- **%s**: %s" % (n, ", ".join("%s %s" % (w.get("app"), w.get("place") or "") for w in l["windows"]))
-            for n, l in sorted(layouts.items()))})
+            for n, l in sorted(layouts.items())))})
         self.say("You have %s." % and_list("%s" % n for n in sorted(layouts)))
 
     def delete(self, m):

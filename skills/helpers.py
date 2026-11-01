@@ -64,3 +64,9 @@ def type_into_window(say, text):
     desktop.keys("ctrl+shift+v" if terminal else "ctrl+v")
     time.sleep(0.25)  # let the app read the clipboard before it changes back
     set_clipboard(old)
+
+
+def file_badge(path):
+    """A file-type badge for a card ("{file:pdf} ", drawn by ui/blocks.py), or "" for a folder or no extension."""
+    ext = os.path.splitext(path)[1][1:]
+    return "{file:%s} " % ext.lower() if ext.isalnum() and len(ext) <= 5 and not os.path.isdir(path) else ""

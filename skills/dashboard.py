@@ -82,7 +82,7 @@ class Dashboard(Skill):
             parts["task"] = task["state"]
             done, total = tasks.counts(task)
             lines += ["**Task: %s** · %s, %d of %d done" % (task["title"][:60], task["state"], done, total),
-                      tasks.text(task), ""]
+                      tasks.steps(task), ""]
             if task["state"] in ("running", "paused") and len(choices) < 3:
                 choices.append({"label": "Pause the task", "do": "pause the task"} if task["state"] == "running"
                                else {"label": "Continue the task", "do": "continue the task"})

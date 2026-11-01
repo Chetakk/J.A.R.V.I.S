@@ -640,7 +640,7 @@ class StudyBuddy(Skill):
         rows = ["%s: %d%%" % (g["name"], round(100 * (g["watchedS"] / g["durationS"] if g["durationS"] else
                                                        g["done"] / g["total"]))) for g in groups]
         d = self._call("GET", "/today")
-        self.j.show({"title": "Study progress", "text": "```bars\n%s\n```\n\nToday: %s · streak: %d day%s" % (
+        self.j.show({"title": "Study progress", "text": "```ring\n%s\n```\n\nToday: %s · streak: %d day%s" % (
             "\n".join(rows), spoken(d["studiedTodayS"]), d["streak"], "" if d["streak"] == 1 else "s")})
         top = max(groups, key=lambda g: g["done"] / g["total"])
         self.say("%d groups. Furthest along is %s. It's on your screen." % (len(groups), top["name"]))

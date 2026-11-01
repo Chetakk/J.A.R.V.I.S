@@ -261,6 +261,34 @@ def text(task):
     return "\n".join(lines)
 
 
+def steps(task):
+    """The task as a drawn step tracker (ui/blocks.py ```steps): done, under way (pulsing), failed, to do."""
+    lines = []
+    now = current(task)
+    for i, step in enumerate(task["steps"]):
+        st = step["status"]
+        if st in (DONE, UNCHECKED):
+            kind = "done"
+        elif st == FAILED:
+            kind = "failed"
+        elif st in (SKIPPED, DECLINED):
+            kind = "skipped"
+        elif i == now and task["state"] in ("running", "waiting"):
+            kind = "now"
+        else:
+            kind = "todo"
+        detail = {UNCHECKED: "ran, not checked", SKIPPED: "skipped", DECLINED: "you said no"}.get(st, "")
+        if i == now and task["state"] == "waiting":
+            detail = "waiting for your OK"
+        elif i == now and task["state"] == "paused" and st != FAILED:
+            detail = "paused here"
+        if step.get("result") and st != PENDING:
+            detail = (detail + " · " if detail else "") + step["result"][:110]
+        lines.append("%s: %s%s" % (kind, label(step).replace("|", "/"), " | " + detail.replace("\n", " ")
+                                   if detail else ""))
+    return "```steps\n%s\n```" % "\n".join(lines)
+
+
 def card(task):
     """The task's card: its checklist, how far it got, and buttons for what you can do with it now."""
     done, total = counts(task)
@@ -270,7 +298,7 @@ def card(task):
             "failed": "Stopped: %d of %d done" % (done, total), "stopped": "Stopped at %d of %d" % (done, total),
             "handed": "Handed to Claude Code"}.get(state, state)
     body = "**%s**%s\n\n%s" % (head, " · %s" % task["why"] if task.get("why") and state != "running" else "",
-                                text(task))
+                                steps(task))
     unchecked = sum(s["status"] == UNCHECKED for s in task["steps"])
     if unchecked and state in ("done", "failed", "stopped"):
         body += "\n\n*%d step%s ran but couldn't be checked.*" % (unchecked, "" if unchecked == 1 else "s")

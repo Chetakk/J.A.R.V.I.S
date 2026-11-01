@@ -102,7 +102,15 @@ class Notifications(Skill):
         self.say("Done, I've forgotten them. The ones in the top bar stay until you clear them there.")
 
     def _card(self, items, title):
-        self.j.show({"title": title, "text": "\n".join(
+        today = time.strftime("%Y-%m-%d")
+        recent = [n for n in items[-12:] if time.strftime("%Y-%m-%d", time.localtime(n["at"])) == today]
+        apps = Counter(n["app"] for n in items[-30:])
+        marks = Counter((time.strftime("%H:%M", time.localtime(n["at"])), n["app"]) for n in recent)
+        head = "```timeline\n%s\n```\n\n" % "\n".join("%s %s%s" % (at, app, " ×%d" % c if c > 1 else "")
+                                                         for (at, app), c in sorted(marks.items())[-8:]) \
+            if len({at for at, _a in marks}) > 1 else ""
+        head += " · ".join("**%s** %d" % (a, c) for a, c in apps.most_common(6)) + "\n\n"
+        self.j.show({"title": title, "text": head + "\n".join(
             "- **%s** %s · %s%s" % (n["app"], time.strftime("%H:%M", time.localtime(n["at"])), n["title"],
                                     ": " + n["body"].replace("\n", " ") if n["body"] else "") for n in items[-30:])})
 

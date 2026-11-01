@@ -63,7 +63,7 @@ def test_a_place_is_looked_up_once(sky):
 def test_this_week_goes_on_a_card(sky):
     sky.do("what does the weather look like this week")
     assert sky.says("This week in Bengaluru: 18 to 30 degrees")
-    assert "2026-10-31" in sky.card_text()
+    assert "```weather" in sky.card_text() and "Sat 31: 61 19 27 80" in sky.card_text()
 
 
 def test_unknown_place_and_no_internet_are_said(sky):

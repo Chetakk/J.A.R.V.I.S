@@ -95,7 +95,7 @@ def test_say_the_number_of_a_file_past_the_buttons(jv):
     for n in range(1, 10):
         make("Documents/Stuff/file%d.txt" % n)
     jv.do("what's in my stuff folder")
-    assert "9. **file9.txt**" in jv.card_text()
+    assert "9. {file:txt} **file9.txt**" in jv.card_text()
     jv.do("eight")
     assert opened(jv) and "file8.txt" in opened(jv)[-1]
 

@@ -49,7 +49,9 @@ class Display(Skill):
         if not found:
             self.say("I can't read the screen settings.")
             return
-        self.j.show({"title": "Screens", "text": "\n\n".join(
+        drawn = "```screens\n%s\n```\n\n" % "\n".join("%s: %s %s%s Hz" % (s.name, s.mode, "primary " if s.primary
+                                                                            else "", s.rate) for s in found[:4])
+        self.j.show({"title": "Screens", "text": drawn + "\n\n".join(
             "**%s**%s: %s at %s Hz\n%s" % (s.name, " (main)" if s.primary else "", s.mode, s.rate, "\n".join(
                 "- %s: %s Hz%s" % (mode, ", ".join(rates), " (recommended)" if s.preferred and s.preferred[0] == mode
                                    else "") for mode, rates in list(s.modes.items())[:12])) for s in found)})

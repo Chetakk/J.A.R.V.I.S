@@ -14,7 +14,7 @@ import time
 
 from skills.base import Skill
 from skills.helpers import NTH, ORDINALS
-from ui.card import choices, links, meter, plain
+from ui.card import choices, links, plain
 from claude.bridge import WORKSPACE
 from core.safety import AUTO
 
@@ -23,6 +23,7 @@ NUMBER_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "fiv
                 "eight": 8, "nine": 9, "ten": 10, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
                 "forty-five": 45, "sixty": 60, "ninety": 90, "half an": 0.5, "a couple of": 2, "a few": 3}
 SOUNDS_LIKE = {"to": 2, "too": 2, "for": 4}  # Whisper's "number to": only after "number" / "option"
+LEVEL_SECONDS = 3  # the volume / brightness ring stays this long after the last change
 UNITS = {"second": 1, "sec": 1, "minute": 60, "min": 60, "hour": 3600}
 _AMOUNT = r"(\d+(?:\.\d+)?|half an|a couple of|a few|[a-z]+(?:-[a-z]+)?)\s*(seconds?|secs?|minutes?|mins?|hours?)"
 
@@ -158,6 +159,35 @@ class Cards(Skill):
             return False
         self.j.ui.unpin_cards()
 
+    # --- the new level after "volume up", "brightness low": a ring for a few seconds ---
+
+    def level(self, name, command):
+        if name.startswith("brightness"):
+            m = re.search(r"--brightness\s+([\d.]+)", command)
+            if not m:
+                return
+            title, value, off = "Brightness", round(float(m.group(1)) * 100), False
+        else:
+            try:
+                vol = subprocess.run(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], capture_output=True, text=True,
+                                     timeout=3).stdout
+                mute = subprocess.run(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], capture_output=True, text=True,
+                                      timeout=3).stdout
+            except (OSError, subprocess.SubprocessError):
+                return
+            m = re.search(r"(\d+)%", vol)
+            if not m:
+                return
+            title, value, off = "Volume", int(m.group(1)), "yes" in mute.lower()
+        self._level_shown = token = getattr(self, "_level_shown", 0) + 1
+        self.j.ui.show_card({"id": "level", "title": title, "text": "```ring\n%s: %d%%%s\n```" % (
+            "Muted" if off else title, min(value, 150), " off" if off else "")})
+
+        def hide():
+            if self._level_shown == token and self.j.ui and self.j.ui.card_open("level"):
+                self.j.ui.close_card("level")
+        threading.Timer(LEVEL_SECONDS, hide).start()
+
     # --- cards that update themselves ---
 
     def live(self, card):
@@ -211,21 +241,20 @@ class Cards(Skill):
         end = time.time() + seconds
         self.say("Okay, %s for %s." % (name.lower() if what else "timer set", _spoken(seconds)))
 
+        if self.j.ui:  # the ring counts down by itself (ui/blocks.py ```countdown): shown once, not every second
+            self.j.ui.show_card({"id": card_id, "title": name, "choices": [{"label": "Cancel", "do": "cancel the timer"}],
+                                 "text": "```countdown\nend: %.0f\ntotal: %.0f\nlabel: %s\n```" % (
+                                     end, seconds, _spoken(seconds))})
+
         def loop():
-            while not stop.is_set():
-                left = end - time.time()
-                if left <= 0:
-                    break
-                if self.j.ui and (self._showing(card_id) or not self.j.ui.card_visible()):
-                    self.j.ui.show_card({"id": card_id, "title": name, "choices": [
-                        {"label": "Cancel", "do": "cancel the timer"}],
-                        "text": "# %s\n%s" % (_clock(left), meter(int(100 * left / seconds)))})
-                stop.wait(1 if left < 600 else 5)
+            while not stop.is_set() and end - time.time() > 0:
+                stop.wait(min(30.0, max(0.05, end - time.time())))
             self.timers.pop(card_id, None)
             if stop.is_set():
                 return
             if self.j.ui:
-                self.j.ui.show_card({"id": card_id, "title": name, "text": "# Done ✓\n%s is up." % name})
+                self.j.ui.show_card({"id": card_id, "title": name, "text": "```countdown\nend: %.0f\ntotal: %.0f\n"
+                                     "label: %s is up\n```" % (end, seconds, name)})
             line = "Your %s is done." % name.lower() if what else "Time's up!"
             self.j.skills.proactive.note("timer", line, "You set a timer for %s at %s." % (
                 _spoken(seconds), time.strftime("%H:%M", time.localtime(time.time() - seconds))))

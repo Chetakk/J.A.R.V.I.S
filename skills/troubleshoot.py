@@ -61,7 +61,9 @@ class Troubleshoot(Skill):
             self.say("I can't see any program of yours listening on a port.")
             return
         self.j.show({"title": "Ports in use", "text": "\n".join(
-            "- **%d** %s%s" % (l.port, l.program, " · %s" % _short(l.folder) if l.folder else "") for l in found)})
+            "- %s **%d** %s%s" % ("{ok}" if self._project_of(l.folder or "") else "{check}" if l.folder else "{off}",
+                                  l.port, l.program, " · %s" % _short(l.folder) if l.folder else "") for l in found)
+            + "\n\n{ok} one of your projects · {check} a program in a folder · {off} the system's"})
         self.say("%d ports are in use, like %s. They're on the card." % (
             len(found), and_list("%d by %s" % (l.port, l.program) for l in found[:3])))
 
@@ -133,7 +135,9 @@ class Troubleshoot(Skill):
             facts.append("Its terminal shows:\n%s" % screen[-2000:])
         facts = "\n".join(facts)
         if log or screen:
-            self.j.show({"title": "%s: log" % p.spoken, "text": "```\n%s\n```" % (log or screen)[-3000:]})
+            last = [l for l in (log or screen).splitlines() if ERROR.search(l)][-1:]
+            self.j.show({"title": "%s: log" % p.spoken, "text": "%s```log\n%s\n```" % (
+                "{bad} **%s**\n\n" % last[0].strip()[:200] if last else "", (log or screen)[-3000:])})
 
         # The clear cases, said without Claude.
         if not state and not log and not screen:

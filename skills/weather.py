@@ -5,6 +5,7 @@ The time needs no internet: the system's own time zone files (TZ=... date), with
 name ("tokyo" is Asia/Tokyo) or a short list of the rest ("delhi", "japan"). Weather is one call to Open-Meteo
 (free, no key; only the place name and its coordinates are sent), ~0.5 s. Places it had to look up are kept in
 ~/.local/share/jarvis/places.json, so each is looked up once."""
+import datetime
 import json
 import os
 import re
@@ -215,6 +216,7 @@ class Weather(Skill):
         here = self.zone(self.home())
         said = self._date(zone, "+%-I:%M %p on %A")
         ahead = self._offset(zone) - self._offset(here) if here else 0
+        self.j.show(self._clock_card(place, zone))
         if not ahead:
             self.say("It's %s in %s, the same as here." % (said, place.title()))
             return
@@ -228,10 +230,47 @@ class Weather(Skill):
         if not zb:
             return
         ahead = self._offset(zb) - self._offset(za)
+        self.j.show(self._clock_card(b, zb, a, za))
         if not ahead:
             self.say("%s and %s have the same time." % (a.title(), b.title()))
             return
         self.say("%s is %s %s %s." % (b.title(), _hours(ahead), "ahead of" if ahead > 0 else "behind", a.title()))
+
+    def _clock_card(self, place, zone, other=None, other_zone=None):
+        """Clock faces (here, or `other`, beside `place`) and their pins on the map, for a time question."""
+        faces, pins = [], []
+        for name, z in ((other, other_zone), (place, zone)):
+            if name is None:
+                faces.append("Here")
+                name = self.home()
+            else:
+                minutes = self._offset(z)
+                faces.append("%s: %s%02d%02d" % (name.title(), "+" if minutes >= 0 else "-", abs(minutes) // 60,
+                                                 abs(minutes) % 60))
+            where = name and self.places.get(_clean(name).lower())  # only places already known: no lookup
+            if where:
+                pins.append("%.2f, %.2f: %s" % (where["lat"], where["lon"], where["name"]))
+        text = "```clock\n%s\n```" % "\n".join(faces)
+        if pins:
+            text += "\n\n```map\n%s\n```" % "\n".join(dict.fromkeys(pins))
+        return {"id": "clock", "title": "Time in %s" % place.title(), "text": text}
+
+    def _weather_card(self, where, w):
+        """This week drawn (ui/blocks.py ```weather: now, then a column a day) and the place on the map."""
+        c, d = w["current"], w["daily"]
+        days = []
+        for date, code, lo, hi, rain in zip(d["time"], d["weather_code"], d["temperature_2m_min"],
+                                            d["temperature_2m_max"], d["precipitation_probability_max"]):
+            day = datetime.date.fromisoformat(date)
+            days.append("%s %d: %d %.0f %.0f %d" % (day.strftime("%a"), day.day, code, lo, hi, rain or 0))
+        extra = [("humidity %d%%" % c["relative_humidity_2m"]) if c.get("relative_humidity_2m") is not None else "",
+                 ("wind %.0f km/h" % c["wind_speed_10m"]) if c.get("wind_speed_10m") is not None else ""]
+        text = "```weather\nnow: %d %.0f %.0f\n%s\n```\n\n%s" % (
+            c["weather_code"], c["temperature_2m"], c.get("apparent_temperature", c["temperature_2m"]),
+            "\n".join(days), " · ".join(x for x in ["%s, %s" % (SKY.get(c["weather_code"], "mixed").capitalize(),
+                                                                 where["name"])] + extra if x))
+        text += "\n\n```map\n%.2f, %.2f: %s\n```" % (where["lat"], where["lon"], where["name"])
+        return {"id": "weather", "title": "Weather in %s" % where["name"], "text": text}
 
     # --- weather -------------------------------------------------------------------------------------------
 
@@ -270,11 +309,8 @@ class Weather(Skill):
             return
         where, w = got
         name, day, d = where["name"], self._day(when), w["daily"]
+        self.j.show(self._weather_card(where, w))
         if (when or "").lower() in ("this week", "this weekend"):
-            self.j.show({"title": "Weather in %s" % name, "text": "\n".join(
-                "- **%s**: %s, %d to %d°, %d%% rain" % (date, SKY.get(code, "mixed"), lo, hi, rain or 0)
-                for date, code, lo, hi, rain in zip(d["time"], d["weather_code"], d["temperature_2m_min"],
-                                                   d["temperature_2m_max"], d["precipitation_probability_max"]))})
             common = max(set(d["weather_code"]), key=d["weather_code"].count)
             self.say("This week in %s: %d to %d degrees, mostly %s. The days are on the card." % (
                 name, min(d["temperature_2m_min"]), max(d["temperature_2m_max"]), SKY.get(common, "mixed")))

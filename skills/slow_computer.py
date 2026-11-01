@@ -1,7 +1,11 @@
 """"What's slowing my computer": top CPU and memory users; offers to close the worst one, or deals with a frozen
-window first (skills/frozen.py)."""
+window first (skills/frozen.py). Also "system usage" (rings for CPU, memory and GPU, with a CPU trend line kept
+fresh while the card is up) and "show the temperatures" (the Jetson's sensors and your wireless devices' batteries).
+Power draw is read only where the sensors allow it (the INA3221 rails are root-only on this Jetson)."""
+import glob
 import os
 import signal
+import subprocess
 import threading
 import time
 
@@ -15,8 +19,11 @@ PROTECTED = {"gnome-shell", "xorg", "x", "systemd", "pulseaudio", "pipewire", "g
 
 class SlowComputer(Skill):
     group = "computer"
-    does = "What's using the CPU and memory; offers to close the worst"
-    phrases = ("what's slowing my computer (top CPU/memory users, offers to close one)",)
+    does = "What's using the CPU and memory; offers to close the worst; system usage; temperatures and batteries"
+    phrases = ("what's slowing my computer (top CPU/memory users, offers to close one)",
+               "show the system usage (live rings for CPU, memory and GPU)",
+               "show the temperatures (the Jetson's sensors and the mouse and keyboard batteries)",
+               "what's taking up space (a donut of your home folder, and the disk used and free)")
     gives = "speech and a card"
     permission = "confirm"
     asks = "before closing a program"
@@ -31,23 +38,115 @@ class SlowComputer(Skill):
             (r"(?:check |show |what'?s )?(?:the )?system usage|(?:check|show) (?:the )?cpu,? memory,? (?:and )?gpu"
              r"(?: usage| load)?|(?:check |show )?cpu,? (?:ram|memory),? (?:and )?gpu(?: usage| load)?",
              lambda m: self.usage()),
+            (r"(?:show |check |what are )?(?:me )?(?:the |my )?(?:jetson'?s? |computer'?s? |system |device )?"
+             r"(?:temperatures|temps|sensors|thermals)|how hot is (?:the |my )?(?:jetson|machine|board|soc)|"
+             r"is (?:the |my )?(?:jetson|computer|system|machine) (?:over ?heating|too hot|running hot)|"
+             r"(?:jetson|board|soc|system) temperature",  # "how hot is the computer", "mouse battery": commands
+             lambda m: self.sensors()),
+            (r"what'?s (?:taking|eating|using) (?:up )?(?:all )?(?:my |the )?(?:disk ?space|disk|storage|space)|"
+             r"(?:show |check )(?:me )?(?:my |the )?(?:disk|storage) usage|where did (?:all )?(?:my |the )?(?:disk )?"
+             r"space go|(?:disk|storage) (?:space )?breakdown|what'?s (?:filling|using) (?:up )?(?:my |the )?"
+             r"(?:disk|storage|sd card)", lambda m: self.disk()),
         ]
 
     def usage(self):
-        """CPU, memory and GPU load together, read straight from /proc and sysfs (no shell, nothing chained)."""
+        """CPU, memory and GPU load together, read straight from /proc and sysfs (no shell, nothing chained); the
+        card stays live for a minute, with a CPU trend line, while it's on screen."""
+        history = []
+        text, (cpu, used, gpu) = self._usage(history)
+        self.j.show({"id": "usage", "title": "System usage", "text": text})
+        self.say("The CPU is at %d percent, memory is %d percent used%s." % (
+            cpu, used, ", and the GPU is at %d percent" % gpu if gpu is not None else ""))
+        if self.j.ui:
+            threading.Thread(target=self._keep_fresh, args=(history,), daemon=True).start()
+
+    def _usage(self, history):
         cpu = _cpu_percent()
         total, free = _meminfo("MemTotal"), _meminfo("MemAvailable")
         used = 100 * (total - free) // max(total, 1)
+        gpu = _gpu_percent()
+        history.append(round(cpu))
+        del history[:-30]
+        rings = ["CPU: %d%%%s" % (cpu, _level(cpu)),
+                 "Memory: %.1f/%.1f GB%s" % ((total - free) / 2 ** 20, total / 2 ** 20, _level(used))]
+        if gpu is not None:
+            rings.append("GPU: %d%%%s" % (gpu, _level(gpu)))
+        text = "```ring\n%s\n```" % "\n".join(rings)
+        if len(history) > 1:
+            text += "\n\n```spark\nCPU: %s | %%\n```" % " ".join(str(v) for v in history)
+        return text, (cpu, used, gpu)
+
+    def _keep_fresh(self, history, every=2, until=60):
+        end = time.time() + until
+        while time.time() < end:
+            time.sleep(every)
+            ui = self.j.ui
+            if not (ui and ui.card_open("usage")):
+                return
+            ui.show_card({"id": "usage", "title": "System usage", "text": self._usage(history)[0]})
+
+    def disk(self):
+        """What takes the room: your home folder's biggest folders as a donut, and the whole disk used and free."""
+        self.say("One moment, measuring your home folder.")
+        home = os.path.expanduser("~")
         try:
-            with open("/sys/devices/gpu.0/load") as f:
-                gpu = "%d percent" % (int(f.read()) // 10)  # per mille
-        except (OSError, ValueError):
-            gpu = None
-        mem = "%d percent used, %.1f GB free" % (used, free / 2 ** 20)
-        self.j.show({"title": "System usage", "text": "- CPU: %d percent\n- Memory: %s\n- GPU: %s"
-                     % (cpu, mem, gpu or "not available")})
-        self.say("The CPU is at %d percent, memory is %d percent used%s." % (
-            cpu, used, ", and the GPU is at " + gpu if gpu else ""))
+            out = subprocess.run(["du", "-x", "-d1", "--block-size=1M", home], capture_output=True, text=True,
+                                 timeout=60).stdout
+        except (OSError, subprocess.SubprocessError):
+            out = ""
+        sizes = {}
+        for line in out.splitlines():
+            size, _, path = line.partition("\t")
+            if size.isdigit():
+                sizes[path] = int(size) / 1024.0  # GB
+        total = sizes.pop(home, None)
+        if not total or not sizes:
+            self.say("I couldn't measure your home folder.")
+            return
+        top = sorted(sizes.items(), key=lambda kv: -kv[1])
+        shown, rest = top[:6], sum(v for _p, v in top[6:])
+        shown_total = sum(v for _p, v in shown)
+        rest += max(0.0, total - shown_total - rest)  # files straight in the home folder
+        st = os.statvfs("/")
+        free = st.f_bavail * st.f_frsize / 2 ** 30
+        disk = st.f_blocks * st.f_frsize / 2 ** 30
+        lines = ["```donut\n%s%s\nunit: GB\n```" % ("\n".join("%s: %.1f" % (os.path.basename(p), v) for p, v in shown),
+                                                    "\nother: %.1f" % rest if rest >= 0.1 else "")]
+        if disk:
+            lines.append("```stack\nDisk: home %.0f, system %.0f, free %.0f%s | GB\n```" % (
+                total, max(0.0, disk - free - total), free, " bad" if free < 2 else ""))
+        self.j.show({"id": "disk", "title": "Disk space", "text": "\n\n".join(lines),
+                     "choices": [{"label": "Open %s" % os.path.basename(p), "do": "open file %s" % p.replace(home, "~")}
+                                 for p, _v in shown if not os.path.basename(p).startswith(".")][:3]})
+        self.say("Your home folder takes %.0f gigabytes; the biggest is %s at %.1f. %.0f gigabytes are free." % (
+            total, os.path.basename(shown[0][0]), shown[0][1], free))
+
+    def sensors(self):
+        temps = _temps()
+        cells = _batteries()
+        if not temps and not cells:
+            self.say("I can't read any temperature sensors here.")
+            return
+        lines = []
+        if temps:
+            lines.append("```ring\n%s\n```" % "\n".join("%s: %d/100 °C%s" % (name, c, _heat(c))
+                                                          for name, c in temps[:4]))
+        gpu = _gpu_percent()
+        if gpu is not None:
+            lines.append("GPU load: **%d%%**" % gpu)
+        lines.append("Power draw: *not readable without root on this Jetson*")
+        if cells:
+            lines += ["", "**Batteries**"] + ["- %s %s · %s" % (
+                "{bad}" if level in ("low", "critical") or level.rstrip("%").isdigit() and int(level.rstrip("%")) < 20
+                else "{ok}", model, level) for model, level in cells]
+        self.j.show({"id": "sensors", "title": "Temperatures", "text": "\n".join(lines)})
+        hottest = max(temps, key=lambda t: t[1]) if temps else None
+        said = ("The hottest part is the %s at %d degrees%s." % (hottest[0], hottest[1], ", which is hot" if
+                                                                hottest[1] >= 80 else "") if hottest else "")
+        if cells:
+            said += " " + " ".join("Your %s battery is %s." % (m.lower().replace("wireless ", ""), l.lower())
+                                   for m, l in cells)
+        self.say(said.strip())
 
     def slow(self):
         stuck = []  # windows are pinged while the CPU is measured
@@ -59,9 +158,16 @@ class SlowComputer(Skill):
         cpu = [p for p in procs if p[1] >= 5][:3]
         heavy = sorted(procs, key=lambda p: -p[2])[:3]
         free = _meminfo("MemAvailable") / 2 ** 20  # GB
-        lines = ["%s: %d%% CPU, %d MB" % (p[0], p[1], p[2]) for p in (cpu + [h for h in heavy if h not in cpu])]
-        self.j.show({"title": "What's using the computer", "text": "\n".join("- " + l for l in lines)
-                     + "\n\nMemory free: %.1f GB" % free})
+        total = _meminfo("MemTotal") / 2 ** 20
+        shown = cpu + [h for h in heavy if h not in cpu]
+        text = "**CPU**\n```bars\n%s\n```\n\n**Memory**\n%s%s" % (
+            "\n".join("%s: %d%%" % (p[0][:16], p[1]) for p in shown),
+            "\n".join("- %s **%s** · %s" % ("{bad}" if p[2] >= 1500 else "{warn}" if p[2] >= 600 else "{ok}", p[0],
+                                             "%.1f GB" % (p[2] / 1024) if p[2] >= 1024 else "%d MB" % p[2])
+                      for p in sorted(shown, key=lambda p: -p[2])),
+            "\n\n```stack\n: used %.1f%s, free %.1f | GB\n```" % (total - free, " bad" if free < 1.5 else "", free)
+            if total > free else "")
+        self.j.show({"title": "What's using the computer", "text": text})
         if cpu:
             spoken = "%s is using the most CPU, %d percent" % (cpu[0][0], cpu[0][1])
         else:
@@ -120,6 +226,66 @@ def top_processes(seconds=0.5):
         g[2] += rss / 1024
         g[3].append(pid)
     return sorted(groups.values(), key=lambda g: (-g[1], -g[2]))
+
+
+def _level(percent):
+    """A ring's colour: amber from 75%, red from 90%."""
+    return " bad" if percent >= 90 else " warn" if percent >= 75 else ""
+
+
+def _heat(celsius):
+    return " bad" if celsius >= 85 else " warn" if celsius >= 70 else " ok"
+
+
+def _gpu_percent():
+    try:
+        with open("/sys/devices/gpu.0/load") as f:
+            return int(f.read()) // 10  # per mille
+    except (OSError, ValueError):
+        return None
+
+
+def _temps():
+    """[(name, °C)] from the thermal zones, hottest of a kind once: CPU, GPU, SoC, CV, junction."""
+    names = {"cpu": "CPU", "gpu": "GPU", "soc": "SoC", "cv": "Vision", "tj": "Junction"}
+    found = {}
+    for zone in glob.glob("/sys/class/thermal/thermal_zone*"):
+        try:
+            with open(os.path.join(zone, "type")) as f:
+                kind = f.read().strip().lower().split("-")[0].rstrip("0123456789")
+            with open(os.path.join(zone, "temp")) as f:
+                c = int(f.read()) / 1000.0
+        except (OSError, ValueError):
+            continue
+        if kind in names and -20 < c < 150:
+            found[names[kind]] = max(found.get(names[kind], c), c)
+    order = ["CPU", "GPU", "SoC", "Vision", "Junction"]
+    return [(n, round(found[n])) for n in order if n in found]
+
+
+def _batteries():
+    """[(model, level)] of wireless devices (Logitech mice, keyboards): a percentage where they give one."""
+    out = []
+    for p in sorted(glob.glob("/sys/class/power_supply/*")):
+        try:
+            with open(os.path.join(p, "type")) as f:
+                if f.read().strip() != "Battery":
+                    continue
+            model = open(os.path.join(p, "model_name")).read().strip() or os.path.basename(p)
+        except OSError:
+            continue
+        level = ""
+        for name, fmt in (("capacity", "%s%%"), ("capacity_level", "%s")):
+            try:
+                with open(os.path.join(p, name)) as f:
+                    value = f.read().strip()
+                if value:
+                    level = fmt % value.lower()
+                    break
+            except OSError:
+                pass
+        out.append((model, level or "unknown"))
+    return out
 
 
 def _cpu_percent(seconds=0.3):

@@ -1,4 +1,5 @@
-"""Music and video: pause, play, next, previous (any MPRIS player, or YouTube), what's playing."""
+"""Music and video: pause, play, next, previous (any MPRIS player, or YouTube), what's playing (said, and a card
+with the song, a progress bar that moves while it plays, and previous / pause / next buttons)."""
 import time
 
 from skills.base import Skill
@@ -9,7 +10,7 @@ class Media(Skill):
     group = "media"
     does = "Music and video: any MPRIS player, or YouTube's own key"
     phrases = ("pause", "play", "next song", "previous song", "what's playing")
-    gives = "playback changed, or speech"
+    gives = "playback changed, or speech and a now-playing card"
     permission = "auto"
     checks = "not checked; says when nothing is playing"
 
@@ -50,6 +51,7 @@ class Media(Skill):
         if not title:
             self.say("Something's playing, but it doesn't say what.")
         else:
+            self.j.show(_now_playing(player[1], md))
             self.say("It's %s%s." % (title, " by %s" % artist if artist else ""))
 
 
@@ -70,6 +72,30 @@ def _mpris_player():
         return players[0] if players else None
     except Exception:
         return None
+
+
+def _now_playing(proxy, md):
+    """The now-playing card: title, artist and album, a ```progress bar, and buttons."""
+    playing = _mpris_status(proxy) == "Playing"
+    length = (md.get("mpris:length") or 0) / 1e6
+    try:
+        from gi.repository import GLib
+        pos = proxy.call_sync("org.freedesktop.DBus.Properties.Get",
+                              GLib.Variant("(ss)", ("org.mpris.MediaPlayer2.Player", "Position")), 0, 1000,
+                              None).unpack()[0] / 1e6
+    except Exception:  # some players don't say where they are
+        pos = None
+    lines = ["**%s**" % md.get("xesam:title")]
+    who = " · ".join(x for x in (", ".join(md.get("xesam:artist") or []), md.get("xesam:album") or "") if x)
+    if who:
+        lines.append(who)
+    if length and pos is not None:
+        lines += ["", "```progress\n%s: %d/%d %s\n```" % ("Playing" if playing else "Paused", min(pos, length), length,
+                                                         "playing" if playing else "paused")]
+    return {"id": "playing", "title": "Now playing", "text": "\n".join(lines),
+            "choices": [{"label": "Previous", "do": "previous song"},
+                        {"label": "Pause" if playing else "Play", "do": "pause" if playing else "play"},
+                        {"label": "Next", "do": "next song"}]}
 
 
 def _mpris_status(proxy):

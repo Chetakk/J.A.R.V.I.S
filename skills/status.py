@@ -49,7 +49,11 @@ class Status(Skill):
         problems = [l for l in lines if "NOT" in l or "off" in l] + (["Disk is nearly full."] if disk < 2 else [])
         problems += [l for l in broken if l not in problems]
         j.chat("sys", "status\n" + "\n".join(lines))
-        j.show({"title": "JARVIS status", "text": "\n".join("- " + l for l in lines)})
+        total = getattr(st, "f_blocks", 0) * st.f_frsize / 1e9
+        disk_bar = "\n\n```stack\nDisk: used %.0f%s, free %.0f | GB\n```" % (total - disk, " bad" if disk < 2 else "",
+                                                                          disk) if total > disk else ""
+        j.show({"title": "JARVIS status", "text": "\n".join(
+            "- %s %s" % ("{bad}" if l in problems or "NOT" in l else "{ok}", l) for l in lines) + disk_bar})
         self.say("All good. I'm %s, and there's %.0f gigabytes of disk free." % (voice, disk) if not problems
                  else "Mostly fine, but: %s" % " ".join(problems))
 

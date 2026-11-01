@@ -90,7 +90,10 @@ class Dev(Skill):
         changed = [l for l in lines[1:] if not l.startswith("??")]
         new = [l for l in lines[1:] if l.startswith("??")]
         self.j.chat("sys", "git status %s\n%s" % (os.path.basename(path), res.stdout[-2000:]))
-        self.j.show({"title": "git status: %s" % os.path.basename(path), "text": "```\n%s\n```" % res.stdout[-3000:]})
+        summary = "%s **%s** · %d changed, %d new" % ("{ok}" if not changed and not new else "{warn}", branch,
+                                                       len(changed), len(new))
+        self.j.show({"title": "git status: %s" % os.path.basename(path),
+                     "text": "%s\n\n```git\n%s\n```" % (summary, res.stdout[-3000:])})
         if not changed and not new:
             self.say("%s is clean, on branch %s." % (os.path.basename(path), branch))
         else:

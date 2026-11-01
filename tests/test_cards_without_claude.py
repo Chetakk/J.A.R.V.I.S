@@ -67,7 +67,7 @@ def test_timer_done(jv):
     jv.do("set a timer for 1 second")
     time.sleep(1.6)
     shown(jv, "Timer")
-    assert jv.cards[-1]["text"].startswith("# Done")
+    assert "Timer is up" in jv.cards[-1]["text"]
 
 
 def test_live_card(jv):

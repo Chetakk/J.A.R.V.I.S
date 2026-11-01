@@ -135,7 +135,8 @@ def test_a_timer_shows_a_card_and_can_be_cancelled(jv):
     deadline = time.time() + 2
     while not jv.cards and time.time() < deadline:
         time.sleep(0.05)
-    assert jv.cards[0]["title"] == "pasta timer" and "10:00" in jv.cards[0]["text"] or "9:5" in jv.cards[0]["text"]
+    assert jv.cards[0]["title"] == "pasta timer" and "```countdown" in jv.cards[0]["text"]
+    assert "total: 600" in jv.cards[0]["text"]  # the ring counts down by itself from there
     jv.do("cancel the timer")
     assert jv.says("cancelled")
     deadline = time.time() + 2

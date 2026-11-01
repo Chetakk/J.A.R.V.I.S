@@ -996,6 +996,8 @@ class Jarvis:
             self.last_undo = undo.opposite(match.name)
             values = [v for v in match.slots.values() if v]
             self.context.done(self._text, values[0] if len(values) == 1 else None)
+            if self.ui and re.match(r"(?:set_)?volume|brightness", match.name):
+                self.cards.level(match.name, match.shell())  # the new level as a ring, for a few seconds
         return True
 
     def vocabulary(self):

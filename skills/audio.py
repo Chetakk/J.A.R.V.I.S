@@ -95,10 +95,13 @@ class Audio(Skill):
 
     def list(self):
         sinks, sources = audio.devices("sink"), audio.devices("source")
-        section = lambda items: "\n".join("- %s%s, %d%%%s" % (d.label, " **(in use)**" if d.default else "", d.volume,  # noqa: E731
-                                                              ", muted" if d.mute else "") for d in items) or "- none"
-        self.j.show({"title": "Audio devices", "text": "**Speakers**\n%s\n\n**Microphones**\n%s" % (
-            section(sinks), section(sources))})
+        section = lambda items: "\n".join("- %s %s%s, %d%%%s" % (  # noqa: E731
+            "{off}" if d.mute else "{ok}" if d.default else "{check}", d.label, " **(in use)**" if d.default else "",
+            d.volume, ", muted" if d.mute else "") for d in items) or "- none"
+        rings = ["%s: %d%%%s" % (("Speaker" if kind == "sink" else "Mic"), d.volume, " off" if d.mute else "")
+                 for kind, items in (("sink", sinks), ("source", sources)) for d in items if d.default]
+        self.j.show({"title": "Audio devices", "text": "%s**Speakers**\n%s\n\n**Microphones**\n%s" % (
+            "```ring\n%s\n```\n\n" % "\n".join(rings) if rings else "", section(sinks), section(sources))})
         out, mic = audio.current("sink"), audio.current("source")
         self.say("Sound is going to %s, and I'm listening on %s. %s" % (
             out.label if out else "nothing", mic.label if mic else "nothing",
