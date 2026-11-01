@@ -879,6 +879,8 @@ class StudyBuddy(Skill):
 
     @_guard
     def open_group(self, m):
+        if self.j.browser.site(m.group(1)):
+            return False  # "open my youtube playlists" is the website
         group = self._group(m.group(1))
         if not group:
             return False  # "open the tab group"

@@ -1,0 +1,176 @@
+"""The sites you use (system/browser.py, the sites in config/commands.yaml and your own in
+~/.local/share/jarvis/sites.yaml): "open X", "search Y on X", "open Y on X", "open X and search Y", a site's
+own pages, your channels and shows, and GitHub with a personal and a work account. Nothing is opened: the
+browser commands are only recorded."""
+import os
+
+import pytest
+
+import conftest
+
+MINE = """
+sites:
+  github:
+    accounts: {personal: Chetakk, work: chetak-biztel}
+    repos: [Chetakk/J.A.R.V.I.S, chetak-biztel/retraining-pipeline, chetak-biztel/o-ring]
+  youtube:
+    pages: {channel: "https://www.youtube.com/@ChetakKumar-kr6lm", rakazone: "https://www.youtube.com/@RakaZoneGaming"}
+  kick:
+    pages: {yatra rp: events/yatra-rp, tbone gaming: tbone_gaming}
+  hotstar:
+    pages: {bigg boss: "in/shows/bigg-boss/1971002586"}
+  myflixer:
+    url: "https://myflixer.vg"
+"""
+
+
+@pytest.fixture
+def mine(jv):
+    path = os.path.join(conftest.DATA, "sites.yaml")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(MINE)
+    jv.j.registry.reload()
+    return jv
+
+
+def opened(jv):
+    return [c for c in jv.shell.calls if c.startswith(("xdg-open ", "google-chrome ", "firefox "))]
+
+
+@pytest.mark.parametrize("said, url", [
+    ("open hotstar", "https://www.hotstar.com/in/home"),
+    ("open kick", "https://kick.com"),
+    ("open twitch", "https://www.twitch.tv"),
+    ("open instagram", "https://www.instagram.com"),
+    ("open x", "https://x.com/home"),
+    ("open twitter", "https://x.com/home"),
+    ("open google drive", "https://drive.google.com"),
+    ("search bigg boss on hotstar", "https://www.hotstar.com/in/explore?search_query=bigg+boss"),
+    ("search rakazone on kick", "https://kick.com/search?query=rakazone"),
+    ("open kick and search rakazone", "https://kick.com/search?query=rakazone"),
+    ("open youtube and search deva deva song", "https://www.youtube.com/results?search_query=deva+deva+song"),
+    ("open zepto and search milk", "https://www.zepto.com/search?query=milk"),
+    ("open stableronaldo on twitch", "https://www.twitch.tv/stableronaldo"),
+    ("open rakazone on kick", "https://kick.com/rakazone"),
+    ("open claude new chat", "https://claude.ai/new"),
+    ("open new chat on claude", "https://claude.ai/new"),
+    ("open my instagram messages", "https://www.instagram.com/direct/inbox"),
+    ("open linkedin jobs", "https://www.linkedin.com/jobs/"),
+    ("open my linkedin", "https://www.linkedin.com/in/me/"),
+    ("open youtube history", "https://www.youtube.com/feed/history"),
+    ("open hotstar watchlist", "https://www.hotstar.com/in/mypage"),
+])
+def test_sites_without_claude(jv, said, url):
+    jv.do(said)
+    assert opened(jv) and url in opened(jv)[0]
+    assert not jv.claude.calls
+
+
+@pytest.mark.parametrize("verb", ["open", "go to", "launch", "show", "show me", "take me to", "bring up", "pull up"])
+def test_every_way_of_saying_open(jv, verb):
+    jv.do("%s kick" % verb)
+    assert opened(jv) == ["xdg-open https://kick.com"]
+    jv.clear()
+    jv.do("%s kick and search rakazone" % verb)
+    assert opened(jv) == ["xdg-open 'https://kick.com/search?query=rakazone'"]
+    jv.clear()
+    jv.do("%s rakazone on kick" % verb)
+    assert opened(jv) == ["xdg-open https://kick.com/rakazone"]
+
+
+def test_bring_up_an_open_kick_tab_is_that_window(jv):
+    jv.desktop.add("Rakazone Live Stream - Watch Live on KICK - Google Chrome", "google-chrome Google-chrome")
+    jv.do("bring up kick")
+    assert not opened(jv)
+
+
+def test_the_browser_you_name(jv):
+    jv.do("open hotstar in firefox")
+    assert opened(jv) == ["firefox https://www.hotstar.com/in/home"]
+
+
+def test_twitter_isnt_libreoffice_writer(jv, monkeypatch):
+    launched = []
+    monkeypatch.setattr(jv.j.apps, "launch", lambda app, paths=(): launched.append(app["name"]) or True)
+    jv.do("open twitter")
+    assert launched == [] and opened(jv) == ["xdg-open https://x.com/home"]
+
+
+def test_discord_is_the_app_unless_a_browser_is_named(jv, monkeypatch):
+    launched = []
+    monkeypatch.setattr(jv.j.apps, "find", lambda name: {"name": "Discord", "process": "discord"}
+                        if "discord" in name.lower() else None)
+    monkeypatch.setattr(jv.j.apps, "launch", lambda app, paths=(): launched.append(app["name"]) or True)
+    jv.do("open discord")
+    assert launched == ["Discord"] and not opened(jv)
+    jv.clear()
+    jv.do("open discord in chrome")
+    assert launched == ["Discord"] and opened(jv) == ["google-chrome https://discord.com/channels/@me"]
+
+
+@pytest.mark.parametrize("said, url", [
+    ("open bigg boss on hotstar", "https://www.hotstar.com/in/shows/bigg-boss/1971002586"),
+    ("open yatra rp on kick", "https://kick.com/events/yatra-rp"),
+    ("open tbone gaming on kick", "https://kick.com/tbone_gaming"),
+    ("open rakazone youtube channel", "https://www.youtube.com/@RakaZoneGaming"),
+    ("open rakazone on youtube", "https://www.youtube.com/@RakaZoneGaming"),
+    ("open my youtube channel", "https://www.youtube.com/@ChetakKumar-kr6lm"),
+    ("open myflixer", "https://myflixer.vg"),
+    ("open jarvis repo on github", "https://github.com/Chetakk/J.A.R.V.I.S"),
+    ("open jarvis on github", "https://github.com/Chetakk/J.A.R.V.I.S"),
+    ("open the retraining pipeline pull requests", "https://github.com/chetak-biztel/retraining-pipeline/pulls"),
+    ("open o-ring actions on github", "https://github.com/chetak-biztel/o-ring/actions"),
+    ("open my work github", "https://github.com/chetak-biztel"),
+    ("open biztel github", "https://github.com/chetak-biztel"),
+    ("open my personal github repos", "https://github.com/Chetakk?tab=repositories"),
+])
+def test_your_own_pages(mine, said, url):
+    mine.do(said)
+    assert opened(mine) == ["xdg-open %s" % url] or opened(mine) == ["xdg-open '%s'" % url]
+    assert not mine.questions
+
+
+@pytest.mark.parametrize("answer, url", [("work", "https://github.com/chetak-biztel"),
+                                         ("the biztel one", "https://github.com/chetak-biztel"),
+                                         ("personal", "https://github.com/Chetakk"),
+                                         ("chetakk", "https://github.com/Chetakk")])
+def test_my_github_asks_which(mine, answer, url):
+    mine.do("open my github", answer)
+    assert mine.questions == ["Your personal GitHub, or the work one?"]
+    assert opened(mine) == ["xdg-open %s" % url]
+
+
+def test_no_answer_opens_nothing(mine):
+    mine.do("open my github repos")
+    assert mine.questions and not opened(mine)
+
+
+def test_without_your_file_the_sites_still_work(jv):
+    jv.do("open my github")  # no accounts known: not something to guess at
+    assert not any("github.com/" in c for c in opened(jv))
+    jv.clear()
+    jv.do("open bigg boss on hotstar")  # not a page you've saved: searched for on the site
+    assert opened(jv) == ["xdg-open 'https://www.hotstar.com/in/explore?search_query=bigg+boss'"]
+
+
+def test_a_broken_file_is_ignored(jv):
+    path = os.path.join(conftest.DATA, "sites.yaml")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("sites: [unclosed")
+    jv.j.registry.reload()
+    jv.do("open kick")
+    assert opened(jv) == ["xdg-open https://kick.com"]
+
+
+def test_a_site_name_inside_something_else_isnt_the_site(jv):
+    for said in ("open the x file", "open project x"):
+        jv.clear()
+        jv.do(said)
+        assert not any("x.com" in c for c in opened(jv))
+
+
+def test_youtube_playlists_arent_a_study_buddy_group(mine):
+    mine.do("open my youtube playlists")
+    assert opened(mine) == ["xdg-open https://www.youtube.com/feed/playlists"]

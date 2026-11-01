@@ -1,5 +1,6 @@
 """Loads commands.yaml and matches what the user said to a command."""
 import difflib
+import os
 import re
 import shlex
 
@@ -8,6 +9,8 @@ import yaml
 from voice.speech import pick
 
 FUZZY_CUTOFF = 0.82
+# Your own sites, accounts, channels and repos (not part of the code): merged over commands.yaml's sites.
+MY_SITES = "~/.local/share/jarvis/sites.yaml"
 _SLOT = re.compile(r"\{(\w+)\}")
 # Slots that only take a certain kind of value ("volume {level}" mustn't take "down, brightness low ...").
 SLOT_PATTERNS = {"level": r"\d{1,3}"}
@@ -91,6 +94,7 @@ class Registry:
             data = yaml.safe_load(f) or {}
         self.browsers = data.get("browsers") or {}
         self.sites = data.get("sites") or {}
+        self._my_sites()
         self.tab_groups = data.get("tab_groups") or {}
         self.commands = data.get("commands") or []
         self._exact = {}     # phrase without slots -> command
@@ -107,6 +111,24 @@ class Registry:
                 else:
                     self._exact[phrase] = cmd
         self._patterns.sort(key=lambda p: -p[0])
+
+    def _my_sites(self):
+        try:
+            with open(os.path.expanduser(MY_SITES)) as f:
+                mine = (yaml.safe_load(f) or {}).get("sites") or {}
+        except (OSError, yaml.YAMLError):
+            return  # none yet, or a typo in it: the built-in sites still work
+        for name, info in mine.items():
+            if not isinstance(info, dict):
+                continue
+            site = self.sites.setdefault(name, {})
+            for key, value in info.items():
+                if isinstance(value, dict) and isinstance(site.get(key), dict):
+                    site[key] = dict(site[key], **value)  # your pages added to the site's own
+                elif isinstance(value, list) and isinstance(site.get(key), list):
+                    site[key] = site[key] + value
+                else:
+                    site[key] = value
 
     def match_exact(self, text):
         low = text.lower()

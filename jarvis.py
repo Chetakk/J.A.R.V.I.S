@@ -319,14 +319,18 @@ class Jarvis:
         answer = (self._answer(question) or "").lower().strip(" .!?")
         if not answer or re.match(r"^(?:no|nope|neither|none|nothing|never ?mind|cancel)\b", answer):
             return None
-        for words in (("first", "second", "third"), ("one", "two", "three")):  # "the second one": second, not one
+        ordinals = (("first", "second", "third"), ("one", "two", "three"))
+        # "the biztel one" names an option: that one, not the first
+        said = set(re.findall(r"[a-z']+", answer)) - set(sum(ordinals, ()))
+        overlap = [len(said & set(re.findall(r"[a-z']+", o.lower()))) for o in options]
+        best = max(overlap)
+        if best and overlap.count(best) == 1:
+            return options[overlap.index(best)]
+        for words in ordinals:  # "the second one": second, not one
             hit = [i for i, w in enumerate(words) if re.search(r"\b%s\b" % w, answer) and i < len(options)]
             if len(hit) == 1:
                 return options[hit[0]]
-        said = set(re.findall(r"[a-z']+", answer))
-        overlap = [len(said & set(re.findall(r"[a-z']+", o.lower()))) for o in options]
-        best = max(overlap)
-        return options[overlap.index(best)] if best and overlap.count(best) == 1 else None
+        return None
 
     def _answer(self, question):
         """Say `question` and wait for the typed or spoken answer (None if none came)."""
@@ -456,6 +460,12 @@ class Jarvis:
         if self._open_app(text):
             return True
         action = self.browser.parse(text)
+        if action and action.choices:  # "open my github": personal or work?
+            picked = self.choose(action.question, list(action.choices))
+            if not picked:
+                self.speaker.say(["Okay, leaving it.", "Alright, never mind."])
+                return True
+            action = action.choices[picked]
         if action:
             if action.browser:
                 run = self.registry.browsers[action.browser]
@@ -1061,8 +1071,11 @@ class Jarvis:
     def app_for(self, pattern, text):
         """(installed app, the name as said) for "open X" / "close X", or (None, None)."""
         m = pattern.match(text)
-        if not m or m.group(1).lower() in self.registry.sites:
+        site = self.browser.site(m.group(1)) if m else None
+        if not m or (site and not self.registry.sites[site].get("app")):
             return None, None  # "open gmail" is the website (not Thunderbird, which "gmail" sounds like)
+        if self.browser._pop_browser(text)[0] != text and self.browser.parse(text):
+            return None, None  # "open discord in chrome": the website, though Discord's installed
         return self.apps.find(m.group(1)), m.group(1)
 
     def _open_app(self, text):

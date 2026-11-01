@@ -18,20 +18,95 @@ browsers:
   chrome:  {run: google-chrome, process: chrome, aliases: [chrome, google chrome]}
   firefox: {run: firefox, aliases: [firefox, mozilla, mozilla firefox]}
 
+# A site: url, and optionally search ({q}), title (as said back), aliases, pages ("open my youtube playlists",
+# "open claude new chat"; {me} = your account), my (the page for "open my <site>"), channel ("open <name> on kick"),
+# repos / repo_pages (GitHub), app: true (the installed app wins unless a browser is named: "open discord in chrome").
+# Your accounts, channels, shows and repos go in ~/.local/share/jarvis/sites.yaml, in the same shape.
 sites:
   google:   {url: "https://www.google.com", search: "https://www.google.com/search?q={q}"}
-  youtube:  {url: "https://www.youtube.com", search: "https://www.youtube.com/results?search_query={q}"}
+  youtube:
+    url: "https://www.youtube.com"
+    title: YouTube
+    search: "https://www.youtube.com/results?search_query={q}"
+    pages: {playlists: feed/playlists, history: feed/history, watch history: feed/history,
+            subscriptions: feed/subscriptions, watch later: "playlist?list=WL", liked videos: "playlist?list=LL",
+            shorts: shorts}
   gmail:    {url: "https://mail.google.com"}
-  github:   {url: "https://github.com", search: "https://github.com/search?q={q}"}
-  chatgpt:  {url: "https://chatgpt.com"}
-  claude:   {url: "https://claude.ai"}
+  github:
+    url: "https://github.com"
+    title: GitHub
+    search: "https://github.com/search?q={q}"
+    my: profile
+    pages: {profile: "{me}", repos: "{me}?tab=repositories", repositories: "{me}?tab=repositories",
+            stars: "{me}?tab=stars", notifications: notifications, pull requests: pulls, prs: pulls, issues: issues,
+            new repo: new, new repository: new}
+    repo_pages: {pull requests: pulls, prs: pulls, pulls: pulls, issues: issues, actions: actions,
+                 workflows: actions, settings: settings, commits: commits, branches: branches, releases: releases}
+  chatgpt:  {url: "https://chatgpt.com", title: ChatGPT}
+  claude:
+    url: "https://claude.ai"
+    pages: {new chat: new, new: new, chats: recents, recents: recents, projects: projects}
   claude code: {url: "https://claude.ai/code"}
-  whatsapp: {url: "https://web.whatsapp.com"}
+  whatsapp: {url: "https://web.whatsapp.com", title: WhatsApp}
   maps:     {url: "https://maps.google.com", search: "https://www.google.com/maps/search/{q}"}
   wikipedia: {url: "https://en.wikipedia.org", search: "https://en.wikipedia.org/w/index.php?search={q}"}
   amazon:   {url: "https://www.amazon.in", search: "https://www.amazon.in/s?k={q}"}
   spotify:  {url: "https://open.spotify.com"}
-  linkedin: {url: "https://www.linkedin.com"}
+  linkedin:
+    url: "https://www.linkedin.com"
+    title: LinkedIn
+    search: "https://www.linkedin.com/search/results/all/?keywords={q}"
+    my: profile
+    pages: {profile: in/me/, jobs: jobs/, messages: messaging/, notifications: notifications/,
+            network: mynetwork/}
+  linkedin jobs: {url: "https://www.linkedin.com/jobs/", title: LinkedIn jobs,
+                  search: "https://www.linkedin.com/jobs/search/?keywords={q}"}
+  hotstar:
+    url: "https://www.hotstar.com/in/home"
+    aliases: [jiohotstar, jio hotstar, hot star]
+    search: "https://www.hotstar.com/in/explore?search_query={q}"
+    pages: {my space: in/mypage, watchlist: in/mypage}
+  kick:
+    url: "https://kick.com"
+    search: "https://kick.com/search?query={q}"
+    channel: "https://kick.com/{name}"
+    pages: {events: events, live events: events/browse/live, drops: drops/campaigns}
+  twitch:
+    url: "https://www.twitch.tv"
+    search: "https://www.twitch.tv/search?term={q}"
+    channel: "https://www.twitch.tv/{name}"
+  x:
+    url: "https://x.com/home"
+    title: X
+    aliases: [twitter]
+    search: "https://x.com/search?q={q}"
+    pages: {home: home, notifications: notifications, messages: messages, bookmarks: i/bookmarks, explore: explore}
+  instagram:
+    url: "https://www.instagram.com"
+    search: "https://www.instagram.com/explore/search/keyword/?q={q}"
+    pages: {messages: direct/inbox, dms: direct/inbox, inbox: direct/inbox, reels: reels, explore: explore}
+  discord:
+    url: "https://discord.com/channels/@me"
+    app: true
+    pages: {messages: channels/@me, dms: channels/@me, friends: channels/@me}
+  google drive: {url: "https://drive.google.com", aliases: [my drive], search: "https://drive.google.com/drive/search?q={q}"}
+  google docs: {url: "https://docs.google.com/document/"}
+  google sheets: {url: "https://docs.google.com/spreadsheets/"}
+  google calendar: {url: "https://calendar.google.com"}
+  google meet: {url: "https://meet.google.com"}
+  google chat: {url: "https://chat.google.com"}
+  google cloud: {url: "https://console.cloud.google.com", aliases: [google cloud console, gcp, cloud console]}
+  vercel:   {url: "https://vercel.com/dashboard"}
+  supabase: {url: "https://supabase.com/dashboard"}
+  tailscale: {url: "https://login.tailscale.com/admin"}
+  hugging face: {url: "https://huggingface.co", aliases: [huggingface], search: "https://huggingface.co/search/full-text?q={q}"}
+  kaggle:   {url: "https://www.kaggle.com", search: "https://www.kaggle.com/search?q={q}"}
+  overleaf: {url: "https://www.overleaf.com/project"}
+  zepto:    {url: "https://www.zepto.com", search: "https://www.zepto.com/search?query={q}"}
+  instamart: {url: "https://instamart.swiggy.com/instamart", search: "https://instamart.swiggy.com/instamart/search?custom_back=true&query={q}"}
+  moctale:  {url: "https://www.moctale.in/discover"}
+  capcut:   {url: "https://www.capcut.com"}
+  roblox:   {url: "https://www.roblox.com"}
 
 tab_groups:
   work:  [gmail, github]
