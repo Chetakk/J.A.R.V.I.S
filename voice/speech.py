@@ -31,6 +31,20 @@ def pick(text):
 
 
 def speak_via_jarvis(text, why=None):
+_OKAY = re.compile(r"^(?:okay[,.!]?\s+)*okay[,.!]?(?:\s+|$)", re.I)
+# A leading "Okay" sounds flat in Piper's voice: mostly the user's name instead, sometimes "sir".
+INSTEAD_OF_OKAY = ["Sure, Chetak.", "Got it, Chetak.", "Alright, Chetak.", "Right, Chetak.", "Yes, sir."]
+# How Piper should say the name (the chat still shows it spelled right).
+SPOKEN = {"Chetak": "Chay-tuck"}
+
+
+def _no_okay(text):
+    if not isinstance(text, str) or not _OKAY.match(text):
+        return text
+    rest = _OKAY.sub("", text, count=1)
+    return random.choice(INSTEAD_OF_OKAY) + (" " + rest[:1].upper() + rest[1:] if rest else "")
+
+
     """Speak `text` through the running JARVIS, or directly with the same voice if it isn't running.
     why: kept for "why did you say that"."""
     line = (json.dumps({"say": text, "why": why}) if why else " ".join(text.split())) + "\n"
@@ -84,7 +98,7 @@ class Speaker:
         """Speak without blocking; `text` may be a list of alternatives. Text is always printed (and shown in the chat panel) too."""
         if isinstance(text, (list, tuple)) and text and (self.quiet() or self.brief):
             text = min(text, key=len)
-        text = pick(text)
+        text = _no_okay(pick(text))
         if text and time.time() - self._interrupted < 30:
             text = "Sorry about that. " + text  # You talked over JARVIS just now.
         self._interrupted = 0.0
@@ -103,6 +117,8 @@ class Speaker:
             return
         line = " ".join(text.split())
         key = self._key()
+        for name, said in SPOKEN.items():
+            line = re.sub(r"\b%s\b" % name, said, line)
         if self.engine == "piper" and self._proc and self._proc_key != key and (
                 not self.busy() or self._proc_key[1] != key[1]):
             # Quiet hours or the speed changed: restart Piper and the player once it's done talking.
