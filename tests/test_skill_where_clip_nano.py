@@ -65,6 +65,12 @@ def test_clipboard_history_card(jv, copies):
     assert jv.cards[-1]["text"].startswith("1. third copy")
 
 
+def test_say_a_number_on_the_clipboard_card_to_paste_it(jv, copies):
+    jv.do("clipboard history")
+    jv.do("two")
+    assert ("xclip -selection clipboard", "second copy") in jv.shell.inputs
+
+
 def test_paste_more_than_remembered(jv, copies):
     jv.do("paste number 7")
     assert jv.said == ["I only remember 3 things you copied."] and not jv.desktop.did("keys")

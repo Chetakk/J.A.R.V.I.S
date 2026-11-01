@@ -91,6 +91,15 @@ def test_list_files_by_kind(jv):
     assert "notes.md" in jv.card_text() and "README.md" in jv.card_text() and "budget" not in jv.card_text()
 
 
+def test_say_the_number_of_a_file_past_the_buttons(jv):
+    for n in range(1, 10):
+        make("Documents/Stuff/file%d.txt" % n)
+    jv.do("what's in my stuff folder")
+    assert "9. **file9.txt**" in jv.card_text()
+    jv.do("eight")
+    assert opened(jv) and "file8.txt" in opened(jv)[-1]
+
+
 # --- failure cases ---
 
 def test_nothing_downloaded_today(jv):

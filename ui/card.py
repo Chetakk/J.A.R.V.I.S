@@ -26,6 +26,7 @@ from ui.window import ORB, PANEL_W, _clear, _make_transparent  # noqa: E402
 
 CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel (PANEL_H)
 HISTORY = 10
+BUTTONS = 6  # a card shows this many choices as buttons; the rest you pick by number
 POS_FILE = os.path.expanduser("~/.local/share/jarvis/card.json")
 
 CSS = b"""
@@ -77,14 +78,15 @@ def links(card):
 
 
 def choices(card):
-    """The card's choices as (label, phrase) pairs, for buttons and "the second one"."""
+    """The card's choices as (label, phrase) pairs, for "the second one" or "number 12". Only the first
+    BUTTONS show as buttons; a long list (a folder, your clipboard) keeps the rest for saying its number."""
     out = []
     for c in (card or {}).get("choices") or []:
         if isinstance(c, dict) and c.get("label"):
             out.append((str(c["label"]), str(c.get("do") or c["label"])))
         elif str(c).strip():
             out.append((str(c), str(c)))
-    return out[:6]
+    return out[:99]
 
 
 def plain(card):
@@ -302,7 +304,7 @@ class Card:
                 pass
         for widget in build(card.get("text")):
             self.body.pack_start(widget, False, False, 0)
-        for n, (label, phrase) in enumerate(choices(card), 1):
+        for n, (label, phrase) in enumerate(choices(card)[:BUTTONS], 1):
             button = Gtk.Button()
             text = Gtk.Label()
             text.set_markup('<span alpha="50%%">%d</span>  %s' % (n, GLib.markup_escape_text(label)))

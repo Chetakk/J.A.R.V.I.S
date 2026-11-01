@@ -21,6 +21,7 @@ CARDS_DIR = os.path.join(WORKSPACE, "cards")  # "save that" puts cards here
 NUMBER_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
                 "eight": 8, "nine": 9, "ten": 10, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
                 "forty-five": 45, "sixty": 60, "ninety": 90, "half an": 0.5, "a couple of": 2, "a few": 3}
+SOUNDS_LIKE = {"to": 2, "too": 2, "for": 4}  # Whisper's "number to": only after "number" / "option"
 UNITS = {"second": 1, "sec": 1, "minute": 60, "min": 60, "hour": 3600}
 _AMOUNT = r"(\d+(?:\.\d+)?|half an|a couple of|a few|[a-z]+(?:-[a-z]+)?)\s*(seconds?|secs?|minutes?|mins?|hours?)"
 
@@ -42,8 +43,9 @@ class Cards(Skill):
 
     def patterns(self):
         return [
-            (r"(?:pick|choose|select|go with|do|take)?\s*(?:the |option |number )*%s(?: one| option)?" % NTH,
-             self.pick),
+            (r"(?:(?:i(?:'ll| will)? )?(?:want|pick|choose|select|go with|do|take|open|play|run|use|try)|let's go with|"
+             r"give me|show(?: me)?)?\s*(?:the |option |number |no\.? )*(?:%s|(?:number|option) (to|too|for))"
+             r"(?: one| option| item| thing)?(?:,? (?:please|then|for me))?" % NTH, self.pick),
             (r"open (?:the )?%s link|open link (?:number )?%s" % (NTH, NTH), self.open_link),
             (r"read (?:it|that|this|the card)(?: out)?(?: to me)?|read (?:it|that) out(?: to me)?|"
              r"what does (?:it|the card) say", self.read),
@@ -70,7 +72,7 @@ class Cards(Skill):
     @staticmethod
     def _nth(m, items):
         word = next((g for g in m.groups() if g), "").lower()
-        n = ORDINALS.get(word) or (int(word) if word.isdigit() else 0)
+        n = ORDINALS.get(word) or SOUNDS_LIKE.get(word) or (int(word) if word.isdigit() else 0)
         if n == -1:
             n = len(items)
         return items[n - 1] if 0 < n <= len(items) else None

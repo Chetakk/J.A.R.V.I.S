@@ -65,5 +65,7 @@ class ClipboardHistory(Skill):
         items = list(self.copies)[::-1]
         self.j.show({"title": "Clipboard history",
                      "text": "\n".join("%d. %s" % (i + 1, (t.strip()[:120] + ("…" if len(t.strip()) > 120 else ""))
-                                                   .replace("\n", " ")) for i, t in enumerate(items))})
-        self.say("Here's what you copied, newest first. Say paste number 2 to use one.")
+                                                   .replace("\n", " ")) for i, t in enumerate(items)),
+                     "choices": [{"label": " ".join(t.split())[:40] or "(blank)", "do": "paste number %d" % (i + 1)}
+                                 for i, t in enumerate(items)]})
+        self.say("Here's what you copied, newest first. Say a number to paste it.")

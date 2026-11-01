@@ -42,6 +42,33 @@ def test_there_are_only_so_many_options(jv, card):
     assert jv.said == ["There are only 1 options."]
 
 
+@pytest.mark.parametrize("said", ["three", "3", "number three", "option 3", "open number three",
+                                  "play the third one", "I want the third one", "three please", "Three."])
+def test_pick_by_saying_its_number(jv, card, said):
+    card(choices=[{"label": c, "do": "remember that I like %s" % c} for c in ("tea", "coffee", "juice")])
+    jv.do(said)
+    assert jv.j.memory.preferences()[0]["value"] == "I like juice"
+
+
+def test_number_to_is_number_two(jv, card):
+    card(choices=[{"label": c, "do": "remember that I like %s" % c} for c in ("tea", "coffee")])
+    jv.do("number to")
+    assert jv.j.memory.preferences()[0]["value"] == "I like coffee"
+
+
+@pytest.mark.parametrize("said", ["twelve", "number 12", "the twelfth one", "12th"])
+def test_a_long_list_past_the_buttons(jv, card, said):
+    card(choices=[{"label": "%d" % n, "do": "remember that I like number %d" % n} for n in range(1, 21)])
+    jv.do(said)
+    assert jv.j.memory.preferences()[0]["value"] == "I like number 12"
+
+
+def test_seventeen_is_not_seven(jv, card):
+    card(choices=[{"label": "%d" % n, "do": "remember that I like number %d" % n} for n in range(1, 21)])
+    jv.do("seventeen")
+    assert jv.j.memory.preferences()[0]["value"] == "I like number 17"
+
+
 def test_without_choices_the_second_one_goes_elsewhere(jv, card):
     card()
     jv.do("the second one")

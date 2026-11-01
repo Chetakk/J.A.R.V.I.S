@@ -130,12 +130,12 @@ class Files(Skill):
         title = ("Files you changed" if label == "changed" else label.capitalize()) + (" " + when if when else "")
         title += where
         self.j.show({"title": title,
-                     "text": "\n".join("- **%s** in `%s` · %s" % (os.path.basename(h),
-                                                                  os.path.dirname(h).replace(HOME, "~"), _when(h))
-                                       for h in hits[:30]) + ("\n\n…and %d more" % (len(hits) - 30)
+                     "text": "\n".join("%d. **%s** in `%s` · %s" % (i, os.path.basename(h),
+                                                                    os.path.dirname(h).replace(HOME, "~"), _when(h))
+                                       for i, h in enumerate(hits[:30], 1)) + ("\n\n…and %d more" % (len(hits) - 30)
                                                               if len(hits) > 30 else ""),
                      "choices": [{"label": os.path.basename(h)[:40], "do": "open file %s" % h.replace(HOME, "~")}
-                                 for h in hits[:6]]})
+                                 for h in hits[:30]]})
         names = [_short(h) for h in hits[:3]]
         if len(hits) > 3:
             names.append("%d more" % (len(hits) - 3))
@@ -192,7 +192,7 @@ class Files(Skill):
                                        for i, p in enumerate(items[:30], 1))
                              + ("\n\n…and %d more" % (len(items) - 30) if len(items) > 30 else ""),
                      "choices": [{"label": os.path.basename(p)[:40], "do": "open file %s" % p.replace(HOME, "~")}
-                                 for p in items[:6]]})
+                                 for p in items[:30]]})
         names = [os.path.basename(p) for p in items[:3]]
         if len(items) > 3:
             names.append("%d more" % (len(items) - 3))
@@ -257,9 +257,10 @@ class Files(Skill):
     def _show(self, hits, when):
         remember_listing(hits)
         self.j.show({"title": "Downloaded %s" % when,
-                     "text": "\n".join("- **%s** · %s" % (os.path.basename(h), _when(h)) for h in hits),
+                     "text": "\n".join("%d. **%s** · %s" % (i, os.path.basename(h), _when(h))
+                                       for i, h in enumerate(hits, 1)),
                      "choices": [{"label": os.path.basename(h)[:40], "do": "open file %s" % h.replace(HOME, "~")}
-                                 for h in hits[:6]]})
+                                 for h in hits[:30]]})
 
     def find_file(self, m):
         query = m.group(1)
