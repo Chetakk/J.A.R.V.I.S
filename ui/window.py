@@ -455,6 +455,8 @@ class UI:
     def _panel_key(self, _w, ev):
         if ev.keyval == Gdk.KEY_Escape:
             return self._set_chat(False)
+        if ev.keyval in (Gdk.KEY_Up, Gdk.KEY_Down) and self.entry.has_focus():
+            return self._recall(-1 if ev.keyval == Gdk.KEY_Up else 1)
         ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
         if ctrl and ev.keyval in (Gdk.KEY_c, Gdk.KEY_C) and not self.entry.get_selection_bounds():
             # The entry keeps the focus, so Ctrl+C would copy nothing: copy what's selected in the chat,
@@ -465,6 +467,22 @@ class UI:
             Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
             return True
         return False
+
+    def _recall(self, step):
+        """Up/Down in the typing box walk through what you sent before, like a terminal; Down past the newest clears it."""
+        sent = getattr(self, "_sent", [])
+        if not sent:
+            return True
+        at = getattr(self, "_sent_at", None)
+        at = (len(sent) if at is None else at) + step
+        if at >= len(sent):
+            self._sent_at = None
+            self.entry.set_text("")
+            return True
+        self._sent_at = max(0, at)
+        self.entry.set_text(sent[self._sent_at])
+        self.entry.set_position(-1)
+        return True
 
     def _chat_labels(self):
         found = []
@@ -585,7 +603,9 @@ class UI:
     def _entry_send(self, entry):
         text = entry.get_text().strip()
         entry.set_text("")
+        self._sent_at = None
         if text:
+            self._sent = [t for t in getattr(self, "_sent", []) if t != text][-49:] + [text]
             self.on_text(text)
 
     def _add_chat(self, who, text):
