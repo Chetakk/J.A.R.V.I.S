@@ -1212,8 +1212,10 @@ class Jarvis:
         text = self.browser.named(text)  # "open my work browser": Firefox
         m = pattern.match(text)
         site = self.browser.site(m.group(1)) if m else None
-        if not m or (site and (not self.registry.sites[site].get("app") or m.group(1).lower() != site)):
-            return None, None  # "open gmail" is the website (not Thunderbird), and so is "open discord web"
+        installed = site and (self.registry.sites[site].get("app") or m.group(1).lower() in self.apps.by_name)
+        if not m or (site and (not installed or m.group(1).lower() != site)):
+            return None, None  # "open gmail" is the website (not Thunderbird), and so is "open discord web";
+            # "open spotify" is the installed Spotify app (a web app here) when there is one
         if self.browser._pop_browser(text)[0] != text and self.browser.parse(text):
             return None, None  # "open discord in chrome": the website, though Discord's installed
         if re.search(r"\b(?:repo|repository|github|website|web ?site)$", m.group(1), re.IGNORECASE) and \
@@ -1528,8 +1530,6 @@ def main():
     if not single_instance():
         print("JARVIS is already running (look for the icon in the top bar).")
         return 3  # tools/run_jarvis.sh treats 3 as "don't restart"
-    inbox = queue.Queue()
-    jarvis = Jarvis(inbox)
     if sys.stdin.isatty() and os.environ.get("DISPLAY") and not os.environ.get("JARVIS_FOREGROUND"):
         # Started from a terminal: run detached so closing the terminal doesn't take JARVIS with it.
         single_instance.lock.close()
@@ -1539,6 +1539,8 @@ def main():
         print("JARVIS is starting in the background (log: ~/.local/share/jarvis/jarvis.log).\n"
               "Closing this terminal won't stop it. JARVIS_FOREGROUND=1 keeps it in the terminal.")
         return 0
+    inbox = queue.Queue()
+    jarvis = Jarvis(inbox)
     jarvis.speaker.listen_inbox()
 
     ui_cfg = jarvis.settings.get("ui") or {}
