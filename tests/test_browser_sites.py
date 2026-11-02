@@ -260,3 +260,18 @@ def test_i_said_is_sorry_then_the_request(mine, said):
     mine.do(said)
     assert opened(mine) == ["xdg-open https://github.com/chetak-biztel"]
     assert any("Apologies." in lines for lines in mine.spoken)
+
+
+@pytest.mark.parametrize("said, cmd", [
+    ("open youtube in my work browser", "firefox --new-window https://www.youtube.com"),
+    ("open youtube in the office browser", "firefox --new-window https://www.youtube.com"),
+    ("open gmail in my personal browser", "google-chrome --new-window https://mail.google.com"),
+    ("open youtube in the browser", "xdg-open https://www.youtube.com"),
+])
+def test_work_and_personal_browser(jv, said, cmd):
+    """"browsers: {work: firefox, personal: chrome}" in sites.yaml: "my work browser" is Firefox."""
+    with open(os.path.join(conftest.DATA, "sites.yaml"), "w") as f:
+        f.write("browsers: {work: firefox, personal: chrome}\n")
+    jv.j.registry.reload()
+    jv.do(said)
+    assert opened(jv) == [cmd]

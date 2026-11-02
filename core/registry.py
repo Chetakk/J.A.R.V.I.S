@@ -119,11 +119,14 @@ class Registry:
         self._patterns.sort(key=lambda p: -p[0])
 
     def _my_sites(self):
+        self.browser_for = {}  # {"work": "firefox", "personal": "chrome"}: "my work browser"
         try:
             with open(os.path.expanduser(MY_SITES)) as f:
-                mine = (yaml.safe_load(f) or {}).get("sites") or {}
+                data = yaml.safe_load(f) or {}
         except (OSError, yaml.YAMLError):
             return  # none yet, or a typo in it: the built-in sites still work
+        self.browser_for = {k: v for k, v in (data.get("browsers") or {}).items() if v in self.browsers}
+        mine = data.get("sites") or {}
         for name, info in mine.items():
             if not isinstance(info, dict):
                 continue

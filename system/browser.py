@@ -44,7 +44,9 @@ _PLAIN_PAGES = {"home", "new", "explore", "settings", "profile", "network", "eve
 # "lofi on youtube" is something on YouTube; "what's on youtube" and "turn it up on youtube" aren't
 _NOT_A_THING = re.compile(r"^(?:what|what's|whats|who|why|how|is|are|do|does|did|can|could|which|when|where|turn|set|"
                           r"make|pause|stop|close|mute|unmute|skip|increase|decrease|raise|lower|change|switch|put|"
-                          r"add|remove|delete|send|share|post|upload|like|subscribe|follow|log|sign|i|it|this|that)\b",
+                          r"add|remove|delete|send|share|post|upload|like|subscribe|follow|log|sign|i|it|this|that|"
+                          # "commit everything and push it on github": a job for Claude Code, not a search
+                          r"commit|push|pull|merge|clone|fork|deploy|publish|release|fix|build|run|create|update)\b",
                           re.IGNORECASE)
 _DIGITS = dict(zip("zero one two three four five six seven eight nine".split(), "0123456789"))
 
@@ -97,7 +99,7 @@ class Browser:
     def parse(self, text, guess=True):
         """Return a BrowserAction if `text` is a browser request, else None.
         guess=False: not "play X song" on YouTube when no site was said (a skill's own group may be called that)."""
-        text, browser = self._pop_browser(text)
+        text, browser = self._pop_browser(self.named(text))
         text = self._plain(text)
 
         # "open kick and search rakazone", "open youtube then play lofi": the search is on that site, not Google
@@ -248,8 +250,16 @@ class Browser:
                 return None
         return out if len(out) > 1 else None
 
+    def named(self, text):
+        """"my work browser" as the browser it is ("browsers: {work: firefox}" in sites.yaml): "firefox"."""
+        for who, key in self.reg.browser_for.items():
+            words = {"work": r"work|office|company|job", "personal": r"personal|own|home"}.get(who, re.escape(who))
+            text = re.sub(r"\b(?:the |my )?(?:%s) browser\b" % words, key, text, flags=re.IGNORECASE)
+        return text
+
     def _pop_browser(self, text):
         """Strip a trailing 'in chrome' / 'on firefox' and return (text, browser key)."""
+        text = self.named(text)
         for key, info in self.reg.browsers.items():
             for alias in sorted(info.get("aliases") or [key], key=len, reverse=True):
                 m = re.match(r"^(.+?)\s+(?:in|on|using|with)\s+%s$" % re.escape(alias), text, re.IGNORECASE)
@@ -421,7 +431,7 @@ class Browser:
 
     def _account_browser(self, site, who, browser):
         """The browser that account is logged in on ("browsers: {work: firefox}"), unless one was named."""
-        return browser or (self.reg.sites[site].get("browsers") or {}).get(who)
+        return browser or (self.reg.sites[site].get("browsers") or self.reg.browser_for).get(who)
 
     def _full(self, site, url):
         """A page's address; one without https:// is on the site's own server ("in/mypage" on hotstar)."""

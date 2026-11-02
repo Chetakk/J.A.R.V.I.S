@@ -1209,6 +1209,7 @@ class Jarvis:
 
     def app_for(self, pattern, text):
         """(installed app, the name as said) for "open X" / "close X", or (None, None)."""
+        text = self.browser.named(text)  # "open my work browser": Firefox
         m = pattern.match(text)
         site = self.browser.site(m.group(1)) if m else None
         if not m or (site and (not self.registry.sites[site].get("app") or m.group(1).lower() != site)):
