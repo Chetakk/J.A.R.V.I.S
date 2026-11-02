@@ -128,9 +128,9 @@ class UI:
         ORB = int(cfg.get("orb_size", ORB))
         self.orb_mode = cfg.get("orb", "auto")  # "auto" | True | False
         self.orb_hide_after = float(cfg.get("orb_hide_after", 4))
-        self.card_hide_after = float(cfg.get("card_hide_after", 30))
-        self.chat_hide_after = float(cfg.get("chat_hide_after", 60))
+        self.hide_after = float(cfg.get("hide_after", 60))  # the chat and each card alike
         self._quiet_since = None  # JARVIS idle and you not on the chat or card since then
+        self._ticked = None  # the last quiet tick, for counting each card's own quiet time
         self._bare_since = None  # nothing on screen but the orb since then
         self.mutes = {"voice": False, "mic": False, "speaker": False}  # kept up to date by set_mutes()
         self._build_orb()
@@ -166,7 +166,7 @@ class UI:
         """Open a card ({"title", "text" markdown, "image" path}) beside any already up; one with the id of a card
         on screen updates it in place. None shows the last one again."""
         def show():
-            self._quiet_since = None  # full time on screen; live cards and timers stay while they update
+            self._quiet_since = None  # the chat's full time again; the card's own clock restarts in Card.show
             return self.card.show(card)
         GLib.idle_add(show)
 
@@ -508,25 +508,27 @@ class UI:
         return False
 
     def _auto_hide(self, active):
-        """While JARVIS is busy or you're on the chat or card, nothing hides. After a quiet spell the card goes
-        (card_hide_after), then the chat (chat_hide_after); in auto mode the orb follows orb_hide_after seconds
-        after both are gone, and shows while either is up. Every card goes together; pinned copies stay."""
+        """While JARVIS is busy or you're on the chat or card, nothing hides and every clock stops. The chat hides
+        after hide_after quiet seconds, and so does each card, counted from when it opened (or last updated), so
+        the earliest goes first; in auto mode the orb follows orb_hide_after seconds after all are gone, and shows
+        while any is up. Pinned copies stay."""
         chat, card = self.panel.get_visible(), self.card.visible
         auto = self.orb_mode == "auto"
         if active or self._touching():
-            self._quiet_since = self._bare_since = None
+            self._quiet_since = self._bare_since = self._ticked = None
             if auto and (active or chat or card) and not self.orb.get_visible():
                 self.orb.show_all()
             return
         if not (chat or card or (auto and self.orb.get_visible())):
-            self._quiet_since = self._bare_since = None  # nothing to hide
+            self._quiet_since = self._bare_since = self._ticked = None  # nothing to hide
             return
         now = time.time()
         self._quiet_since = self._quiet_since or now
-        if card and now - self._quiet_since >= self.card_hide_after:
-            self.card.close(every=True)
-            card = False
-        if chat and now - self._quiet_since >= self.chat_hide_after:
+        step, self._ticked = now - (self._ticked or now), now
+        if card:
+            self.card.age(step, self.hide_after)
+            card = self.card.visible
+        if chat and now - self._quiet_since >= self.hide_after:
             self._set_chat(False)
             chat = False
         if not auto:

@@ -1,6 +1,6 @@
 """The "show" card: a floating panel, styled like the chat, for things worth seeing rather than hearing
 (a table of numbers, a list, links, a picture, choices). It stays until closed, replaced by the next card,
-or left alone for a while (ui.card_hide_after).
+or left alone for a while (ui.hide_after, counted for each card from when it opened).
 
 A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "refresh" {...}}:
 - text: "# heading", "- bullet" (indent to nest), "1. step", "- [ ]"/"- [x]" checklists, "| table |" rows,
@@ -246,6 +246,7 @@ class Card:
         self.last = None
         self.visible = False
         self.user_xy = None  # where you dragged it, if you did
+        self.quiet = 0.0  # seconds left alone on screen since it last opened or updated
         self._dragging = False
         self._moving = []  # drawn blocks that animate, redrawn by _tick while this card is up
         self._ticking = False
@@ -298,6 +299,7 @@ class Card:
     def show(self, card):
         """Put `card` in this window (replacing what it showed)."""
         self.last = card
+        self.quiet = 0.0
         for child in self.body.get_children() + self.buttons.get_children():
             child.destroy()
         self.title.set_text(card.get("title") or "Here you go")
@@ -477,6 +479,15 @@ class Deck:
             targets = self.open[-1:]
         for w in targets:
             w.close()
+        return False
+
+    def age(self, step, after):
+        """Count `step` more quiet seconds on every card and close each one left alone `after` seconds: each keeps
+        its own time, so the one that came first goes first."""
+        for w in list(self.open):
+            w.quiet += step
+            if w.quiet >= after:
+                w.close()
         return False
 
     def pin(self):

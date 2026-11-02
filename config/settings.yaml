@@ -117,8 +117,8 @@ ui:
   orb_size: 96             # orb diameter in pixels (78 was the old size)
   orb: auto                # auto = appears while you're talking to it, fades after; true = always; false = never
   orb_hide_after: 4        # seconds after the chat and card are gone before the orb hides (auto mode)
-  card_hide_after: 30      # a card hides after this many quiet seconds (pointer not on it or the chat)
-  chat_hide_after: 60      # the chat hides after this many quiet seconds (pointer not on it, nothing half-typed)
+  hide_after: 30           # the chat and each card hide after this many quiet seconds (pointer not on them);
+                           # a card counts from when it opened, so the earliest goes first
   chat: false              # show the chat panel at startup (click the orb, or say "show chat")
   show_hearing: true       # list everything speech recognition hears in the chat ("hide what you hear" to stop)
 
