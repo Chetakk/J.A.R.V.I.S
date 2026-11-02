@@ -165,6 +165,31 @@ def test_open_your_own_project(jv):
         assert jv.shell.ran("^code %s$" % path), said
 
 
+def test_new_claude_chat_here_in_vs_code_opens_the_panel_not_the_browser(jv, monkeypatch):
+    import jarvis
+    opened = []
+    monkeypatch.setattr(jarvis, "open_in_vscode", lambda prompt=None, here=False: opened.append(here))
+    project(jv, "avtec-hs")
+    focus_vscode(jv, "avtec-hs")
+    jv.do("Open a new Claude chat here.")
+    assert opened == [True]  # in that window: no switch to JARVIS's workspace
+    assert not jv.shell.ran("claude.ai") and jv.says("in VS Code")
+
+
+def test_new_claude_chat_here_in_a_terminal_starts_in_its_folder(jv):
+    path = project(jv, "avtec-hs")
+    jv.desktop.add("biztel@jetson: %s" % path, "gnome-terminal-server Gnome-terminal")
+    jv.do("open a new claude chat here")
+    assert jv.claude.calls[-1][0] == "open_terminal"
+    assert not jv.shell.ran("claude.ai") and jv.says("Opening Claude in avtec-hs")
+
+
+def test_new_claude_chat_here_in_the_browser_is_still_claude_ai(jv):
+    jv.desktop.add("Inbox — Mozilla Firefox", "navigator Firefox")
+    jv.do("open a new claude chat here")
+    assert jv.shell.ran("claude.ai/new")
+
+
 def test_folder_on_screen_in_vs_code(jv, monkeypatch):
     path = os.path.join(H, "Projects")
     monkeypatch.setattr("skills.dev.front_folder", lambda j: path)

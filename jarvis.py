@@ -88,6 +88,10 @@ MUTE_WHAT = {"voice": "voice", "speech": "voice", "me": "voice", "jarvis": "voic
              "mic": "mic", "microphone": "mic", "input": "mic",
              "sound": "sound", "speaker": "sound", "speakers": "sound", "audio": "sound", "output": "sound"}
 
+# "open a new Claude chat here": Claude in the window you're looking at (VS Code, a terminal), not claude.ai.
+CLAUDE_HERE = re.compile(r"^(?:open|start|launch|bring up|pull up|give me)\b.*\bclaude\b.*\b(?:here|in this"
+                         r"(?: window| project| folder| terminal)?)$", re.IGNORECASE)
+TERMINALS = ("terminal", "kitty", "konsole", "xterm", "tilix", "alacritty", "terminator", "wezterm")
 ASK_CLAUDE_VSCODE = re.compile(r"^(?:ask|tell) claude(?: code)? in (?:vs ?code) (?:to )?(.+)$", re.IGNORECASE)
 # JARVIS itself, not an app or a project called Jarvis (%s: its names): "close Jarvis", "restart yourself".
 # Also "I said restart yourselves", "please close yourself now": a lead-in, Whisper's "yourselves", a tail.
@@ -464,6 +468,8 @@ class Jarvis:
             open_in_vscode(m.group(1))
             self.speaker.say(["Done, I've passed that to Claude in VS Code.", "Okay, Claude in VS Code has it."])
             return True
+        if CLAUDE_HERE.match(text.strip(" .!?")) and self._claude_here():
+            return True
         if self.skills.first(text) or self._personal(text):
             return True
         self.failed = False  # a skill's fail(): "I don't see a browser open"
@@ -796,6 +802,33 @@ class Jarvis:
             "tab groups: \"open my <group> tabs\": %s" % ", ".join(reg.tab_groups) if reg.tab_groups else "",
             "saved commands (exact phrases): %s" % "; ".join(saved),
         ) if line)
+
+    def _claude_here(self):
+        """"Open a new Claude chat here": Claude Code in the focused VS Code window, or a Claude terminal in the
+        focused terminal's folder. False when it's some other window (the browser's claude.ai, as before)."""
+        win = desktop.active_window()
+        if win and "jarvis" in win.wm_class:  # JARVIS's own card/chat: the window under it
+            win = next((w for w in reversed(desktop.windows()) if "jarvis" not in w.wm_class and w.title), None)
+        if not win:
+            return False
+        if "code" in win.wm_class:
+            open_in_vscode(here=True)
+            self.heard(self._text, "Claude here: VS Code")
+            self.speaker.say(["Sure, opening Claude here in VS Code.", "Okay, Claude's coming up in VS Code."])
+            return True
+        if any(t in win.wm_class for t in TERMINALS):
+            p = self.projects.in_title(win)
+            m = re.search(r":\s*(~?/[^\s]*)\s*$", win.title or "")  # "user@host: ~/Downloads"
+            folder = p.path if p else os.path.expanduser(m.group(1)) if m else None
+            self.heard(self._text, "Claude here: terminal in %s" % (folder or "an unknown folder"))
+            if folder and os.path.isdir(folder):
+                self.claude.open_terminal(cwd=folder)
+                self.speaker.say("Opening Claude in %s." % os.path.basename(folder.rstrip("/")))
+            else:
+                self.claude.open_terminal()
+                self.speaker.say("I can't tell that terminal's folder, so here's the usual Claude terminal.")
+            return True
+        return False
 
     def _focus_line(self):
         """Which window the user is looking at, and its project, so "push" or "run the tests" means that one."""

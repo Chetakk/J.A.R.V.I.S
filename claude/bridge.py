@@ -303,12 +303,14 @@ class Claude:
         return False
 
 
-def open_in_vscode(prompt=None):
-    """Open the Claude Code panel in VS Code, optionally starting it with `prompt`."""
+def open_in_vscode(prompt=None, here=False):
+    """Open the Claude Code panel in VS Code, optionally starting it with `prompt`. here: in the VS Code window
+    you're looking at, so no switch to JARVIS's workspace first."""
     url = "vscode://anthropic.claude-code/open"
     if prompt:
         url += "?prompt=" + quote("%s\n\n(%s Run `jarvis` alone to see the phrases.)" % (prompt, JARVIS_TOOL))
-    desktop.go_to_jarvis_workspace()
+    if not here:
+        desktop.go_to_jarvis_workspace()
     subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      start_new_session=True)
 
