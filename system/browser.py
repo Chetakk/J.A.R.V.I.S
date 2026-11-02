@@ -402,15 +402,20 @@ class Browser:
             return None
         if account in accounts or len(accounts) == 1:
             who = account if account in accounts else next(iter(accounts))
-            return BrowserAction([url.replace("{me}", accounts[who])], browser,
+            return BrowserAction([url.replace("{me}", accounts[who])], self._account_browser(site, who, browser),
                                  "your %s%s" % ("%s " % who if len(accounts) > 1 else "", description))
         # each one known by its word and its account's name: "work", "the biztel one", "chetakk"
         choices = {"%s %s %s" % (who, {"work": "office", "personal": "own"}.get(who, ""), re.sub(r"[-_.]", " ", name)):
-                   BrowserAction([url.replace("{me}", name)], browser, "your %s %s" % (who, description))
+                   BrowserAction([url.replace("{me}", name)], self._account_browser(site, who, browser),
+                                 "your %s %s" % (who, description))
                    for who, name in accounts.items()}
         return BrowserAction([], browser, description, choices=choices,
                              question="Your %s %s, or %s?" % (list(accounts)[0], self._title(site), ", or ".join(
                                  "the %s one" % w for w in list(accounts)[1:])))
+
+    def _account_browser(self, site, who, browser):
+        """The browser that account is logged in on ("browsers: {work: firefox}"), unless one was named."""
+        return browser or (self.reg.sites[site].get("browsers") or {}).get(who)
 
     def _full(self, site, url):
         """A page's address; one without https:// is on the site's own server ("in/mypage" on hotstar)."""
@@ -435,5 +440,8 @@ class Browser:
         hit = self._lookup(repos, thing)
         if not hit:
             return None
-        return BrowserAction([self._full(site, hit[1]) + ("/" + path if path else "")], browser,
-                             "%s%s" % (hit[0], " " + sub if sub else ""))
+        owner = hit[1].split("/")[0].lower()
+        who = next((w for w, login in (info.get("accounts") or {}).items() if login.lower() == owner), None) or \
+            next((w for w, orgs in (info.get("orgs") or {}).items() if owner in (o.lower() for o in orgs)), None)
+        return BrowserAction([self._full(site, hit[1]) + ("/" + path if path else "")],
+                             self._account_browser(site, who, browser), "%s%s" % (hit[0], " " + sub if sub else ""))

@@ -234,3 +234,20 @@ def test_a_site_name_inside_something_else_isnt_the_site(jv):
 def test_youtube_playlists_arent_a_study_buddy_group(mine):
     mine.do("open my youtube playlists")
     assert opened(mine) == ["xdg-open https://www.youtube.com/feed/playlists"]
+
+
+@pytest.mark.parametrize("said, cmd", [
+    ("open my work github account", "firefox --new-window https://github.com/chetak-biztel"),
+    ("open the o-ring repo", "firefox --new-window https://github.com/chetak-biztel/o-ring"),
+    ("open pdi demo workflow on github", "firefox --new-window https://github.com/biztel-engg/pdi_demo_workflow"),
+    ("open my personal github", "xdg-open https://github.com/Chetakk"),
+    ("open my work github in chrome", "google-chrome --new-window https://github.com/chetak-biztel"),
+])
+def test_work_github_opens_where_it_is_logged_in(mine, said, cmd):
+    """The work account is logged in on Firefox: its pages and repos open there unless a browser is named."""
+    with open(os.path.join(conftest.DATA, "sites.yaml"), "w") as f:
+        f.write(MINE.replace("chetak-biztel/o-ring]", "chetak-biztel/o-ring, biztel-engg/pdi_demo_workflow]\n"
+                             "    orgs: {work: [biztel-engg]}\n    browsers: {work: firefox}"))
+    mine.j.registry.reload()
+    mine.do(said)
+    assert opened(mine) == [cmd]
