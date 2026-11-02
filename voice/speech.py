@@ -1,5 +1,6 @@
 """Text-to-speech. Piper stays running with the voice loaded, so each reply starts instantly."""
 import collections
+import difflib
 import json
 import os
 import random
@@ -30,7 +31,6 @@ def pick(text):
     return random.choice(text) if isinstance(text, (list, tuple)) else text
 
 
-def speak_via_jarvis(text, why=None):
 _OKAY = re.compile(r"^(?:okay[,.!]?\s+)*okay[,.!]?(?:\s+|$)", re.I)
 # A leading "Okay" sounds flat in Piper's voice: mostly the user's name instead, sometimes "sir".
 INSTEAD_OF_OKAY = ["Sure, Chetak.", "Got it, Chetak.", "Alright, Chetak.", "Right, Chetak.", "Yes, sir."]
@@ -45,6 +45,7 @@ def _no_okay(text):
     return random.choice(INSTEAD_OF_OKAY) + (" " + rest[:1].upper() + rest[1:] if rest else "")
 
 
+def speak_via_jarvis(text, why=None):
     """Speak `text` through the running JARVIS, or directly with the same voice if it isn't running.
     why: kept for "why did you say that"."""
     line = (json.dumps({"say": text, "why": why}) if why else " ".join(text.split())) + "\n"
@@ -116,9 +117,9 @@ class Speaker:
                 self.on_sink_lost()  # private stays private: not out loud on the speaker
             return
         line = " ".join(text.split())
-        key = self._key()
         for name, said in SPOKEN.items():
             line = re.sub(r"\b%s\b" % name, said, line)
+        key = self._key()
         if self.engine == "piper" and self._proc and self._proc_key != key and (
                 not self.busy() or self._proc_key[1] != key[1]):
             # Quiet hours or the speed changed: restart Piper and the player once it's done talking.
@@ -152,17 +153,19 @@ class Speaker:
 
     def is_echo(self, heard, started_at):
         """True if `heard` is JARVIS's own voice coming back through the mic: it began while JARVIS was
-        (still) playing, and most of its words are in something JARVIS just said."""
+        (still) playing, and 90% of its words match, in order, one thing JARVIS just said (or a piece of it).
+        Not all its words pooled together: common words like "just", "it", "that" made your own sentences match."""
         if started_at > self.done_at() + 1.0:
             return False  # began well after JARVIS finished: that's you
         words = _words(heard)
         if not words:
             return False
-        spoken = set()
         for when, text in self.history:
             if when > time.time() - 30:
-                spoken.update(_words(text))
-        return bool(spoken) and sum(w in spoken for w in words) / len(words) >= 0.6
+                blocks = difflib.SequenceMatcher(None, words, _words(text), autojunk=False).get_matching_blocks()
+                if sum(b.size for b in blocks) / len(words) >= 0.9:
+                    return True
+        return False
 
     def listen_inbox(self):
         """Speak lines other programs (e.g. the Claude terminal's hook) write to the inbox pipe."""
