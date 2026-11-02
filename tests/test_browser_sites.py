@@ -251,3 +251,12 @@ def test_work_github_opens_where_it_is_logged_in(mine, said, cmd):
     mine.j.registry.reload()
     mine.do(said)
     assert opened(mine) == [cmd]
+
+
+@pytest.mark.parametrize("said", ["I said open my work github account", "i told you open my work github",
+                                  "like I said, open my work github"])
+def test_i_said_is_sorry_then_the_request(mine, said):
+    """"I said X": JARVIS got it wrong or missed it. It apologises and does X, "I said" left out."""
+    mine.do(said)
+    assert opened(mine) == ["xdg-open https://github.com/chetak-biztel"]
+    assert any("Apologies." in lines for lines in mine.spoken)

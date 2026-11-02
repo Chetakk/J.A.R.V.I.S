@@ -174,6 +174,9 @@ CORRECTION = re.compile(
     r"wanted)|wrong|the wrong (?:one|thing)|not it|not right)|not that(?: one)?|wrong(?: one| thing)?|"
     r"i (?:didn'?t|did not) (?:say|mean|ask for|want) that|you got (?:it|that|me) wrong|you misheard(?: me)?|"
     r"(?=i (?:said|meant)\b))(?:[\s,.!]*i (?:said|meant|wanted|asked for) (?P<meant>.+?))?[\s.!]*$", re.IGNORECASE)
+# "I said open my work github": said again because JARVIS got it wrong or missed it; sorry, then just the request
+SAID_AGAIN = re.compile(r"^(?:no,? )?(?:i (?:said|told you|asked(?: you)?(?: to)?)|like i said|as i said)[\s,.:!]+(?P<rest>.+)$",
+                        re.IGNORECASE)
 FIX_SECONDS = 30  # how long after a match by meaning "that's not what I said" is about it
 # Beyond a plain yes: "it's okay, close it", "that's fine", or the question's own verb ("close it", "I said close it").
 FINE = re.compile(r"^\W*(?:(?:it|that)(?:'s| is)\s+)?(?:okay|ok|fine|alright|all right)\b", re.IGNORECASE)
@@ -430,6 +433,11 @@ class Jarvis:
         fix = None if self._rewording or self.from_claude else CORRECTION.match(text)
         if fix and self._guess and time.time() - self._guess[0] < FIX_SECONDS:
             return self._wrong(fix.group("meant"))
+        again = None if self._rewording or self.from_claude else SAID_AGAIN.match(text)
+        if again:
+            self.speaker.say(["Sorry about that.", "Apologies.", "My apologies.", "Sorry, sir."])
+            text = again.group("rest").strip()
+            low = text.lower()
         if not self._rewording and not self.from_claude:
             self._guess = None  # anything else said: "that's wrong" next is about whatever this does
         phrase = None if self._rewording else self.context.follow_up(text)
