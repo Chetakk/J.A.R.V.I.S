@@ -131,6 +131,8 @@ class Browser:
                 pats.append(r"^%s\s+(?:search\s+)?(?:for\s+)?(.+)$" % s)
             for pat in pats:
                 m = re.match(pat, text, re.IGNORECASE)
+                if m and pat is pats[-1] and len(name) > 2 and self._all_sites(text):
+                    continue  # "youtube and gmail": two sites to open, not a YouTube search for "and gmail"
                 if m:
                     return self._search(site, re.sub(r"^(?:some|me)\s+", "", m.group(1), flags=re.IGNORECASE),
                                         browser)
@@ -160,8 +162,7 @@ class Browser:
             m = re.match(r"^(?:my\s+|the\s+)?(.+?)\s+(?:tabs|mode|stuff|sites)$", text, re.IGNORECASE)
             if m and m.group(1).lower() in self.reg.tab_groups:
                 return self._sites(m.group(1), browser)
-            if all(len(p) > 2 and self.site(p) and self.site(p) != "claude" for p in _SPLIT_AND.split(text) if p):
-                # (just "Claude" is talking to Claude, not claude.ai)
+            if self._all_sites(text):
                 return self._sites(text, browser)
             if not _NOT_A_THING.match(text) and any(re.search(r"\s(?:on|in|from)\s+%s$" % re.escape(n), text,
                                                               re.IGNORECASE) for n, _ in self._names()):
@@ -259,6 +260,11 @@ class Browser:
         if m:
             return m.group(1), None
         return text, None
+
+    def _all_sites(self, text):
+        """"youtube and gmail": every part a site name (just "Claude" is talking to Claude, not claude.ai)."""
+        parts = [p for p in _SPLIT_AND.split(text) if p]
+        return bool(parts) and all(len(p) > 2 and self.site(p) and self.site(p) != "claude" for p in parts)
 
     def _names(self):
         """(name as said, site key) for every site and its aliases."""
