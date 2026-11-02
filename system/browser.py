@@ -225,7 +225,7 @@ class Browser:
         names = []
         for part in parts:
             names += [part] if self._url(part) else (self._run_of_sites(part) or [None])
-        if not all(names):
+        if not names or not all(names):  # "And" alone splits into nothing: not a site
             return None
         if mine and len(names) == 1 and self.reg.sites.get(self.site(names[0]), {}).get("my"):
             return None  # "open my github": your page on it, not its home page
