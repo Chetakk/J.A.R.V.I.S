@@ -61,6 +61,7 @@ def test_after_talk_more_is_not_about_the_volume():
 
 def test_a_wording_that_points_at_the_screen_is_not_learned_from_claude():
     assert learned.points("open claude in vscord in this", "open day-tracker project in vs code")
+    assert learned.points("open the folder on my screen in vs code", "open 1440-biztel-app in vs code")
     assert not learned.points("crank the music", "volume up")
     assert not learned.points("close this", "close this window")
 
