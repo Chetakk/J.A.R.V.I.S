@@ -33,3 +33,17 @@ def test_cancel_that_still_undoes_what_was_just_done(jv):
     jv.clear()
     jv.do("cancel that")
     assert any("set-sink-volume @DEFAULT_SINK@ -10%" in c for c in jv.shell.calls)
+
+
+def test_ask_claude_goes_to_claude_not_a_command(jv):
+    jv.claude.reply("Sure.")
+    jv.do("ask claude what i mean")
+    assert jv.claude.calls and not jv.questions and not jv.shell.calls
+
+
+def test_never_mind_to_x_or_y_drops_it_without_claude(jv):
+    jv.j.intents.candidates = lambda text: [("open claude", 0.7), ("open new chat on claude", 0.69)]
+    jv.j.intents.match = lambda text: (None, 0)
+    jv.do("blorp the claude thing", "nevermind leave it")
+    assert jv.questions == ["Open claude, or open new chat on claude?"]
+    assert not jv.claude.calls and any(line.startswith(REPLIES) for line in jv.said)

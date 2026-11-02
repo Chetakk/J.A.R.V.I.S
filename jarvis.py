@@ -108,6 +108,9 @@ ASK_CLAUDE_ME = re.compile(r"\b(?:ask|asks|tell|get|have) claude(?: code)?( in v
                            re.IGNORECASE)
 MENTIONS_ME = r"(?<![a-z])(?:yourself|your (?:code|project)|%s)"
 # "Make these changes in Jarvis": the task points at what was just said, so Claude Code gets that too.
+# "Ask Claude what I mean", "ask Claude, is that right?": straight to Claude with the conversation so far,
+# never matched to a command ("open claude") or guessed at.
+ASK_CLAUDE = re.compile(r"^(?:ask|tell) claude(?: code)?\b[ ,]*(?:to |that |about )?(.+)$", re.IGNORECASE)
 POINTS_BACK = re.compile(r"\b(?:this|that|these|those|it|them|what (?:we|you|i) (?:said|discussed|talked about))\b",
                          re.IGNORECASE)
 CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hearing off",
@@ -343,7 +346,9 @@ class Jarvis:
     def choose(self, question, options):
         """Ask "X, or Y?": the option picked ("the first", "Y", "pause"), or None for "neither"/no answer."""
         answer = (self._answer(question) or "").lower().strip(" .!?")
-        if not answer or re.match(r"^(?:no|nope|neither|none|nothing|never ?mind|cancel)\b", answer):
+        # "nevermind, leave it": dropped altogether, not "neither" (unless it's an option itself: "skip it")
+        self.dropped = bool(re.search(persona.NEVER_MIND, answer)) and answer not in options
+        if not answer or self.dropped or re.match(r"^(?:no|nope|neither|none|nothing|never ?mind|cancel)\b", answer):
             return None
         ordinals = (("first", "second", "third"), ("one", "two", "three"))
         # "the biztel one" names an option: that one, not the first
@@ -489,6 +494,10 @@ class Jarvis:
             self.last_request = text  # "do that again" after a skill too, not the command before it
             return True
         self.last_request = text
+        if not self.from_claude and ASK_CLAUDE.match(text.strip(" .!?")):
+            self.heard(text, "for Claude")
+            self._ask_claude(text)
+            return True
 
         # 1. Other wording with a value ("put milk on my to-do list"), 2. exact command, 3. an installed app,
         # 4. browser phrase, 5. same meaning in other words, 6. close-enough spelling, 7. Claude.
@@ -1108,6 +1117,9 @@ class Jarvis:
                 learned.wrong(text, best, why="you said no to “%s”" % question)
         else:
             return False
+        if not phrase and getattr(self, "dropped", False):
+            self.speaker.say(persona.lines("never_mind", persona.address(self.settings)))
+            return True  # "never mind": dropped, not passed on to Claude
         if not phrase:
             return False  # neither: Claude, as before
         if self.settings.get("learn", "ask") != "off" and learned.worth_learning(text, phrase, learned.load()):
