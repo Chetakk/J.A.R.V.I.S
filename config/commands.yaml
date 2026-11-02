@@ -425,6 +425,14 @@ commands:
     output: true
     reply: "Paired devices: {output}"
 
+  # --- contributions ---
+  - name: contrib_sync
+    say: [sync contributions, sync my contributions, sync github contributions, sync my github contributions,
+          mirror contributions, mirror my contributions, mirror work contributions, update contributions,
+          update my contributions, run contrib sync, start contrib sync, sync my work contributions]
+    run: systemctl --user start --no-block contrib-sync.service
+    reply: ["Syncing your work contributions", "Mirroring your GitHub contributions now"]
+
   # --- power ---
   - name: shutdown
     say: [shut down, shutdown, power off, turn off the computer]
