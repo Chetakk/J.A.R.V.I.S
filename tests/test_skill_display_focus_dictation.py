@@ -299,3 +299,21 @@ def test_the_main_box_is_never_a_search_box():
     assert accessibility.main_text_box([search, message]) is message
     assert accessibility.main_text_box([focused_search, message]) is message
     assert accessibility.main_text_box([search]) is None
+
+
+def test_type_in_discord_only_in_the_tray_opens_it_instead_of_typing_the_words(jv, monkeypatch):
+    jv.desktop.add("Untitled - gedit", "gedit Gedit")
+    search, message = discord_boxes()
+    boxes(monkeypatch, search, message)
+    launched = []
+
+    def launch(app, paths=()):
+        launched.append(app["name"])
+        jv.desktop.add("(2) Discord | #general", "vesktop vesktop", pid=42)
+        return True
+    monkeypatch.setattr(jv.j.apps, "find", lambda name: {"name": "Discord", "process": "discord"}
+                        if "discord" in name.lower() else None)
+    monkeypatch.setattr(jv.j.apps, "launch", launch)
+    jv.do("type in discord")
+    assert launched == ["Discord"] and not pasted(jv)
+    assert message.acc.grabbed and jv.says("Dictation on")

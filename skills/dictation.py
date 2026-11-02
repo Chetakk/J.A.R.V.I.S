@@ -5,6 +5,7 @@ shows it; otherwise it types where the cursor is."""
 import re
 import time
 
+from skills import copy_between
 from skills.base import Skill
 from skills.helpers import type_into_window
 from system import accessibility, desktop
@@ -38,9 +39,14 @@ class Dictation(Skill):
         self.say("Dictation on. Say stop dictation when you're done.")
 
     def type_in(self, m):
-        win = desktop.find_window(m.group(1).strip())
-        if not win:
+        win, app = copy_between.target(self.j, m.group(1))
+        if not win and not app:
             return False  # "type in lowercase please" is just text to type
+        if not win:  # installed but not open, or only in the tray (Vesktop): open it, never type "in discord"
+            win = copy_between.open_window(self.j, app)
+            if not win:
+                self.say("I opened %s, but no window showed up to type in." % app["name"])
+                return
         here = desktop.active_window()
         if not here or here.id != win.id:
             desktop.focus(win)

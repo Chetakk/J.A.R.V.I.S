@@ -157,18 +157,21 @@ class CopyBetween(Skill):
                      "press control V; it's on your clipboard.")
 
     def _open(self, app):
-        """Start `app` and return its new window (None if none showed up in 10 seconds)."""
-        before = verify.windows_now()
-        if not self.j.apps.launch(app):
-            return None
-        deadline = time.time() + 10
-        while time.time() < deadline:
-            time.sleep(0.4)
-            new = [w for w in desktop.windows() if w.id not in before and "jarvis" not in w.wm_class]
-            if new:
-                time.sleep(1.0)  # let it put the cursor in its text box
-                return new[-1]
+        return open_window(self.j, app)
+
+def open_window(jarvis, app):
+    """Start `app` and return its new window (None if none showed up in 10 seconds)."""
+    before = verify.windows_now()
+    if not jarvis.apps.launch(app):
         return None
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        time.sleep(0.4)
+        new = [w for w in desktop.windows() if w.id not in before and "jarvis" not in w.wm_class]
+        if new:
+            time.sleep(1.0)  # let it put the cursor in its text box
+            return new[-1]
+    return None
 
 
 def target(jarvis, words):
