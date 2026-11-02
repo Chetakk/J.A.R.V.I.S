@@ -6,6 +6,7 @@ github", "open the retraining pipeline pull requests"). A page with {me} in it i
 account, "my work github" says which, and otherwise JARVIS asks."""
 import re
 import shlex
+import subprocess
 from urllib.parse import quote, quote_plus, urlparse
 
 _DOMAIN = re.compile(r"^(?:https?://)?[\w-]+(?:\.[\w-]+)+(?:[/?#]\S*)?$", re.IGNORECASE)
@@ -69,11 +70,24 @@ class BrowserAction:
         self.question = question
 
     def shell(self, browsers):
+        """In a new window (on JARVIS's empty workspace), not a tab in the browser window already open."""
         urls = " ".join(shlex.quote(u) for u in self.urls)
-        if self.browser:
-            return "%s %s" % (browsers[self.browser]["run"], urls)
+        browser = self.browser or default_browser(browsers)
+        if browser:
+            run = browsers[browser]
+            return " ".join(filter(None, (run["run"], run.get("new_window"), urls)))
         # xdg-open takes one URL at a time.
         return " ; ".join("xdg-open %s" % shlex.quote(u) for u in self.urls)
+
+
+def default_browser(browsers):
+    """The key in `browsers` for the system's default browser (its `desktop` file), else None."""
+    try:
+        desktop = subprocess.run(["xdg-settings", "get", "default-web-browser"], capture_output=True, text=True,
+                                 timeout=2).stdout.strip().lower()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return next((k for k, b in browsers.items() if desktop and b.get("desktop", "").lower() == desktop), None)
 
 
 class Browser:

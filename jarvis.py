@@ -502,7 +502,8 @@ class Jarvis:
             if action.browser:
                 run = self.registry.browsers[action.browser]
                 self.last_app = run.get("process") or os.path.basename(run["run"].split()[0])
-            self.executor.run(action.shell(self.registry.browsers), reply=[p % action.description for p in ("Opening %s", "Sure, opening %s", "Okay, pulling up %s")])
+            self.executor.run(action.shell(self.registry.browsers), reply=[p % action.description for p in ("Opening %s", "Sure, opening %s", "Okay, pulling up %s")],
+                              window=True)
             return True
         # "Open YouTube and turn the volume down": two requests, if each part is understood on its own.
         # (Before the meaning match, which could take the whole sentence as just one of them.)

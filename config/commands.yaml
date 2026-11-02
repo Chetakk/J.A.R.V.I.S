@@ -15,8 +15,9 @@
 # are built in and use the browsers / sites / tab_groups sections below.
 
 browsers:
-  chrome:  {run: google-chrome, process: chrome, aliases: [chrome, google chrome]}
-  firefox: {run: firefox, aliases: [firefox, mozilla, mozilla firefox]}
+  chrome:  {run: google-chrome, new_window: --new-window, desktop: com.google.Chrome.desktop, process: chrome,
+            aliases: [chrome, google chrome]}
+  firefox: {run: firefox, new_window: --new-window, desktop: firefox.desktop, aliases: [firefox, mozilla, mozilla firefox]}
 
 # A site: url, and optionally search ({q}), title (as said back), aliases, pages ("open my youtube playlists",
 # "open claude new chat"; {me} = your account), my (the page for "open my <site>"), channel ("open <name> on kick"),

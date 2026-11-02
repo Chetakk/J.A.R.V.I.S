@@ -87,7 +87,17 @@ def test_bring_up_an_open_kick_tab_is_that_window(jv):
 
 def test_the_browser_you_name(jv):
     jv.do("open hotstar in firefox")
-    assert opened(jv) == ["firefox https://www.hotstar.com/in/home"]
+    assert opened(jv) == ["firefox --new-window https://www.hotstar.com/in/home"]
+
+
+def test_a_site_opens_in_a_new_window_on_the_empty_workspace(jv, monkeypatch):
+    """Not a tab in the browser window already open on this workspace."""
+    from system import browser, desktop
+    went = []
+    monkeypatch.setattr(browser, "default_browser", lambda browsers: "chrome")
+    monkeypatch.setattr(desktop, "go_to_jarvis_workspace", lambda: went.append(True))
+    jv.do("open youtube")
+    assert opened(jv) == ["google-chrome --new-window https://www.youtube.com"] and went
 
 
 def test_twitter_isnt_libreoffice_writer(jv, monkeypatch):
@@ -106,7 +116,7 @@ def test_discord_is_the_app_unless_a_browser_is_named(jv, monkeypatch):
     assert launched == ["Discord"] and not opened(jv)
     jv.clear()
     jv.do("open discord in chrome")
-    assert launched == ["Discord"] and opened(jv) == ["google-chrome https://discord.com/channels/@me"]
+    assert launched == ["Discord"] and opened(jv) == ["google-chrome --new-window https://discord.com/channels/@me"]
 
 
 @pytest.mark.parametrize("said, url", [
