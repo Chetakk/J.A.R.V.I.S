@@ -108,9 +108,9 @@ ASK_CLAUDE_ME = re.compile(r"\b(?:ask|asks|tell|get|have) claude(?: code)?( in v
                            re.IGNORECASE)
 MENTIONS_ME = r"(?<![a-z])(?:yourself|your (?:code|project)|%s)"
 # "Make these changes in Jarvis": the task points at what was just said, so Claude Code gets that too.
-# "Ask Claude what I mean", "ask Claude, is that right?": straight to Claude with the conversation so far,
+# "Ask Claude what I mean", "can you ask Claude, is that right?": straight to Claude with the conversation so far,
 # never matched to a command ("open claude") or guessed at.
-ASK_CLAUDE = re.compile(r"^(?:ask|tell) claude(?: code)?\b[ ,]*(?:to |that |about )?(.+)$", re.IGNORECASE)
+ASK_CLAUDE = re.compile(r"^(?:(?:can|could|would|will) you |please |just |go |so |ok(?:ay)?,? )*(?:ask|tell) claude(?: code)?\b[ ,]*(?:to |that |about )?(.+)$", re.IGNORECASE)
 POINTS_BACK = re.compile(r"\b(?:this|that|these|those|it|them|what (?:we|you|i) (?:said|discussed|talked about))\b",
                          re.IGNORECASE)
 CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hearing off",

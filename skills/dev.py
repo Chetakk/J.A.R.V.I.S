@@ -49,6 +49,8 @@ class Dev(Skill):
         return [
             (r"(?:git )?(push|pull|fetch)(?: (?:this|it|the code|my changes|the project|this project))?(?: to github)?",
              self.git_sync),
+            # "commit everything from this project and push it on github": Claude Code writes the message
+            (r"(?:git )?commit\b.*", self.claude_commit),
             (r"(?:which|what) project (?:is this|am i (?:in|on))|what am i (?:working on|looking at)",
              lambda m: self.which_project()),
             (r"git status(?: (?:of|for|in))?(?: (?:the )?(.+?)(?: project)?)?|(?:any )?changes in (?:the )?(.+?)(?: project)?|"
@@ -114,6 +116,15 @@ class Dev(Skill):
         self.j.executor.run("git -C %s %s" % (shlex.quote(p.path), verb), output=True, timeout=60,
                             reply="%s %s." % (verb.capitalize(), p.spoken),
                             question="%s %s?" % (verb.capitalize(), p.spoken))
+
+    def claude_commit(self, m):
+        """"Commit everything and push it": Claude Code does it in the project of the window you're looking at."""
+        p = self.projects.focused()
+        if not (p and os.path.isdir(os.path.join(p.path, ".git"))):
+            self.say("I can't tell which project you mean. Click its VS Code window, or say its name.")
+            return
+        self.j.claude.open_terminal(cwd=p.path, prompt=m.group(0))
+        self.say("Okay, Claude's on it in %s." % p.spoken)
 
     def which_project(self):
         win = desktop.active_window()

@@ -121,6 +121,20 @@ def test_push_with_no_project_in_focus_says_so(jv):
     assert not jv.shell.ran("push") and jv.says("can't tell which project")
 
 
+def test_commit_and_push_goes_to_claude_code_in_the_focused_project(jv):
+    project(jv, "avtec-hs")
+    focus_vscode(jv, "avtec-hs")
+    jv.do("commit everything from this project and push it on github")
+    assert jv.claude.asked("commit everything from this project and push it on github")
+    assert not jv.shell.ran("github.com") and jv.says("Claude's on it in")
+
+
+def test_x_on_github_with_a_git_verb_isnt_a_github_search(jv):
+    jv.claude.reply("Sure.")
+    jv.do("merge the branch on github")
+    assert not jv.shell.ran("github.com")
+
+
 def test_terminal_title_with_a_projects_folder_counts(jv):
     path = project(jv, "avtec-hs")
     jv.desktop.add("biztel@jetson: %s/src" % path, "gnome-terminal-server Gnome-terminal")

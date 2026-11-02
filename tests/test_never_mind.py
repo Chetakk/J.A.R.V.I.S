@@ -47,3 +47,10 @@ def test_never_mind_to_x_or_y_drops_it_without_claude(jv):
     jv.do("blorp the claude thing", "nevermind leave it")
     assert jv.questions == ["Open claude, or open new chat on claude?"]
     assert not jv.claude.calls and any(line.startswith(REPLIES) for line in jv.said)
+
+
+@pytest.mark.parametrize("said", ["can you ask claude what i mean", "please ask claude, is that right"])
+def test_ask_claude_after_a_lead_in_goes_to_claude(jv, said):
+    jv.claude.reply("Sure.")
+    jv.do(said)
+    assert jv.claude.calls and not jv.questions and not jv.shell.calls
