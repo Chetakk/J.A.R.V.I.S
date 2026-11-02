@@ -447,10 +447,49 @@ class UI:
         self.entry.connect("changed", lambda _e: setattr(self, "_quiet_since", None))  # typing counts
         inner.pack_start(self.entry, False, False, 0)
         w.add(box)
-        w.connect("key-press-event", lambda _w, ev: ev.keyval == Gdk.KEY_Escape and self._set_chat(False))
+        w.connect("key-press-event", self._panel_key)
         w.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         w.connect("button-press-event", self._take_focus)
         w.connect("map-event", lambda *_: GLib.idle_add(self._take_focus))
+
+    def _panel_key(self, _w, ev):
+        if ev.keyval == Gdk.KEY_Escape:
+            return self._set_chat(False)
+        ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
+        if ctrl and ev.keyval in (Gdk.KEY_c, Gdk.KEY_C) and not self.entry.get_selection_bounds():
+            # The entry keeps the focus, so Ctrl+C would copy nothing: copy what's selected in the chat,
+            # or with Shift (or nothing selected) the whole chat.
+            picked = [lbl.get_text()[min(b):max(b)] for lbl in self._chat_labels()
+                      for b in [lbl.get_selection_bounds()] if b and b[0] != b[1]]
+            text = "\n".join(picked) if picked and not ev.state & Gdk.ModifierType.SHIFT_MASK else self._chat_text()
+            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
+            return True
+        return False
+
+    def _chat_labels(self):
+        found = []
+
+        def walk(widget):
+            if isinstance(widget, Gtk.Label) and hasattr(widget, "chat_who"):
+                found.append(widget)
+            elif isinstance(widget, Gtk.Container):
+                for child in widget.get_children():
+                    walk(child)
+        walk(self.msgs)
+        return found
+
+    def _chat_text(self):
+        names = {"you": "You", "heard": "You", "jarvis": "JARVIS", "claude": "Claude"}
+        return "\n".join("%s: %s" % (names[l.chat_who], l.get_text()) if l.chat_who in names else l.get_text()
+                         for l in self._chat_labels())
+
+    def _label_menu(self, label, menu):
+        """Right-click a message: besides Copy, copy the whole conversation."""
+        item = Gtk.MenuItem(label="Copy whole chat")
+        item.connect("activate", lambda _i: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(self._chat_text(), -1))
+        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(item)
+        menu.show_all()
 
     def _take_focus(self, _w=None, event=None):
         """A dock window never gets keyboard focus from the window manager by itself: after you've clicked
@@ -553,6 +592,8 @@ class UI:
         kind = who if who in ("you", "jarvis", "claude", "heard") else "sys"
         label = Gtk.Label(label=text, xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR,
                           selectable=True, can_focus=False)
+        label.chat_who = kind
+        label.connect("populate-popup", self._label_menu)
         if kind in ("heard", "sys"):
             label.set_max_width_chars(60)
             label.get_style_context().add_class(kind)
