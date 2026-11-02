@@ -47,10 +47,16 @@ class Dev(Skill):
 
     def patterns(self):
         return [
+            # "commit everything from this project and push it on github", "save my work to github", "push all my
+            # changes": Claude Code commits (it writes the message) and pushes, in the project you're looking at.
+            (r"(?:(?:i want to|i wanna|let's|lets|go ahead and|just) )*(?:git )?(?:(?:add|stage) (?:everything|it all|"
+             r"all(?: the)? changes),? )?(?:(?:make|create|do) a )?(?:commit|check in)\b.*|"
+             r"(?:save|upload|put|send|sync|push|back ?up|ship|get) .+ (?:to|on|onto|with|up to|into) (?:the )?"
+             r"(?:github|git ?hub|git|repo|remote|origin)|"
+             r"push (?:everything|it all|all(?: of)? (?:my |the )?(?:changes|code|work)|(?:my|the) (?:code|work|changes)|"
+             r"the latest(?: changes)?)", self.claude_commit),
             (r"(?:git )?(push|pull|fetch)(?: (?:this|it|the code|my changes|the project|this project))?(?: to github)?",
              self.git_sync),
-            # "commit everything from this project and push it on github": Claude Code writes the message
-            (r"(?:git )?commit\b.*", self.claude_commit),
             (r"(?:which|what) project (?:is this|am i (?:in|on))|what am i (?:working on|looking at)",
              lambda m: self.which_project()),
             (r"git status(?: (?:of|for|in))?(?: (?:the )?(.+?)(?: project)?)?|(?:any )?changes in (?:the )?(.+?)(?: project)?|"
