@@ -163,3 +163,19 @@ def test_open_your_own_project(jv):
         jv.shell.calls.clear()
         jv.do(said)
         assert jv.shell.ran("^code %s$" % path), said
+
+
+def test_folder_on_screen_in_vs_code(jv, monkeypatch):
+    path = os.path.join(H, "Projects")
+    monkeypatch.setattr("skills.dev.front_folder", lambda j: path)
+    for said in ("Open the folder on my screen in vs code.", "open this folder in vs code",
+                 "open the folder i'm in in vs code"):
+        jv.shell.calls.clear()
+        jv.do(said)
+        assert jv.shell.ran("^code %s$" % path), said
+
+
+def test_no_folder_on_screen(jv, monkeypatch):
+    monkeypatch.setattr("skills.dev.front_folder", lambda j: None)
+    jv.do("open the folder on my screen in vs code")
+    assert not jv.shell.ran("^code") and jv.says("I don't see a folder on your screen")

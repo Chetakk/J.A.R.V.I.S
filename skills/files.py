@@ -557,6 +557,48 @@ def front_files(j):
     return hits[:1]
 
 
+def front_folder(j):
+    """The folder in the window you're looking at: the one Files is showing, a terminal's (from its title,
+    "user@host: ~/src"), or VS Code's project. Else a Files window on this workspace. None if none."""
+    from skills.screen import front_window
+    win = front_window()
+    if win and "nautilus" not in win.wm_class.lower():
+        if "code" in win.wm_class:
+            p = j.projects.in_title(win)
+            if p:
+                return p.path
+        m = re.search(r":\s*(~?/[^\s]*)\s*$", win.title or "")
+        path = os.path.expanduser(m.group(1)) if m else None
+        if path and os.path.isdir(path):
+            return path
+        ws = desktop.current_workspace()
+        win = next((w for w in reversed(desktop.windows())
+                    if "nautilus" in w.wm_class.lower() and w.workspace in (ws, None)), None)
+    return _files_location(win) if win else None
+
+
+def _files_location(win):
+    """The folder Files is showing: its location bar copied (Ctrl+L, Ctrl+C), then your clipboard put back.
+    Else the folder its title names."""
+    from skills.helpers import clipboard, set_clipboard
+    desktop.focus(win)
+    time.sleep(0.2)
+    old = clipboard()
+    set_clipboard("")
+    desktop.keys("ctrl+l")
+    time.sleep(0.2)
+    desktop.keys("ctrl+c")
+    time.sleep(0.2)
+    desktop.keys("Escape")
+    got = clipboard().strip()
+    set_clipboard(old)
+    path = os.path.expanduser(urllib.parse.unquote(got[7:] if got.startswith("file://") else got))
+    if os.path.isdir(path):
+        return path
+    title = (win.title or "").strip()
+    return HOME if title == "Home" else _folder_named(title) if title else None
+
+
 def _files_selection(win):
     """What's selected in Files: copied (Ctrl+C puts the paths on the clipboard), then your clipboard put back."""
     from skills.helpers import clipboard, set_clipboard

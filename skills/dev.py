@@ -12,7 +12,7 @@ import urllib.request
 from core import verify
 from skills.base import Skill
 from skills.daytracker import HUB
-from skills.files import THIS, WHEN, PLACES, _since, place, spoken_place
+from skills.files import THIS, WHEN, PLACES, _since, front_folder, place, spoken_place
 from skills.helpers import PROJECTS
 from system import desktop
 
@@ -62,6 +62,10 @@ class Dev(Skill):
              r"open (?:up )?(?:the |your )?(?:project|code|code ?base|repo) (?:to (?:fix|change|improve|update)|"
              r"for (?:fixing|changing|improving)|of|for|behind) (?:you|yourself|jarvis)(?: in vs ?code)?",
              lambda m: self.open_project(None)),
+            # "open the folder on my screen in vs code": the one Files (or a terminal, or VS Code) is showing.
+            (r"open (?:up )?(?:the |this |that |my )?(?:folder|directory|project)(?: (?:that's |that is |which is )?"
+             r"(?:on (?:my |the )?screen|(?:i'?m|i am) (?:in|on|looking at)|open|here))? in vs ?code",
+             self.open_front_folder),
             # "JARVIS project in VS Code": speech can drop the "open".
             (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code|(?:the )?(.+?) project in vs ?code",
              self.open_project),
@@ -131,6 +135,15 @@ class Dev(Skill):
             return False
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
         self.j.last_app = "code"  # "close this" right after
+
+    def open_front_folder(self, m):
+        path = front_folder(self.j)
+        if not path:
+            self.say("I don't see a folder on your screen. Open it in Files, or say its name.")
+            return
+        self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s in VS Code." % os.path.basename(path),
+                            window=True)
+        self.j.last_app = "code"
 
     def open_in(self, m):
         plan = open_in_plan(self.j, m.group(1))
