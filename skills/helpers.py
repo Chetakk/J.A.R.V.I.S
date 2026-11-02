@@ -38,15 +38,29 @@ def words(text):
 
 
 def clipboard():
+    """The clipboard's text, or "" when it holds none (an image is not text: decoding it crashed JARVIS)."""
     try:
-        return subprocess.run(["xclip", "-o", "-selection", "clipboard"], capture_output=True, text=True,
-                              timeout=2).stdout
-    except (OSError, subprocess.TimeoutExpired):
+        return subprocess.run(["xclip", "-o", "-selection", "clipboard"], capture_output=True,
+                              timeout=2).stdout.decode()
+    except (OSError, subprocess.TimeoutExpired, UnicodeDecodeError):
         return ""
 
 
-def set_clipboard(text):
-    subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode(), timeout=2,
+def _clipboard_raw():
+    """(bytes, type) of what's on the clipboard, an image kept as an image, so it can be put back as it was."""
+    try:
+        targets = subprocess.run(["xclip", "-o", "-selection", "clipboard", "-t", "TARGETS"], capture_output=True,
+                                 timeout=2).stdout.decode(errors="replace").split()
+        kind = next((t for t in targets if t.startswith("image/")), None)
+        return subprocess.run(["xclip", "-o", "-selection", "clipboard"] + (["-t", kind] if kind else []),
+                              capture_output=True, timeout=2).stdout, kind
+    except (OSError, subprocess.TimeoutExpired):
+        return b"", None
+
+
+def set_clipboard(text, kind=None):
+    subprocess.run(["xclip", "-selection", "clipboard"] + (["-t", kind] if kind else []),
+                   input=text if isinstance(text, bytes) else text.encode(), timeout=2,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -57,13 +71,13 @@ def type_into_window(say, text):
     if win and "jarvis" in win.wm_class:
         say("Click where you want it typed first.")
         return
-    old = clipboard()
+    old, kind = _clipboard_raw()
     typed_until = time.time() + 1.5
     set_clipboard(text)
     terminal = win and any(t in win.wm_class for t in TERMINALS)
     desktop.keys("ctrl+shift+v" if terminal else "ctrl+v")
     time.sleep(0.25)  # let the app read the clipboard before it changes back
-    set_clipboard(old)
+    set_clipboard(old, kind)
 
 
 def file_badge(path):
