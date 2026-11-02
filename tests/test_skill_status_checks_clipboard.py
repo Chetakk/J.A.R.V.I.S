@@ -107,6 +107,35 @@ def test_did_it_work_with_nothing_done(jv):
     assert jv.said == ["I haven't done anything lately that I could check."]
 
 
+def _unit(jv, state, result, ran_after_handoff):
+    import time
+    start = int((time.monotonic() + (60 if ran_after_handoff else -3600)) * 1e6)
+    jv.shell.on(r"^systemctl --user show contrib-sync",
+                out="ActiveState=%s\nResult=%s\nExecMainStartTimestampMonotonic=%d\n" % (state, result, start))
+    jv.shell.on(r"^journalctl --user -u contrib-sync", out="Pushed 12 commits to Chetakk/contribution-mirror\n")
+
+
+def test_is_that_done_after_a_unit_left_in_the_terminal_waits_then_finishes(jv):
+    jv.do("sync contributions")
+    assert jv.says("in your terminal")
+    _unit(jv, "inactive", "success", ran_after_handoff=False)
+    jv.clear()
+    jv.do("is that done")
+    assert jv.said == ["Not yet, it hasn't run yet, it's still waiting in your terminal."]
+    _unit(jv, "inactive", "success", ran_after_handoff=True)
+    jv.clear()
+    jv.do("is it done")
+    assert jv.said == ["Yes, it finished: Pushed 12 commits to Chetakk/contribution-mirror."]
+
+
+def test_is_that_done_says_a_failed_unit(jv):
+    jv.do("sync contributions")
+    _unit(jv, "failed", "exit-code", ran_after_handoff=True)
+    jv.clear()
+    jv.do("it done")
+    assert jv.said == ["No, it failed (exit-code)."]
+
+
 def test_a_missing_program_is_said_not_launched(jv):
     jv.shell.missing.add("gnome-terminal")
     jv.do("open terminal")

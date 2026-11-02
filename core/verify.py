@@ -1,6 +1,9 @@
 """Did it work? Cheap local checks after JARVIS does something: a new window or a changed title after a
 launch, the program failing, the window's pixels changing after a click. What can't be seen is kept as
 "couldn't tell", never as done; JARVIS only speaks up when something surely failed."""
+import re
+import shlex
+import subprocess
 import threading
 import time
 
@@ -10,9 +13,22 @@ LAUNCH_SECONDS = 10  # a window can take this long to show up
 QUICK_SECONDS = 3  # a command without a window: a failure shows by then
 
 
+HANDED_KEEP = 60 * 60  # a command left in your terminal stays "that" this long: you may run it later
+
+
 class Result:
-    def __init__(self, action, ok, what):
+    def __init__(self, action, ok, what, check=None, keep=None):
         self.action, self.ok, self.what, self.at = action, ok, what, time.time()
+        self.check, self.keep = check, keep  # check() -> (ok, what) now, for work that goes on after it's recorded
+
+    def now(self):
+        """Itself, with ok/what looked up again when it has a check (a command you were left to run)."""
+        if self.check:
+            try:
+                self.ok, self.what = self.check()
+            except Exception:
+                pass
+        return self
 
     def __repr__(self):
         return "<Result %r ok=%s %r>" % (self.action, self.ok, self.what)
@@ -23,12 +39,61 @@ _watching = 0  # launches still being watched (their Result isn't in yet)
 _changed = threading.Condition()
 
 
-def record(action, ok, what):
+def record(action, ok, what, check=None, keep=None):
     global last
     with _changed:
-        last = Result(action, ok, what)
+        last = Result(action, ok, what, check, keep)
         _changed.notify_all()
     return last
+
+
+def handed_over(command):
+    """Record a command left in your terminal: "is that done?" then looks at it again each time it's asked
+    (a systemd unit's last run, or the command still busy in a terminal)."""
+    since = time.monotonic()
+    unit = _started_unit(command)
+    check = (lambda: _unit_state(unit, since)) if unit else (lambda: _terminal_state(command))
+    return record(command, None, "it's waiting in your terminal", check, HANDED_KEEP)
+
+
+def _started_unit(command):
+    """("--user", "contrib-sync.service") for `systemctl [--user] start [flags] UNIT`, else None."""
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return None
+    if not words or words[0] != "systemctl" or "start" not in words and "restart" not in words:
+        return None
+    units = [w for w in words[words.index("start" if "start" in words else "restart") + 1:] if not w.startswith("-")]
+    return ("--user" if "--user" in words else "", units[0]) if len(units) == 1 else None
+
+
+def _unit_state(unit, since):
+    scope, name = unit
+    out = subprocess.run(["systemctl"] + ([scope] if scope else []) + [
+        "show", name, "-p", "ActiveState", "-p", "Result", "-p", "ExecMainStartTimestampMonotonic"],
+        capture_output=True, text=True, timeout=5).stdout
+    props = dict(l.split("=", 1) for l in out.splitlines() if "=" in l)
+    started = int(props.get("ExecMainStartTimestampMonotonic") or 0) / 1e6
+    if props.get("ActiveState") in ("activating", "reloading") or (
+            props.get("ActiveState") == "active" and started >= since):
+        return None, "it's still running"
+    if started < since:
+        return None, "it hasn't run yet, it's still waiting in your terminal"
+    if props.get("Result") == "success":
+        line = _last_line(subprocess.run(
+            ["journalctl"] + ([scope] if scope else []) + ["-u", name, "-n", "1", "-o", "cat", "--no-pager"],
+            capture_output=True, text=True, timeout=5).stdout)
+        return True, "it finished" + (": " + line.rstrip(".") if line else "")
+    return False, "it failed (%s)" % props.get("Result", "unknown")
+
+
+def _terminal_state(command):
+    from system import jobs
+    first = re.split(r"\s", command.strip(), 1)[0].rsplit("/", 1)[-1]
+    if any(j.argv and j.argv[0].rsplit("/", 1)[-1] == first for j in jobs.running()):
+        return None, "it's still running in your terminal"
+    return None, "it was left in your terminal, and I can't see whether it ran"
 
 
 def settled(since, timeout=LAUNCH_SECONDS + 1):

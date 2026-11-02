@@ -23,14 +23,19 @@ class Checks(Skill):
     def patterns(self):
         return [
             (r"did (?:that|it|this) (?:work|open|go through|happen|run|start|load|succeed)(?: properly| okay| ok)?|"
-             r"(?:has|is) (?:that|it) (?:worked|opened|done|open|running)(?: yet)?|was (?:that|it) successful|"
+             r"(?:has|is) (?:that|it) (?:worked|opened|done|open|running|finished|complete)(?: yet)?|"
+             r"(?:that|it)(?:'s| is)? (?:done|finished)(?: yet)?|was (?:that|it) successful|"
              r"(?:check|see) (?:if|whether) (?:that|it) worked", self.did_it_work),
         ]
 
     def did_it_work(self, m):
         r = verify.last
-        if not r or time.time() - r.at > RECENT:
+        if not r or time.time() - r.at > (r.keep or RECENT):
             self.say("I haven't done anything lately that I could check.")
+            return
+        r = r.now()
+        if r.check and r.ok is None and "can't see" not in r.what:  # waiting or running in your terminal
+            self.say("Not yet, %s." % r.what)
             return
         if r.ok:
             self.say("Yes, %s." % r.what)

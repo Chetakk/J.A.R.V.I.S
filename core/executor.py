@@ -43,6 +43,7 @@ class Executor:
         if level == MANUAL:
             self.outcome = "manual"
             self.terminal.send(command, reason)
+            verify.handed_over(command)
             self.speaker.say("I'd rather not run that one myself, since %s. I've put it in your terminal for you." % reason)
             return None
         if level == CONFIRM and not approved and not self.ask(question or "%s?" % reply.rstrip(".")):
