@@ -1530,6 +1530,15 @@ def main():
         return 3  # tools/run_jarvis.sh treats 3 as "don't restart"
     inbox = queue.Queue()
     jarvis = Jarvis(inbox)
+    if sys.stdin.isatty() and os.environ.get("DISPLAY") and not os.environ.get("JARVIS_FOREGROUND"):
+        # Started from a terminal: run detached so closing the terminal doesn't take JARVIS with it.
+        single_instance.lock.close()
+        launcher = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tools", "run_jarvis.sh")
+        subprocess.Popen([launcher], start_new_session=True, stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("JARVIS is starting in the background (log: ~/.local/share/jarvis/jarvis.log).\n"
+              "Closing this terminal won't stop it. JARVIS_FOREGROUND=1 keeps it in the terminal.")
+        return 0
     jarvis.speaker.listen_inbox()
 
     ui_cfg = jarvis.settings.get("ui") or {}
