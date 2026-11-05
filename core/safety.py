@@ -27,6 +27,7 @@ HARD_MANUAL = {
 SHELL_KEYWORDS = {"{", "}", "!", "if", "then", "else", "elif", "fi", "do", "done", "while",
                   "until", "time", "case", "esac", "in"}
 HARD_MANUAL_PREFIXES = ("mkfs",)
+SYSTEM_BIN = {"/bin", "/usr/bin", "/usr/local/bin", "/sbin", "/usr/sbin"}  # ./ls or ~/Downloads/ls is not ls
 # Shell syntax that can overwrite files or hide another command.
 HARD_MANUAL_TOKENS = {">", ">>", ">|", "&>", "<<<"}
 SEPARATORS = {";", "&&", "||", "|", "&", "|&", "\n", "(", ")"}
@@ -36,7 +37,11 @@ FIND_DANGEROUS = {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-
 # Programs that are fine on the safe list until their arguments make them run something or write a file.
 AWKS = {"awk", "gawk", "mawk", "nawk"}
 AWK_UNSAFE = re.compile(r"system|getline|>|\|")  # run a command, read from one, write or pipe from the program
-AWK_FLAGS = {"-f", "--file", "-i", "--include", "-E", "--exec", "-l", "--load"}  # programs/extensions from files
+AWK_FLAGS = ("-f", "--file", "-i", "--include", "-E", "--exec", "-l", "--load", "-e", "--source")  # program files,
+# extensions or inline program text (-e'...' hides from AWK_UNSAFE); joined forms like -fx too
+CHROME_RUNS = ("gpu-launcher", "renderer-cmd-prefix", "utility-cmd-prefix", "zygote-cmd-prefix",
+               "browser-subprocess-path", "plugin-launcher", "ppapi-plugin-launcher")  # start another program
+CHROMES = {"google-chrome", "google-chrome-stable", "chromium", "chromium-browser"}
 TERMINAL_RUNS = {"-e", "-x", "--", "--command", "--execute"}  # gnome-terminal running another command
 
 
@@ -67,11 +72,15 @@ def _risky_args(prog, words):
         sub = next((a for a in args if not a.startswith("-")), "")
         if sub in GIT_NEVER or GIT_DESTROYS.intersection(args) or any(a.startswith("--output") for a in args):
             return "git %s can destroy work or overwrite files" % sub
-    if prog in AWKS and (AWK_FLAGS.intersection(args) or any(AWK_UNSAFE.search(a) for a in args if a[:1] != "-")):
+    if prog in AWKS and (any(a.startswith(AWK_FLAGS) for a in args) or any(AWK_UNSAFE.search(a) for a in args if a[:1] != "-")):
         return "%s can run commands or write files from its program" % prog
     if prog in ("gnome-terminal", "xterm", "x-terminal-emulator") and (
             TERMINAL_RUNS.intersection(args) or any(a.startswith(("--command=", "--execute=")) for a in args)):
         return "%s would run another command" % prog
+    if prog in CHROMES and any(a.lstrip("-").startswith(CHROME_RUNS) for a in args):  # chrome takes -x and --x
+        return "%s would start another program" % prog
+    if prog == "code" and any(a.startswith("--install-extension") for a in args):
+        return "a VS Code extension runs its own code"
     if prog == "sort" and any(a == "--output" or a.startswith("--output=") or (
             a[:1] == "-" and a[1:2] != "-" and "o" in a[1:]) for a in args):
         return "sort -o writes over a file"
@@ -90,11 +99,15 @@ class Safety:
     def __init__(self, path=DEFAULT_RULES):
         with open(path) as f:
             data = yaml.safe_load(f) or {}
-        # Prefix (as a word tuple) -> level; longest prefix wins.
-        self.rules = {}
+        # Prefix (as a word tuple) -> level; longest prefix wins. An entry ending in "$" matches only exactly.
+        self.rules, self.exact = {}, {}
         for level in (AUTO, CONFIRM, MANUAL):
             for entry in data.get(level) or []:
-                self.rules[tuple(str(entry).split())] = level
+                words = tuple(str(entry).split())
+                if words[-1:] == ("$",):
+                    self.exact[words[:-1]] = level
+                else:
+                    self.rules[words] = level
 
     def classify(self, command, declared=None):
         """Return (level, reason) for a full shell command string."""
@@ -126,17 +139,21 @@ class Safety:
     def _segment_level(self, words):
         for i, w in enumerate(words):
             nxt = words[i + 1] if i + 1 < len(words) else ""
-            if (w in HARD_MANUAL_TOKENS or (w.startswith(">") and w != ">&")) and nxt != "/dev/null":
+            if w == ">&" and (nxt.isdigit() or nxt == "-"):
+                continue  # >&2 duplicates a stream; `>& file` writes the file
+            if (w in HARD_MANUAL_TOKENS or w.startswith(">")) and nxt != "/dev/null":
                 return MANUAL, "it writes over a file"
         # Skip shell keywords and leading VAR=value assignments.
         i = 0
         while i < len(words) and (words[i] in SHELL_KEYWORDS
                                   or ("=" in words[i] and not words[i].startswith("="))):
             i += 1
+        assigns = [w for w in words[:i] if w not in SHELL_KEYWORDS]  # PATH=. ls runs ./ls
         words = words[i:]
         if not words:
             return CONFIRM, "it only sets variables"
         prog = os.path.basename(words[0])
+        folder = os.path.dirname(os.path.expanduser(words[0]))  # before git's words are rewritten
         if "$" in prog:
             return MANUAL, "the program name is hidden in a variable"
         if prog in HARD_MANUAL or prog.startswith(HARD_MANUAL_PREFIXES):
@@ -154,7 +171,11 @@ class Safety:
 
         key = (prog,) + tuple(words[1:])
         for n in range(len(key), 0, -1):
-            level = self.rules.get(key[:n])
+            level = (n == len(key) and self.exact.get(key)) or self.rules.get(key[:n])
+            if level == AUTO and folder and folder not in SYSTEM_BIN:
+                return CONFIRM, "%s isn't the system's %s" % (words[0], prog)
+            if level == AUTO and assigns:
+                return CONFIRM, "%s changes how %s runs" % (assigns[0].split("=")[0], prog)
             if level:
                 reasons = {AUTO: "it is on the safe list",
                            CONFIRM: "%s needs your okay" % " ".join(key[:n]),

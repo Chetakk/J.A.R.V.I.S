@@ -5,6 +5,7 @@
 #
 # Entries match the start of each command; the longest match wins
 # ("systemctl poweroff" beats "systemctl").
+# An entry ending in " $" matches only that exact command, no extra arguments.
 # Anything not listed is treated as "confirm".
 # A built-in blocklist in core/safety.py always forces dangerous commands
 # (rm, sudo, dd, redirects with >, ...) to manual, whatever this file says.
@@ -12,8 +13,8 @@
 auto:
   - jarvis              # tools/jarvis: say / show a card / do a JARVIS phrase
   - xdg-open
-  - npm --prefix /home/biztelai/Projects/study-budd run dev   # Study Buddy (run_study_buddy)
-  - curl -s -o /dev/null http://127.0.0.1:7314              # is Study Buddy already up
+  - npm --prefix /home/biztelai/Projects/study-budd run dev $ # Study Buddy (run_study_buddy)
+  - curl -s -o /dev/null http://127.0.0.1:7314 $            # is Study Buddy already up
   - google-chrome
   - firefox
   - code
@@ -81,7 +82,8 @@ auto:
   - git branch --show-current
   - git remote -v
   - git stash list
-  - git config user
+  - git config user.name $
+  - git config user.email $
   - gh auth status
   - gh auth switch
   - gh repo view
