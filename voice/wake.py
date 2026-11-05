@@ -148,6 +148,16 @@ _ABOUT_NAME = re.compile(r"\b(?:close|quit|exit|shut ?down|turn off|switch off|k
                          r"in|into|to|on) $", re.IGNORECASE)
 
 
+def called_by_name(text, names):
+    """A long name ("Jarvis") wakes anywhere; a short one ("EV") only at the start, as everyday talk has it:
+    "Hey EV, open YouTube" -> True, "How was that EV?" / "I'm moving by EV." -> False."""
+    long = [n for n in names if len(n.replace(" ", "")) > 5]
+    if long and split_name(text, long)[0]:
+        return True
+    m = re.search(r"(?<![a-z])%s" % _names_regex(names), text, re.IGNORECASE)
+    return bool(m and _GREETING.match(text[:m.start()]))
+
+
 def split_name(text, names):
     """("EV, open YouTube." -> (True, "open YouTube")), ("What's up Jarvis?" -> (True, "")),
     ("open YouTube" -> (False, "")). The name can be anywhere; in the middle the rest of the sentence is the request."""
@@ -292,11 +302,13 @@ class WhisperWake:
             pcm = (np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes()
             text = self.whisper.transcribe(pcm, command=waiting)  # waiting: it's the command itself
             if not text:
-                self.on_heard("", "couldn't make out words (%.1f s)" % seconds)
+                # The peak shows whether it was too quiet (under stt.MIN_PEAK) or Whisper found no words.
+                self.on_heard("", "couldn't make out words (%.1f s, peak %d)" % (seconds, np.abs(seg).max() * 32767))
                 continue
             # JARVIS's own voice coming back from the speaker (e.g. the tail of a Bluetooth delay).
-            # Saying the name always gets through, in case you repeat its words on purpose.
-            if self.is_echo(text, started) and not split_name(text, self.names)[0]:
+            # Saying the name always gets through, in case you repeat its words on purpose. Right after the
+            # name alone JARVIS only beeped, so it's you ("Do a speed test" was taken for its earlier answer).
+            if (not waiting or self.following) and self.is_echo(text, started) and not split_name(text, self.names)[0]:
                 self.on_heard(text, "ignored (my own voice)")
                 continue
             if waiting:
@@ -319,6 +331,9 @@ class WhisperWake:
             named, command = split_name(text, self.names)
             if not named:
                 self.on_heard(text, "ignored (no name at the start or end)")
+                continue
+            if not called_by_name(text, self.names):
+                self.on_heard(text, "ignored (a short name only wakes me at the start)")
                 continue
             if command:
                 command = self._command_again(pcm, command)

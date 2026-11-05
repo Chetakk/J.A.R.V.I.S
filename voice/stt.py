@@ -10,7 +10,7 @@ import uuid
 import wave
 
 RATE = 16000
-MIN_PEAK = 1500  # 16-bit peak below this is background noise, not speech
+MIN_PEAK = 600  # 16-bit peak below this is background noise, not speech (Whisper still read speech at 600; 1500 dropped quiet commands)
 HALLUCINATIONS = {"you", "thank you", "thanks", "thank you very much", "thanks for watching",
                   "thank you for watching", "bye", "so", "uh", "um", "hmm", ""}
 
