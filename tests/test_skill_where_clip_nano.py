@@ -1,5 +1,6 @@
-""""Where was I" (skills/where_was_i.py), clipboard history (skills/clipboard_history.py: in memory only) and the
+""""Where was I" (skills/where_was_i.py), clipboard history (skills/clipboard_history.py: CopyQ, else in memory only) and the
 Jetson Nano (skills/nano.py: status, its keyboard link, commands run on it under the same safety rules)."""
+import json
 import time
 
 import pytest
@@ -79,6 +80,37 @@ def test_paste_more_than_remembered(jv, copies):
 def test_nothing_copied_yet(jv):
     jv.do("clipboard history")
     assert jv.said == ["I haven't seen you copy anything yet."]
+
+
+COPYQ_ITEMS = "\n".join(json.dumps(i) for i in [
+    {"text": "", "formats": "text/uri-list\n", "uris": "file:///home/x/My%20Doc.pdf"},
+    {"text": "", "formats": "image/png\n", "uris": ""},
+    {"text": "copied in copyq", "formats": "text/plain\n", "uris": ""}]) + "\n"
+
+
+def test_with_copyq_running_its_item_is_pasted_whatever_kind(jv, copies):
+    jv.shell.on(r"^copyq count", out="3\n")
+    jv.do("paste number 2")
+    assert jv.shell.ran(r"^copyq select 1$") and jv.desktop.did("keys") == ["ctrl+v"]
+    assert not jv.shell.inputs  # CopyQ put it on the clipboard, not JARVIS's own list
+
+
+def test_copyq_has_fewer_than_asked(jv, copies):
+    jv.shell.on(r"^copyq count", out="2\n")
+    jv.do("paste number 3")
+    assert jv.said == ["CopyQ only has 2 things you copied."] and not jv.shell.ran("copyq select")
+
+
+def test_clipboard_history_card_from_copyq_shows_files_and_images(jv, copies):
+    jv.shell.on(r"^copyq eval", out=COPYQ_ITEMS)
+    jv.do("clipboard history")
+    assert jv.cards[-1]["text"].splitlines() == ["1. file: My Doc.pdf", "2. an image", "3. copied in copyq"]
+
+
+def test_copyq_not_running_falls_back_to_jarvis_own_list(jv, copies):
+    jv.shell.on(r"^copyq", code=1, err="Cannot connect to server! Start CopyQ server first.")
+    jv.do("paste number 3")
+    assert ("xclip -selection clipboard", "first copy") in jv.shell.inputs
 
 
 def test_history_is_never_written_to_disk(jv, copies):

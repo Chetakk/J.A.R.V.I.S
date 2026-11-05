@@ -64,18 +64,25 @@ def set_clipboard(text, kind=None):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def type_into_window(say, text):
-    """Type `text` into the focused window: put it on the clipboard, paste, then put yours back."""
-    global typed_until
+def paste_key(say):
+    """The paste key for the focused window, or None (said why) when that's JARVIS itself."""
     win = desktop.active_window()
     if win and "jarvis" in win.wm_class:
         say("Click where you want it typed first.")
+        return None
+    return "ctrl+shift+v" if win and any(t in win.wm_class for t in TERMINALS) else "ctrl+v"
+
+
+def type_into_window(say, text):
+    """Type `text` into the focused window: put it on the clipboard, paste, then put yours back."""
+    global typed_until
+    key = paste_key(say)
+    if not key:
         return
     old, kind = _clipboard_raw()
     typed_until = time.time() + 1.5
     set_clipboard(text)
-    terminal = win and any(t in win.wm_class for t in TERMINALS)
-    desktop.keys("ctrl+shift+v" if terminal else "ctrl+v")
+    desktop.keys(key)
     time.sleep(0.25)  # let the app read the clipboard before it changes back
     set_clipboard(old, kind)
 
