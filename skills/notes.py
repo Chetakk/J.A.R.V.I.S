@@ -22,7 +22,7 @@ import time
 from core.store import load_json, save_json
 from skills.base import Skill
 from skills.cards import ORDINALS
-from skills.helpers import HOME, words
+from skills.helpers import HOME, and_list, words
 from system import keyring
 
 NOTES_FILE = os.path.join(HOME, ".local/share/jarvis/notes.json")
@@ -363,8 +363,7 @@ class Notes(Skill):
             ("secret", ("secret", "secrets")))]
         said = ["%d %s" % (c, names[c != 1]) for c, names in kinds if c]
         if said:
-            self.say("I know %s. They're on your screen." % (" and ".join(said) if len(said) < 3 else
-                                                              "%s, %s and %s" % tuple(said)))
+            self.say("I know %s. They're on your screen." % and_list(said))
         else:
             self.say("Only project notes so far. They're on your screen.")
 

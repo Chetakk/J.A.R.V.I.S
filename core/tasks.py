@@ -202,11 +202,7 @@ def site_word(url):
 
 def save(task):
     try:
-        os.makedirs(STATE_DIR, exist_ok=True)
-        tmp = TASK_FILE + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(task, f, indent=1)
-        os.replace(tmp, TASK_FILE)
+        save_json(TASK_FILE, task, indent=1)
     except OSError as e:
         print("[tasks] couldn't save: %s" % e)
 
