@@ -1,7 +1,22 @@
 # JARVIS manual-command terminal: your normal shell (bashrc, prompt, ble.sh), with every command JARVIS won't
 # run itself typed at the prompt by tools/manual_feed.py. Nothing runs until you press Enter.
 # The feeder starts first so ~/.bashrc stays last (ble-attach must be the last thing it runs).
-( python3 "$(dirname "${BASH_SOURCE[0]}")/manual_feed.py" "$JARVIS_FIFO" "$JARVIS_PIDFILE" $$ & )
+( python3 "$(dirname "${BASH_SOURCE[0]}")/manual_feed.py" "$JARVIS_FIFO" "$JARVIS_PIDFILE" $$ \
+    "$JARVIS_LOG" "$JARVIS_RESULTS" & )
 printf '\e[1;36mJARVIS manual terminal\e[0m - commands JARVIS will not run itself appear typed at the prompt.\n'
-printf '\e[2mEnter = run   edit it first if needed   Ctrl+C = skip\e[0m\n'
+printf '\e[2mEnter = run   edit it first if needed   Ctrl+C = skip   JARVIS and Claude see what you run here\e[0m\n'
+
+# Invisible marks in the terminal log (the window runs under `script`) around each command: the feeder reads the
+# command, its folder, exit code and output between them. ble.sh's hooks exist only once it's loaded, so they're
+# added at the first prompt. Without ble.sh nothing is marked, and JARVIS says it can't see whether it ran.
+__jarvis_mark() { printf '\e]7777;%s\a' "$1" > /dev/tty; }
+__jarvis_pre() { __jarvis_mark "start;$(printf %s "$1" | base64 -w0);$(printf %s "$PWD" | base64 -w0)"; }
+__jarvis_post() { __jarvis_mark "end;$?"; }
+__jarvis_hooks() {
+  [[ ${__jarvis_hooked-} || ! ${BLE_VERSION-} ]] && return
+  __jarvis_hooked=1
+  blehook PREEXEC!=__jarvis_pre
+  blehook POSTEXEC!=__jarvis_post
+}
+PROMPT_COMMAND=__jarvis_hooks
 [ -f ~/.bashrc ] && . ~/.bashrc

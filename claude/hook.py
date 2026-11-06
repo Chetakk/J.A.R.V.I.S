@@ -8,7 +8,8 @@ PreToolUse applies the JARVIS safety rules:
   Switched to auto mode (or bypass), nothing asks: Claude Code's own mode decides instead. In accept-edits
   mode, file edits don't ask either. "manual" commands stay blocked in every mode.
 Stop speaks the "SAY:" summary line Claude ends each reply with ("All done." first after a long task;
-UserPromptSubmit notes when the task started).
+UserPromptSubmit notes when the task started, and tells Claude what you ran in the manual terminal since it left
+a command there: each command, its exit code and output).
 Notification speaks Claude's alerts (e.g. when it is waiting for your permission).
 """
 import json
@@ -21,12 +22,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from core.safety import AUTO, CONFIRM, Safety  # noqa: E402
 from voice.speech import pick, speak_via_jarvis  # noqa: E402
-from system.terminal import RUN_DIR, ManualTerminal  # noqa: E402
+from system.terminal import RESULTS, RUN_DIR, ManualTerminal, results_since  # noqa: E402
 
 WORKSPACE = os.path.realpath(os.path.expanduser("~/jarvis-workspace"))
 TURN_START = os.path.join(RUN_DIR, "claude_turn_start")
 LONG_TASK = 60  # seconds
 EDIT_TOOLS = {"Edit": "file_path", "Write": "file_path", "MultiEdit": "file_path", "NotebookEdit": "notebook_path"}
+WAITING = os.path.join(RUN_DIR, "manual_wait_%s")  # a Claude session left a command in the manual terminal: when
 NO_ASKING = {"auto", "bypassPermissions"}  # modes you picked so Claude stops asking: a hook "ask" would undo them
 
 
@@ -47,7 +49,9 @@ def _decide(tool, args, cwd):
             return "ask", "JARVIS safety: this needs the user's approval because %s." % reason
         ManualTerminal().send(command, reason)
         return "deny", ("JARVIS safety: not allowed to run this because %s. It has been placed pre-typed in "
-                        "the user's JARVIS manual terminal; tell the user to run it there themselves." % reason)
+                        "the user's JARVIS manual terminal; tell the user to run it there themselves. When they do, its "
+                        "exit code and output reach you with their next message (and as a JSON line in %s)."
+                        % (reason, RESULTS))
     if tool in EDIT_TOOLS:
         path = os.path.realpath(os.path.join(cwd or WORKSPACE, os.path.expanduser(args.get(EDIT_TOOLS[tool], ""))))
         if path == WORKSPACE or path.startswith(WORKSPACE + os.sep):
@@ -56,6 +60,35 @@ def _decide(tool, args, cwd):
     if tool.startswith("mcp__"):
         return None, None
     return "allow", "JARVIS: built-in tool"
+
+
+def _waiting_file(session):
+    return WAITING % (re.sub(r"[^\w-]", "", session or "") or "default")
+
+
+def left_in_terminal(session):
+    """Note that this Claude session left a command in the manual terminal (the first one's time is kept)."""
+    path = _waiting_file(session)
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write(str(time.time()))
+
+
+def terminal_news(session):
+    """For Claude's next turn: what you ran in the manual terminal since this session left a command there."""
+    path = _waiting_file(session)
+    try:
+        with open(path) as f:
+            since = float(f.read())
+    except (OSError, ValueError):
+        return ""
+    ran = results_since(since)[-10:]
+    if not ran:
+        return "JARVIS: the command you left in the user's JARVIS manual terminal hasn't been run there yet."
+    os.remove(path)
+    return "JARVIS: the user ran these in the JARVIS manual terminal since you left a command there:\n\n" + "\n\n".join(
+        "$ %s\n(in %s, exit code %d)\n%s" % (r["command"], r["cwd"], r["exit"], r["output"] or "(no output)")
+        for r in ran)
 
 
 def last_reply(transcript_path):
@@ -96,6 +129,10 @@ def main():
         os.makedirs(RUN_DIR, mode=0o700, exist_ok=True)
         with open(TURN_START, "w") as f:
             f.write(str(time.time()))
+        news = terminal_news(event.get("session_id"))
+        if news:
+            json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": news}},
+                      sys.stdout)
         return
     if name == "Stop":
         summary = spoken_summary(event.get("last_assistant_message") or last_reply(event.get("transcript_path")))
@@ -117,6 +154,8 @@ def main():
         return
     decision, reason = decide(event.get("tool_name", ""), event.get("tool_input") or {}, event.get("cwd"),
                               event.get("permission_mode") or "default")
+    if decision == "deny":  # only commands left in the manual terminal are denied
+        left_in_terminal(event.get("session_id"))
     if decision:
         json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                           "permissionDecisionReason": reason}}, sys.stdout)

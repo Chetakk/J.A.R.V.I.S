@@ -49,10 +49,10 @@ def record(action, ok, what, check=None, keep=None):
 
 def handed_over(command):
     """Record a command left in your terminal: "is that done?" then looks at it again each time it's asked
-    (a systemd unit's last run, or the command still busy in a terminal)."""
-    since = time.monotonic()
+    (a systemd unit's last run, or what came of it in the manual terminal, or the command still busy)."""
+    since, wall = time.monotonic(), time.time()
     unit = _started_unit(command)
-    check = (lambda: _unit_state(unit, since)) if unit else (lambda: _terminal_state(command))
+    check = (lambda: _unit_state(unit, since)) if unit else (lambda: _terminal_state(command, wall))
     return record(command, None, "it's waiting in your terminal", check, HANDED_KEEP)
 
 
@@ -88,12 +88,26 @@ def _unit_state(unit, since):
     return False, "it failed (%s)" % props.get("Result", "unknown")
 
 
-def _terminal_state(command):
-    from system import jobs
-    first = re.split(r"\s", command.strip(), 1)[0].rsplit("/", 1)[-1]
+def _program(command):
+    return re.split(r"\s", command.strip(), 1)[0].rsplit("/", 1)[-1]
+
+
+def _terminal_state(command, since=0):
+    from system import jobs, terminal
+    first = _program(command)
+    ran = terminal.results_since(since)
+    # As handed over, else the same program (you edited it first).
+    same = [r for r in ran if r["command"].strip() == command.strip()] or [
+        r for r in ran if _program(r["command"]) == first]
+    if same:
+        r = same[-1]
+        line = _last_line(r["output"])
+        if r["exit"] == 0:
+            return True, "you ran it and it worked" + (": " + line if line else "")
+        return False, "you ran it and it failed with exit code %d" % r["exit"] + (": " + line if line else "")
     if any(j.argv and j.argv[0].rsplit("/", 1)[-1] == first for j in jobs.running()):
         return None, "it's still running in your terminal"
-    return None, "it was left in your terminal, and I can't see whether it ran"
+    return None, "it's still waiting in your terminal; I haven't seen it run there"
 
 
 def settled(since, timeout=LAUNCH_SECONDS + 1):

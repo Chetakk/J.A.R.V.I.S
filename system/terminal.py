@@ -1,5 +1,6 @@
 """The JARVIS manual terminal: the user's normal shell, with commands JARVIS won't run typed at its prompt."""
 import base64
+import json
 import os
 import shlex
 import shutil
@@ -12,6 +13,25 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 MANUAL_RC = os.path.join(_HERE, "..", "tools", "manual_terminal.rc")
 RUN_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "jarvis-%d" % os.getuid())
 DEFAULT_TERMINAL = 'gnome-terminal --title "JARVIS: manual commands" -- {script}'
+RESULTS = os.path.join(RUN_DIR, "manual_results.jsonl")  # what you ran there: one JSON line per command
+
+
+def results_since(since):
+    """Commands you ran in the manual terminal after `since` (time.time()), oldest first:
+    {"command", "cwd", "exit", "output" (its end), "at"}."""
+    rows = []
+    try:
+        with open(RESULTS) as f:
+            for line in f:
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if row.get("at", 0) > since:
+                    rows.append(row)
+    except OSError:
+        pass
+    return rows
 
 
 class ManualTerminal:
@@ -20,6 +40,7 @@ class ManualTerminal:
         os.makedirs(RUN_DIR, mode=0o700, exist_ok=True)
         self.fifo = os.path.join(RUN_DIR, "manual.fifo")
         self.pidfile = os.path.join(RUN_DIR, "manual.pid")
+        self.log = os.path.join(RUN_DIR, "manual.log")  # the window's output (`script`), read by the feeder
 
     def send(self, command, reason):
         """Show `command` pre-typed in the terminal. Returns False if it could only be printed."""
@@ -51,8 +72,10 @@ class ManualTerminal:
     def _open(self):
         if not os.path.exists(self.fifo):
             os.mkfifo(self.fifo, 0o600)
-        script = "env JARVIS_FIFO=%s JARVIS_PIDFILE=%s bash --rcfile %s -i" % tuple(
-            shlex.quote(p) for p in (self.fifo, self.pidfile, MANUAL_RC))
+        open(self.log, "w").close()
+        shell = "env JARVIS_FIFO=%s JARVIS_PIDFILE=%s JARVIS_LOG=%s JARVIS_RESULTS=%s bash --rcfile %s -i" % tuple(
+            shlex.quote(p) for p in (self.fifo, self.pidfile, self.log, RESULTS, MANUAL_RC))
+        script = "script -aqf %s -c %s" % (shlex.quote(self.log), shlex.quote(shell))
         subprocess.Popen(self.terminal.replace("{script}", script), shell=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         deadline = time.time() + 10  # bashrc with ble.sh is slow on the Jetson
