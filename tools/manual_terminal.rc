@@ -1,0 +1,7 @@
+# JARVIS manual-command terminal: your normal shell (bashrc, prompt, ble.sh), with every command JARVIS won't
+# run itself typed at the prompt by tools/manual_feed.py. Nothing runs until you press Enter.
+# The feeder starts first so ~/.bashrc stays last (ble-attach must be the last thing it runs).
+( python3 "$(dirname "${BASH_SOURCE[0]}")/manual_feed.py" "$JARVIS_FIFO" "$JARVIS_PIDFILE" $$ & )
+printf '\e[1;36mJARVIS manual terminal\e[0m - commands JARVIS will not run itself appear typed at the prompt.\n'
+printf '\e[2mEnter = run   edit it first if needed   Ctrl+C = skip\e[0m\n'
+[ -f ~/.bashrc ] && . ~/.bashrc

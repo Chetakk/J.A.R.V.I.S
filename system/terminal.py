@@ -1,4 +1,4 @@
-"""The JARVIS manual terminal: commands JARVIS won't run appear there pre-typed for the user."""
+"""The JARVIS manual terminal: the user's normal shell, with commands JARVIS won't run typed at its prompt."""
 import base64
 import os
 import shlex
@@ -9,7 +9,7 @@ import time
 from system import desktop
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-MANUAL_SCRIPT = os.path.join(_HERE, "..", "tools", "manual_terminal.sh")
+MANUAL_RC = os.path.join(_HERE, "..", "tools", "manual_terminal.rc")
 RUN_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "jarvis-%d" % os.getuid())
 DEFAULT_TERMINAL = 'gnome-terminal --title "JARVIS: manual commands" -- {script}'
 
@@ -51,10 +51,11 @@ class ManualTerminal:
     def _open(self):
         if not os.path.exists(self.fifo):
             os.mkfifo(self.fifo, 0o600)
-        script = "bash %s %s %s" % tuple(shlex.quote(p) for p in (MANUAL_SCRIPT, self.fifo, self.pidfile))
+        script = "env JARVIS_FIFO=%s JARVIS_PIDFILE=%s bash --rcfile %s -i" % tuple(
+            shlex.quote(p) for p in (self.fifo, self.pidfile, MANUAL_RC))
         subprocess.Popen(self.terminal.replace("{script}", script), shell=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-        deadline = time.time() + 5
+        deadline = time.time() + 10  # bashrc with ble.sh is slow on the Jetson
         while time.time() < deadline and not self._alive():
             time.sleep(0.1)
 
