@@ -159,6 +159,17 @@ class UI:
     def show_chat(self, on=None):
         GLib.idle_add(self._set_chat, on)
 
+    def show_heard(self, text):
+        """What you just said, in the typing box ("" clears it); never over words you're typing yourself."""
+        GLib.idle_add(self._show_heard, text)
+
+    def _show_heard(self, text):
+        if self.entry.get_text() in ("", getattr(self, "_heard_text", "")):
+            self.entry.set_text(text)
+            self.entry.set_position(-1)
+        self._heard_text = text
+        return False
+
     def show_orb(self, on=None):
         GLib.idle_add(self._set_orb, on)
 

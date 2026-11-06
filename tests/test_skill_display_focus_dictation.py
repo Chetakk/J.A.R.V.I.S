@@ -355,3 +355,24 @@ def test_type_in_discord_only_in_the_tray_opens_it_instead_of_typing_the_words(j
     jv.do("type in discord")
     assert launched == ["Discord"] and not pasted(jv)
     assert message.acc.grabbed and jv.says("Dictation on")
+
+
+def test_what_you_said_fills_the_typing_box_but_never_over_your_own_typing():
+    from ui.window import UI
+
+    class Entry:
+        text = ""
+        def get_text(self): return self.text
+        def set_text(self, t): self.text = t
+        def set_position(self, p): pass
+
+    ui = UI.__new__(UI)
+    ui.entry = Entry()
+    ui._show_heard("open youtube")
+    assert ui.entry.text == "open youtube"
+    ui._show_heard("")
+    assert ui.entry.text == ""
+    ui.entry.text = "half typed"
+    ui._show_heard("what time is it")
+    ui._show_heard("")
+    assert ui.entry.text == "half typed"

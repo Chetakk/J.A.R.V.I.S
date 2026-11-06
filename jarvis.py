@@ -1350,12 +1350,17 @@ def start_voice(jarvis, whisper):
         jarvis.state("off")
         return
 
+    def put_voice(kind, text):
+        if jarvis.ui and text:
+            jarvis.ui.show_heard(text)  # in the typing box the moment it's heard, until JARVIS has dealt with it
+        jarvis.inbox.put((kind, text))
+
     def on_audio(pcm):
         jarvis.state("thinking")
         try:
             text = whisper.transcribe(pcm, command=True)
             jarvis.heard(text, "push-to-talk") if text else jarvis.heard("", "push-to-talk: couldn't make out words")
-            jarvis.inbox.put(("voice", text))
+            put_voice("voice", text)
         except Exception as e:
             print("[voice] transcription failed: %s" % e)
             jarvis.state(jarvis.rest)
@@ -1375,7 +1380,7 @@ def start_voice(jarvis, whisper):
     if wake_cfg.get("enabled", True) and wake_cfg.get("engine", "whisper") == "whisper":
         def on_text(text, follow_up):
             jarvis.state("thinking")
-            jarvis.inbox.put(("follow" if follow_up else "voice", text))
+            put_voice("follow" if follow_up else "voice", text)
         wake = WhisperWake(jarvis.names, whisper, on_text, on_wake=on_listen, is_busy=busy, is_echo=jarvis.speaker.is_echo, on_heard=jarvis.heard,
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
                            on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)),
@@ -1447,6 +1452,8 @@ def run_loop(jarvis, has_ui):
                 break
         finally:
             jarvis.handling_since = None
+            if jarvis.ui and kind in ("voice", "follow"):
+                jarvis.ui.show_heard("")
             jarvis.state(jarvis.rest)
         if kind == "voice" or (kind == "follow" and not jarvis.ignored):
             jarvis.follow_up()  # "what's the weather?" next, without the name
