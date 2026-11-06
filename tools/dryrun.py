@@ -65,7 +65,8 @@ class DryJarvis:
             self._stub_rules("card" if skill is j.cards else "skill", skill)
         j.skills.notes.answer = lambda text: False  # your own notes would make results differ per computer
         j.skills.lookup.answer = lambda text: False  # needs the internet
-        j.skills.first = lambda text: False  # not dictating; no "where was I" history
+        j.skills.first = lambda text: False  # no "where was I" history
+        j.skills.dictation.typing = lambda text: False  # never dictating: "type" would type every phrase after it
         j.skills.focusing = lambda: False
 
     def _app(self, pattern, text, verb):

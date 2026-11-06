@@ -35,6 +35,7 @@ def _waiting_wake(text, monkeypatch):
     w.names, w.whisper, w.max_seconds = NAMES, _Whisper(text), 8
     w.vad = type("Vad", (), {"reset": lambda self: None})()
     w.is_busy = lambda: False
+    w.is_dictating = lambda: False
     w.is_echo = lambda text, started: True  # sounds like something JARVIS said earlier
     w.heard, w.passed = [], []
     w.on_heard = lambda text, outcome: w.heard.append(outcome)
@@ -57,3 +58,12 @@ def test_a_follow_up_can_still_be_an_echo(monkeypatch):
     w.following = True  # after an answer, its own voice can come back
     w._listen(None)
     assert w.passed == [] and w.heard == ["ignored (my own voice)"]
+
+
+def test_while_dictating_words_without_the_name_are_passed_on(monkeypatch):
+    w = _waiting_wake("Delete all of them.", monkeypatch)
+    w.waiting_until, w.following = 0.0, True  # no name said, no follow-up window open
+    w.is_echo = lambda text, started: False
+    w.is_dictating = lambda: True
+    w._listen(None)
+    assert w.passed == ["Delete all of them."]

@@ -220,6 +220,44 @@ def test_dictation_types_what_you_say_until_stopped(jv):
     assert jv.says("Dictation off.")
 
 
+def test_type_again_or_a_misheard_stop_isnt_typed(jv):
+    jv.desktop.add("Untitled - gedit", "gedit Gedit")
+    jv.do("type")
+    jv.do("Type.")  # "Jarvis, type" again while dictating
+    jv.do("show me the list")
+    jv.do("Stop Transcripting")
+    jv.do("what time is it")
+    assert [t for t in pasted(jv) if t] == ["show me the list "]
+    assert jv.says("Still dictating.") and jv.says("Dictation off.")
+
+
+def test_send_it_at_the_end_types_then_presses_enter(jv):
+    jv.desktop.add("Untitled - gedit", "gedit Gedit")
+    jv.do("type hello there and send it")
+    jv.do("start dictation")
+    jv.do("Fix the bug, send it.")
+    jv.do("can you send it")
+    assert [t for t in pasted(jv) if t] == ["hello there", "Fix the bug", "can you send it "]
+    assert jv.desktop.did("keys") == ["ctrl+v", "Return", "ctrl+v", "Return", "ctrl+v"]
+
+
+def test_while_dictating_commands_are_typed_as_heard_not_done(jv):
+    jv.desktop.add("Untitled - gedit", "gedit Gedit")
+    jv.do("start dictation")
+    jv.do("Commit and push everything on GitHub.")
+    jv.do("I said check the storage")
+    assert [t for t in pasted(jv) if t] == ["Commit and push everything on GitHub. ", "I said check the storage "]
+    assert jv.said == ["Dictation on. Say stop dictation when you're done."]
+
+
+@pytest.mark.parametrize("said", ["I said stop typing.", "stop", "That's all.", "turn off dictation please"])
+def test_ways_to_stop_dictation(jv, said):
+    jv.desktop.add("Untitled - gedit", "gedit Gedit")
+    jv.do("start dictation")
+    jv.do(said)
+    assert not [t for t in pasted(jv) if t] and jv.says("Dictation off.")
+
+
 def test_typing_with_jarvis_in_front_asks_you_to_click_first(jv):
     jv.desktop.add("JARVIS", "jarvis Jarvis")
     jv.do("type hello")

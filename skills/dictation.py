@@ -55,16 +55,24 @@ class Dictation(Skill):
 
     def type_text(self, text):
         main_box(desktop.active_window())
-        type_into_window(self.say, text.strip())
+        text, send = with_send(text)
+        type_into_window(self.say, text)
+        if send:
+            desktop.keys("Return")
 
     def typing(self, text):
         """While dictating: types what was said (or obeys "new line", "stop dictation"). True if it did."""
         if not self.dictating:
             return False
-        low = text.lower().strip(" .!?")
-        if re.fullmatch(r"(?:stop|end|finish|cancel|exit) (?:dictation|dictating|typing)|that'?s all|i'?m done", low):
+        low = re.sub(r"[^\w' ]", "", text.lower()).strip()
+        # Whisper hears "stop transcribing" as "stop transcripting"; "I said stop typing" is said when it didn't stop.
+        if re.fullmatch(r"(?:(?:i said|please|ok|okay|now|just) )*(?:(?:stop|end|finish|cancel|exit|quit|turn off)"
+                        r" (?:the )?(?:dictation|dictating|typing|transcri\w*|listening)(?: now| please)?"
+                        r"|stop|that'?s all|i'?m done)", low):
             self.dictating = False
             self.say("Dictation off.")
+        elif low in ("type", "type here", "start dictation", "start typing", "dictation mode"):
+            self.say("Still dictating.")  # "Jarvis, type" again mustn't type the word "Type."
         elif low in ("new line", "next line", "press enter", "enter", "send", "send it", "send that"):
             desktop.keys("Return")
         elif low in ("new paragraph",):
@@ -73,8 +81,21 @@ class Dictation(Skill):
         elif low in ("undo", "undo that", "delete that", "scratch that"):
             desktop.keys("ctrl+z")
         else:
-            type_into_window(self.say, text.strip() + " ")
+            text, send = with_send(text)
+            type_into_window(self.say, text if send else text + " ")
+            if send:
+                desktop.keys("Return")
         return True
+
+
+# "fix the bug, send it" / "fix the bug and send it": needs the comma or "and", so "can you send it" is just typed.
+SEND = re.compile(r"(.+?)(?:\s*[,.!?]\s*|\s+and\s+)(?:send(?: it| that)?(?: now)?|press enter)\W*", re.I)
+
+
+def with_send(text):
+    """(text to type, whether to press Enter after it)."""
+    m = SEND.fullmatch(text.strip())
+    return (m.group(1), True) if m else (text.strip(), False)
 
 
 def main_box(win):

@@ -199,10 +199,13 @@ class WhisperWake:
 
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
-                 on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None):
+                 on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
+                 is_dictating=None):
         self.names = names
         self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
         self.whisper = whisper
+        # While dictating every phrase is text to type: no name needed, and "that's all" is for dictation to take.
+        self.is_dictating = is_dictating or (lambda: False)
         self.on_text = on_text
         self.on_stop = on_stop  # "stop" said while JARVIS is talking
         self.on_wake = on_wake or (lambda active: None)
@@ -295,12 +298,13 @@ class WhisperWake:
                 continue
             started = time.time() - seconds - VAD_TAIL  # roughly when this bit of speech began
             # Counted from when you STARTED talking, so a long command after "EV" isn't cut off.
-            waiting = started <= self.waiting_until
+            dictating = self.is_dictating()
+            waiting = started <= self.waiting_until or dictating
             if seconds > self.max_seconds and not waiting:
                 self.on_heard("", "skipped %.0f s of long talk (not a call)" % seconds)
                 continue
             pcm = (np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes()
-            text = self.whisper.transcribe(pcm, command=waiting)  # waiting: it's the command itself
+            text = self.whisper.transcribe(pcm, command=waiting and not dictating)  # waiting: it's the command itself
             if not text:
                 # The peak shows whether it was too quiet (under stt.MIN_PEAK) or Whisper found no words.
                 self.on_heard("", "couldn't make out words (%.1f s, peak %d)" % (seconds, np.abs(seg).max() * 32767))
@@ -308,7 +312,7 @@ class WhisperWake:
             # JARVIS's own voice coming back from the speaker (e.g. the tail of a Bluetooth delay).
             # Saying the name always gets through, in case you repeat its words on purpose. Right after the
             # name alone JARVIS only beeped, so it's you ("Do a speed test" was taken for its earlier answer).
-            if (not waiting or self.following) and self.is_echo(text, started) and not split_name(text, self.names)[0]:
+            if (not waiting or self.following or dictating) and self.is_echo(text, started) and not split_name(text, self.names)[0]:
                 self.on_heard(text, "ignored (my own voice)")
                 continue
             if waiting:
@@ -318,7 +322,7 @@ class WhisperWake:
                     self.on_heard(text, "the name again; still waiting for the command")
                     continue  # just the name again; keep waiting
                 self.waiting_until = 0.0
-                if STOP.match(command):
+                if STOP.match(command) and not dictating:
                     self.on_heard(text, "done; back to waiting for the name")
                     self.on_wake(False)
                     continue

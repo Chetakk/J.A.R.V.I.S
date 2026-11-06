@@ -410,6 +410,8 @@ class Jarvis:
             return True
         if raw.startswith("/"):
             return self._slash(raw)
+        if self.skills.dictation.typing(raw):  # dictating: typed as heard, never reworded or taken as a command
+            return True
 
         self.memory.seen()
         self._private = False
@@ -1378,7 +1380,7 @@ def start_voice(jarvis, whisper):
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
                            on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)),
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
-                           is_deaf=lambda: jarvis.deaf)
+                           is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating)
         wake.start()
         jarvis.wake = wake
         jarvis.follow_up = wake.follow_up
