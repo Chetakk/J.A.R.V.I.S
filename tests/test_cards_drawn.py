@@ -8,7 +8,7 @@ from collections import namedtuple
 import pytest
 
 from claude.bridge import ClaudeError
-from harness import Hub
+from harness import Clock, Hub
 from skills import media, network, slow_computer
 from test_skill_weather import sky  # noqa: F401 (fixture)
 from ui.card import plain
@@ -117,14 +117,17 @@ class Player:
 
 
 def test_whats_playing_shows_the_song_moving(jv, monkeypatch):
+    monkeypatch.setattr(media, "time", Clock())  # the card-following loop runs its course at once
     monkeypatch.setattr(media, "_mpris_player", lambda: ("org.mpris.MediaPlayer2.vlc", Player()))
     jv.do("what's playing")
     c = card(jv, "Now playing")
-    assert "**Blinding Lights**" in c["text"] and "```progress\nPlaying: 63/200 playing" in c["text"]
+    assert c["text"] == ("```music\ntitle: Blinding Lights\nartist: The Weeknd\nalbum: After Hours\n"
+                         "time: 63/200 playing\n```")
     assert [x["label"] for x in c["choices"]] == ["Previous", "Pause", "Next"]
 
 
 def test_a_paused_song_offers_play(jv, monkeypatch):
+    monkeypatch.setattr(media, "time", Clock())
     monkeypatch.setattr(media, "_mpris_player", lambda: ("org.mpris.MediaPlayer2.vlc", Player("Paused")))
     jv.do("what's playing")
     assert card(jv, "Now playing")["choices"][1] == {"label": "Play", "do": "play"}
@@ -204,3 +207,17 @@ def test_a_drawn_card_reads_as_sentences():
     said = plain({"text": "**Working**\n```steps\ndone: Open VS Code | opened\nnow: Start the server\n```\n"
                           "```countdown\nend: 1\ntotal: 60\n```\n{ok} All good"})
     assert said == "Working. Open VS Code, done. Start the server, under way. All good."
+
+
+def test_the_music_block_draws_with_and_without_art(tmp_path):
+    import cairo
+    from gi.repository import GdkPixbuf
+    from ui import blocks
+    art = tmp_path / "cover.png"
+    GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, False, 8, 300, 200).savev(str(art), "png", [], [])
+    for extra in (["art: %s" % art], ["art: /no/such.jpg"], []):
+        height, draw, every = blocks._music(["title: Blinding Lights", "artist: The Weeknd",
+                                             "time: 63/200 playing"] + extra)
+        draw(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, blocks.W, height)), blocks.W)
+        assert height == blocks.ART + 4 and every
+    assert blocks._music(["title: X", "time: paused"])[2] is None  # still while paused

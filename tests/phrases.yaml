@@ -57,6 +57,9 @@
 "pause the music": skill:media
 "turn off the music": skill:media
 "play the music": skill:media
+"play music": skill:spotify
+"play spotify": skill:spotify
+"play music on spotify": skill:spotify
 "next song": skill:media
 "skip this one": skill:media
 "what's playing": skill:playing

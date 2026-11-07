@@ -2,7 +2,14 @@
 maximise, snap, close, focus)."""
 import pytest
 
+from harness import Clock
 from skills import media
+
+
+@pytest.fixture(autouse=True)
+def quick(monkeypatch):
+    monkeypatch.setattr(media, "time", Clock())  # waits and the card-following loop run their course at once
+    monkeypatch.setattr(media, "FOLLOW_FOR", 60)
 
 
 class Variant:
@@ -40,6 +47,63 @@ def player(jv, monkeypatch):
 @pytest.fixture
 def no_player(jv, monkeypatch):
     monkeypatch.setattr(media, "_mpris_player", lambda: None)
+
+
+@pytest.fixture
+def spotify(jv, monkeypatch):
+    """The Spotify web app installed but not running; launching it, or pressing Space in it, is recorded."""
+    launched, state = [], {"player": None}
+    monkeypatch.setattr(jv.j.apps, "find", lambda name: {"name": "Spotify", "process": ""} if name == "spotify"
+                        else None)
+    monkeypatch.setattr(jv.j.apps, "launch", lambda app, paths=(): launched.append(app["name"]) or True)
+    monkeypatch.setattr(media.desktop, "go_to_jarvis_workspace", lambda: None)
+    monkeypatch.setattr(media, "_spotify_player", lambda: state["player"])
+    monkeypatch.setattr(media, "_mpris_player", lambda: state["player"])
+    real_keys = media.desktop.keys
+
+    def keys(combo):
+        real_keys(combo)
+        if combo == "space":
+            state["player"] = ("org.mpris.MediaPlayer2.chrome.instance7", Player("Blinding Lights", ["The Weeknd"]))
+    monkeypatch.setattr(media.desktop, "keys", keys)
+    state["launched"] = launched
+    return state
+
+
+def test_play_music_starts_spotify_presses_play_and_shows_its_card(jv, spotify):
+    jv.desktop.add("Spotify - Web Player", "spotifyweb SpotifyWeb", front=False)  # the window, once it's up
+    jv.do("play some music")
+    assert spotify["launched"] == [] and jv.desktop.did("keys") == ["space"]  # its window was up already
+    assert jv.desktop.did("focus") == ["Spotify - Web Player"]
+    c = [c for c in jv.cards if c.get("title") == "Spotify"][-1]
+    assert "title: Blinding Lights" in c["text"] and "artist: The Weeknd" in c["text"]
+    assert [x["label"] for x in c["choices"]] == ["Previous", "Pause", "Next"]
+
+
+def test_play_music_launches_spotify_when_its_not_open(jv, spotify):
+    jv.do("play music on spotify")
+    assert spotify["launched"] == ["Spotify"]
+    assert jv.says("Spotify didn't open") and not jv.desktop.did("keys")  # its window never came up
+
+
+def test_play_spotify_resumes_it_when_its_open(jv, spotify):
+    spotify["player"] = ("org.mpris.MediaPlayer2.chrome.instance7", Player("Blinding Lights", status="Paused"))
+    jv.do("play spotify")
+    assert spotify["player"][1].calls.count("Play") == 1 and not spotify["launched"]
+    assert [c for c in jv.cards if c.get("title") == "Spotify"]
+
+
+def test_play_music_without_spotify_goes_on(jv, monkeypatch):
+    monkeypatch.setattr(jv.j.apps, "find", lambda name: None)
+    monkeypatch.setattr(media, "_spotify_player", lambda: None)
+    assert jv.j.skills.media.spotify() is False  # "play music" carries on to the browser / Claude
+
+
+def test_album_art_from_a_file_url(tmp_path):
+    art = tmp_path / "a b.jpg"
+    art.write_bytes(b"x")
+    assert media._art("file://" + str(art).replace(" ", "%20")) == str(art)
+    assert media._art("file:///no/such.jpg") is None and media._art(None) is None
 
 
 @pytest.mark.parametrize("text, method", [
@@ -181,3 +245,31 @@ def test_focus_an_app_that_isnt_open_does_not_focus_something_else(jv, two_windo
 def test_move_with_no_windows_at_all_does_not_claim_it_moved(jv):
     jv.do("move this window to workspace 2")
     assert not jv.says("Moved it")
+
+
+def test_the_music_card_stays_while_playing_and_can_hide_once_paused(jv, spotify):
+    p = Player("Blinding Lights", status="Playing")
+    spotify["player"] = ("org.mpris.MediaPlayer2.chrome.instance7", p)
+    jv.do("play spotify")
+    assert [c for c in jv.cards if c.get("title") == "Spotify"][-1]["stay"] is True
+    p.props["PlaybackStatus"] = Variant("Paused")
+    jv.do("what's playing")
+    assert [c for c in jv.cards if c.get("id") == "playing"][-1]["stay"] is False
+
+
+def test_the_card_closes_when_the_player_quits(jv, spotify, monkeypatch):
+    p = Player("Blinding Lights")
+    seen = iter([("org.mpris.MediaPlayer2.chrome.instance7", p)] * 2)
+    monkeypatch.setattr(media, "_spotify_player", lambda: next(seen, None))  # there for the card, then gone
+    monkeypatch.setattr(media, "_mpris_player", lambda: None)
+    jv.do("play spotify")
+    assert ("close_card", ("playing", False)) in jv.ui.calls
+
+
+def test_a_staying_card_isnt_aged_out():
+    from types import SimpleNamespace
+    from ui import card
+    closed = []
+    wins = [SimpleNamespace(quiet=0, last={"stay": s}, close=lambda s=s: closed.append(s)) for s in (True, False)]
+    card.Deck.age(SimpleNamespace(open=wins), 61, 60)
+    assert closed == [False]
