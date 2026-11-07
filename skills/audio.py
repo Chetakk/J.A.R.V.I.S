@@ -209,6 +209,14 @@ class Audio(Skill):
         Meet and recordings are unaffected. Muting asks first, because afterwards a spoken "unmute" can't be
         heard: the tray icon (or typing in the chat) turns it back on."""
         j = self.j
+        mic = None if on or j.deaf else audio.current("source")
+        if mic and mic.mute:  # the tray box shows the system's own mute too: unticking it must undo that
+            if not audio.set_mute(mic, False):
+                self.say("Sorry, %s didn't take it." % mic.label)
+                return
+            j.show_mutes(mic=False)
+            self.say("Okay, I've unmuted %s. I can hear you." % mic.label)
+            return
         if j.deaf == on:
             self.say("I'm already not listening, don't worry." if on else "I'm already listening.")
             return

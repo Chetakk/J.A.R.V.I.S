@@ -254,3 +254,12 @@ def test_the_mute_replies_sound_like_a_person(jv, pulse):
         jv.do(phrase, *answers)
         for line in jv.said:
             assert not robotic.match(line), line
+
+
+def test_unticking_the_tray_mic_box_undoes_a_system_mute(jv, pulse):
+    """The tray box shows the system's own mute too; unticking it said "I'm already listening" and left it muted."""
+    pulse.get(USB_MIC)["mute"] = True
+    jv.j.show_mutes(_asked=False, mic=True)
+    jv.do("/mute mic off")
+    assert pulse.get(USB_MIC)["mute"] is False and not jv.j.mutes["mic"] and not jv.j.deaf
+    assert jv.says("unmuted") and not jv.questions

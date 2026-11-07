@@ -305,6 +305,9 @@ class WhisperWake:
                 continue
             pcm = (np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes()
             text = self.whisper.transcribe(pcm, command=waiting and not dictating)  # waiting: it's the command itself
+            if self.is_deaf():  # muted while this was being transcribed: it was said before, but I'm not listening
+                self.on_heard(text, "ignored (not listening: the mic is muted)")
+                continue
             if not text:
                 # The peak shows whether it was too quiet (under stt.MIN_PEAK) or Whisper found no words.
                 self.on_heard("", "couldn't make out words (%.1f s, peak %d)" % (seconds, np.abs(seg).max() * 32767))
@@ -418,6 +421,8 @@ class WhisperWake:
         time.sleep(0.3)  # let the reply start speaking
         while self.is_busy():
             time.sleep(0.1)
+        if self.is_deaf():  # "I'm not listening" mustn't light the orb as if I were
+            return
         self.on_wake(True)
         self.following = True
         self.follow_until = time.time() + self.follow_seconds

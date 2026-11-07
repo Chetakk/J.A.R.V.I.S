@@ -36,6 +36,7 @@ def _waiting_wake(text, monkeypatch):
     w.vad = type("Vad", (), {"reset": lambda self: None})()
     w.is_busy = lambda: False
     w.is_dictating = lambda: False
+    w.is_deaf = lambda: False
     w.is_echo = lambda text, started: True  # sounds like something JARVIS said earlier
     w.heard, w.passed = [], []
     w.on_heard = lambda text, outcome: w.heard.append(outcome)
@@ -67,3 +68,21 @@ def test_while_dictating_words_without_the_name_are_passed_on(monkeypatch):
     w.is_dictating = lambda: True
     w._listen(None)
     assert w.passed == ["Delete all of them."]
+
+
+def test_speech_still_being_transcribed_when_the_mic_is_muted_is_dropped(monkeypatch):
+    """Seen in the log: a sentence said just before "mute the mic" was passed on after JARVIS said it wasn't listening."""
+    w = _waiting_wake("In Township, we actually have a light.", monkeypatch)
+    w.following, w.is_echo = True, lambda text, started: False
+    w.is_deaf = lambda: True  # muted while Whisper was busy with it
+    w._listen(None)
+    assert w.passed == [] and w.heard == ["ignored (not listening: the mic is muted)"]
+
+
+def test_a_follow_up_window_does_not_open_while_muted():
+    w = WhisperWake.__new__(WhisperWake)
+    w.is_busy, w.is_deaf, w.follow_seconds = (lambda: False), (lambda: True), 8
+    w.woke = []
+    w.on_wake = w.woke.append
+    w._follow_up()
+    assert w.woke == []
