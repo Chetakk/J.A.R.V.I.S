@@ -16,6 +16,7 @@
     ```clock       Tokyo: +0900  /  Here                                       (analog faces that tick)
     ```gauge       Download: 42 / 100 Mbps                                     (a needle on a half circle)
     ```progress    Song: 63/215 playing                                        (moves by itself while playing)
+    ```music       title: X  /  artist: Y  /  album: Z  /  art: cover.jpg  /  time: 63/215 playing   (now playing)
     ```log / ```git                                                            (text, errors red / changes coloured)
 
 A trailing ok / warn / bad on a ring, stack part or path node colours it. In any text, {ok} {warn} {bad} {off}
@@ -32,9 +33,11 @@ import time
 import gi
 
 gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
-from gi.repository import GLib, Gtk, Pango, PangoCairo  # noqa: E402
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 W = 432  # a card's drawing width (CARD_W less its padding)
 STATUS = {"ok": (0.42, 0.80, 0.56), "warn": (0.96, 0.74, 0.33), "bad": (0.94, 0.42, 0.40),
@@ -1074,11 +1077,77 @@ def _progress(lines):
     return 44 * len(bars), draw, 0.5 if live else None
 
 
+ART = 96  # the album-art square on a ```music block
+
+
+def _music(lines):
+    """title: / artist: / album: / art: <image path> / time: 63/215 playing. Album art (or a glass square with a
+    note) beside the song, an equalizer that moves while it plays, and a progress bar that moves by itself."""
+    f = dict(_split(l) for l in lines)
+    m = re.match(r"([\d.]+)\s*/\s*([\d.]+)\s*(\w*)", f.get("time", ""))
+    pos, length, playing = (float(m.group(1)), float(m.group(2)), m.group(3).lower() == "playing") if m else \
+        (0.0, 0.0, f.get("time", "").lower().endswith("playing"))
+    pix = None
+    if f.get("art"):
+        try:
+            pix = GdkPixbuf.Pixbuf.new_from_file(f["art"])
+            side = min(pix.get_width(), pix.get_height())  # a square from the middle, scaled to fit
+            pix = pix.new_subpixbuf((pix.get_width() - side) // 2, (pix.get_height() - side) // 2, side, side) \
+                .scale_simple(ART, ART, GdkPixbuf.InterpType.BILINEAR)
+        except GLib.Error:
+            pix = None
+    shown_at = time.time()
+
+    def draw(cr, width):
+        _round_rect(cr, 0, 0, ART, ART, 12)
+        if pix:
+            cr.save()
+            cr.clip_preserve()
+            Gdk.cairo_set_source_pixbuf(cr, pix, 0, 0)
+            cr.paint()
+            cr.restore()
+        else:
+            _white(cr, 0.07)
+            cr.fill_preserve()
+            _text(cr, ART / 2, ART / 2 - 22, "♪", size=26, a=0.5, align="center")
+            _round_rect(cr, 0, 0, ART, ART, 12)
+        _white(cr, 0.16)
+        cr.set_line_width(1)
+        cr.stroke()
+        x = ART + 16
+        w = width - x
+        _text(cr, x, 4, f.get("title") or "Something", size=12.5, a=0.96, bold=True, width=w - 30)
+        _text(cr, x, 28, f.get("artist", ""), size=9.5, a=0.72, width=w)
+        _text(cr, x, 46, f.get("album", ""), size=8.5, a=0.45, width=w)
+        t = time.time()
+        for i in range(4):  # equalizer, top right: bars bounce while it plays, rest low when paused
+            h = 4 + 10 * abs(math.sin(t * (3.1 + i * 0.9) + i * 1.7)) if playing else 3
+            _white(cr, 0.8 if playing else 0.3)
+            _pill(cr, width - 22 + i * 6, 18 - h, 3.5, h)
+            cr.fill()
+        if length:
+            now = min(length, pos + (t - shown_at if playing else 0))
+            p = now / length
+            _white(cr, 0.1)
+            _pill(cr, x, 76, w, 4)
+            cr.fill()
+            _white(cr, 0.92)
+            _pill(cr, x, 76, max(4, w * p), 4)
+            cr.fill()
+            cr.arc(x + w * p, 78, 5.5 if playing else 4, 0, 2 * math.pi)
+            cr.fill()
+            _text(cr, x, 86, _clock(now), size=8, a=0.55)
+            _text(cr, width, 86, "-" + _clock(length - now), size=8, a=0.55, align="right")
+        else:
+            _text(cr, x, 80, "Playing" if playing else "Paused", size=8.5, a=0.55)
+    return ART + 4, draw, 0.08 if playing else None
+
+
 KINDS = {"ring": _ring, "countdown": _countdown, "spark": _spark, "stack": _stack, "donut": _donut,
          "steps": _steps, "timeline": _timeline, "heat": _heat, "path": _path, "screens": _screens,
          "layout": _layout, "weather": _weather, "map": _map, "clock": _clock_faces, "gauge": _gauge,
-         "progress": _progress}
-SILENT = {"countdown", "map", "clock", "progress", "heat", "spark", "layout", "screens"}  # not read aloud
+         "progress": _progress, "music": _music}
+SILENT = {"countdown", "map", "clock", "progress", "music", "heat", "spark", "layout", "screens"}  # not read aloud
 
 
 def spoken(kind, lines):

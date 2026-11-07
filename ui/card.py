@@ -9,6 +9,8 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
 - choices: buttons ("Open it", or {"label", "do"}); clicking one says its phrase to JARVIS.
 - id: a card with the same id as one on screen updates it in place (progress, live values).
+- stay: true keeps it up until you close it (the music card while a song plays); its clock starts on the
+  update that sets it false.
 Several cards can be up at once (Deck): each new one opens where a card always goes and the earlier ones move
 along beside it, up to MAX_OPEN. Built from plain GTK widgets and a little Cairo, so it costs nothing while hidden.
 """
@@ -486,7 +488,7 @@ class Deck:
         its own time, so the one that came first goes first."""
         for w in list(self.open):
             w.quiet += step
-            if w.quiet >= after:
+            if w.quiet >= after and not w.last.get("stay"):
                 w.close()
         return False
 
