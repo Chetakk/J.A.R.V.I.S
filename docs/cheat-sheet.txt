@@ -1,0 +1,216 @@
+
+     ╔══════════════════════════════════════════════════════════════════╗
+     ║                                                                  ║
+     ║        J . A . R . V . I . S    —    C H E A T   S H E E T       ║
+     ║                                                                  ║
+     ║     Start with "Jarvis" (or your short wake name). Wordings      ║
+     ║     are examples: say it your own way, the matcher follows.      ║
+     ║                                                                  ║
+     ╚══════════════════════════════════════════════════════════════════╝
+
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  1.  CONTROLS TO KNOW BY HEART                                       │
+  └──────────────────────────────────────────────────────────────────────┘
+
+    "stop"  ·  "abort job"              stop whatever JARVIS is doing
+    "are you okay"                      JARVIS status card
+    "did that work?"                    check the last action
+    "is that done?"                     check a command left in a terminal
+    "that's not what I said"            unlearn a wrong match  ★ use often
+    "do that again"                     repeat the last skill
+
+    "be quiet for a while"              voice off for now
+    "be silent from now on"             voice off until you say otherwise
+    "speak again"                       voice back on
+    "show / hide what you hear"         see what JARVIS heard
+    "open / close the chat"             the chat window
+    "close it"                          close the card on screen
+    "bring back the orb"                the orb  ("get the orb out of the way")
+    "refresh your settings"             reload config         (/reload)
+    "list your commands"                the built-in list     (/list)
+
+    /sys     command list only, no AI
+    /agent   command list first, then Claude
+
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  2.  CARDS WORTH OPENING                                             │
+  └──────────────────────────────────────────────────────────────────────┘
+
+    YOUR DAY
+    ─────────────────────────────────────────────────────────────────────
+    "morning rundown"                   Briefing
+    "start the daily briefings"         ...every morning, on its own
+    "continue where I left off"         Where you left off
+    "what am I working on"              current project
+    "what have I been working on"       recent work
+    "all my files about avtec"          Everything on a project / topic
+    "any jobs running"                  Dashboard
+    "what tasks did you do"             Recent tasks
+
+    COMPUTER
+    ─────────────────────────────────────────────────────────────────────
+    "check cpu, memory and gpu usage"   System usage rings
+    "show the top processes"            what's slowing the computer
+    "debug my network"                  Network check
+    "what audio devices are there"      Audio devices
+    "what's using port 3000"            one port
+    "what ports are open"               all ports
+    "any stuck apps"                    frozen apps  →  "force quit this"
+    "show my recent alerts"             Notifications
+    "read me that alert"                the last one, read out
+
+    FILES
+    ─────────────────────────────────────────────────────────────────────
+    "what did I download today"         Downloads
+    "my last download"                  newest file in Downloads
+    "show me what's in downloads"       Folder contents
+    "find my job offer"                 Found files
+    "find pdfs from last week"          files by kind
+    "what files did I change today"     changed files
+    "tidy my downloads"                 Tidy plan (shown before it moves)
+    "any duplicates in projects"        Duplicates
+
+    MEMORY
+    ─────────────────────────────────────────────────────────────────────
+    "what do you know about me"         What I know about you
+    "what do you remember"              Your notes
+    "remember my locker code is 4512"   save a fact
+    "what's my locker code"             secret: shows, then hides
+    "clipboard history"                 →  "paste the 2nd last one"
+    "any new sentences you've learned"  What I've learned
+
+    WEB · STUDY · TIME
+    ─────────────────────────────────────────────────────────────────────
+    "weather"                           Weather with map
+    "search my bookmarks for recipes"   Bookmarks
+    "how am I doing in my studies"      Study Buddy today
+    "any cards due"  ·  "card review"   flash cards
+    "give me my next coding problem"    Study Buddy problems
+    "how did I spend my week"           Day tracker
+    "summary of my day"                 Day tracker
+
+    ON ANY CARD
+    ─────────────────────────────────────────────────────────────────────
+    "three"  ·  "open number two"       pick from the list
+    "read it out"                       read the card aloud
+    "copy it"  ·  "save it"             keep what's on it
+    "keep it on screen"                 pin it
+    "back a card"                       previous card
+
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  3.  EVERYDAY COMMANDS                                               │
+  └──────────────────────────────────────────────────────────────────────┘
+
+    APPS & WINDOWS
+      "open / close firefox"            "put chrome on the left"
+      "fill the screen"                 "go to workspace 2"
+      "move slack to workspace 3"       "close this"
+
+    TYPING
+      "type in discord hello"           types into the app's text box
+      "begin dictating"                 types as you speak; "send it" sends
+
+    TIMERS & REMINDERS
+      "10 minute timer"                 "remind me in 20 minutes to stretch"
+      "remind me at 5 pm to call the vendor"
+      "add buy milk to my task list"    "buy milk is done"
+
+    FOCUS
+      "do not disturb"                  "focus time left"
+      "quiet hours from 10 pm to 6 am"
+
+    MEDIA & SOUND
+      "next song"                       "name this song"
+      "make it 40 percent"              "switch audio to the echo dot"
+      "use the usb mic"                 "mute my mic"
+
+    SCREEN
+      "screenshot a region"             "dark mode"
+      "night light"                     "brightness 60"
+      "lock it"
+
+    QUICK ANSWERS
+      "12 times 7"                      "100 fahrenheit in celsius"
+      "tell me the time"
+
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  4.  WORK & CLAUDE  —  the powerful ones                             │
+  └──────────────────────────────────────────────────────────────────────┘
+
+    CODE & PROJECTS
+    "open avtec hs in vs code"          open a project
+    "back to the code I was working on" last project
+    "run tests"                         in the current project
+    "any changes in jarvis"             Git status
+    "run / kill the ProductVT project"  start or stop a project
+    "what's running"                    running projects
+    "anything I need to do"             pending work
+
+    CLAUDE
+    "ask Claude ..."                    send a question to Claude
+    "open Claude"                       Claude in VS Code
+    "open Claude in the terminal"       Claude in a terminal
+    "hand the task to claude code"      pass the current task over
+    "commit and push"                   Claude Code, focused project
+
+    MOVE TEXT AROUND
+    "copy the error from the terminal into chrome"
+    "shorten it and paste it in slack"
+    "fix the grammar in my clipboard"
+
+    DOCUMENTS & WEB
+    "summarise this pdf"                Document summary
+    "what does my resume say about python"
+    "compare offer.pdf and offer_signed.pdf"
+    "summarise this video"              current video
+    "summarise my tabs"                 all open tabs
+    "deep research on solid state batteries"
+    "compare jetson orin nx and raspberry pi 5"
+
+    THE SCREEN
+    "read this page"  ·  "check my screen"
+    "what can I click here"             then  "click save"
+
+    THE NANO
+    "run <command> on the nano"         "can you reach the nano"
+
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  5.  RARELY USED, BUT IMPORTANT                                      │
+  └──────────────────────────────────────────────────────────────────────┘
+
+    WATCHING
+    "alert me when <job> has finished running"   long builds / training
+    "why did that notification appear"
+    "stop the cpu alerts"  ·  "all alerts on"
+
+    NETWORK
+    "am I connected to the internet"  ·  "how strong is my wifi signal"
+    "list wifi networks"  ·  "connect to wifi home"
+
+    JETSON POWER
+    "current power mode"  ·  "full power"  ·  "10 watt mode"
+    "cpu temperature"  ·  "gpu temperature"  ·  "cool down"
+
+    PRIVACY
+    "forget this conversation"  ·  "forget number 3"
+    "make number 3 private"  ·  "list my secrets"
+
+    SAFETY & BACKUP
+    "back up study buddy"
+    "install app <name>"  ·  "install python module <name>"
+    "remove app <name>"
+        risky commands are confirmed first or sent to the manual terminal
+
+    SYSTEM
+    "reboot"  ·  "power off"  ·  "go to sleep"  ·  "log me out"
+
+
+  ──────────────────────────────────────────────────────────────────────
+    Something misheard or wrong?  Say  "that's not what I said".
+    Every phrase:   docs/all-phrases.md      Every card:  docs/card-phrases.txt
+  ──────────────────────────────────────────────────────────────────────
