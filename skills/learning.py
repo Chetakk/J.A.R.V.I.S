@@ -32,7 +32,8 @@ class Learning(Skill):
             (r"(?:tell me|show me|list) what you(?: have|'ve)? %s%s" % (LEARN, WHEN), self.whats_new),
             (r"(?:save|remember|keep|learn) (?:that|this|the last|my last) (?:command|one|wording)(?: for next time)?",
              self.save_last),
-            (r"remember that for next time", self.save_last),
+            # A bare "remember that" after a command is about the command: as a note it saved just "that"
+            (r"remember (?:that|this|it)(?: for next time)?", self.save_last),
         ]
 
     def save_last(self, m):

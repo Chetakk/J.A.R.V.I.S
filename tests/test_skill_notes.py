@@ -186,3 +186,10 @@ def test_recall_of_something_never_said_goes_to_claude(jv):
     jv.clear()
     jv.do("do you remember the french revolution")
     assert not jv.says("You told me")
+
+
+def test_a_bare_remember_that_is_about_the_last_command_not_a_note(jv):
+    jv.do("remember that")
+    assert saved_notes() == []
+    assert jv.says("nothing new to save") or jv.says("already saved")
+    assert not jv.claude.calls

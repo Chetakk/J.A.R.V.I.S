@@ -5,6 +5,7 @@ Modes:
   /agent  command list first, then ask Claude
   /sys    command list only, no AI
 """
+import faulthandler
 import fcntl
 import json
 import os
@@ -12,6 +13,7 @@ import queue
 import random
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import threading
@@ -1620,6 +1622,8 @@ def main():
         print("JARVIS is starting in the background (log: ~/.local/share/jarvis/jarvis.log).\n"
               "Closing this terminal won't stop it. JARVIS_FOREGROUND=1 keeps it in the terminal.")
         return 0
+    # A frozen JARVIS can't be attached to without sudo: `kill -USR1 <pid>` writes every thread's stack to the log.
+    faulthandler.register(signal.SIGUSR1, all_threads=True)
     inbox = queue.Queue()
     jarvis = Jarvis(inbox)
     jarvis.speaker.listen_inbox()
@@ -1664,7 +1668,6 @@ def main():
 
     try:
         if jarvis.ui:
-            import signal
             from gi.repository import GLib
             GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda: jarvis.ui.quit() or True)
             threading.Thread(target=loop, daemon=True).start()

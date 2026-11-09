@@ -26,11 +26,15 @@ MUTED = {"voice": "voice muted", "speaker": "speaker muted", "mic": "not listeni
 LONG_CLAUDE = 10  # seconds of Claude before the dock comes back
 CLAUDE_RGB = (0.85, 0.47, 0.34)  # Claude's warm orange, as in the chat bubbles
 PANEL_W, PANEL_H = 390, 640
+GLOW = 12  # the .panel margin: transparent room round the chat and cards for their glow, like the bar's
 CHAT_KEEP = 200  # messages kept in the panel
 
 CSS = b"""
-.panel { background-color: rgba(43, 45, 49, 0.52); border-radius: 16px;
-         border: 1px solid rgba(255, 255, 255, 0.22); }
+.panel { background-color: rgba(255, 255, 255, 0.05); border-radius: 16px; margin: 12px;
+         background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 90px);
+         border: 1px solid rgba(255, 255, 255, 0.30); border-top-color: rgba(255, 255, 255, 0.42);
+         border-bottom-color: rgba(255, 255, 255, 0.18);
+         box-shadow: 0 0 12px rgba(255, 255, 255, 0.10), 0 0 3px rgba(255, 255, 255, 0.12); }
 .panel * { font-size: 11pt; }
 .panel scrolledwindow, .panel viewport, .panel list { background-color: transparent; }
 .panel entry { background-color: rgba(255, 255, 255, 0.07); color: #f2f2f2; border-radius: 12px;
@@ -58,7 +62,7 @@ CSS = b"""
 .heard { color: rgba(255, 255, 255, 0.4); font-style: italic; font-size: 9pt; }
 .sys { color: rgba(255, 255, 255, 0.45); font-size: 9pt; }
 """
-# ui.look in settings.yaml: "glass" (the default above, see-through like Discord) or "solid" (dark and opaque).
+# ui.look in settings.yaml: "glass" (the default above, glowing glass like the bar) or "solid" (dark and opaque).
 SOLID_CSS = b"""
 .panel { background-color: rgba(30, 31, 34, 0.985); border-color: rgba(255, 255, 255, 0.12); }
 .you { background-color: rgba(255, 255, 255, 0.16); }

@@ -37,18 +37,19 @@ def test_windows_share_a_row_centred_on_the_screen():
     def spots(*widths):
         return [x for x, _y in arrange([(w, 100) for w in widths], 0, 1920, 1000, 25)]
 
+    # Windows overlap by their glow margins (2 * GLOW = 24 px), so the glass in them is 10 px apart.
     assert spots(460) == [730]  # one: the exact middle
-    assert spots(460, 460) == [965, 495]  # two: mirrored either side of it
-    assert spots(460, 460, 460) == [1200, 730, 260]  # three: right, middle, left
-    assert spots(390, 460) == [1000, 530]  # the chat counts as one of them, at the right
+    assert spots(460, 460) == [953, 507]  # two: mirrored either side of it
+    assert spots(460, 460, 460) == [1176, 730, 284]  # three: right, middle, left
+    assert spots(390, 460) == [988, 542]  # the chat counts as one of them, at the right
 
 
 def test_tall_windows_sit_on_the_same_line_and_extra_rows_stack_then_overlap():
     from ui.card import arrange
 
     assert [y for _x, y in arrange([(390, 640), (460, 200)], 0, 1920, 1000, 25)] == [360, 800]
-    many = arrange([(460, 400)] * 9, 0, 1920, 1000, 25)  # four to a row: rows at 600 and 190, the last one won't fit
-    assert [y for _x, y in many[:8]] == [600] * 4 + [190] * 4
+    many = arrange([(460, 400)] * 9, 0, 1920, 1000, 25)  # four to a row: rows at 600 and 214, the last one won't fit
+    assert [y for _x, y in many[:8]] == [600] * 4 + [214] * 4
     assert many[8] == (758, 572)
 
 
