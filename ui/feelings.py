@@ -15,6 +15,10 @@ LISTEN = 8  # seconds of music the beat is read from
 LAG = 0.15  # shortcut: the speaker plays a moment after the monitor hears it; tune if the bob runs early (BT lags more)
 DANCE_BPM = 95  # a steady beat this fast or faster is danced to; slower is swayed with
 STEADY = 0.25  # how alike the beat is from one bar to the next (0..1) to count as a beat at all
+# How far the bass swings between hits (log level, 10th to 90th percentile). A slow-looking beat that pumps this hard
+# is a dance track in half time (kick on every other beat): danced to at double tempo. Measured: two dance songs 1.5
+# and 1.8, soft piano 1.0, a soft slow beat 1.1. shortcut: set from two songs; tune with a real sad song if one dances.
+PUMP = 1.4
 
 
 def _onsets(audio):
@@ -42,6 +46,9 @@ def music_feel(audio):
     while lag // 2 >= lo and ac[lag // 2] >= 0.5 * ac[lag]:  # the bass often lands every other beat: count them all
         lag //= 2
     bpm, steady = 3000.0 / lag, ac[lag] / ac[0]
+    smooth = np.convolve(level, np.ones(3) / 3, "valid")
+    if bpm < DANCE_BPM and bpm * 2 <= 180 and np.percentile(smooth, 90) - np.percentile(smooth, 10) >= PUMP:
+        bpm, lag = bpm * 2, lag // 2
     recent = on[-lag:]  # the strongest onset within the last beat is where the beat is
     last = (len(recent) - int(np.argmax(recent))) * HOP / RATE
     if steady >= STEADY:

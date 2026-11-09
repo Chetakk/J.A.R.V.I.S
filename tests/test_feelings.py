@@ -22,9 +22,14 @@ def test_a_steady_fast_beat_is_danced_to_at_its_tempo():
     assert kind == "dance" and 113 <= bpm <= 127 and 0 <= last <= 0.5
 
 
-def test_a_slow_beat_is_swayed_with():
-    kind, bpm, _ = music_feel(_beat(70))
+def test_a_slow_soft_beat_is_swayed_with():
+    kind, bpm, _ = music_feel(_beat(70, kick=1500))
     assert kind == "sway" and 65 <= bpm <= 76
+
+
+def test_a_slow_looking_beat_that_hits_hard_is_half_time_dance_at_double_tempo():
+    kind, bpm, _ = music_feel(_beat(60))  # a kick every second, pumping hard: a 120 bpm track with the kick on 1 and 3
+    assert kind == "dance" and 115 <= bpm <= 125
 
 
 def test_talk_with_pauses_is_not_music_and_unbroken_sound_without_a_beat_sways():
