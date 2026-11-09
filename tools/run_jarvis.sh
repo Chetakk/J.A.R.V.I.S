@@ -11,7 +11,12 @@ while true; do
     mv "$LOG" "$LOG.old"
   fi
   echo "=== $(date '+%F %T') starting JARVIS" >> "$LOG"
-  python3 -u jarvis.py < /dev/null >> "$LOG" 2>&1
+  # In the background so tools/freeze_guard.sh can kill it if it freezes as a whole (its own watchdog can't notice).
+  export JARVIS_HEARTBEAT="${XDG_RUNTIME_DIR:-/tmp}/jarvis-heartbeat-$UID"
+  python3 -u jarvis.py < /dev/null >> "$LOG" 2>&1 &
+  pid=$!
+  tools/freeze_guard.sh "$pid" "$JARVIS_HEARTBEAT" "$LOG" &
+  wait "$pid"
   code=$?
   # 0 = quit from the tray menu, 3 = another JARVIS is already running.
   if [ "$code" -eq 0 ] || [ "$code" -eq 3 ]; then

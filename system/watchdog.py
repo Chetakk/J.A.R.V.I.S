@@ -45,9 +45,16 @@ def run(jarvis, cfg):
     whisper_mb = cfg.get("whisper_mb", 2500)
     monitor = health.Monitor(jarvis)
     tick = 0
+    beat = os.environ.get("JARVIS_HEARTBEAT")  # set by tools/run_jarvis.sh, whose freeze guard watches it
     while True:
         time.sleep(CHECK_SECONDS)
         tick += 1
+        if beat:
+            try:
+                with open(beat, "w"):
+                    pass  # a fresh mtime: JARVIS isn't frozen
+            except OSError:
+                pass
         try:
             whisper = getattr(jarvis, "whisper", None)
             if whisper and whisper.ready and not whisper._ping():

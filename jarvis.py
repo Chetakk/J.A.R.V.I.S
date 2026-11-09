@@ -20,6 +20,10 @@ import threading
 import time
 from collections import deque
 
+# OpenBLAS's thread pool freezes the whole process if a thread forks (any subprocess) while another is mid-multiply,
+# and every multiply here is tiny: one thread is also 8x faster for the wake model. Must come before numpy loads.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+
 import yaml
 
 try:
