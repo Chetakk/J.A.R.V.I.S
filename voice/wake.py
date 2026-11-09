@@ -200,8 +200,9 @@ class WhisperWake:
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
                  on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
-                 is_dictating=None):
+                 is_dictating=None, on_wait=None):
         self.names = names
+        self.on_wait = on_wait or (lambda seconds: None)  # listening without the name for this many seconds
         self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
         self.whisper = whisper
         # While dictating every phrase is text to type: no name needed, and "that's all" is for dictation to take.
@@ -304,12 +305,18 @@ class WhisperWake:
                 self.on_heard("", "skipped %.0f s of long talk (not a call)" % seconds)
                 continue
             pcm = (np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes()
-            text = self.whisper.transcribe(pcm, command=waiting and not dictating)  # waiting: it's the command itself
+            if dictating and getattr(self.whisper, "ears", False):  # Ears keeps only what has the name, unless told otherwise
+                text = self.whisper.transcribe(pcm, plain=True)
+            else:
+                text = self.whisper.transcribe(pcm, command=waiting and not dictating)  # waiting: it's the command itself
             if self.is_deaf():  # muted while this was being transcribed: it was said before, but I'm not listening
                 self.on_heard(text, "ignored (not listening: the mic is muted)")
                 continue
             if not text:
                 # The peak shows whether it was too quiet (under stt.MIN_PEAK) or Whisper found no words.
+                if getattr(self.whisper, "ears", False) and not waiting:  # (Ears writes nothing without the name)
+                    self.on_heard("", "no name in it (%.1f s)" % seconds)
+                    continue
                 self.on_heard("", "couldn't make out words (%.1f s, peak %d)" % (seconds, np.abs(seg).max() * 32767))
                 continue
             # JARVIS's own voice coming back from the speaker (e.g. the tail of a Bluetooth delay).
@@ -323,7 +330,10 @@ class WhisperWake:
                 command = command if named else text
                 if not command:
                     self.on_heard(text, "the name again; still waiting for the command")
-                    continue  # just the name again; keep waiting
+                    if not dictating:  # you called it: a full new wait, and what comes next is no follow-up
+                        self.following = False
+                        self._wait(self.wait_seconds)
+                    continue
                 self.waiting_until = 0.0
                 if STOP.match(command) and not dictating:
                     self.on_heard(text, "done; back to waiting for the name")
@@ -361,7 +371,9 @@ class WhisperWake:
         """Speech while JARVIS is talking: True if it was for JARVIS (it stops talking and handles it)."""
         if seconds > 2.5 and self.barge_in == "off":
             return False
-        text = self.whisper.transcribe((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes())
+        # (Ears writes down only what has the name unless it's a command, and "stop" has no name)
+        text = self.whisper.transcribe((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes(),
+                                       command=getattr(self.whisper, "ears", False))
         if not text:
             return False
         named, rest = split_name(text, self.names)
@@ -397,6 +409,8 @@ class WhisperWake:
     def _command_again(self, pcm, command):
         """"EV, run avtec hs" in one breath was heard with the names-only hint (tuned for waking): hear it
         again with JARVIS's vocabulary for the command part (~0.3 s). Keeps the first try if that fails."""
+        if getattr(self.whisper, "ears", False):  # no vocabulary to use, and it has already cut the name off
+            return command
         try:
             named, again = split_name(self.whisper.transcribe(pcm, command=True), self.names)
         except Exception:
@@ -437,6 +451,7 @@ class WhisperWake:
             self._wait(left)
 
     def _wait(self, seconds):
+        self.on_wait(seconds)
         self.waiting_until = until = time.time() + seconds
         threading.Timer(seconds + 0.3, self._expire, args=(until,)).start()
 

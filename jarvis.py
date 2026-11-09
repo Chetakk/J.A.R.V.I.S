@@ -31,6 +31,7 @@ from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from skills import Skills, registry
+from skills.media import something_playing
 from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
@@ -57,6 +58,7 @@ HELP = """Commands:
   /chat [on|off]   show/hide the chat panel   (or say "show chat" / "hide chat")
   /orb [on|off]    show/hide the floating orb (or say "show orb" / "hide orb")
   /hearing [on|off]  show everything speech recognition hears in the chat ("show what you hear")
+  /understood [on|off]  show what I took your words to mean on the voice bar ("hide what you understood")
   /desk     go to JARVIS's workspace
   /check <command>   show what safety level a shell command gets
   /status   voice, speech recognition, Claude, disk and memory at a glance ("EV, status")
@@ -115,6 +117,8 @@ POINTS_BACK = re.compile(r"\b(?:this|that|these|those|it|them|what (?:we|you|i) 
                          re.IGNORECASE)
 CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hearing off",
                 "stop showing what you hear": "/hearing off",
+                "show what you understood": "/understood on", "hide what you understood": "/understood off",
+                "stop showing what you understood": "/understood off",
                 "show chat": "/chat on", "open chat": "/chat on", "show the chat": "/chat on",
                 "hide chat": "/chat off", "close chat": "/chat off", "hide the chat": "/chat off",
                 "show orb": "/orb on", "hide orb": "/orb off",
@@ -260,6 +264,7 @@ class Jarvis:
         self._claude_saying = False  # what's being said is Claude's answer: the chat panel shows it as Claude's
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
         self.asking = None  # the question waiting for your answer, for the dashboard
+        self.interrupted = False  # the last yes/no question was answered with a new request instead
         self.late_yes = None  # (until, fn): an offer that got no answer in time; a "yes" before `until` runs fn
         self._private = False  # this request is private: what's said in it isn't passed on to Claude
 
@@ -272,6 +277,14 @@ class Jarvis:
         print("  [heard] %s -> %s" % (text and repr(text), outcome))
         if self.show_hearing:
             self.chat("heard", ("heard \u201c%s\u201d  \u2192 %s" % (text, outcome)) if text else "\u2026 %s" % outcome)
+            if self.ui and outcome.startswith(("ignored", "skipped", "couldn't")):
+                self.ui.count_ignored()
+
+    def understood(self, what):
+        """What your words were taken to mean, for the voice bar."""
+        # shortcut: a phrase with a blank ("volume {n}") shows nothing; fill it from match.slots if that's missed.
+        if self.ui and what and "{" not in what:
+            self.ui.show_understood(what)
 
     def claude_says(self, text):
         """Say Claude's own answer; the chat panel shows it as Claude's rather than JARVIS's."""
@@ -341,7 +354,22 @@ class Jarvis:
 
     def ask(self, question):
         """Ask a yes/no question; the answer can be typed or spoken."""
-        return is_yes(self._answer(question), question if isinstance(question, str) else question[0])
+        return is_yes(self._yes_or_no(question), question if isinstance(question, str) else question[0])
+
+    def _yes_or_no(self, question):
+        """The answer to a yes/no question. A clear new request isn't one ("Open hot star" to "Did you mean X?"): it goes
+        back in the queue to be done next, and the question counts as unanswered."""
+        self.interrupted = False
+        answer = self._answer(question)
+        said = clean(answer, self.names, self.settings.get("heard_as") or ()) if answer else ""  # (no full stop, no name)
+        if said and not is_yes(said, question if isinstance(question, str) else question[0]) \
+                and not NO.match(said) and not NOT_YES.search(said) \
+                and (self.registry.match_exact(said) or self.browser.parse(said)
+                     or (self.intents and self.intents.match(said)[0])):
+            self.inbox.put(("again", answer))
+            self.interrupted = True
+            return None
+        return answer
 
     def choose(self, question, options):
         """Ask "X, or Y?": the option picked ("the first", "Y", "pause"), or None for "neither"/no answer."""
@@ -451,7 +479,9 @@ class Jarvis:
         if phrase:  # "a bit more", "make it 70", "and firefox too": about what JARVIS just did
             self.heard(text, "means \"%s\"" % phrase)
             return self._reword(phrase)
-        if not self._rewording and not self.from_claude and sounds_like_follow_up(text):
+        # "it's too loud" with nothing just done: a listed wording (volume down), not a lost follow-up
+        if not self._rewording and not self.from_claude and sounds_like_follow_up(text) and not (
+                self.intents and self.intents.early(text)):
             self.heard(text, "a follow-up, but there's nothing recent to apply it to")
             lost = persona.lines("lost_track", persona.address(self.settings))
             self.speaker.say(lost if context.MORE.match(text) or context.LESS.match(text) else lost[0])
@@ -524,6 +554,7 @@ class Jarvis:
                 return True
             action = action.choices[picked]
         if action:
+            self.understood(action.description)
             if action.browser:
                 run = self.registry.browsers[action.browser]
                 self.last_app = run.get("process") or os.path.basename(run["run"].split()[0])
@@ -593,6 +624,15 @@ class Jarvis:
             return True
         if self.skills.lookup.answer(text):  # "who is Alan Turing": Wikipedia answers it, no Claude needed
             return True
+        if self.whisper and self.whisper.unsure(raw):  # likely misheard: not worth a Claude call
+            self.heard(text, "ignored (Whisper wasn't sure it heard that right)")
+            self._miss(text, "unclear")
+            self.recent.append("JARVIS ignored that (too unclear)")
+            if follow_up:  # room noise in a follow-up shouldn't make it apologise over and over
+                self.ignored = True
+            else:
+                self.speaker.say(persona.lines("didnt_catch", persona.address(self.settings)))
+            return True
         self._miss(text, "claude" if self.mode != "sys" else "unknown")
         if self.mode == "sys":
             self.speaker.say(persona.lines("not_on_list", persona.address(self.settings)))
@@ -606,6 +646,7 @@ class Jarvis:
         number or secret, not a private request. `teaching.log: false` turns it off."""
         if self._rewording or self.from_claude or self._private:
             return
+        self.understood(phrase or re.sub(r"(?<!^)([A-Z])", r" \1", skill))  # "BrowserTabs" -> "Browser Tabs"
         if value or not teaching.fit_to_send(text):
             text = ""
         elif how == "pattern":
@@ -1112,7 +1153,9 @@ class Jarvis:
                 self.context.chose([best, other], phrase)  # for "the other one"
         elif unsure <= score < threshold:  # one likely meaning (no close second: that was the case above)
             question = "Did you mean %s?" % best
-            answer = self._answer(question)
+            answer = self._yes_or_no(question)
+            if self.interrupted:  # you went on to something else: that's next, and this one is dropped
+                return True
             phrase = best if is_yes(answer, question) else None
             if answer and NO.match(answer) and teaching.fit_to_send(text) and not self._private:
                 self.intents.block(text, best)  # you said no: never asked about, nor taken as, that one again
@@ -1197,6 +1240,7 @@ class Jarvis:
         return bool(self.intents and self.intents.match(t)[0])
 
     def _reword(self, phrase):
+        self.understood(phrase)
         self._rewording = True  # one rewrite only: the new phrase isn't rewritten again
         try:
             return self.handle(phrase)
@@ -1229,6 +1273,7 @@ class Jarvis:
         app, said = self.app_for(apps.OPEN, text)
         if not app:
             return False
+        self.understood("open %s" % app["name"])
         desktop.go_to_jarvis_workspace()
         before = verify.windows_now()
         if not self.apps.launch(app):
@@ -1245,6 +1290,7 @@ class Jarvis:
         app, said = self.app_for(apps.CLOSE, text)
         if not app:
             return False
+        self.understood("close %s" % app["name"])
         if not app["process"]:
             self.speaker.say("%s runs inside the browser, so I'd close the whole browser. Switch to it and say "
                              "close this window instead." % app["name"])
@@ -1302,6 +1348,10 @@ class Jarvis:
                              else "Okay, I'll stop showing what I hear.")
             if self.show_hearing and self.ui:
                 self.ui.show_chat(True)
+        elif cmd == "/understood":
+            if self.ui:
+                self.ui.set_understood({"on": True, "off": False}.get(arg.strip().lower()))
+            self.speaker.say(["Okay.", "Done."])
         elif cmd in ("/chat", "/orb"):
             on = {"on": True, "off": False}.get(arg.strip().lower())
             if not self.ui:
@@ -1375,9 +1425,26 @@ def start_voice(jarvis, whisper):
     ptt.start()
     print("[voice] Push-to-talk ready: hold %s and speak." % ptt_cfg.get("key", "right_ctrl"))
 
+    def on_transcribe(pcm):
+        jarvis.state("thinking")
+        try:
+            text = whisper.transcribe(pcm, plain=True)
+            jarvis.heard(text, "typed at the cursor" if text else "transcribe key: couldn't make out words")
+            if text:
+                jarvis.skills.dictation.at_cursor(text)
+        except Exception as e:  # on its own thread: nothing else would report it
+            print("[voice] transcribing failed: %r" % e)
+        finally:
+            jarvis.state(jarvis.rest)
+
+    transcribe_cfg = jarvis.settings.get("transcribe") or {"key": "right_alt"}
+    transcribe_key = PushToTalk(transcribe_cfg, on_transcribe, on_listen=on_listen)
+    transcribe_key.start()
+    print("[voice] Transcribe ready: hold %s, speak, and it's typed at the cursor." % transcribe_cfg["key"])
+
     wake_cfg = jarvis.settings.get("wake_word") or {}
-    busy = lambda: jarvis.speaker.busy() or ptt.recording  # noqa: E731
-    if wake_cfg.get("enabled", True) and wake_cfg.get("engine", "whisper") == "whisper":
+    busy = lambda: jarvis.speaker.busy() or ptt.held or transcribe_key.held  # noqa: E731
+    if wake_cfg.get("enabled", True) and wake_cfg.get("engine", "whisper") in ("whisper", "ears"):
         def on_text(text, follow_up):
             jarvis.state("thinking")
             put_voice("follow" if follow_up else "voice", text)
@@ -1385,7 +1452,8 @@ def start_voice(jarvis, whisper):
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
                            on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)),
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
-                           is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating)
+                           is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating,
+                           on_wait=lambda seconds: jarvis.ui and jarvis.ui.follow_timer(seconds))
         wake.start()
         jarvis.wake = wake
         jarvis.follow_up = wake.follow_up
@@ -1440,9 +1508,10 @@ def run_loop(jarvis, has_ui):
             if not line:
                 jarvis.speaker.say(persona.lines("didnt_catch", persona.address(jarvis.settings)))
                 jarvis.state(jarvis.rest)
-                jarvis.follow_up()
+                if not something_playing():
+                    jarvis.follow_up()
                 continue
-        if not line.startswith("/"):
+        if not line.startswith("/") and kind != "again":  # ("again" was shown when it answered a question)
             jarvis.chat("you", line)
         jarvis.state("thinking")
         jarvis.handling_since = time.time()  # for the watchdog
@@ -1455,7 +1524,10 @@ def run_loop(jarvis, has_ui):
             if jarvis.ui and kind in ("voice", "follow"):
                 jarvis.ui.show_heard("")
             jarvis.state(jarvis.rest)
-        if kind == "voice" or (kind == "follow" and not jarvis.ignored):
+        if something_playing():  # a show's or a song's words would pass for the next request: the name is needed
+            if kind in ("voice", "follow", "again"):
+                print("[wake] something is playing: say my name for the next request")
+        elif kind in ("voice", "again") or (kind == "follow" and not jarvis.ignored):
             jarvis.follow_up()  # "what's the weather?" next, without the name
         elif kind == "follow":
             jarvis.keep_following()  # it was noise: the rest of the window is still yours
@@ -1570,7 +1642,14 @@ def main():
     threading.Thread(target=watch, args=(jarvis,), daemon=True).start()
     threading.Thread(target=teach, args=(jarvis,), daemon=True).start()
     print("Type /help for commands.")
-    whisper = jarvis.whisper = Whisper(jarvis.settings.get("stt") or {})
+    if (jarvis.settings.get("wake_word") or {}).get("engine") == "ears":
+        from voice.ears import Ears  # (only loaded when it's the one in use)
+        if (jarvis.settings.get("ears") or {}).get("words") != "whisper":
+            subprocess.call(["pkill", "-x", "whisper-server"])  # one left by an earlier run would hold on to 1.5 GB
+        whisper = jarvis.whisper = Ears(jarvis.settings.get("ears") or {}, jarvis.settings.get("stt") or {})
+        whisper.is_deaf = lambda: jarvis.deaf
+    else:
+        whisper = jarvis.whisper = Whisper(jarvis.settings.get("stt") or {})
     threading.Thread(target=watchdog.run, args=(jarvis, jarvis.settings.get("watchdog") or {}), daemon=True).start()
     threading.Thread(target=start_voice, args=(jarvis, whisper), daemon=True).start()
     threading.Thread(target=read_keyboard, args=(inbox,), daemon=True).start()

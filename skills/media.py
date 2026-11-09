@@ -4,6 +4,8 @@ with the album art, the song, a progress bar that moves while it plays, and prev
 on screen while it plays (it hides by itself only once paused, or when you close it)."""
 import hashlib
 import os
+import re
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -134,6 +136,24 @@ class Media(Skill):
         else:
             self.follow(spotify=_is_spotify(player[0]))
             self.say("It's %s%s." % (title, " by %s" % artist if artist else ""))
+
+
+def something_playing():
+    """True while a player (Chrome, Spotify...) says it's playing: its talk mustn't pass for yours (~20 ms).
+    Asked through gdbus with a time limit: asked in-process, a player that never answered left the show recorder stuck."""
+    def call(*args):
+        return subprocess.run(["gdbus", "call", "--session"] + list(args), stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, timeout=2, universal_newlines=True).stdout
+    try:
+        names = call("--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus",
+                     "--method", "org.freedesktop.DBus.ListNames")
+        for name in re.findall(r"'(org\.mpris\.MediaPlayer2\.[^']+)'", names):
+            if "'Playing'" in call("--dest", name, "--object-path", "/org/mpris/MediaPlayer2", "--method",
+                                   "org.freedesktop.DBus.Properties.Get", "org.mpris.MediaPlayer2.Player", "PlaybackStatus"):
+                return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return False
 
 
 def _mpris_player():

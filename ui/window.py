@@ -1,4 +1,4 @@
-"""JARVIS UI: a transparent floating orb, a chat panel and a top-right tray icon.
+"""JARVIS UI: a glass voice bar with the orb at its left (ui/bar.py), a chat panel and a top-right tray icon.
 
 GTK 3 is already part of the system, so this adds no downloads. The orb only animates while
 JARVIS is busy; when idle nothing is redrawn.
@@ -19,12 +19,11 @@ from system.terminal import RUN_DIR  # noqa: E402
 from voice.level import level as mic_level  # noqa: E402
 
 STATE_FILE = os.path.expanduser("~/.local/share/jarvis/ui.json")
-LABELS = {"idle": "Listening for the wake word", "listening": "Listening...", "thinking": "Thinking...",
-          "claude": "Asking Claude...", "speaking": "Speaking", "off": "Voice input off",
-          "starting": "Starting voice..."}
+LABELS = {"idle": "Ready", "listening": "Listening…", "thinking": "Thinking…", "claude": "Asking Claude…",
+          "speaking": "Speaking…", "off": "Voice off", "starting": "Starting…"}
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
-MUTED = {"voice": "my voice muted", "speaker": "speaker muted", "mic": "not listening"}
-ORB = 78
+MUTED = {"voice": "voice muted", "speaker": "speaker muted", "mic": "not listening"}
+LONG_CLAUDE = 10  # seconds of Claude before the dock comes back
 CLAUDE_RGB = (0.85, 0.47, 0.34)  # Claude's warm orange, as in the chat bubbles
 PANEL_W, PANEL_H = 390, 640
 CHAT_KEEP = 200  # messages kept in the panel
@@ -66,7 +65,7 @@ SOLID_CSS = b"""
 .jarvis { background-color: rgba(255, 255, 255, 0.05); }
 """
 # The orb's glass for each look: centre and edge colours, sheen, rim when idle / active.
-ORB_LOOK = {"glass": ((0.32, 0.33, 0.35, 0.62), (0.17, 0.18, 0.19, 0.52), 0.14, (0.38, 0.6)),
+ORB_LOOK = {"glass": ((1, 1, 1, 0.08), (1, 1, 1, 0.02), 0.09, (0.26, 0.42)),  # clear glass, no tint
             "solid": ((0.34, 0.34, 0.36, 0.95), (0.11, 0.11, 0.12, 0.90), 0.09, (0.22, 0.45))}
 
 # Tray icons: white/grey rings, one per state, plus the two that say what's muted. A slash through the ring
@@ -84,6 +83,15 @@ ICONS = {"idle": dict(ring="bbbbbb", core=2.6, fill="ffffff", dash=""),
          "speaking": dict(ring="ffffff", core=3.6, fill="ffffff", dash=""),
          "off": dict(ring="777777", core=2.2, fill="777777", dash=""),
          "starting": dict(ring="999999", core=2.2, fill="999999", dash='stroke-dasharray="1 3"')}
+
+
+def bar_mode(claude_for, active, chat, lingering, cards, always):
+    """The voice bar: "full" (the dock is hidden), "compact" (the orb in the corner, the dock back) or "hidden"."""
+    if always or claude_for > LONG_CLAUDE:
+        return "compact"  # compact mode is ticked, or a long Claude run mustn't keep the dock away for minutes
+    if active or chat or lingering:
+        return "full"
+    return "compact" if cards else "hidden"
 
 
 def _icon_name(state, silent, deaf):
@@ -115,31 +123,29 @@ class UI:
         self.is_speaking = is_speaking
         self.state = "starting"
         self._shown = None
-        self._anim = None
         self._voice = 0.0  # the mic level, smoothed: jumps up with your voice, eases back down
-        self._pos = self._load_pos()
+        self._claude_since = None  # when the current Claude run began
 
         provider = Gtk.CssProvider()
         self.look = cfg.get("look") if cfg.get("look") in ORB_LOOK else "glass"
         provider.load_from_data(CSS + (SOLID_CSS if self.look == "solid" else b""))
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        global ORB  # set before ui.card is imported below, which reads it
-        ORB = int(cfg.get("orb_size", ORB))
-        self.orb_mode = cfg.get("orb", "auto")  # "auto" | True | False
+        self._prefs = self._load_prefs()
+        self.orb_mode = True if self._prefs.get("compact") else cfg.get("orb", "auto")  # "auto" | True (compact) | False
         self.orb_hide_after = float(cfg.get("orb_hide_after", 4))
         self.hide_after = float(cfg.get("hide_after", 60))  # the chat and each card alike
         self._quiet_since = None  # JARVIS idle and you not on the chat or card since then
         self._ticked = None  # the last quiet tick, for counting each card's own quiet time
-        self._bare_since = None  # nothing on screen but the orb since then
+        self._busy_at = 0.0  # when JARVIS was last busy, or the chat or the bar last in use
         self.mutes = {"voice": False, "mic": False, "speaker": False}  # kept up to date by set_mutes()
-        self._build_orb()
+        from ui.bar import Bar  # needs the names above, so imported here
+        self.bar = Bar(self, bool(self._prefs.get("understood", True)))
         self._build_panel()
-        from ui.card import Deck  # needs the names above, so imported here
-        self.card = Deck(lambda: self._orb_xy, self.panel.get_visible, self.on_command)  # a choice = said it
+        from ui.card import Deck
+        self._chat_on = False
+        self.card = Deck(self.bar.top, lambda: self._chat_on, self.panel.move, self.on_command)  # a choice = said it
         self._build_tray()
-        if self.orb_mode is True:
-            self.orb.show_all()
         if cfg.get("chat", False):
             self._set_chat(True)
         GLib.timeout_add(200, self._refresh)
@@ -155,6 +161,22 @@ class UI:
 
     def add_chat(self, who, text):
         GLib.idle_add(self._add_chat, who, text)
+        GLib.idle_add(self.bar.said, who, text)
+
+    def show_understood(self, text):
+        """What JARVIS took your words to mean, on the voice bar."""
+        GLib.idle_add(self.bar.set_understood, text)
+
+    def set_understood(self, on=None):
+        """Show or hide that on the bar (None flips it); remembered across restarts."""
+        GLib.idle_add(self._set_understood, on)
+
+    def count_ignored(self):
+        GLib.idle_add(self.bar.add_ignored)
+
+    def follow_timer(self, seconds):
+        """JARVIS listens without the name for this long: the bar counts it down."""
+        GLib.idle_add(self.bar.follow, seconds)
 
     def show_chat(self, on=None):
         GLib.idle_add(self._set_chat, on)
@@ -162,6 +184,7 @@ class UI:
     def show_heard(self, text):
         """What you just said, in the typing box ("" clears it); never over words you're typing yourself."""
         GLib.idle_add(self._show_heard, text)
+        GLib.idle_add(self.bar.heard, text)
 
     def _show_heard(self, text):
         if self.entry.get_text() in ("", getattr(self, "_heard_text", "")):
@@ -215,43 +238,14 @@ class UI:
 
     def run(self):
         Gtk.main()
+        self.bar.show_dock(wait=True)
 
     def quit(self):
         GLib.idle_add(Gtk.main_quit)
 
     # --- orb ---
 
-    def _build_orb(self):
-        w = self.orb = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
-        _make_transparent(w)
-        w.set_decorated(False)
-        w.set_keep_above(True)
-        w.set_skip_taskbar_hint(True)
-        w.set_skip_pager_hint(True)
-        w.set_type_hint(Gdk.WindowTypeHint.DOCK)  # not tiled, no focus stealing
-        w.set_default_size(ORB, ORB)
-        w.set_size_request(ORB, ORB)
-        w.stick()  # visible on every workspace
-        w.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK
-                     | Gdk.EventMask.POINTER_MOTION_MASK)
-        w.connect("draw", self._draw_orb)
-        w.connect("button-press-event", self._orb_press)
-        w.connect("button-release-event", self._orb_release)
-        w.connect("motion-notify-event", self._orb_motion)
-        w.connect("configure-event", self._orb_moved)
-        w.set_tooltip_text("JARVIS: click for chat, drag to move, right-click for menu")
-        # The bottom-right corner of the screen, down beside the dock rather than above its strip.
-        geo = Gdk.Display.get_default().get_monitor(0).get_geometry()
-        x, y = self._pos.get("x"), self._pos.get("y")
-        if x is None:
-            x, y = geo.x + geo.width - ORB - 12, geo.y + geo.height - ORB - 12
-        w.move(x, y)
-        self._orb_xy = (x, y)
-        self._press = None
-
-    def _draw_orb(self, widget, cr):
-        _clear(cr)
-        w, h = widget.get_allocated_width(), widget.get_allocated_height()
+    def _paint_orb(self, cr, w, h):
         cx, cy, r = w / 2, h / 2, min(w, h) / 2 - 3
         t = time.time()
         s = self._shown[0] if self._shown else "idle"  # _shown is (state, silent, deaf)
@@ -364,7 +358,6 @@ class UI:
             cr.set_line_cap(cairo.LINE_CAP_BUTT)
         else:
             self._core(cr, cx, cy, r * 0.15, 0.5)
-        return False
 
     @staticmethod
     def _core(cr, cx, cy, radius, alpha):
@@ -375,38 +368,6 @@ class UI:
         cr.arc(cx, cy, radius * 2.2, 0, 2 * math.pi)
         cr.set_source(g)
         cr.fill()
-
-    def _orb_press(self, widget, ev):
-        if ev.button == 3:
-            self.menu.popup_at_pointer(ev)
-            return True
-        if ev.button == 1:
-            self._press = (ev.x_root, ev.y_root, False)
-        return True
-
-    def _orb_motion(self, widget, ev):
-        if self._press and not self._press[2] and (ev.state & Gdk.ModifierType.BUTTON1_MASK):
-            if abs(ev.x_root - self._press[0]) + abs(ev.y_root - self._press[1]) > 4:
-                self._press = (self._press[0], self._press[1], True)
-                widget.begin_move_drag(1, int(ev.x_root), int(ev.y_root), ev.time)
-        return True
-
-    def _orb_release(self, widget, ev):
-        if ev.button == 1 and self._press and not self._press[2]:
-            self._set_chat(None)
-        self._press = None
-        return True
-
-    def _orb_moved(self, widget, ev):
-        if widget.get_visible():
-            self._orb_xy = (ev.x, ev.y)
-        if (ev.x, ev.y) != (self._pos.get("x"), self._pos.get("y")):
-            self._pos = {"x": ev.x, "y": ev.y}
-            GLib.timeout_add(800, self._save_pos)
-        if self.panel.get_visible():
-            self._place_panel()
-        self.card._place()
-        return False
 
     # --- chat panel ---
 
@@ -530,25 +491,19 @@ class UI:
             self.entry.grab_focus_without_selecting()
         return False
 
-    def _place_panel(self):
-        ox, oy = self._orb_xy  # works even while the orb is hidden
-        geo = Gdk.Display.get_default().get_monitor(0).get_workarea()
-        x = ox - PANEL_W - 10 if ox - PANEL_W - 10 >= geo.x else ox + ORB + 10
-        y = min(max(geo.y, oy + ORB - PANEL_H), geo.y + geo.height - PANEL_H)
-        self.panel.move(x, y)
-
     def _set_chat(self, on):
         on = (not self.panel.get_visible()) if on is None else on
+        self._chat_on = on
+        self.card._place()  # the chat and the cards share one centred row
         if on:
             self._quiet_since = None  # full time on screen
-            self._place_panel()
             self.panel.show_all()
             self.panel.present()
             self.entry.grab_focus()
+            self.bar.ignored = 0  # you're looking at them now
         else:
             self.panel.hide()
-        if hasattr(self, "card"):
-            self.card._place()  # it sits beside the chat while that's open
+        self.bar.poke()  # its arrow points the other way now
         if hasattr(self, "chat_item"):
             self.chat_item.handler_block_by_func(self._menu_chat)
             self.chat_item.set_active(on)
@@ -557,9 +512,24 @@ class UI:
 
     def _set_orb(self, on):
         """Show/hide the orb by hand; this switches it out of auto mode until restart."""
-        on = (not self.orb.get_visible()) if on is None else on
-        self.orb_mode = bool(on)
-        self.orb.show_all() if on else self.orb.hide()
+        self.orb_mode = bool((not self.bar.win.get_visible()) if on is None else on)
+        self._refresh()
+        return False
+
+    def long_claude(self):
+        """How many seconds Claude has been at it, once that's long enough to give the dock back; else 0."""
+        spent = time.time() - self._claude_since if self._claude_since else 0
+        return spent if spent > LONG_CLAUDE else 0
+
+    def _set_understood(self, on):
+        on = (not self.bar.show_understood) if on is None else bool(on)
+        self.bar.show_understood = on
+        self.bar.poke()
+        self._save_pref("understood", on)
+        if self.understood_item.get_active() != on:
+            self.understood_item.handler_block_by_func(self._menu_understood)
+            self.understood_item.set_active(on)
+            self.understood_item.handler_unblock_by_func(self._menu_understood)
         return False
 
     def _touching(self):
@@ -578,38 +548,27 @@ class UI:
     def _auto_hide(self, active):
         """While JARVIS is busy or you're on the chat or card, nothing hides and every clock stops. The chat hides
         after hide_after quiet seconds, and so does each card, counted from when it opened (or last updated), so
-        the earliest goes first; in auto mode the orb follows orb_hide_after seconds after all are gone, and shows
-        while any is up. Pinned copies stay."""
-        chat, card = self.panel.get_visible(), self.card.visible
-        auto = self.orb_mode == "auto"
-        if active or self._touching():
-            self._quiet_since = self._bare_since = self._ticked = None
-            if auto and (active or chat or card) and not self.orb.get_visible():
-                self.orb.show_all()
-            return
-        if not (chat or card or (auto and self.orb.get_visible())):
-            self._quiet_since = self._bare_since = self._ticked = None  # nothing to hide
-            return
-        now = time.time()
-        self._quiet_since = self._quiet_since or now
-        step, self._ticked = now - (self._ticked or now), now
-        if card:
-            self.card.age(step, self.hide_after)
-            card = self.card.visible
-        if chat and now - self._quiet_since >= self.hide_after:
-            self._set_chat(False)
-            chat = False
-        if not auto:
-            return
-        if chat or card:
-            self._bare_since = None
-            if not self.orb.get_visible():
-                self.orb.show_all()  # a card appeared while it was quiet (e.g. from the Claude terminal)
-            return
-        self._bare_since = self._bare_since or now
-        if now - self._bare_since >= self.orb_hide_after:
-            self.orb.hide()
-            self._quiet_since = self._bare_since = None
+        the earliest goes first. The bar stays full-size while JARVIS is busy, the chat is open or you're on it, and
+        orb_hide_after seconds more; then it shrinks to the orb in the corner while a card is up, or goes. Pinned
+        copies stay."""
+        chat, card, now = self.panel.get_visible(), self.card.visible, time.time()
+        hovered = bool(self.bar.hover)
+        if active or hovered or chat:
+            self._busy_at = now
+        if active or hovered or self._touching() or not (chat or card):
+            self._quiet_since = self._ticked = None
+        else:
+            self._quiet_since = self._quiet_since or now
+            step, self._ticked = now - (self._ticked or now), now
+            if card:
+                self.card.age(step, self.hide_after)
+                card = self.card.visible
+            if chat and now - self._quiet_since >= self.hide_after:
+                self._set_chat(False)
+                chat = False
+        mode = bar_mode(self.long_claude(), active, chat, now - self._busy_at < self.orb_hide_after, card,
+                        self.orb_mode is True)
+        self.bar.set_mode("hidden" if self.orb_mode is False else mode)
 
     def _entry_send(self, entry):
         text = entry.get_text().strip()
@@ -679,31 +638,36 @@ class UI:
         ind.set_title("JARVIS")
 
         m = self.menu = Gtk.Menu()
-        self.status_item = Gtk.MenuItem(label="JARVIS: starting")
+        self.status_item = Gtk.MenuItem(label="JARVIS: Starting…")
         self.status_item.set_sensitive(False)
         m.append(self.status_item)
         m.append(Gtk.SeparatorMenuItem())
         self.chat_item = Gtk.CheckMenuItem(label="Show chat")
         self.chat_item.connect("toggled", self._menu_chat)
         m.append(self.chat_item)
-        orb_item = Gtk.CheckMenuItem(label="Always show orb")
+        orb_item = Gtk.CheckMenuItem(label="Compact mode")
         orb_item.set_active(self.orb_mode is True)
         orb_item.connect("toggled", self._menu_orb)
         m.append(orb_item)
-        sys_item = Gtk.CheckMenuItem(label="System mode (no Claude)")
-        sys_item.connect("toggled", lambda i: self.on_command("/sys" if i.get_active() else "/agent"))
-        m.append(sys_item)
+        self.understood_item = Gtk.CheckMenuItem(label="Show what JARVIS understood")
+        self.understood_item.set_active(self.bar.show_understood)
+        self.understood_item.connect("toggled", self._menu_understood)
+        m.append(self.understood_item)
+        m.append(Gtk.SeparatorMenuItem())
         # Three separate mutes. Unmuting the microphone can only happen here: once it's muted JARVIS is deaf,
         # so no spoken command could ever reach it. Each box sends /mute <what> on|off, which never asks.
         self.mute_items = {}
-        for key, label in (("voice", "Mute JARVIS's voice"), ("speaker", "Mute the speaker"),
-                           ("mic", "Stop JARVIS listening (mic)")):
+        for key, label in (("voice", "Mute JARVIS's voice"), ("speaker", "Mute speaker"),
+                           ("mic", "Stop listening")):
             item = Gtk.CheckMenuItem(label=label)
             item.connect("toggled", self._menu_mute)
             self.mute_items[key] = item
             m.append(item)
         m.append(Gtk.SeparatorMenuItem())
-        for label, command in (("Open Claude terminal", "open claude"),
+        sys_item = Gtk.CheckMenuItem(label="Work without Claude")
+        sys_item.connect("toggled", lambda i: self.on_command("/sys" if i.get_active() else "/agent"))
+        m.append(sys_item)
+        for label, command in (("Open Claude in Terminal", "open claude"),
                                ("Open Claude in VS Code", "open claude in vs code"),
                                ("Go to JARVIS workspace", "/desk")):
             item = Gtk.MenuItem(label=label)
@@ -720,13 +684,15 @@ class UI:
         ind.set_menu(m)
 
     def _menu_orb(self, item):
-        if item.get_active():
-            self._set_orb(True)
-        else:
-            self.orb_mode = "auto"  # back to: appears while talking
+        self.orb_mode = True if item.get_active() else "auto"  # auto: the full bar while talking
+        self._save_pref("compact", item.get_active())
+        self._refresh()
 
     def _menu_chat(self, item):
         self._set_chat(item.get_active())
+
+    def _menu_understood(self, item):
+        self._set_understood(item.get_active())
 
     def _menu_mute(self, item):
         what = next(k for k, i in self.mute_items.items() if i is item)
@@ -751,6 +717,7 @@ class UI:
 
     def _set_state(self, state):
         self.state = state
+        self._claude_since = (self._claude_since or time.time()) if state == "claude" else None
         self._refresh()
         return False
 
@@ -768,33 +735,21 @@ class UI:
             self.title.set_text(LABELS.get(shown, shown))
             dot = self.dot.get_style_context()
             dot.add_class("live") if shown in ANIMATED else dot.remove_class("live")
-            self.orb.queue_draw()
-            if shown in ANIMATED and not self._anim:
-                self._anim = GLib.timeout_add(40, self._tick)
+            self.bar.poke()
         return True
-
-    def _tick(self):
-        if not self._shown or self._shown[0] not in ANIMATED:
-            self._anim = None
-            self.orb.queue_draw()
-            return False
-        self.orb.queue_draw()
-        return True
-
-    # --- position memory ---
 
     @staticmethod
-    def _load_pos():
+    def _load_prefs():
         try:
             with open(STATE_FILE) as f:
                 return json.load(f)
         except (OSError, ValueError):
             return {}
 
-    def _save_pos(self):
+    def _save_pref(self, key, value):
+        self._prefs[key] = value
         try:
             with open(STATE_FILE, "w") as f:
-                json.dump(self._pos, f)
+                json.dump(self._prefs, f)
         except OSError:
             pass
-        return False

@@ -27,6 +27,7 @@ from skills import files as J_files  # noqa: E402
 from skills import documents as J_docs  # noqa: E402
 from skills import frozen as J_frozen  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
+from skills import videos as J_videos  # noqa: E402
 from skills import notes as J_notes  # noqa: E402
 from skills import organise as J_organise  # noqa: E402
 from skills import troubleshoot as J_troubleshoot  # noqa: E402
@@ -82,9 +83,10 @@ class DryJarvis:
             fn = getattr(obj, name)
             if callable(fn) and not name.startswith("_") and name != "handle":
                 setattr(obj, name, lambda *a, _n=name, **k: rec((kind, _n)) or True)
-        if obj is self.j.skills.studybuddy:  # bare "pause", "note: X" are only Study Buddy's when it's in front
-            for name in ("play", "note", "speed_step", "seek"):
-                setattr(obj, name, lambda *a, _n=name, front=False, **k: not front and (rec((kind, _n)) or True))
+        if obj is self.j.skills.studybuddy:  # bare "note: X" is only Study Buddy's when it's in front
+            setattr(obj, "note", lambda *a, front=False, **k: not front and (rec((kind, "note")) or True))
+            for name in ("play", "speed_step", "seek", "key"):  # no Watch page open in a dry run: "pause the video" is media's
+                setattr(obj, name, lambda *a, **k: False)
         if obj is self.j.skills.reading:  # nothing is being read in a dry run: "continue" is the music's
             obj.rest = obj.summarise = lambda *a, **k: False
         # Skills that hand non-matches on at run time: the same read-only lookup decides here too.
@@ -130,8 +132,18 @@ class DryJarvis:
             passes["find_file"] = lambda m: J_files.worth_searching(m) and not self.j.browser.parse(m.group(0), False)
         site_page = lambda m: not self.j.browser.parse(m.group(0), guess=False)  # noqa: E731
         if obj is self.j.skills.studybuddy:  # "watch bigg boss", "open my playlists": a site's page, handed on
-            passes["resume_group"] = site_page
+            # Study Buddy isn't running in a dry run (no groups): only its own words are its ("resume the song" isn't)
+            passes["resume_group"] = lambda m: site_page(m) and J_re.match(
+                r"^(?:study(?:ing)?|learning|lectures?|videos?)$", m.group(1), J_re.I)
+            passes["add_link"] = lambda m: (m.group(1) or m.group(3) or "").lower() in (
+                "playlist", "sheet", "problem sheet") or "study" in m.group(0).lower()  # as add_link with no groups
+            passes["play"] = passes["speed_step"] = lambda m: False  # rules bound to the methods themselves
             passes["open_group"] = lambda m: not self.j.browser.site(m.group(1)) and site_page(m)
+        if obj is self.j.skills.videos:  # no JARVIS Link in a dry run: only what needs no page is the skill's
+            for name in ("on_page", "number", "unlabel", "seek", "speed", "speed_step"):
+                passes[name] = lambda m: False
+            passes["fullscreen"] = lambda m: not set(J_videos.words(m.group(1) + " " + m.group(2))) - \
+                J_videos.FILLER - J_videos.EXIT
         if obj is self.j.skills.projects:  # "open my linkedin page": a website, not a project's
             passes["open_frontend"] = site_page
         if obj is self.j.skills.audio:  # "put on youtube": not a speaker (no devices in a dry run, only the words)

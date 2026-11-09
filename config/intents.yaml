@@ -16,7 +16,7 @@ scroll up: [move up, go up a bit, page up, up a bit, move up the page]
 zoom in: [make it bigger, i can't read this, make the page bigger, page bigger]
 zoom out: [make it smaller, smaller text, too big, make the page smaller, page smaller]
 close this window: [get rid of this window, shut this window]
-maximise: [make this window full size, fill the screen, make it fullscreen]
+maximise: [make this window full size, fill the screen]
 minimise: [hide this window, get this window out of the way]
 what's on my screen: [can you see this, look at this, what's this error about, help me with what's on screen]
 what's on my clipboard: [what did i copy, read what i copied, what have i got copied]
@@ -178,8 +178,8 @@ ask for the value:
   delete a file: [trash a file, remove a file, delete some files]
 
 # --- more wordings found while checking those
-mute the mic: [turn off my mic, turn off the mic, mute my microphone, cut my mic]
-unmute the mic: [unmute my mic, turn my mic back on, turn on my mic]
+mute the mic: [turn off my mic, turn off the mic, mute my microphone, cut my mic, stop listening, stop listening to me, don't listen in, stop recording]
+unmute the mic: [unmute my mic, turn my mic back on, turn on my mic, you can listen again, start listening again, back to normal listening]
 focus mode: [start focusing, i need to focus, i want to focus, help me focus, time to focus, focus time, let me concentrate, i need to concentrate]
 open claude in vs code: [ask claude in vs code, ask claude in vscode, talk to claude in vs code]
 
@@ -194,8 +194,8 @@ forget my pin: [delete my pin, remove my pin, clear my pin]
 # --- added 2026-10-30 by tools/phrases.py (the skills registry's own phrases), each one checked with tools/dryrun.py
 talk faster: [speed up your speech, you talk too slow, pick up the pace when you talk, increase your speaking speed]
 slow down: [speak more slowly, i can't keep up with you, slow your speech down, not so fast, reduce your speaking speed]
-private mode: [go private, stop listening to me, don't listen in, enter private mode, i need some privacy, stop recording, start private mode]
-private mode off: [disable private mode, you can listen again, back to normal listening]
+private mode: [go private, enter private mode, i need some privacy, start private mode]
+private mode off: [disable private mode]
 quiet mode: [go quiet, stay silent, be quiet for a while, don't talk back to me, enter quiet mode, keep your voice off]
 you can talk again: [you can speak now, talk to me again, start talking again, turn your voice back on, you can stop being quiet]
 

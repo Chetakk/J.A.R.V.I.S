@@ -1,5 +1,6 @@
 """Speech-to-text with whisper.cpp. The server keeps the model loaded on the GPU between requests."""
 import array
+import collections
 import io
 import json
 import os
@@ -27,6 +28,8 @@ class Whisper:
         self.ready = False  # started fine once; from then on the watchdog keeps it running
         self.hint = ""  # set_names() fills this
         self.command_hint = ""  # set_vocabulary(): the names plus JARVIS's own words, for commands
+        self.min_confidence = float(cfg.get("min_confidence", -0.6))
+        self.recent = collections.deque(maxlen=8)  # (text, confidence) of the last few things heard
 
     def set_names(self, names):
         """Tell Whisper the assistant's names, e.g. "Jarvis. EV. Hey Jarvis. Hey EV."."""
@@ -81,14 +84,41 @@ class Whisper:
         words = [w for w in dict.fromkeys(words) if w][:60]  # Whisper reads at most ~224 tokens of prompt
         self.command_hint = (self.hint + " " + " ".join("%s." % w for w in words)).strip()
 
-    def transcribe(self, pcm, command=False):
+    def transcribe(self, pcm, command=False, plain=False):
         """16 kHz mono 16-bit PCM in, text out ("" if nothing was said).
-        command=True: it's a request (push-to-talk, or after the name), so JARVIS's vocabulary helps."""
+        command=True: it's a request (push-to-talk, or after the name), so JARVIS's vocabulary helps.
+        plain=True: ordinary speech to type, so no hint (with the names hint Whisper wrote noise as "Hey.")."""
         if _peak(pcm) < MIN_PEAK:
             return ""  # Too quiet to contain speech; Whisper would invent words.
-        return _clean(self._request(pcm, (self.command_hint or self.hint) if command else self.hint))
+        if plain:
+            return _clean(self._request(pcm))
+        if not command:  # every bit of room speech lands here: stay on the quicker plain request
+            return _clean(self._request(pcm, self.hint))
+        text, _, confidence, _ = self.listen(pcm, True)
+        self.recent.append((text, confidence))
+        return text
 
-    def _request(self, pcm, prompt=""):
+    def unsure(self, said):
+        """True if Whisper doubted the latest thing it heard that contains `said`. Typed text was never heard: False."""
+        for text, confidence in reversed(list(self.recent)):
+            if said and said in text:
+                return confidence < self.min_confidence
+        return False
+
+    def listen(self, pcm, command=False, **form):
+        """(text, seconds taken, avg token log-probability, no-speech probability), for measuring settings.
+        form: extra fields for the server, like beam_size=5."""
+        began = time.time()
+        got = self._request(pcm, (self.command_hint or self.hint) if command else self.hint, full=True,
+                            response_format="verbose_json", no_language_probabilities="true", **form)  # (that step adds ~300 ms)
+        took = time.time() - began
+        segments = got.get("segments") or [{}]
+        return (_clean(got.get("text", "")), took, min(s.get("avg_logprob", 0.0) for s in segments),
+                max(s.get("no_speech_prob", 0.0) for s in segments))
+
+    def _request(self, pcm, prompt="", full=False, **form):
+        if self.audio_ctx and len(pcm) > 9 * RATE * 2:  # past the small window Whisper stalls: 11 s took over 30 s
+            form.setdefault("audio_ctx", 0)
         wav = io.BytesIO()
         with wave.open(wav, "wb") as w:
             w.setnchannels(1)
@@ -96,7 +126,9 @@ class Whisper:
             w.setframerate(RATE)
             w.writeframes(pcm)
         boundary = uuid.uuid4().hex
-        fields = [b'Content-Disposition: form-data; name="response_format"\r\n\r\njson\r\n']
+        form.setdefault("response_format", "json")
+        fields = [b'Content-Disposition: form-data; name="%s"\r\n\r\n%s\r\n' % (k.encode(), str(v).encode())
+                  for k, v in form.items()]
         if prompt:
             # A hint of words to expect: turns accented "Dharvas" / "Eevee" into "Jarvis" / "EV".
             fields.append(b'Content-Disposition: form-data; name="prompt"\r\n\r\n%s\r\n' % prompt.encode())
@@ -109,7 +141,8 @@ class Whisper:
         req = urllib.request.Request(self.url, data=body,
                                      headers={"Content-Type": "multipart/form-data; boundary=%s" % boundary})
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode()).get("text", "")
+            got = json.loads(resp.read().decode())
+        return got if full else got.get("text", "")
 
     def _ping(self):
         try:
@@ -128,7 +161,7 @@ def _clean(text):
     text = " ".join(text.split())
     # Whisper writes non-speech as "[BLANK_AUDIO]", "(music)" etc., and invents a few
     # stock phrases from silence or noise.
-    if not text or (text[0] in "[(" and text[-1] in "])"):
+    if not text or (text[0] in "[(*" and text[-1] in "])*"):
         return ""
     if text.lower().strip(" .!?,") in HALLUCINATIONS:
         return ""

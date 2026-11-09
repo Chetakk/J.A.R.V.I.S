@@ -599,3 +599,9 @@ commands:
     say: [are you back, you back, i said are you back]
     run: echo Jarvis is back
     reply: ["At your service. What can I do for you?", "Yes, I'm back. Systems fully operational"]
+
+  - name: gpu_usage
+    say: [what is my gpu usage, gpu usage, gpu load]
+    run: cat /sys/devices/gpu.0/load
+    reply: The GPU is at {output} percent.
+    output: true

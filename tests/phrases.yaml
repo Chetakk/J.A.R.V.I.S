@@ -282,7 +282,7 @@
 "switch to workspace two": skill:workspace
 "move this to workspace 2": skill:move_window
 "maximise this window": skill:window_state
-"make this window full screen": skill:window_state
+"make this window full screen": skill:fullscreen
 "minimise it": skill:window_state
 "snap this to the left": skill:snap
 "put it on the right side": skill:snap
@@ -543,9 +543,9 @@
 "make it bigger": "skill:tab"
 "minimise this": "skill:window_state"
 "hide this window": "skill:window_state"
-"full screen": "skill:window_state"
-"go full screen": "skill:window_state"
-"make it full screen": "skill:window_state"
+"full screen": skill:fullscreen
+"go full screen": skill:fullscreen
+"make it full screen": skill:fullscreen
 "snap left": "skill:snap"
 "snap this window to the right": "skill:snap"
 "put this on the left half": "skill:snap"
@@ -564,7 +564,7 @@
 "search google for nvidia drivers": "browser"
 "search youtube for lofi beats": "browser"
 "youtube lofi beats": "browser"
-"play lofi on youtube": "browser"
+"play lofi on youtube": skill:youtube
 "search github for whisper.cpp": "browser"
 "find whisper.cpp on github": "browser"
 "search maps for coffee shops": "browser"
@@ -1098,7 +1098,7 @@
 "move the sound to the usb speaker": skill:output
 "use bluetooth for sound": skill:output_named
 "switch to the jack": skill:output_named
-"play music on youtube": browser
+"play music on youtube": skill:youtube
 "switch the mic to the built in input": skill:mic_switch
 "use the usb mic": skill:mic_switch
 "set the mic volume to 60": skill:mic_volume
@@ -1338,15 +1338,15 @@
 "not so fast": skill:speed
 "reduce your speaking speed": skill:speed
 "go private": skill:private
-"stop listening to me": skill:private
-"don't listen in": skill:private
+"stop listening to me": skill:mic_mute
+"don't listen in": skill:mic_mute
 "enter private mode": skill:private
 "i need some privacy": skill:private
-"stop recording": skill:private
+"stop recording": skill:mic_mute
 "start private mode": skill:private
 "disable private mode": skill:private
-"you can listen again": skill:private
-"back to normal listening": skill:private
+"you can listen again": skill:mic_mute
+"back to normal listening": skill:mic_mute
 "go quiet": skill:quiet
 "stay silent": skill:quiet
 "be quiet for a while": skill:quiet
@@ -1448,8 +1448,8 @@
 
 # Saying your words back (skills/voice_prefs.py)
 "say hello there": skill:say_back
-"repeat after me": skill:say_back
-"repeat after me i am iron man": skill:say_back
+"repeat after me": skill:echo_on
+"repeat after me i am iron man": skill:echo_on
 "say this": skill:say_back
 "say this: good morning": skill:say_back
 "can you say thank you": skill:say_back
@@ -1629,8 +1629,8 @@
 "look for lofi on youtube": "browser"
 "show me lofi on youtube": "browser"
 "show lofi videos on youtube": "browser"
-"put on lofi on youtube": "browser"
-"play some lofi on youtube": "browser"
+"put on lofi on youtube": skill:youtube
+"play some lofi on youtube": skill:youtube
 "youtube search lofi": "browser"
 "lofi on youtube": "browser"
 "lofi youtube pe chalao": "browser"
@@ -1639,7 +1639,7 @@
 "deva deva song chalao": "browser"
 "play deva deva song": "browser"
 "I want to watch deva deva on youtube": "browser"
-"watch deva deva on youtube": "browser"
+"watch deva deva on youtube": skill:youtube
 "can you find deva deva on youtube": "browser"
 "search for milk in zepto": "browser"
 "order milk on zepto": "browser"
@@ -1835,3 +1835,19 @@
 "open the jarvis repo settings": "browser"
 "open o-ring's actions": "browser"
 "open the retraining pipeline prs": "browser"
+
+# Videos, links and tabs in Chrome through JARVIS Link (skills/videos.py); the dry run has no Chrome Link,
+# so page-only phrases ("open <title>", "play 3", "skip 10 seconds") hand on as they would without it
+"full screen it": skill:fullscreen
+"make the video full screen": skill:fullscreen
+"exit full screen": skill:fullscreen
+"full screen chrome": skill:window_state
+"maximise it": skill:window_state
+"play the video tiger 3 trailer": skill:by_name
+"open the video about rust lifetimes": skill:by_name
+"play the third video": skill:nth
+"open the first video on the page": skill:nth
+"number the videos": skill:label
+"show numbers": skill:label
+"watch tiger 3 trailer on youtube": skill:youtube
+"search youtube for rust lifetimes": browser

@@ -2,7 +2,7 @@
 import time
 
 from skills.base import Skill
-from system import desktop
+from system import chrome_link, desktop
 
 BROWSERS = ("google-chrome", "chromium", "firefox")
 
@@ -57,6 +57,14 @@ class BrowserTabs(Skill):
 
     def find_tab(self, m):
         target = m.group(1).lower()
+        tabs = (chrome_link.call("tabs") or {}).get("tabs")  # JARVIS Link: every Chrome tab at once
+        if tabs:
+            from skills.videos import best  # (videos imports this module)
+            hit = next((t for t in tabs if target in t["title"].lower()), None) or best(target, tabs)
+            if hit:
+                chrome_link.call("focus_tab", id=hit["id"])
+                self.say(["Here it is.", "Switched."])
+                return
         win = self._browser()
         if not win:
             self.fail("I don't see a browser open.")

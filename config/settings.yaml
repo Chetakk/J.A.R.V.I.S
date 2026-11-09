@@ -44,12 +44,24 @@ wake_word:
   # whisper: Whisper (GPU) checks each short bit of speech for a name. On the user's own voice it
   #          heard 19 of 21 "EV"/"Jarvis" (with a name hint), and "EV, open YouTube" runs in one go.
   # kws:     small CPU keyword model; lighter, but caught only about 13 of 21 of the same recording.
-  engine: whisper
+  # ears:    the tiny wake model trained on your voice hears the name, Parakeet hears the words (settings: ears, below).
+  #          Commands right on your recordings: 40/50, Whisper 33/50. Only knows "Jarvis", not the other names.
+  engine: ears
   follow_up_seconds: 8     # whisper only: after an answer, the orb stays lit and you can just talk (0 = off)
   barge_in: named          # whisper only: talking over JARVIS. any = a new request stops it (no name needed
                            # within a minute of your last one), named = only with the name, off = only "stop"
   threshold: 0.10          # kws only: lower = triggers more easily (and more false alarms)
   boost: 2.0               # kws only: higher = favours the wake phrases more
+
+# Ears (wake_word.engine: ears). Cutoffs from tools/wake_train.py and tools/speechtest.py score-ears, on your own recordings.
+ears:
+  words: parakeet           # who writes down what you say after the name: parakeet or whisper (restart to change)
+  wake_cutoff: 0.98         # lower = wakes more easily, and more often when nobody called it
+  wake_cutoff_strict: 0.995 # while already listening for a command: a false hit would cut its start off
+  idle_minutes: 60          # the transcriber unloads after this long unused, freeing ~1.5 GB; comes back when you call (0 = always loaded)
+  keep_wake_hits: 200       # audio of each wake-up in ~/.local/share/jarvis/wake-data/hits, for retraining (0 = keep none)
+  collect_media_minutes: 60 # mic audio while a show or song plays, as "not the name" for retraining; stops at this (0 = off)
+  min_confidence: -0.4      # Parakeet only (Whisper uses stt.min_confidence): below this, speech that would go to Claude gets "didn't catch that"
 
 # Starting mode: "agent" (command list, then Claude) or "sys" (command list only).
 mode: agent
@@ -62,10 +74,14 @@ speech:
   # Other fast voices in the same folder: en_GB-jenny_dioco-medium, en_GB-alan-medium,
   # en_GB-northern_english_male-medium, en_US-hfc_male-medium, en_US-joe-medium
   voice: ~/.local/share/jarvis/voices/en_US-lessac-medium.onnx
-  length_scale: 1.05       # >1 slower, <1 faster
+  # Kokoro on the GPU speaks instead, once it's loaded (~17 s; Piper speaks until then and if Kokoro fails).
+  # Others downloaded: bm_lewis, bm_daniel, bm_fable, bf_emma, bf_isabella, bf_alice, bf_lily. Remove for Piper only.
+  kokoro_voice: bm_george
+  kokoro_dir: ~/.local/share/jarvis/kokoro-gpu
+  length_scale: 0.8        # >1 slower, <1 faster (0.8 = George at 1.25x)
   noise_scale: 0.75        # more = more expressive (default 0.667)
   noise_w: 0.9             # more = more varied rhythm (default 0.8)
-  sentence_silence: 0.25   # pause between sentences, seconds
+  sentence_silence: 0      # extra pause between sentences, seconds (Kokoro already pauses at . and ,)
   # Private mode ("headphones only"): Bluetooth or named headphones when they're connected, else this output
   # (the headphone jack, which can't tell whether anything is plugged in).
   private_sink: alsa_output.platform-sound.analog-stereo
@@ -83,18 +99,20 @@ stt:                       # speech-to-text: whisper.cpp server on the GPU
   port: 8178
   threads: 4
   audio_ctx: 512           # 0 = the full 30 s window (slower)
+  # Below this Whisper confidence, speech that would go to Claude gets "didn't catch that" instead. Set from your
+  # recordings (tools/speechtest.py): at -0.6 no correctly heard command was lost; -0.5 refuses more junk, and 3 in 33 good ones.
+  min_confidence: -0.6
 
 push_to_talk:
-  key: right_ctrl
-  # When one of these windows is focused, the key is left to that app instead of JARVIS
-  # (e.g. Claude Code's own voice input inside VS Code). Case-insensitive match on the window class
-  # (VS Code is "com.microsoft.VSCode").
+  key: right_ctrl          # always JARVIS, whatever window is focused
+
+# Hold this key, speak, let go: what you said is typed at the cursor. It's never run as a command.
+transcribe:
+  key: right_alt
+  # In these windows (matched on the window class; VS Code is "com.microsoft.VSCode") the key works Claude Code's own
+  # mic instead: JARVIS presses this shortcut when the key goes down and again when it comes up (hold to talk).
+  # ~/.config/Code/User/keybindings.json binds it to claude-vscode.toggleDictation.
   pass_through_windows: ["vscode"]
-  # Same, matched against the window title: Claude Code in a terminal and Claude chats in the browser.
-  pass_through_titles: ["claude"]
-  # In pass_through_windows the key opens Claude Code's own mic: JARVIS presses this shortcut when the key goes
-  # down and again when it comes up (hold to talk). ~/.config/Code/User/keybindings.json binds it to
-  # claude-vscode.toggleDictation. Leave empty to just pass the key through.
   vscode_dictation: ctrl+shift+alt+v
 
 # Browser agent (skills/web.py): its own Chrome with its own profile (~/.local/share/jarvis/agent-chrome), run by
@@ -112,11 +130,10 @@ claude:                    # phase 2
   fix_model: claude-sonnet-5-5  # for Claude Code fixing JARVIS's own code ("fix ... in jarvis")
 
 ui:
-  enabled: true            # transparent orb + top-right tray icon
+  enabled: true            # glass voice bar (it takes the dock's place while you talk) + top-right tray icon
   look: glass              # glass = see-through grey like Discord; solid = the older dark, opaque look
-  orb_size: 96             # orb diameter in pixels (78 was the old size)
-  orb: auto                # auto = appears while you're talking to it, fades after; true = always; false = never
-  orb_hide_after: 4        # seconds after the chat and card are gone before the orb hides (auto mode)
+  orb: auto                # auto = the bar appears while you're talking to it, fades after; true = the orb stays in the corner; false = never
+  orb_hide_after: 4        # seconds the bar stays after JARVIS is done and the chat is closed
   hide_after: 30           # the chat and each card hide after this many quiet seconds (pointer not on them);
                            # a card counts from when it opened, so the earliest goes first
   chat: false              # show the chat panel at startup (click the orb, or say "show chat")

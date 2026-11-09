@@ -50,6 +50,7 @@ from skills.screen import Screen
 from skills.slow_computer import SlowComputer
 from skills.status import Status
 from skills.studybuddy import StudyBuddy
+from skills.videos import Videos
 from skills.tasks import Tasks
 from skills.todos import Todos
 from skills.troubleshoot import Troubleshoot
@@ -65,7 +66,7 @@ ORDER = [
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
-    ("daytracker", DayTracker), ("todos", Todos), ("studybuddy", StudyBuddy),
+    ("daytracker", DayTracker), ("todos", Todos), ("studybuddy", StudyBuddy), ("videos", Videos),
     ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("lookup", Lookup), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),

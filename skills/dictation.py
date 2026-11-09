@@ -60,6 +60,10 @@ class Dictation(Skill):
         if send:
             desktop.keys("Return")
 
+    def at_cursor(self, text):
+        """The transcribe key: what you said, typed exactly where the cursor is. Never read as a command."""
+        type_into_window(self.say, text + " ")
+
     def typing(self, text):
         """While dictating: types what was said (or obeys "new line", "stop dictation"). True if it did."""
         if not self.dictating:

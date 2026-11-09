@@ -1,9 +1,11 @@
 """Waking by name: a short name ("EV") only at the start; right after the name alone, the next words are yours."""
+import collections
 import time
 
 import numpy as np
 
 import voice.wake as wake
+from voice.speech import Speaker
 from voice.wake import WhisperWake, called_by_name
 
 NAMES = ["jarvis", "ev", "e v", "evie", "eevee"]
@@ -86,3 +88,53 @@ def test_a_follow_up_window_does_not_open_while_muted():
     w.on_wake = w.woke.append
     w._follow_up()
     assert w.woke == []
+
+
+def _speaker(finished_ago, said):
+    s = Speaker.__new__(Speaker)
+    s._busy_until, s._audio_until, s.output_delay = time.time() - finished_ago, 0.0, 0.8
+    s.history = collections.deque([(time.time() - finished_ago - 2, said)])
+    return s
+
+
+def test_what_you_say_after_jarvis_finished_is_not_its_echo():
+    """Seen in the log: "Close Discord", "Stop" and "Do a speed test" were dropped as JARVIS's own voice."""
+    s = _speaker(20, "Should I set a timer? Say yes or no.")
+    for said in ("yes", "no", "set a timer"):
+        assert not s.is_echo(said, time.time() - 2), said
+
+
+def test_speech_that_began_while_jarvis_talked_can_be_its_echo():
+    s = _speaker(0.2, "Should I set a timer? Say yes or no.")
+    assert s.is_echo("set a timer", time.time() - 2)
+
+
+def _name_again(monkeypatch):
+    w = _waiting_wake("Jarvis.", monkeypatch)
+    w.following, w.wait_seconds, w.waiting_until = True, 8, time.time() + 1  # the window is nearly over
+    w.waits = []
+    w._wait = w.waits.append
+    w.on_text = lambda command, follow_up: w.passed.append((command, follow_up))
+    return w
+
+
+def test_the_name_during_a_follow_up_starts_a_fresh_wait(monkeypatch):
+    """Seen in the log: "Put in to-do list" was lost after "Jarvis.", as the old window ran out."""
+    w = _name_again(monkeypatch)
+    w._listen(None)
+    assert w.waits == [8] and w.passed == []
+
+
+def test_the_command_after_the_name_is_not_a_follow_up(monkeypatch):
+    w = _name_again(monkeypatch)
+    w._listen(None)
+    w.whisper.text = "Put in to-do list."
+    w._listen(None)
+    assert w.passed == [("Put in to-do list.", False)]
+
+
+def test_the_name_while_dictating_opens_no_window(monkeypatch):
+    w = _name_again(monkeypatch)
+    w.is_dictating = lambda: True
+    w._listen(None)
+    assert w.waits == []

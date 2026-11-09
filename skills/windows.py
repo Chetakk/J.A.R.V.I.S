@@ -5,6 +5,7 @@ from skills.base import Skill
 from skills.screen import front_window
 from system import desktop
 
+IT = re.compile(r"(?:it|this|that|this one|(?:the |this )?(?:video|page|tab|app))", re.I)
 NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 
 
@@ -45,7 +46,9 @@ class Windows(Skill):
 
     def window_state(self, m):
         action = m.group(1).lower().replace(" ", "")
-        win = desktop.find_window(m.group(2)) if m.group(2) else desktop.active_window()
+        target = (m.group(2) or "").strip()
+        # "maximise it", "minimise this": the window you're looking at, not one with "it" in its title
+        win = front_window() if not target or IT.fullmatch(target) else desktop.find_window(target)
         if not win:
             return False
         if action.startswith("minimi"):

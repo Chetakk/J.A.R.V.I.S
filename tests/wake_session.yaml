@@ -1,0 +1,89 @@
+# What `tools/speechtest.py record-wake` asks you to say, for retraining the wake model (tools/wake_train.py).
+# Each part is a place in the room; you get time to move there. Recordings: ~/.local/share/jarvis/wake-data/mine.
+# Changing a line means recording that line again: each recording is matched to its line by number.
+close:
+- Jarvis
+- Jarvis
+- Jarvis
+- Jarvis
+- Hey Jarvis
+- Hey Jarvis
+arm:
+- Jarvis
+- Jarvis
+- Jarvis
+- Jarvis
+- Hey Jarvis
+- Hey Jarvis
+side:
+- Jarvis (mic on your left)
+- Jarvis (mic on your left)
+- Hey Jarvis (mic on your left)
+- Jarvis (mic on your right)
+- Jarvis (mic on your right)
+- Hey Jarvis (mic on your right)
+across:
+- Jarvis
+- Jarvis
+- Jarvis
+- Jarvis
+- Hey Jarvis
+- Hey Jarvis
+away:
+- Jarvis
+- Jarvis
+- Jarvis
+- Jarvis
+- Hey Jarvis
+- Hey Jarvis
+far:
+- Jarvis
+- Jarvis
+- Jarvis
+- Jarvis
+- Hey Jarvis
+- Hey Jarvis
+seat:
+- Jarvis (quietly)
+- Jarvis (quietly)
+- Jarvis (tired, lazy)
+- Jarvis (tired, lazy)
+- Jarvis (loud, calling out)
+- Jarvis (loud, calling out)
+- Jarvis (quickly)
+- Jarvis (quickly)
+- Jarvis (while typing)
+- Jarvis (while typing)
+breath:
+- Jarvis, open YouTube
+- Jarvis, what time is it
+- Hey Jarvis, pause the music
+- Jarvis, volume up
+- Jarvis, show me the dashboard
+- Hey Jarvis, what's the weather
+- Jarvis, close it
+- Jarvis, mute the mic
+- Jarvis, brief me
+- Hey Jarvis, open Chrome
+- Jarvis, next song
+- Jarvis, take a screenshot
+# Not the name: it must stay asleep for these.
+near:
+- Travis
+- Davis
+- Harvest
+- Service
+- Nervous
+- A jar of jam
+- Garlic
+- Charles
+- Hey Travis
+- That was a nervous job
+- Jars
+- Marvellous
+- Office
+- Is this yours
+- Jarring noise
+- Purpose
+talk:
+- Say any sentence to yourself, not to JARVIS
