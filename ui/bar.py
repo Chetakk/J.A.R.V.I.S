@@ -26,6 +26,8 @@ STRIP = 62  # the height of the dock's strip: the pill sits in its middle
 HEIGHT = PILL + 2 * PAD
 FULL_W = 420 + 2 * PAD  # the widest the pill gets: shorter than the dock, about as tall; it fits what it says
 COMPACT_W = 296
+BREATH = 100  # ms between idle frames: the slow breath needs no more than 10 a second
+BLINK = 5.0  # seconds between the idle eyes' blinks
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
 WALLPAPER = "org.gnome.desktop.background"
@@ -68,6 +70,31 @@ def _layout(cr, text, size, width=None, keep_end=False, bold=False):
     return layout
 
 
+def _breath(t):
+    """0..1..0 once every 4 s, easing in and out like a breath."""
+    return 0.5 - 0.5 * math.cos(t * math.pi / 2)
+
+
+def _eyes(t):
+    """The idle orb's eyes at time t: how open (0..1), where they look (-1 left .. 1 right), and whether they're
+    on the move (blinking or glancing), which needs the fast frame rate."""
+    p, glance = t % BLINK, t % 13
+    shut = 0.0
+    for at in (0.0, 0.32) if int(t // BLINK) % 3 == 0 else (0.0,):  # every third blink is a double one
+        q = (p - at) / 0.16
+        if 0 <= q < 1:
+            shut = 1 - abs(2 * q - 1)
+    side = 1 if int(t // 13) % 2 else -1  # towards the words, then away
+    look = side * _smooth(min((glance - 7) / 0.3, (9 - glance) / 0.3))
+    moving = p < 0.55 or p > BLINK - 0.12 or 6.9 < glance < 9.05
+    return 1 - shut, look, moving
+
+
+def _smooth(x):
+    x = max(0.0, min(1.0, x))
+    return x * x * (3 - 2 * x)
+
+
 def _show(cr, layout, x, mid, alpha):
     h = layout.get_pixel_size()[1]
     cr.set_source_rgba(*SNOW, alpha)
@@ -91,6 +118,7 @@ class Bar:
         self._w, self._x, self._vis = float(FULL_W), 0.0, 0.0
         self._placed = None
         self._timer = None
+        self._every = None  # the timer's ms: 33 while busy, moving or blinking, BREATH while idle, None when stopped
         self._settle = 0.0
         self._cached = None
         self._glow = self._glass = None
@@ -180,7 +208,7 @@ class Bar:
         if self._reply_up(time.time()):
             room = self._text_w(self.reply, TEXT)
         else:
-            words = self.words or ("Listening…" if state == "listening" else "")
+            words = self.words or self._waiting(state)
             note = self._text_w(self._note(state), TEXT - 1)
             room = max((self._text_w(words, TEXT) + 12 if words else 0) + note, 2 * note)  # _row gives a note half
         buttons = FULL_W - min(a for a, _b in self._zones(FULL_W).values())
@@ -224,8 +252,10 @@ class Bar:
         self._settle = time.time() + 0.4
         if self.win.get_visible():
             self.win.queue_draw()
-        if not self._timer:
-            self._timer = GLib.timeout_add(33, self._tick)
+        if self._every != 33:
+            if self._timer:
+                GLib.source_remove(self._timer)
+            self._timer, self._every = GLib.timeout_add(33, self._tick), 33
 
     def _state(self):
         return self.ui._shown[0] if self.ui._shown else "idle"
@@ -233,12 +263,16 @@ class Bar:
     def _tick(self):
         moving = self._step()
         # A reply comes up WORDS_HOLD after your words, and the bar's width follows it.
-        alive = moving or time.time() < max(self._settle, self._words_at + WORDS_HOLD + 0.4) or (self.mode != "hidden" and self._state() in ANIMATED)
+        t = time.time()
+        busy = moving or t < max(self._settle, self._words_at + WORDS_HOLD + 0.4) or (self.mode != "hidden" and self._state() in ANIMATED)
         if self.win.get_visible():
             self.win.queue_draw()
-        if not alive:
-            self._timer = None
-        return alive
+        idle = self.mode != "hidden" and self._state() == "idle"
+        every = 33 if busy or idle and _eyes(t)[2] and not self.ui._shown[2] else BREATH if idle else None
+        if every == self._every:
+            return True
+        self._timer, self._every = (GLib.timeout_add(every, self._tick) if every else None), every
+        return False
 
     def _step(self):
         """One frame towards where the bar should be. True while it's still on its way."""
@@ -283,7 +317,8 @@ class Bar:
         out["chat"], x = (x - 26, x), x - 28
         if self.ignored:
             out["ignored"], x = (x - 42, x), x - 44
-        out["understood"] = (x - 28, x)
+        if self.words or self.understood:  # nothing to show yet: no button for it
+            out["understood"] = (x - 28, x)
         return out
 
     def _zone(self, x):
@@ -388,6 +423,8 @@ class Bar:
             strength = 0.62 + 0.3 * abs(math.sin(t * 5))
         elif state in ("thinking", "claude"):
             strength = 0.55 + 0.15 * math.sin(t * 3)
+        elif state == "idle":
+            strength = 0.42 + 0.1 * _breath(t)
         else:
             strength = 0.45
         return min(1.0, strength + (0.2 if self.hover else 0))
@@ -488,7 +525,15 @@ class Bar:
         elif self.words:
             self._row(cr, left, mid, room, self.words, note, TEXT, 0.98 * min(1.0, (t - self._words_at) / 0.2))
         else:
-            self._row(cr, left, mid, room, "Listening…" if state == "listening" else "", note, TEXT, 0.6)
+            self._row(cr, left, mid, room, self._waiting(state), note, TEXT, 0.6 if state == "listening" else 0.42)
+
+    def _waiting(self, state):
+        """The words in the bar before you've said anything."""
+        if state == "listening":
+            return "Listening…"
+        if state in ("idle", "off"):
+            return "Mic off" if self.ui.mutes["mic"] else "Voice off" if state == "off" else "Say “Jarvis”"
+        return ""
 
     def _note(self, state):
         if state == "claude":

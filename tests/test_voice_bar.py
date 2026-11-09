@@ -84,7 +84,9 @@ def test_only_the_full_bar_has_buttons_and_the_ignored_count_shows_when_there_is
     bar = Bar.__new__(Bar)
     bar.mode, bar.ignored = "compact", 3
     assert bar._zones(560) == {}
-    bar.mode, bar.ignored = "full", 0
+    bar.mode, bar.ignored, bar.words, bar.understood = "full", 0, "", ""
+    assert set(bar._zones(560)) == {"chat"}  # nothing said yet: no → to show what was understood
+    bar.words = "open youtube"
     assert set(bar._zones(560)) == {"chat", "understood"}
     bar.ignored = 2
     zones = bar._zones(560)
@@ -120,6 +122,7 @@ def test_the_full_bar_fits_what_it_says_and_grows_as_you_talk_up_to_full_width()
 
     bar = Bar.__new__(Bar)  # no window and no talking to the shell
     bar.ui, bar.mode, bar.show_understood, bar.ignored = SimpleNamespace(_shown=("listening",)), "full", True, 0
+    bar.ui.mutes = {"mic": False}
     bar.words = bar.understood = bar.reply = ""
     bar._words_at, bar._measure = 0.0, cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))
     listening = bar._fit()
@@ -178,3 +181,26 @@ def test_cards_and_the_chat_glide_to_their_new_spot_and_a_dragged_card_is_let_go
     while deck._glide_step():
         card._dragging = True  # you grab the card: the chat goes on, the card is yours
     assert moves[-1] == ("chat", 1500, 300) and ("card", 1000, 0) not in moves
+
+
+def test_idle_the_bar_says_how_to_wake_jarvis_or_why_it_cant_hear_and_breathes():
+    from types import SimpleNamespace
+    from ui.bar import Bar, _breath
+
+    bar = Bar.__new__(Bar)
+    bar.ui = SimpleNamespace(mutes={"mic": False})
+    assert [bar._waiting(s) for s in ("idle", "listening", "off", "thinking")] == [
+        "Say “Jarvis”", "Listening…", "Voice off", ""]
+    bar.ui.mutes["mic"] = True
+    assert bar._waiting("idle") == bar._waiting("off") == "Mic off"
+    assert _breath(0) == 0 and abs(_breath(2) - 1) < 1e-9 and abs(_breath(4)) < 1e-9  # one breath every 4 s
+
+
+def test_the_idle_eyes_blink_double_blink_and_glance_and_say_when_they_need_fast_frames():
+    from ui.bar import BLINK, _eyes
+
+    assert _eyes(5 * BLINK + 1.0) == (1.0, 0.0, False)  # open, looking ahead, still: the slow frame rate will do
+    assert _eyes(5 * BLINK + 0.08)[0] < 1e-9  # shut halfway through a blink
+    assert _eyes(3 * BLINK + 0.40)[0] < 1e-9  # every third blink is a double one
+    assert _eyes(4 * BLINK + 0.40)[0] == 1.0
+    assert abs(_eyes(13 + 8.0)[1]) == 1.0 and _eyes(13 + 8.0)[2]  # glancing aside

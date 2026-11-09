@@ -351,18 +351,37 @@ class UI:
                 cr.set_line_width(1.5)
                 cr.stroke()
             self._core(cr, cx, cy, r * (0.18 + 0.07 * abs(math.sin(t * 9)) + 0.03 * math.sin(t * 23)), 0.95)
-        elif s == "off":
-            # Muted: a dim core with a slash through it.
-            self._core(cr, cx, cy, r * 0.13, 0.25)
+        elif s == "off" or self._shown and self._shown[2]:
+            # Voice or mic off: the eyes are shut, asleep.
             cr.set_line_cap(cairo.LINE_CAP_ROUND)
             cr.set_line_width(2.0)
-            cr.set_source_rgba(1, 1, 1, 0.35)
-            cr.move_to(cx - r * 0.32, cy + r * 0.32)
-            cr.line_to(cx + r * 0.32, cy - r * 0.32)
-            cr.stroke()
+            cr.set_source_rgba(1, 1, 1, 0.5)
+            for side in (-1, 1):
+                cr.arc(cx + side * r * 0.24, cy - r * 0.06, r * 0.12, 0.15 * math.pi, 0.85 * math.pi)
+                cr.stroke()
             cr.set_line_cap(cairo.LINE_CAP_BUTT)
         else:
-            self._core(cr, cx, cy, r * 0.15, 0.5)
+            # Idle: a pet's eyes that breathe, blink and now and then glance aside.
+            from ui.bar import _breath, _eyes  # ui.bar imports this module
+            awake, look, _ = _eyes(t)
+            self._pet_eyes(cr, cx + look * r * 0.12, cy, r, awake, 0.78 + 0.22 * _breath(t))
+
+    @staticmethod
+    def _pet_eyes(cr, cx, cy, r, awake, bright):
+        from ui.blocks import _round_rect
+        ew, gap = r * 0.21, r * 0.26
+        eh = max(r * 0.06, r * 0.40 * awake)  # shut, it's a flat line
+        for side in (-1, 1):
+            x = cx + side * gap
+            glow = cairo.RadialGradient(x, cy, 0, x, cy, r * 0.42)
+            glow.add_color_stop_rgba(0, 1, 1, 1, 0.28 * bright)
+            glow.add_color_stop_rgba(1, 1, 1, 1, 0)
+            cr.arc(x, cy, r * 0.42, 0, 2 * math.pi)
+            cr.set_source(glow)
+            cr.fill()
+            _round_rect(cr, x - ew / 2, cy - eh / 2, ew, eh, min(ew, eh) / 2)
+            cr.set_source_rgba(1, 1, 1, 0.95 * bright)
+            cr.fill()
 
     @staticmethod
     def _core(cr, cx, cy, radius, alpha):
