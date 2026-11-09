@@ -260,13 +260,17 @@ class Bar:
             if self._last_pointer is not None:
                 self._pointer_at = t
             self._last_pointer = spot
-        watching = spot is not None and t - self._pointer_at < FOLLOW
-        aim = look_at(*spot, self._x + PAD + PILL / 2, self.top() + PAD + PILL / 2) if watching else (_eyes(t)[1], 0.0)
+        music = self._ambient in ("dance", "sway")  # the music has the eyes: they dance and don't chase the pointer
+        watching = spot is not None and t - self._pointer_at < FOLLOW and not music
+        if watching:
+            aim = look_at(*spot, self._x + PAD + PILL / 2, self.top() + PAD + PILL / 2)
+        else:
+            aim = (0.0, 0.0) if music else (_eyes(t)[1], 0.0)
         self.gaze, self._gaze_v = spring(self.gaze, self._gaze_v, aim, min(0.25, t - (self._gaze_t or t)))
         self._gaze_t = t
-        if t - self._pointer_at < 0.3:
+        if watching and t - self._pointer_at < 0.3:
             return 60
-        return 30 if max(map(abs, self._gaze_v)) > 0.05 or t - self._pointer_at < FOLLOW + 0.8 else 0
+        return 30 if max(map(abs, self._gaze_v)) > 0.05 or watching or t - self._pointer_at < FOLLOW + 0.8 else 0
 
     def set_understood(self, text):
         self.understood = text
