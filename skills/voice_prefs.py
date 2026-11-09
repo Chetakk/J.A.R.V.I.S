@@ -19,9 +19,9 @@ PRIVATE_ON = r"(?:turn on |switch on |go into |use )?(?:private|headphones?(?: o
 # "of": how speech-to-text often writes "off" ("private mode of" had turned it on).
 PRIVATE_OFF = r"(?:turn off |switch off |stop |end |leave |exit )(?:private|privacy|headphones?|headset) mode|" \
               r"(?:turn |switch )?(?:private|privacy|headphones?|headset) mode (?:off|of)|" \
-              r"(?:turn on |switch on |go into |go |use |back to )?public mode(?: on)?|" \
-              r"(?:use|back to|go back to|talk through|speak through|" \
-              r"switch (?:back )?to) (?:the )?speakers?(?: again)?"
+              r"(?:turn on |switch on |go into |go |use |back to )?public mode(?: on)?"
+# Out of private mode, "switch to the speaker" means the Echo Dot (the Audio skill switches to it).
+BACK_TO_SPEAKER = r"(?:use|back to|go back to|talk through|speak through|switch (?:back )?to) (?:the )?(speakers?)(?: again)?"
 QUIET_ON = r"(?:turn on |switch on |go into |use )?(?:quiet|silent|text|cards?) (?:mode|only)(?: on)?|" \
            r"(?:don'?t|do not) (?:talk|speak)(?: out loud)?(?: for a while| any ?more| now)?|mute yourself|" \
            r"turn (?:off )?your (?:voice|speech)(?: off)?|(?:just|only) (?:write|type)(?: it)?(?: down| in the chat)?|" \
@@ -62,6 +62,8 @@ class VoicePrefs(Skill):
             (DETAILED, lambda m: self.answers("detailed")),
             (NORMAL, lambda m: self.answers(None)),
             (PRIVATE_OFF, lambda m: self.private(False)),
+            (BACK_TO_SPEAKER, lambda m: self.private(False) if self.j.memory.pref("private") else
+             self.j.skills.audio.output(m, sure=True)),
             (PRIVATE_ON, lambda m: self.private(True)),
             (QUIET_OFF, lambda m: self.quiet(False)),
             (QUIET_ON, lambda m: self.quiet(True)),
@@ -165,7 +167,7 @@ class VoicePrefs(Skill):
                 self.say("Okay. Connect your headphones and ask me again.")
             return
         self.j.memory.set_pref("private", True)
-        name = "your headphones on the jack" if sink == self._preferred() else next(
+        name = "your earphones" if sink == self._preferred() else next(
             (d for n, d, _, _ in speech.sinks() if n == sink), "your headphones")
         self.say("Okay, only %s will hear me now." % name)  # said on the speaker, then the switch
         spk.sink = sink

@@ -42,38 +42,35 @@ def current(kind):
 
 
 def label(kind, name, description):
-    """What to call it out loud: "the Echo Dot", "the USB speaker", "the headphone jack"."""
+    """What to call it out loud: "the Echo Dot", "the earphones", "the built-in output".
+    This machine: the AB13X USB device is the earphones (wired), the Echo Dot is the speaker, and the
+    built-in output has no socket on the board."""
     if name.startswith("bluez_"):
         return "the Echo Dot" if "echo" in description.lower() else description
     if ".usb-" in name:
-        return "the USB speaker" if kind == "sink" else "the USB microphone"
+        return "the earphones" if kind == "sink" else "the USB microphone"
     if "platform-sound" in name or description.startswith("Built-in"):
-        return "the headphone jack" if kind == "sink" else "the built-in input"
+        return "the built-in output" if kind == "sink" else "the built-in input"
     return re.sub(r" Analog Stereo$| Digital Stereo.*$", "", description) or name
 
 
 ALIASES = [  # (what you might call it, test on the device)
-    (r"echo(?: dot)?|alexa|smart speaker", lambda d: d.name.startswith("bluez_") and "echo" in d.label.lower()),
+    (r"echo(?: dot)?|alexa|(?:smart |big |main )?speakers?", lambda d: d.name.startswith("bluez_") and "echo" in d.label.lower()),
     (r"bluetooth(?: speaker| headphones)?|bt", lambda d: d.name.startswith("bluez_")),
     (r"usb(?: speakers?| audio| mic(?:rophone)?| headset)?", lambda d: ".usb-" in d.name),
-    (r"(?:head ?phones?|ear ?phones?|ear ?buds|headset)", lambda d: d.form in ("headphone", "headset", "hands-free")
-     or "headphone" in d.port),
-    (r"(?:head ?phone|audio) jack|jack|built[- ]?in(?: audio| mic(?:rophone)?| input)?|aux",
-     lambda d: "platform-sound" in d.name),
+    (r"(?:head ?phones?|ear ?phones?|ear ?buds|headset)(?: jack)?|(?:audio )?jack|aux",
+     lambda d: d.form in ("headphone", "headset", "hands-free") or "headphone" in d.port or ".usb-" in d.name),
+    (r"built[- ]?in(?: audio| mic(?:rophone)?| input)?", lambda d: "platform-sound" in d.name),
 ]
 
 
 def find(kind, words):
-    """The device `words` names ("echo dot", "usb", "headphones"), or None. Headphones with none connected
-    means the jack."""
+    """The device `words` names ("echo dot", "usb", "headphones"), or None."""
     words = re.sub(r"^(?:the|my|a)\s+|\s+(?:speakers?|output|device)$", "", words.strip().lower()) or words
     found = devices(kind)
     for pattern, test in ALIASES:
         if re.fullmatch(pattern, words):
-            hit = next((d for d in found if test(d)), None)
-            if hit or not re.match(r"head|ear", words):
-                return hit
-            return next((d for d in found if "platform-sound" in d.name), None)
+            return next((d for d in found if test(d)), None)
     said = set(re.findall(r"[a-z0-9]+", words))
     scored = [(len(said & set(re.findall(r"[a-z0-9]+", (d.label + " " + d.name).lower()))), d) for d in found]
     best = max(scored, key=lambda s: s[0], default=(0, None))
@@ -85,11 +82,27 @@ def switch(device):
     kind = device.kind
     ok, _ = _pactl("set-default-" + kind, device.name)
     streams = "sink-inputs" if kind == "sink" else "source-outputs"
+    pinned = _pinned() if kind == "sink" else set()
     for line in _pactl("list", "short", streams)[1].splitlines():
         stream = line.split("\t")[0]
-        if stream.isdigit():
+        if stream.isdigit() and stream not in pinned:
             _pactl("move-" + streams[:-1], stream, device.name)
     return ok
+
+
+def _pinned():
+    """Playing streams started on one device on purpose, which switching must leave there: JARVIS's voice in
+    private mode (pacat --device=) and the Echo's keep-alive (pacat -d), which drops the link if moved."""
+    ids = set()
+    for block in _pactl("list", "sink-inputs")[1].split("\n\n"):
+        stream, pid = re.search(r"^Sink Input #(\d+)", block), re.search(r'application\.process\.id = "(\d+)"', block)
+        try:
+            args = open("/proc/%s/cmdline" % pid.group(1), "rb").read().split(b"\0") if stream and pid else []
+        except OSError:
+            continue
+        if any(a == b"-d" or a.startswith(b"--device") for a in args):
+            ids.add(stream.group(1))
+    return ids
 
 
 def set_mute(device, on):

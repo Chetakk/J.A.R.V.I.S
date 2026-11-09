@@ -83,8 +83,8 @@ speech:
   noise_w: 0.9             # more = more varied rhythm (default 0.8)
   sentence_silence: 0      # extra pause between sentences, seconds (Kokoro already pauses at . and ,)
   # Private mode ("headphones only"): Bluetooth or named headphones when they're connected, else this output
-  # (the headphone jack, which can't tell whether anything is plugged in).
-  private_sink: alsa_output.platform-sound.analog-stereo
+  # (the earphones on the AB13X USB audio, which can't tell whether they're plugged in).
+  private_sink: alsa_output.usb-Generic_AB13X_USB_Audio_20210726905926-00.analog-stereo
   # Long text read aloud (a card, a window, the clipboard): up to read_words is just said; longer, the start is
   # said and all of it goes on a card ("read the rest", "summarise it"). long_text: summary = Claude sums it
   # up straight away instead (a few seconds slower).

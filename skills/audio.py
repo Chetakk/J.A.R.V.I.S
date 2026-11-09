@@ -1,4 +1,4 @@
-""""What audio devices are there", "switch audio to the echo dot", "use the usb speaker", "which mic are you using",
+""""What audio devices are there", "switch audio to the echo dot", "use the earphones", "which mic are you using",
 "set the mic volume to 60": speakers and microphones by what you call them (system/audio.py). Switching moves what's
 already playing too, and "undo that" goes back. The mic is what JARVIS hears you with, so changing it (or turning
 it low) asks first. The Echo Dot connects by itself from the Alexa app; when it isn't there JARVIS says so.
@@ -132,7 +132,7 @@ class Audio(Skill):
         words = _first(m).strip()
         d = audio.find("sink", words)
         if not d:
-            if re.search(r"\b(?:echo|alexa)\b", words, re.IGNORECASE):
+            if re.search(r"\b(?:echo|alexa)\b|^(?:the |my )?speakers?$", words, re.IGNORECASE):
                 self.say(ECHO_HELP)
                 return
             if not sure and not re.fullmatch(NAMED, words, re.IGNORECASE) and not m.group(0).lower().startswith(

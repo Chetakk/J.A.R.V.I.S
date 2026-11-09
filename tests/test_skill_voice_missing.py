@@ -63,6 +63,15 @@ def test_private_mode_goes_to_the_headphones(jv, speaker):
     assert speaker.sink is None and pref(jv, "private") is None
 
 
+def test_private_mode_falls_back_to_the_earphones(jv, speaker):
+    p = Pulse(jv.shell)
+    p.add("sink", JACK, "Built-in Audio", default=True)
+    p.add("sink", jv.j.settings["speech"]["private_sink"], "AB13X USB Audio Analog Stereo")
+    jv.do("private mode")
+    assert speaker.sink == jv.j.settings["speech"]["private_sink"] and pref(jv, "private") is True
+    assert jv.says("only your earphones will hear me")
+
+
 @pytest.mark.parametrize("off", ["private mode of", "public mode", "turn private mode off", "privacy mode off"])
 def test_private_mode_off_as_speech_to_text_writes_it(jv, speaker, off):
     Pulse(jv.shell).add("sink", BUDS, "WH-1000XM4", form="headset")
@@ -71,15 +80,23 @@ def test_private_mode_off_as_speech_to_text_writes_it(jv, speaker, off):
     assert speaker.sink is None and pref(jv, "private") is None
 
 
+def test_back_to_the_speaker_outside_private_mode_switches_to_the_echo(jv, speaker):
+    p = Pulse(jv.shell)
+    p.add("sink", USB, "AB13X USB Audio", default=True)
+    p.add("sink", "bluez_sink.AA_BB.a2dp_sink", "Echo Dot-T98")
+    jv.do("back to the speakers")
+    assert p.default["sink"] == "bluez_sink.AA_BB.a2dp_sink" and jv.says("Sound is going to the Echo Dot now.")
+
+
 def test_private_without_headphones_offers_quiet_instead(jv, speaker):
-    Pulse(jv.shell).add("sink", USB, "USB Audio", default=True)  # (the jack is the configured fallback)
+    Pulse(jv.shell).add("sink", JACK, "Built-in Audio", default=True)  # (the earphones are the fallback)
     jv.do("headphones only", "yes")
     assert jv.questions == ["I can't find any headphones. Shall I go quiet instead, and just write in the chat?"]
     assert speaker.muted and speaker.sink is None
 
 
 def test_private_without_headphones_and_a_no_stays_as_it_was(jv, speaker):
-    Pulse(jv.shell).add("sink", USB, "USB Audio", default=True)  # (the jack is the configured fallback)
+    Pulse(jv.shell).add("sink", JACK, "Built-in Audio", default=True)  # (the earphones are the fallback)
     jv.do("private mode", "no")
     assert not speaker.muted and pref(jv, "private") is None
 
@@ -93,7 +110,7 @@ def test_private_stays_private_when_the_headphones_vanish(jv, speaker):
 
 def test_private_on_restart_without_the_headphones_is_silent_not_loud(jv, speaker):
     jv.j.memory.set_pref("private", True)
-    Pulse(jv.shell).add("sink", USB, "USB Audio", default=True)  # (the jack is the configured fallback)
+    Pulse(jv.shell).add("sink", JACK, "Built-in Audio", default=True)  # (the earphones are the fallback)
     jv.j.skills.voice_prefs.apply()
     assert speaker.muted and speaker.sink is None
 
@@ -147,12 +164,6 @@ def test_open_an_app_asks_which(jv):
 def test_the_value_is_never_a_placeholder(jv):
     jv.do("type something", "hello there")  # not "typing something"
     assert jv.questions == ["Sure, what should I type?"]
-
-
-def test_private_falls_back_to_the_configured_jack(jv, speaker):
-    Pulse(jv.shell).add("sink", JACK, "Built-in Audio", default=True)
-    jv.do("private mode")
-    assert speaker.sink == JACK and pref(jv, "private") is True
 
 
 # --- saying your words back ---

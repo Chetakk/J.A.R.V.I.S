@@ -23,15 +23,15 @@ def pulse(jv):
 
 def test_lists_devices_by_spoken_name(jv, pulse):
     jv.do("what audio devices are there")
-    assert jv.says("Sound is going to the USB speaker", "listening on the USB microphone")
+    assert jv.says("Sound is going to the earphones", "listening on the USB microphone")
     text = jv.card_text()
-    assert "the USB speaker **(in use)**, 45%" in text and "the headphone jack, 70%" in text
+    assert "the earphones **(in use)**, 45%" in text and "the built-in output, 70%" in text
     assert "Monitor of" not in text  # a speaker's echo isn't a microphone
 
 
 def test_which_speaker(jv, pulse):
     jv.do("which speaker am i using")
-    assert jv.said == ["Sound is going to the USB speaker, at 45 percent."]
+    assert jv.said == ["Sound is going to the earphones, at 45 percent."]
 
 
 def test_which_mic_warns_when_muted(jv, pulse):
@@ -47,18 +47,27 @@ def test_low_mic_is_flagged(jv, pulse):
 
 
 def test_switch_output_moves_whats_playing_and_undo_goes_back(jv, pulse):
-    jv.do("switch audio to the headphone jack")
-    assert jv.said == ["Sound is going to the headphone jack now."]
+    jv.do("switch audio to the built-in output")
+    assert jv.said == ["Sound is going to the built-in output now."]
     assert pulse.default["sink"] == JACK and pulse.moved == [("12", JACK)]
     jv.clear()
     jv.do("undo that")
     assert pulse.default["sink"] == USB
-    assert jv.says("Sound is back on the USB speaker")
+    assert jv.says("Sound is back on the earphones")
+
+
+@pytest.mark.parametrize("said, to", [("switch audio to earphones", USB), ("switch to my headphones", USB),
+                                      ("switch audio to the speaker", ECHO), ("use the echo", ECHO)])
+def test_earphones_are_the_usb_and_the_speaker_is_the_echo(jv, pulse, said, to):
+    pulse.add("sink", ECHO, "Echo Dot-1AB")
+    pulse.default["sink"] = JACK
+    jv.do(said)
+    assert pulse.default["sink"] == to
 
 
 def test_switch_to_the_one_already_in_use(jv, pulse):
     jv.do("switch audio to usb")
-    assert jv.said == ["Sound is already going to the USB speaker."]
+    assert jv.said == ["Sound is already going to the earphones."]
     assert not jv.shell.ran(r"set-default-sink")
 
 
@@ -106,7 +115,7 @@ def test_echo_dot_missing_gives_the_alexa_app_steps(jv, pulse):
 
 def test_unknown_device_lists_what_there_is(jv, pulse):
     jv.do("switch audio to the kitchen radio")
-    assert jv.said == ["I can't find kitchen radio. You have the USB speaker and the headphone jack."]
+    assert jv.said == ["I can't find kitchen radio. You have the earphones and the built-in output."]
 
 
 def test_a_device_that_refuses_is_reported_not_claimed(jv, pulse):
