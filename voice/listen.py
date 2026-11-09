@@ -97,6 +97,7 @@ class PushToTalk:
         self.on_listen = on_listen or (lambda active: None)
         self.recorder = Recorder()
         self._recording_since = None
+        self.ended = 0.0  # when the last recording stopped
         combo = cfg.get("vscode_dictation") or ""
         self.dictation_keys = [getattr(keyboard.Key, k, None) or k for k in combo.lower().split("+") if k]
         self._dictating = False
@@ -115,6 +116,14 @@ class PushToTalk:
     @recording.setter
     def recording(self, on):
         self._recording_since = time.time() if on else None
+        if not on:
+            self.ended = time.time()
+
+    @property
+    def held(self):
+        """Recording, in Claude Code's mic, or just let go: the wake word mustn't take these words too."""
+        # shortcut: a missed key release keeps the wake word out until the key is tapped again, add a timeout if seen.
+        return self.recording or self._dictating or time.time() - self.ended < 1.5
 
     def start(self):
         # pynput stops the listener for good if a callback raises, so errors are caught here.
@@ -190,6 +199,7 @@ class PushToTalk:
     def _release(self, key):
         if key == self.key and self._dictating:
             self._dictating = False
+            self.ended = time.time()
             self._toggle_dictation()
         elif key == self.key and self.recording:
             self.recording = False

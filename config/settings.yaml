@@ -92,16 +92,15 @@ stt:                       # speech-to-text: whisper.cpp server on the GPU
   min_confidence: -0.6
 
 push_to_talk:
-  key: right_ctrl
-  # When one of these windows is focused, the key is left to that app instead of JARVIS
-  # (e.g. Claude Code's own voice input inside VS Code). Case-insensitive match on the window class
-  # (VS Code is "com.microsoft.VSCode").
+  key: right_ctrl          # always JARVIS, whatever window is focused
+
+# Hold this key, speak, let go: what you said is typed at the cursor. It's never run as a command.
+transcribe:
+  key: right_alt
+  # In these windows (matched on the window class; VS Code is "com.microsoft.VSCode") the key works Claude Code's own
+  # mic instead: JARVIS presses this shortcut when the key goes down and again when it comes up (hold to talk).
+  # ~/.config/Code/User/keybindings.json binds it to claude-vscode.toggleDictation.
   pass_through_windows: ["vscode"]
-  # Same, matched against the window title: Claude Code in a terminal and Claude chats in the browser.
-  pass_through_titles: ["claude"]
-  # In pass_through_windows the key opens Claude Code's own mic: JARVIS presses this shortcut when the key goes
-  # down and again when it comes up (hold to talk). ~/.config/Code/User/keybindings.json binds it to
-  # claude-vscode.toggleDictation. Leave empty to just pass the key through.
   vscode_dictation: ctrl+shift+alt+v
 
 # Browser agent (skills/web.py): its own Chrome with its own profile (~/.local/share/jarvis/agent-chrome), run by

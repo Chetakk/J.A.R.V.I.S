@@ -1386,6 +1386,23 @@ def start_voice(jarvis, whisper):
     ptt.start()
     print("[voice] Push-to-talk ready: hold %s and speak." % ptt_cfg.get("key", "right_ctrl"))
 
+    def on_transcribe(pcm):
+        jarvis.state("thinking")
+        try:
+            text = whisper.transcribe(pcm, plain=True)
+            jarvis.heard(text, "typed at the cursor" if text else "transcribe key: couldn't make out words")
+            if text:
+                jarvis.skills.dictation.at_cursor(text)
+        except Exception as e:  # on its own thread: nothing else would report it
+            print("[voice] transcribing failed: %r" % e)
+        finally:
+            jarvis.state(jarvis.rest)
+
+    transcribe_cfg = jarvis.settings.get("transcribe") or {"key": "right_alt"}
+    transcribe_key = PushToTalk(transcribe_cfg, on_transcribe, on_listen=on_listen)
+    transcribe_key.start()
+    print("[voice] Transcribe ready: hold %s, speak, and it's typed at the cursor." % transcribe_cfg["key"])
+
     wake_cfg = jarvis.settings.get("wake_word") or {}
     busy = lambda: jarvis.speaker.busy() or ptt.recording  # noqa: E731
     if wake_cfg.get("enabled", True) and wake_cfg.get("engine", "whisper") == "whisper":
