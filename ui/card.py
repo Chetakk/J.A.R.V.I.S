@@ -25,12 +25,12 @@ gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
 from ui import blocks  # noqa: E402
-from ui.window import PANEL_H, PANEL_W, _clear, _make_transparent  # noqa: E402
+from ui.window import GLOW, PANEL_H, PANEL_W, _clear, _make_transparent  # noqa: E402
 
 CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel (PANEL_H)
 HISTORY = 10
 MAX_OPEN = 10  # cards on screen at once; opening one more closes the oldest
-GAP = 10
+GAP = 10 - 2 * GLOW  # windows overlap by their glow margins, so the glass itself is 10 px apart
 BUTTONS = 6  # a card shows this many choices as buttons; the rest you pick by number
 
 CSS = b"""
@@ -551,7 +551,7 @@ class Deck:
             # Real widths: a card with a drawn block comes out a few pixels wider, and the gaps must still be equal.
             spots = arrange(chat + [(max(CARD_W, w.win.get_allocated_width()), w.win.get_allocated_height()) for w in auto],
                             geo.x, geo.width,
-                            self.bottom(), geo.y)
+                            self.bottom() + GLOW, geo.y)
             spot = spots.pop(0) if chat else None
             if spot and spot != self._chat_spot:
                 self.move_chat(*spot)
