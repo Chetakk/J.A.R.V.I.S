@@ -115,6 +115,11 @@ Rules:
 - "show": use it whenever seeing beats hearing: numbers to compare (a table or bars), several items or results,
   links to click, steps to follow, code. Keep it short (about 20 lines) and still put the gist in "say". Leave it
   null for simple answers. Don't put the same text in "details" too.
+- "Show me X", "list X", "what's in X": {user} wants a card, so always answer with "show". When the card needs
+  something from this computer you can't see (a folder's contents, a file, a log, what's running), never guess
+  and never make up a "do" phrase: give one read-only "command" with "run_now": true and "output": true, and
+  {name} sends you its output to put on the card. A folder you don't have the path of:
+  find ~ -maxdepth 6 -ipath '*/*circlip*/*' -not -path '*/.*' | head -80
 - Things to DO go on a card too: when your answer leaves {user} steps to follow or tasks to tick off, show them
   as a numbered list or a - [ ] checklist; when there are a few sensible next actions (open a result, save it,
   run the fix, try another way), offer them as "choices" instead of a long spoken question.

@@ -154,6 +154,8 @@ FIX_PROMPT = ("You're changing JARVIS itself: the voice assistant in this folder
 FIX_ASKED = re.compile(r"\b(?:fix|change|improve|update|make (?:it|you|yourself)|add|remove|stop|don't|do not|"
                        r"should(?:n't)?|teach|set (?:it|yourself))\b", re.IGNORECASE)
 
+SHOW_ASKED = re.compile(r"^(?:\W*(?:please|can you|could you|jarvis)\W+)*(?:show|display|list)\b", re.IGNORECASE)
+
 # Words that alone don't make a request: "is", "put that", "what the", "okay okay" are mishearings, not questions.
 FILLER = set("""a an the and but or so is it it's its that this those these what what's whats up um uh hmm
 huh oh ok okay yeah yes no yep nope well like just i i'm me you your we put get got go do did be been was
@@ -790,7 +792,7 @@ class Jarvis:
                                         output=bool(answer["output"]),
                                         question=["Want me to run it?", "Should I go ahead and run it?"],
                                         on_output=lambda o: o if 0 < len(o) <= 120 else "")
-                if out and len(out) > 120:
+                if out and (len(out) > 120 or SHOW_ASKED.search(text)):  # "show ..." wants a card, even if short
                     print("  " + out.replace("\n", "\n  "))
                     self._read_out(text, command, out)
                 elif out:
