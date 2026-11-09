@@ -24,8 +24,8 @@ def tray_count(bus):
 
 def tips(skills):
     """Things you can say just as they are: no <x> to fill in, no (notes), two words or more ("type" alone means
-    little), short enough to fit after "Ready" in the bar."""
-    return [p for s in skills for p in s.phrases if not re.search(r"[<(]", p) and " " in p and len(p) <= 12]
+    little). Any length: the bar gives a tip all its room and scrolls one that still won't fit."""
+    return [p for s in skills for p in s.phrases if not re.search(r"[<(]", p) and " " in p]
 
 
 def next_reminder(reminders, now):

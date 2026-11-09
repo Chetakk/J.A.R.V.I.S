@@ -383,3 +383,25 @@ def test_while_music_plays_the_eyes_dance_and_leave_the_pointer_alone():
     for i in range(30):
         fps = bar._watch(101.0 + i / 30)
     assert bar.gaze[0] > 0.5 and fps == 60
+
+
+def test_a_line_too_long_for_the_bar_holds_then_scrolls_to_its_end_and_starts_over():
+    import cairo
+    from ui.bar import HOLD, SCROLL, Bar
+
+    bar = Bar.__new__(Bar)
+    bar._scroll, bar._scrolling = (None, 0.0), False
+
+    def first_ink(t, text):  # the left-most lit column of the line, at time t
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 400, 80)
+        bar._paint_line(cairo.Context(surface), text, 100, 150, t, 1.0)
+        data, stride = surface.get_data(), surface.get_stride()
+        return min((x for y in range(80) for x in range(400) if data[y * stride + x * 4 + 3]), default=None)
+
+    first_ink(0.0, "short")
+    assert not bar._scrolling  # fits: shown as it is
+    long = "Try “open the project I was working on yesterday”"
+    still = first_ink(10.0, long)
+    assert bar._scrolling and still >= 100 and first_ink(10.0 + HOLD - 0.1, long) == still  # held at the start
+    assert first_ink(10.0 + HOLD + 2, long) == 100  # scrolled: its start is clipped off at the left edge
+    assert bar._scroll == (long, 10.0)

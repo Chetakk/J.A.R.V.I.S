@@ -19,7 +19,7 @@ def test_tips_are_phrases_you_can_say_as_they_are():
 
     skills = [SimpleNamespace(phrases=("brief me", "remind me in <n> minutes", "show my week (a grid of hours)",
                                        "what's the weather like in the city where I was born", "type"))]
-    assert tips(skills) == ["brief me"]
+    assert tips(skills) == ["brief me", "what's the weather like in the city where I was born"]  # any length
 
 
 def test_the_notification_count_is_what_is_in_gnomes_list():

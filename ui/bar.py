@@ -51,6 +51,7 @@ TALK_LINES = {("happy", "you"): "Anytime", ("happy", "jarvis"): "Happy to help",
               ("stressed", "jarvis"): "Rough patch. I'm on it"}
 ROTATE = 8.0  # seconds a lasting mood's line (music, a busy computer) takes turns with the plain one
 EXTRA_SECS = 2 * ROTATE  # seconds each random extra after "Ready" stays
+SCROLL, HOLD = 30.0, 1.2  # a line too long for the bar scrolls this many px a second, held this long at each end
 RIGHT_SECS, SLIDE = 5.0, 0.6  # each thing at the compact bar's right end stays this long; the next slides in this fast
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
@@ -253,6 +254,7 @@ class Bar:
         GLib.timeout_add_seconds(5, self.body.check)
         self._every = None  # the timer's ms: 33 while busy, moving or blinking, BREATH while idle, None when stopped
         self._settle = 0.0
+        self._scroll, self._scrolling = (None, 0.0), False  # the idle line too long to fit: (it, since when)
         self._cached = None
         self._glow = self._glass = None
         self._measure = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))  # sizes text off screen
@@ -488,7 +490,7 @@ class Bar:
         # A reply comes up WORDS_HOLD after your words, and the bar's width follows it.
         t = time.time()
         busy = moving or t < max(self._settle, self._words_at + WORDS_HOLD + 0.4) or (self.mode != "hidden" and self._state() in ANIMATED)
-        busy = busy or self.mode == "compact" and t % RIGHT_SECS < SLIDE + 0.1  # the right end sliding to its next
+        busy = busy or self.mode == "compact" and (t % RIGHT_SECS < SLIDE + 0.1 or self._scrolling)  # sliding, scrolling
         if self.win.get_visible():
             self.win.queue_draw()
         state = self._state()
@@ -758,8 +760,14 @@ class Bar:
         left = PAD + PILL + 8
         if self.mode == "compact":
             text, alpha = self._compact_text(state, t)
-            room = self._paint_right(cr, w, t) - left
+            tip = text.startswith("Try “")  # a thing to try gets the whole bar: the right end steps aside
+            room = (w - PAD - 16 if tip else self._paint_right(cr, w, t)) - left
+            if tip and alpha < 1:
+                self._paint_right(cr, w, t, 1 - alpha)  # fading out as the tip fades in, and back
             self._paint_progress(cr, w, t)
+            if state == "idle":
+                self._paint_line(cr, text, left, room, t, 0.92 * alpha)
+                return
             _show(cr, _layout(cr, text, TEXT - 1, room, keep_end=state == "thinking"), left, HEIGHT / 2, 0.92 * alpha)
             return
         room = min([a for a, _b in zones.values()] or [w - PAD - 20]) - left - 8
@@ -880,9 +888,27 @@ class Bar:
         items.append(text(time.strftime("%-I:%M %p", time.localtime(t)).lower(), 0.6))
         return items
 
-    def _paint_right(self, cr, w, t):
+    def _paint_line(self, cr, text, x, room, t, alpha):
+        """The idle line, whole: one too long for `room` holds a moment, scrolls left to its end, holds, starts over."""
+        layout, mid = _layout(cr, text, TEXT - 1), HEIGHT / 2
+        over = layout.get_pixel_size()[0] - room
+        self._scrolling = over > 0
+        if not self._scrolling:
+            _show(cr, layout, x, mid, alpha)
+            return
+        if self._scroll[0] != text:
+            self._scroll = (text, t)
+        at = (t - self._scroll[1]) % (over / SCROLL + 2 * HOLD)
+        cr.save()
+        cr.rectangle(x, 0, room, HEIGHT)
+        cr.clip()
+        _show(cr, layout, x - min(over, max(0.0, (at - HOLD) * SCROLL)), mid, alpha)
+        cr.restore()
+
+    def _paint_right(self, cr, w, t, fade=1.0):
         """The compact bar's right end: one thing at a time, each up for RIGHT_SECS, the next sliding up from below
-        as the last slides out the top. Returns where the words must stop: short of the widest, so they keep still."""
+        as the last slides out the top, all at `fade`. Returns where the words must stop: short of the widest, so they
+        keep still."""
         items, right = self._right_items(cr, t), w - PAD - 16
         n, at = int(t // RIGHT_SECS), t % RIGHT_SECS
         k = _smooth(at / SLIDE) if len(items) > 1 else 1.0
@@ -898,7 +924,7 @@ class Bar:
             cr.translate(0, dy)
             draw(right)
             cr.pop_group_to_source()
-            cr.paint_with_alpha(alpha)
+            cr.paint_with_alpha(alpha * fade)
         cr.restore()
         return right - max(width for width, _draw in items) - 10
 
