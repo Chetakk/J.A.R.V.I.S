@@ -58,7 +58,8 @@ SECRET_PLACES = ["Read(~/.ssh/**)", "Read(~/.gnupg/**)", "Read(~/.local/share/ke
 
 # Thinking only adds delay for these short answers; non-essential traffic is the background call
 # that titles each conversation (and similar extras) - JARVIS never uses those.
-_ENV = dict(os.environ, MAX_THINKING_TOKENS="0", CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1")
+# JARVIS_CLAUDE: ~/.claude/notify.py sends no desktop notification for these background answers.
+_ENV = dict(os.environ, MAX_THINKING_TOKENS="0", CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1", JARVIS_CLAUDE="1")
 
 
 class ClaudeError(Exception):
