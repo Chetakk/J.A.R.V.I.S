@@ -34,7 +34,11 @@ class Status(Skill):
         voice = {"idle": "listening for my name", "off": "voice input is off", "starting": "still starting"}.get(
             j.rest, j.rest)
         try:
-            urllib.request.urlopen("http://127.0.0.1:%d/" % j.whisper_port, timeout=0.5)
+            if getattr(j.whisper, "ears", False):  # Ears has no port: it's a process JARVIS started
+                if not j.whisper._ping():
+                    raise OSError
+            else:
+                urllib.request.urlopen("http://127.0.0.1:%d/" % j.whisper_port, timeout=0.5)
             stt = "speech recognition is up"
         except Exception:
             stt = "speech recognition is NOT running"

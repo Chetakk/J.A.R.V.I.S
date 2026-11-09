@@ -1404,8 +1404,8 @@ def start_voice(jarvis, whisper):
     print("[voice] Transcribe ready: hold %s, speak, and it's typed at the cursor." % transcribe_cfg["key"])
 
     wake_cfg = jarvis.settings.get("wake_word") or {}
-    busy = lambda: jarvis.speaker.busy() or ptt.recording  # noqa: E731
-    if wake_cfg.get("enabled", True) and wake_cfg.get("engine", "whisper") == "whisper":
+    busy = lambda: jarvis.speaker.busy() or ptt.held or transcribe_key.held  # noqa: E731
+    if wake_cfg.get("enabled", True) and wake_cfg.get("engine", "whisper") in ("whisper", "ears"):
         def on_text(text, follow_up):
             jarvis.state("thinking")
             put_voice("follow" if follow_up else "voice", text)
@@ -1598,7 +1598,14 @@ def main():
     threading.Thread(target=watch, args=(jarvis,), daemon=True).start()
     threading.Thread(target=teach, args=(jarvis,), daemon=True).start()
     print("Type /help for commands.")
-    whisper = jarvis.whisper = Whisper(jarvis.settings.get("stt") or {})
+    if (jarvis.settings.get("wake_word") or {}).get("engine") == "ears":
+        from voice.ears import Ears  # (only loaded when it's the one in use)
+        if (jarvis.settings.get("ears") or {}).get("words") != "whisper":
+            subprocess.call(["pkill", "-x", "whisper-server"])  # one left by an earlier run would hold on to 1.5 GB
+        whisper = jarvis.whisper = Ears(jarvis.settings.get("ears") or {}, jarvis.settings.get("stt") or {})
+        whisper.is_deaf = lambda: jarvis.deaf
+    else:
+        whisper = jarvis.whisper = Whisper(jarvis.settings.get("stt") or {})
     threading.Thread(target=watchdog.run, args=(jarvis, jarvis.settings.get("watchdog") or {}), daemon=True).start()
     threading.Thread(target=start_voice, args=(jarvis, whisper), daemon=True).start()
     threading.Thread(target=read_keyboard, args=(inbox,), daemon=True).start()
