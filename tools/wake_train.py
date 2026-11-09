@@ -31,6 +31,7 @@ CLIPS = os.path.join(JARVIS, "speech-test")
 MINE = os.path.join(JARVIS, "wake-data", "mine")  # tools/speechtest.py record-wake
 MEDIA = os.path.join(JARVIS, "wake-data", "media")  # voice/ears.py MediaRecorder
 MINE_HITS = os.path.join(JARVIS, "wake-data", "hits")
+FALSE = os.path.join(JARVIS, "wake-data", "false")  # wake-ups you called false ("Jarvis, false wake": voice/ears.py)
 PLACES = ("close", "arm", "side", "across", "away", "far", "seat")  # tests/wake_session.yaml parts with the name alone
 OUT = "jarvis_wake.next"
 FILES = {"mel": "melspectrogram.onnx", "embed": "embedding_model.onnx", "noise": "validation_set_features.npy"}
@@ -86,7 +87,11 @@ def placed(clip, room, positive):
     clip = clip * np.exp(rng.uniform(np.log(0.5), np.log(2)))
     x = background(room)
     end = LENGTH - int(rng.uniform(0.05, 0.35) * RATE) if positive else rng.integers(int(0.5 * RATE), LENGTH)
-    clip = clip[-end:]
+    if positive or len(clip) <= end:
+        clip = clip[-end:]
+    else:  # a long "not the name" clip (a false wake-up): what set it off can be anywhere in it
+        start = rng.integers(0, len(clip) - end + 1)
+        clip = clip[start:start + end]
     x[end - len(clip):end] += clip
     return np.clip(x, -32768, 32767)
 
@@ -180,11 +185,13 @@ def main():
     other = dict([(("commands", i), clip("commands", i)) for i in bare] + [(("noise", i), clip("noise", i)) for i in range(1, len(lines["noise"]) + 1)])
     other.update({(part, i): read(mine(part, i)) for part in ("near", "talk") for i in range(1, len(session.get(part) or []) + 1)
                   if os.path.exists(mine(part, i))})
+    other.update({("false", i): read(p) for i, p in enumerate(sorted(glob.glob(os.path.join(FALSE, "*.wav"))), 1)})
     breath = {("named", i): clip("commands", i) for i in named}
     breath.update({("breath", i): read(mine("breath", i)) for i in range(1, len(session.get("breath") or []) + 1)
                    if os.path.exists(mine("breath", i))})
     room = [c for k, c in other.items() if k[0] == "noise"]
-    print("clips: %d name, %d other, %d name-in-one-breath" % (len(wake), len(other), len(breath)), flush=True)
+    print("clips: %d name, %d other (%d false wakes), %d name-in-one-breath" % (
+        len(wake), len(other), sum(k[0] == "false" for k in other), len(breath)), flush=True)
 
     print("voices...", flush=True)
     tts_pos = speak(["Jarvis.", "Hey Jarvis.", "Jarvis!", "Hey, Jarvis."], (0.8, 1.0, 1.25))
@@ -238,19 +245,19 @@ def main():
     hit = lambda kinds, t: (sum(max(v) >= t for k, v in scores.items() if k[0] in kinds),  # noqa: E731
                             sum(k[0] in kinds for k in scores))
     print("\nOn clips each model never trained on. Name: should wake. Others: should not.")
-    print("%6s  %-9s %-11s %-10s %-11s %-9s %-7s %-10s %s" % ("cutoff", "old name", "room name", "one-breath",
-                                                            "sound-alike", "commands", "noise", "outside/h", "show/h"))
+    print("%6s  %-9s %-11s %-10s %-11s %-9s %-7s %-11s %-10s %s" % ("cutoff", "old name", "room name", "one-breath",
+          "sound-alike", "commands", "noise", "false wake", "outside/h", "show/h"))
     table = []
     for t in THRESHOLDS:
         row = {"cutoff": t, "old": hit(("wake",), t), "room": hit(PLACES, t), "breath": hit(("named", "breath"), t),
-               "near": hit(("near", "talk"), t), "commands": hit(("commands",), t), "noise": hit(("noise",), t),
+               "near": hit(("near", "talk"), t), "commands": hit(("commands",), t), "noise": hit(("noise",), t), "false": hit(("false",), t),
                "per_hour": float(np.mean([alarms(s, t) for s in outside_scores])) / hours,
                "show_per_hour": (float(np.mean([sum(alarms(r, t, 1) for r in runs) for runs in show_scores])) / show_hours
                                  if show_hours else None)}
         table.append(row)
         f = lambda p: "%d/%d" % p  # noqa: E731
-        print("%6.3f  %-9s %-11s %-10s %-11s %-9s %-7s %-10.2f %s" % (t, f(row["old"]), f(row["room"]), f(row["breath"]),
-              f(row["near"]), f(row["commands"]), f(row["noise"]), row["per_hour"],
+        print("%6.3f  %-9s %-11s %-10s %-11s %-9s %-7s %-11s %-10.2f %s" % (t, f(row["old"]), f(row["room"]), f(row["breath"]),
+              f(row["near"]), f(row["commands"]), f(row["noise"]), f(row["false"]), row["per_hour"],
               "%.1f" % row["show_per_hour"] if show_hours else "-"))
     print("\nby place, at 0.98:", ", ".join("%s %d/%d" % ((p,) + hit((p,), 0.98)) for p in ("wake",) + PLACES))
     missed = sorted("%s-%02d %.2f" % (k[0], k[1], max(v)) for k, v in scores.items() if k[0] in PLACES + ("wake",) and max(v) < 0.98)

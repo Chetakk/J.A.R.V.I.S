@@ -2,6 +2,7 @@
 import contextlib
 import io
 import struct
+import time
 
 import numpy as np
 
@@ -359,3 +360,16 @@ def test_nothing_is_recorded_while_the_mic_is_muted(monkeypatch):
     assert e.recorder.playing()
     e.is_deaf = lambda: True
     assert not e.recorder.playing()
+
+
+def test_false_wake_moves_the_last_wake_up_but_not_the_call_that_said_so(monkeypatch, tmp_path):
+    monkeypatch.setattr(E, "DATA", str(tmp_path))
+    e = ears(monkeypatch, 8000)
+    assert e.mark_false("false wake") == 0  # nothing kept yet
+    e.transcribe(LOUD)  # the false one ("Jarvis, open youtube" in the fake)
+    time.sleep(0.002)  # (clips are named to the millisecond; real wake-ups are seconds apart)
+    e.keep_hit(b"\0\0" * 1600, "Jarvis, that was a false wake.")  # you, telling it: woke it too
+    assert e.mark_false("that was a false wake") == 1
+    assert len(list((tmp_path / "false").glob("*.wav"))) == 1 and len(list((tmp_path / "hits").glob("*.wav"))) == 1
+    assert "open youtube" in (tmp_path / "false" / "false.jsonl").read_text()
+    assert e.mark_false("that was a false wake") is None  # said twice: still just the one

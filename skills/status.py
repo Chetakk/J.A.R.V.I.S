@@ -10,11 +10,18 @@ from system import health
 STOP = re.compile(r"^\W*(?:ok(?:ay)?\W+)?(?:stop(?: talking| it| that)?|be quiet|quiet|shut up|enough|"
                   r"that'?s enough|cancel|never ?mind|silence)\W*$", re.IGNORECASE)
 
+# "Falls wake": how it was typed (and may be heard).
+FALSE_WAKE = (r"(?:(?:that|it|this) (?:was|is)(?: a| an)? |that'?s(?: a)? |it'?s(?: a)? |another )?(?:false|falls?|fake|wrong|mistaken)"
+              r" (?:wake(?:[ -]?up)?|alarm|trigger)s?|you woke(?: up)? (?:by mistake|for nothing|on your own|"
+              r"by yourself)|i (?:didn'?t|did not) call you|(?:nobody|no one|no-one) called you|"
+              r"(?:that|it) (?:was ?n'?t|was not) (?:me|for you)")
+
 
 class Status(Skill):
     group = "itself"
-    does = "Stops JARVIS talking; says whether it can hear, understand and talk"
-    phrases = ("status", "stop (stop talking)")
+    does = ("Stops JARVIS talking; says whether it can hear, understand and talk; \"false wake\" marks the last "
+            "wake-up as a mistake, for retraining the wake model")
+    phrases = ("status", "stop (stop talking)", "false wake")
     gives = "speech and a status card"
     permission = "auto"
     checks = "checks speech recognition, mic, speaker, disk and memory each time"
@@ -23,7 +30,19 @@ class Status(Skill):
         return [
             (STOP, self.stop),
             (r"(?:jarvis |system )?status|health check|are you (?:ok|okay|working)|how are you running", self.status),
+            (FALSE_WAKE, self.false_wake),
         ]
+
+    def false_wake(self, m):
+        """The last wake-up wasn't you: its audio is kept as "not the name" for the next training."""
+        mark = getattr(self.j.whisper, "mark_false", None)
+        marked = mark(m.string) if mark else 0
+        if marked is None:
+            self.say("I've already marked that one.")
+        elif marked:
+            self.say("Got it, that was a false wake. %d marked so far, for the next training." % marked)
+        else:
+            self.say("I haven't got a wake-up saved to mark.")
 
     def stop(self, m=None):
         self.j.speaker.stop()

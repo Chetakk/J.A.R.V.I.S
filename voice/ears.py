@@ -8,6 +8,7 @@ import collections
 import glob
 import json
 import os
+import re
 import signal
 import struct
 import subprocess
@@ -230,6 +231,33 @@ class Ears:
                 os.remove(old)
         except Exception as e:  # never let keeping data get in the way of hearing you
             print("[ears] couldn't keep the wake-up audio: %r" % e)
+
+    def mark_false(self, said=""):
+        """"False wake": the latest wake-up wasn't you. Its clip moves to wake-data/false (training uses it as "not the
+        name", and the newest-200 cleanup can't delete it). `said`: this request, whose own wake-up is skipped.
+        Returns how many are marked in all, 0 if there was nothing to mark, or None if the latest was already marked."""
+        hits, false = os.path.join(DATA, "hits"), os.path.join(DATA, "false")
+        try:
+            with open(os.path.join(hits, "hits.jsonl")) as f:
+                woke = [json.loads(l) for l in f if l.strip()]
+        except (OSError, ValueError):
+            return 0
+        words = lambda s: " ".join(re.findall(r"[a-z0-9']+", s.lower()))  # noqa: E731
+        if woke and said and words(said) and words(said) in words(woke[-1]["heard"]):
+            woke.pop()  # "Jarvis, false wake" woke it too: that one was you
+        if not woke:
+            return 0
+        last = woke[-1]
+        clip = last["clip"] + ".wav"
+        if os.path.exists(os.path.join(false, clip)):
+            return None
+        if not os.path.exists(os.path.join(hits, clip)):
+            return 0
+        os.makedirs(false, exist_ok=True)
+        os.rename(os.path.join(hits, clip), os.path.join(false, clip))
+        with open(os.path.join(false, "false.jsonl"), "a") as f:
+            f.write(json.dumps(last) + "\n")
+        return len(glob.glob(os.path.join(false, "*.wav")))
 
     def unsure(self, said):
         """As Whisper.unsure: True if the latest thing heard containing `said` was doubtful."""

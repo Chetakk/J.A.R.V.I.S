@@ -77,6 +77,10 @@
 "go to workspace 3": skill:workspace
 "status": skill:status
 "how's the system": skill:status
+"false wake": skill:false_wake
+"that was a falls wake": skill:false_wake
+"I didn't call you": skill:false_wake
+"nobody called you": skill:false_wake
 "what's running": skill:whats_running
 "list projects": skill:list_projects
 "run the jarvis project": skill:run_project
