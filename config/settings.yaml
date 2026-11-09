@@ -132,7 +132,7 @@ claude:                    # phase 2
 ui:
   enabled: true            # glass voice bar (it takes the dock's place while you talk) + top-right tray icon
   look: glass              # glass = see-through grey like Discord; solid = the older dark, opaque look
-  orb: auto                # auto = the bar appears while you're talking to it, fades after; true = the orb stays in the corner; false = never
+  orb: auto                # auto = the bar appears while you're talking to it, fades after; always = the same, but it goes back to the corner instead of fading; true = the orb stays in the corner; false = never
   orb_hide_after: 4        # seconds the bar stays after JARVIS is done and the chat is closed
   hide_after: 30           # the chat and each card hide after this many quiet seconds (pointer not on them);
                            # a card counts from when it opened, so the earliest goes first

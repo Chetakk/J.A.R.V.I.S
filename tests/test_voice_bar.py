@@ -13,6 +13,8 @@ def test_the_bar_is_full_only_while_it_is_in_use_and_a_long_claude_run_gives_the
     assert bar_mode(0, True, True, False, False, True) == "compact"  # compact mode, even while talking
     assert bar_mode(0, False, False, False, False, False) == "hidden"
     assert bar_mode(LONG_CLAUDE + 1, True, True, False, False, False) == "compact"
+    assert bar_mode(0, True, False, False, False, False, True) == "full"  # always on: the middle while talking
+    assert bar_mode(0, False, False, False, False, False, True) == "compact"  # always on, idle: back to the corner
 
 
 def test_the_comet_goes_clockwise_round_the_rim():

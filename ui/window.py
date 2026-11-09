@@ -89,13 +89,14 @@ ICONS = {"idle": dict(ring="bbbbbb", core=2.6, fill="ffffff", dash=""),
          "starting": dict(ring="999999", core=2.2, fill="999999", dash='stroke-dasharray="1 3"')}
 
 
-def bar_mode(claude_for, active, chat, lingering, cards, always):
-    """The voice bar: "full" (the dock is hidden), "compact" (the orb in the corner, the dock back) or "hidden"."""
-    if always or claude_for > LONG_CLAUDE:
+def bar_mode(claude_for, active, chat, lingering, cards, compact, stay=False):
+    """The voice bar: "full" (the dock is hidden), "compact" (the orb in the corner, the dock back) or "hidden".
+    compact: it never leaves the corner; stay ("always on"): it goes back to the corner when idle instead of going."""
+    if compact or claude_for > LONG_CLAUDE:
         return "compact"  # compact mode is ticked, or a long Claude run mustn't keep the dock away for minutes
     if active or chat or lingering:
         return "full"
-    return "compact" if cards else "hidden"
+    return "compact" if cards or stay else "hidden"
 
 
 def _icon_name(state, silent, deaf):
@@ -136,7 +137,9 @@ class UI:
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self._prefs = self._load_prefs()
-        self.orb_mode = True if self._prefs.get("compact") else cfg.get("orb", "auto")  # "auto" | True (compact) | False
+        bar = self._prefs.get("bar") or ("compact" if self._prefs.get("compact") else None)  # "compact": older saves
+        self.orb_mode = {"compact": True, "always": "always", "auto": "auto"}.get(bar, cfg.get("orb", "auto"))
+        # orb_mode: "auto" | "always" (the corner when idle) | True (compact) | False
         self.orb_hide_after = float(cfg.get("orb_hide_after", 4))
         self.hide_after = float(cfg.get("hide_after", 60))  # the chat and each card alike
         self._quiet_since = None  # JARVIS idle and you not on the chat or card since then
@@ -661,7 +664,7 @@ class UI:
                 self._set_chat(False)
                 chat = False
         mode = bar_mode(self.long_claude(), active, chat, now - self._busy_at < self.orb_hide_after, card,
-                        self.orb_mode is True)
+                        self.orb_mode is True, self.orb_mode == "always")
         self.bar.set_mode("hidden" if self.orb_mode is False else mode)
 
     def _entry_send(self, entry):
@@ -739,10 +742,17 @@ class UI:
         self.chat_item = Gtk.CheckMenuItem(label="Show chat")
         self.chat_item.connect("toggled", self._menu_chat)
         m.append(self.chat_item)
-        orb_item = Gtk.CheckMenuItem(label="Compact mode")
-        orb_item.set_active(self.orb_mode is True)
-        orb_item.connect("toggled", self._menu_orb)
-        m.append(orb_item)
+        bar_menu, group = Gtk.Menu(), None
+        for key, label in (("auto", "Auto: shows while you talk"), ("always", "Always on: back to the corner when idle"),
+                           ("compact", "Compact: always in the corner")):
+            item = Gtk.RadioMenuItem(label=label, group=group)
+            group = group or item
+            item.set_active(self.orb_mode == {"compact": True}.get(key, key))
+            item.connect("toggled", self._menu_orb, key)
+            bar_menu.append(item)
+        bar_item = Gtk.MenuItem(label="JARVIS bar")
+        bar_item.set_submenu(bar_menu)
+        m.append(bar_item)
         self.understood_item = Gtk.CheckMenuItem(label="Show what JARVIS understood")
         self.understood_item.set_active(self.bar.show_understood)
         self.understood_item.connect("toggled", self._menu_understood)
@@ -777,9 +787,12 @@ class UI:
         m.show_all()
         ind.set_menu(m)
 
-    def _menu_orb(self, item):
-        self.orb_mode = True if item.get_active() else "auto"  # auto: the full bar while talking
-        self._save_pref("compact", item.get_active())
+    def _menu_orb(self, item, key):
+        if not item.get_active():
+            return  # the choice being left; the new one sends its own toggled
+        self.orb_mode = {"compact": True}.get(key, key)
+        self._prefs.pop("compact", None)
+        self._save_pref("bar", key)
         self._refresh()
 
     def _menu_chat(self, item):
