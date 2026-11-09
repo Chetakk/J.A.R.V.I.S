@@ -107,3 +107,35 @@ def test_dance_moves_are_random_kept_at_least_30_s_and_changed_on_a_beat(monkeyp
     assert seen == set(B.DANCES)  # every move comes up
     assert all(b - a >= 30 for a, b in zip(changes, changes[1:]))  # none is cut short
     assert all(t * 2 % 1 < 0.5 for t in changes)  # each change lands right after a beat (120 bpm: every 0.5 s)
+
+
+def _music():
+    from ui.feelings import Music
+
+    music = Music.__new__(Music)  # no listening thread
+    music._since = music._gone = music._last = None
+    return music
+
+
+def test_spotify_counts_at_once_but_a_show_needs_15_s_of_music():
+    from ui.feelings import HOLD
+
+    show, spotify = _music(), _music()
+    assert spotify._settle("dance", 100.0, instant=True) == "dance"
+    assert show._settle("dance", 100.0, instant=False) is None
+    assert show._settle("dance", 100.0 + HOLD - 1, instant=False) is None  # a scene's song: not yet
+    assert show._settle("dance", 100.0 + HOLD, instant=False) == "dance"  # still going: it's music
+
+
+def test_a_short_gap_keeps_the_music_and_a_long_one_ends_it():
+    from ui.feelings import GAP, HOLD
+
+    show = _music()
+    for t in range(0, HOLD + 1):
+        show._settle("sway", 100.0 + t, instant=False)
+    end = 100.0 + HOLD
+    assert show._settle(None, end + 1, instant=False) == "sway"  # a quiet bar in the song
+    assert show._settle("sway", end + 2, instant=False) == "sway"  # and it's back: no new wait
+    assert show._settle(None, end + 3, instant=False) == "sway"
+    assert show._settle(None, end + 3 + GAP, instant=False) is None  # it stopped
+    assert show._settle("sway", end + 4 + GAP, instant=False) is None  # music again: the wait starts over

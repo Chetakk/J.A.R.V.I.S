@@ -14,6 +14,8 @@ RATE, HOP = 8000, 160  # 8 kHz mono, 20 ms frames: the beat envelope runs at 50 
 LISTEN = 8  # seconds of music the beat is read from
 LAG = 0.15  # shortcut: the speaker plays a moment after the monitor hears it; tune if the bob runs early (BT lags more)
 DANCE_BPM = 95  # a steady beat this fast or faster is danced to; slower is swayed with
+HOLD = 15  # seconds of music a show or video (anything but Spotify) needs before the eyes react: a scene's song isn't it
+GAP = 4  # seconds without music that end it: a quiet bar in a song doesn't
 STEADY = 0.25  # how alike the beat is from one bar to the next (0..1) to count as a beat at all
 # How far the bass swings between hits (log level, 10th to 90th percentile). A slow-looking beat that pumps this hard
 # is a dance track in half time (kick on every other beat): danced to at double tempo. Measured: two dance songs 1.5
@@ -64,22 +66,25 @@ class Music:
         self.want = False
         self.kind, self.bpm, self.beat_at = None, 0.0, 0.0
         self.track = ""  # "Song · Artist" while a player says what it plays
+        self.instant = False  # Spotify is playing: its music counts at once
+        self._since = self._gone = self._last = None  # music heard since, none heard since, the last kind heard
         threading.Thread(target=self._run, name="music-feel", daemon=True).start()
 
     def _run(self):
-        from skills.media import playing_player, track
+        from skills.media import _is_spotify, playing_player, track
         proc, buf, checked, playing, felt = None, deque(maxlen=RATE * LISTEN // 800), 0.0, False, 0.0
         while True:
             now = time.time()
             if self.want and now - checked > 3:
                 checked, player = now, playing_player()
                 playing, self.track = bool(player), track(player) if player else ""
+                self.instant = bool(player) and ("spotify" in player.lower() or _is_spotify(player))
             if not (self.want and playing):
                 if proc:
                     proc.kill()
                     proc.wait()
                     proc = None
-                self.kind = None
+                self.kind = self._since = self._gone = None
                 buf.clear()
                 time.sleep(0.5)
                 continue
@@ -98,8 +103,23 @@ class Music:
             buf.append(np.frombuffer(chunk, dtype=np.int16))
             if now - felt >= 1 and len(buf) * 800 >= RATE * 3:
                 felt = now
-                self.kind, self.bpm, last = music_feel(np.concatenate(buf))
+                kind, self.bpm, last = music_feel(np.concatenate(buf))
+                self.kind = self._settle(kind, now, self.instant)
                 self.beat_at = now - last + LAG
+
+
+    def _settle(self, kind, now, instant):
+        """What the eyes show for this second's verdict. Spotify's music at once; a show's or a video's only after
+        HOLD s of it, so a scene's song doesn't put the headphones on. A gap shorter than GAP s keeps the last kind."""
+        if kind:
+            self._since, self._gone, self._last = self._since or now, None, kind
+        else:
+            self._gone = self._gone or now
+            if now - self._gone >= GAP:
+                self._since = None
+        if self._since is None or not instant and now - self._since < HOLD:
+            return None
+        return kind or self._last
 
 
 def pc_mood(cpu, gpu, hottest, free, hour, busy_for):
