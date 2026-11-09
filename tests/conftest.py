@@ -194,6 +194,8 @@ def jv(monkeypatch):
     monkeypatch.setattr(verify, "QUICK_SECONDS", 0.5)
     monkeypatch.setattr(verify, "grab", lambda geometry: harness.current.grab(geometry) if harness.current else None)
     monkeypatch.setattr(todos.Todos, "_watch", lambda self: None)  # an endless loop; tests run one round of it
+    from system import chrome_link
+    monkeypatch.setattr(chrome_link, "call", lambda *a, **k: None)  # never your real Chrome (JARVIS Link)
 
     import queue
     import jarvis as J

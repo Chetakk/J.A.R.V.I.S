@@ -20,7 +20,8 @@ SAMPLES = {"x": "stretch", "y": "rust", "n": "2", "app": "chrome", "file": "plan
 # Phrases that only mean the skill with something already going on (a text being read, dictation on):
 # routed elsewhere otherwise, by design.
 NEEDS_CONTEXT = {"read the rest", "read all of it", "summarise it", "stop dictation",
-                 "open the first folder", "open the second one"}  # only after JARVIS has listed a folder
+                 "open the first folder", "open the second one",  # only after JARVIS has listed a folder
+                 "open <name>", "play <n>", "skip <n> seconds", "video speed <n>"}  # need JARVIS Link and a page
 ENTRIES = registry.entries()
 
 
