@@ -316,3 +316,14 @@ def test_open_spotify_twice_focuses_the_one_window(jv, monkeypatch):
     jv.desktop.add("Spotify – Web Player", "open.spotify.com SpotifyWeb", front=False)
     jv.do("open spotify")
     assert launched == [] and jv.desktop.did("focus") == ["Spotify – Web Player"]
+
+
+@pytest.mark.parametrize("text", ["play spotify", "show the spotify card", "what's playing"])
+def test_spotify_on_the_echo_gets_a_card_from_the_window_title(jv, spotify, text):
+    """Spotify Connect: Chrome's player says Stopped and names nothing; the song is only in the window title."""
+    spotify["player"] = ("org.mpris.MediaPlayer2.chrome.instance7", Player(status="Stopped"))
+    jv.desktop.add("Dj Waley Babu • Badshah, Aastha Gill", "spotifyweb SpotifyWeb", front=False)
+    jv.do(text)
+    c = [c for c in jv.cards if c.get("id") == "playing"][-1]
+    assert "title: Dj Waley Babu\nartist: Badshah, Aastha Gill" in c["text"] and c["stay"] is True
+    assert "art:" not in c["text"] and not spotify["player"][1].calls  # no Chrome logo, nothing played here

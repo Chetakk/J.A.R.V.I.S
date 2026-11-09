@@ -42,7 +42,8 @@ class Media(Skill):
              lambda m: self.media("Play", music="video" not in m.group(0) and "youtube" not in m.group(0))),
             (r"(?:next|skip)(?: this)?(?: song| track| video)?", lambda m: self.media("Next")),
             (r"(?:previous|last|go back a) (?:song|track|video)", lambda m: self.media("Previous")),
-            (r"what'?s playing|what (?:song|music) is (?:this|playing)|what'?s this song|what am i listening to",
+            (r"what'?s playing|what (?:song|music) is (?:this|playing)|what'?s this song|what am i listening to|"
+             r"show (?:me )?(?:the |a )?(?:spotify|music|song|now playing) card",
              lambda m: self.playing()),
         ]
 
@@ -50,7 +51,8 @@ class Media(Skill):
         """Play in Spotify: resume it if it's open, else start it, press its Space key until it plays."""
         player = _spotify_player()
         if _elsewhere(player):
-            self.say("Spotify's already playing.")  # on another device: Play here would only show a dead card
+            self.follow(spotify=True)  # on another device (the Echo): its card comes from the window title
+            self.say("Spotify's already playing.")
             return
         if player:
             if _mpris_status(player[1]) != "Playing":
@@ -93,14 +95,21 @@ class Media(Skill):
         find = _spotify_player if spotify else _mpris_player
 
         def loop():
-            shown, end = None, time.time() + FOLLOW_FOR
+            shown, song, end = None, "", time.time() + FOLLOW_FOR
             while time.time() < end and self._following is token:
                 player = find()
-                if not player:
+                # Spotify Connect (the Echo): Chrome's player says Stopped and names nothing, the window title does
+                connect = spotify and not (player and _mpris_status(player[1]) in ("Playing", "Paused"))
+                if connect:
+                    now = spotify_title()
+                    song = now or song  # paused, the title drops the song: keep the last one
+                    card = _connect_card(song, bool(now)) if song else None
+                else:
+                    card = _now_playing(player[1], _metadata(player[1]), spotify) if player else None
+                if not card:
                     if shown and self.j.ui:
                         self.j.ui.close_card("playing")  # the player quit: nothing to stay up for
                     return
-                card = _now_playing(player[1], _metadata(player[1]), spotify)
                 if shown and not (self.j.ui and self.j.ui.card_open("playing")):
                     return  # closed or replaced: stop
                 key = card["text"].rsplit("time:", 1)[0] + card["choices"][1]["label"]  # the song, and paused or not
@@ -137,6 +146,7 @@ class Media(Skill):
         player = _mpris_player()
         elsewhere = _elsewhere(player)
         if elsewhere:
+            self.follow(spotify=True)
             title, _, artist = elsewhere.partition(" • ")
             self.say("It's %s%s." % (title, " by %s" % artist if artist else ""))
             return
@@ -279,7 +289,18 @@ def _now_playing(proxy, md, spotify=False):
     state = "playing" if playing else "paused"
     lines.append("time: %d/%d %s" % (min(pos, length), length, state) if length and pos is not None else
                  "time: " + state)
-    return {"id": "playing", "title": "Spotify" if spotify else "Now playing", "stay": playing,  # up while it plays
+    return _music_card(lines, playing, "Spotify" if spotify else "Now playing")
+
+
+def _connect_card(song, playing):
+    """The card for Spotify playing on another device: song and artist from "Song • Artist", no art or progress."""
+    title, _, artist = song.partition(" • ")
+    return _music_card(["title: " + title, "artist: " + artist, "album: ",
+                        "time: " + ("playing" if playing else "paused")], playing, "Spotify")
+
+
+def _music_card(lines, playing, title):
+    return {"id": "playing", "title": title, "stay": playing,  # up while it plays
             "text": "```music\n%s\n```" % "\n".join(lines),
             "choices": [{"label": "Previous", "do": "previous song"},
                         {"label": "Pause" if playing else "Play", "do": "pause" if playing else "play"},
