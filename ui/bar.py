@@ -4,7 +4,6 @@ It sits in the strip the dock reserves: while the bar is up only the dock's pict
 reserved, so no window moves. A click opens the chat. It animates only while JARVIS is busy or the bar is moving.
 """
 import math
-import os
 import random
 import re
 import time
@@ -36,14 +35,6 @@ FOLLOW = 2.0  # seconds the idle eyes keep watching the pointer after it stops
 GAZE_W = 14.0  # the eyes' spring: they ease in and out and settle in about a third of a second, never overshooting
 LAZY = {"sleepy", "hot"}  # drowsy moods: the eyes follow the pointer too, but slowly and only part of the way
 LAZY_W, LAZY_REACH = 3.0, 0.4  # their spring (settles in about 1.5 s) and how far they turn
-# JARVIS_MOOD_DEMO=1: the idle eyes show every mood but music's in turn, DEMO_SECS each, to try them with the pointer
-DEMO = ("idle", "happy", "sad", "angry", "stressed", "busy", "straining", "squeezed", "sleepy", "hot")
-DEMO_SECS = 12
-
-
-def demo_mood(t):
-    """The mood the demo shows at time t ("idle": none), or None when it's off."""
-    return DEMO[int(t // DEMO_SECS) % len(DEMO)] if os.environ.get("JARVIS_MOOD_DEMO") else None
 MOOD_SECS = 5.0  # how long the idle eyes show a mood
 DANCES = ("hop", "nod", "groove", "seesaw", "pulse")  # dance moves, one at random at a time (ui/window.py draws them)
 SWAYS = ("smile", "notes")  # moves for slow, relaxed music, rotated the same way
@@ -337,8 +328,7 @@ class Bar:
 
     def _ambience(self, t):
         """(mood, strength) from the music, else the computer: the old one fades out before the new one fades in."""
-        demo = demo_mood(t)
-        aim = (None if demo == "idle" else demo) if demo else self.music.kind or self.body.mood
+        aim = self.music.kind or self.body.mood
         dt, self._ambient_t = min(0.2, t - (self._ambient_t or t)), t
         if aim != self._ambient:
             self._ambient_k -= dt / 0.4
@@ -823,8 +813,6 @@ class Bar:
         spent = int(self.ui.long_claude())
         if spent:
             return "Claude is working  %d:%02d" % (spent // 60, spent % 60), 1.0
-        if state == "idle" and demo_mood(t):
-            return "Mood demo: %s  (%d s each)" % (demo_mood(t), DEMO_SECS), 1.0
         if state == "idle":
             mood, k = self.feeling
             if mood in ("dance", "sway") and self._song_on_card():
