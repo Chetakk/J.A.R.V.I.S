@@ -52,6 +52,7 @@ TALK_LINES = {("happy", "you"): "Anytime", ("happy", "jarvis"): "Happy to help",
 ROTATE = 8.0  # seconds a lasting mood's line (music, a busy computer) takes turns with the plain one
 EXTRA_SECS = 2 * ROTATE  # seconds each random extra after "Ready" stays
 SCROLL, HOLD = 30.0, 1.2  # a line too long for the bar scrolls this many px a second, held this long at each end
+GRAPH_W, GRAPH_H = 44, 22  # the busy computer's line at the compact bar's right end
 RIGHT_SECS, SLIDE = 5.0, 0.6  # each thing at the compact bar's right end stays this long; the next slides in this fast
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
@@ -854,19 +855,27 @@ class Bar:
             items.append((20, bars))
         history = self.body.history
         if mood in ("busy", "straining", "hot") and len(history) > 1:
-            def graph(right):
-                step = 36 / (history.maxlen - 1)
-                x0 = right - step * (len(history) - 1)
+            pw, percent = text("%d%%" % max(self.body.cpu, self.body.gpu))
+
+            def graph(right):  # how busy now, and a line of the last two minutes filling its whole width
+                percent(right)
+                right -= pw + 6
+                step, bottom = GRAPH_W / (len(history) - 1), mid + GRAPH_H / 2
                 for i, v in enumerate(history):
-                    cr.line_to(x0 + i * step, mid + 7 - 14 * min(v, 100) / 100)
-                cr.set_line_width(1.4)
-                cr.set_source_rgba(*SNOW, 0.85)
+                    cr.line_to(right - GRAPH_W + i * step, bottom - GRAPH_H * min(v, 100) / 100)
+                cr.set_line_width(1.8)
+                cr.set_source_rgba(*SNOW, 0.9)
                 cr.stroke_preserve()
-                cr.line_to(right, mid + 7)
-                cr.line_to(x0, mid + 7)
-                cr.set_source_rgba(*SNOW, 0.15)
+                cr.line_to(right, bottom)
+                cr.line_to(right - GRAPH_W, bottom)
+                cr.set_source_rgba(*SNOW, 0.18)
                 cr.fill()
-            items.append((36, graph))
+                cr.set_line_width(1)
+                cr.set_source_rgba(*SNOW, 0.25)
+                cr.move_to(right - GRAPH_W, bottom + 0.5)
+                cr.line_to(right, bottom + 0.5)
+                cr.stroke()
+            items.append((pw + 6 + GRAPH_W, graph))
         unread = self.ui.extras.get("unread")
         if unread:
             nw, count = text(str(unread))

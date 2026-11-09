@@ -107,7 +107,7 @@ def test_the_compact_bar_right_end_shows_one_thing_at_a_time_sliding_in_turn():
 
     bar = Bar.__new__(Bar)
     bar.feeling, bar.beat = (None, 0.0), 0.3
-    bar.body = SimpleNamespace(history=deque([20, 95, 90], maxlen=24))
+    bar.body = SimpleNamespace(cpu=91.0, gpu=12.0, history=deque([20, 95, 90], maxlen=24))
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, COMPACT_W, 80)
     cr = cairo.Context(surface)
     bar.ui = SimpleNamespace(mutes={"voice": False, "speaker": False, "mic": False}, extras={}, timers={})
@@ -119,7 +119,7 @@ def test_the_compact_bar_right_end_shows_one_thing_at_a_time_sliding_in_turn():
     bar.feeling = ("dance", 1.0)
     assert [w for w, _d in bar._right_items(cr, 0)][1] == 20  # the beat bars in the CPU line's place
     # the words stop short of the widest, so they keep still whichever is up
-    assert bar._paint_right(cr, COMPACT_W, 0) == COMPACT_W - PAD - 16 - max(w for w, _d in items) - 10
+    assert bar._paint_right(cr, COMPACT_W, 0) == COMPACT_W - PAD - 16 - max(w for w, _d in bar._right_items(cr, 0)) - 10
     for t in (0.0, 0.3, 2.0, RIGHT_SECS + 0.2, 7 * RIGHT_SECS + 0.5):  # settled and mid-slide
         bar._paint_right(cr, COMPACT_W, t)
     assert any(surface.get_data())
