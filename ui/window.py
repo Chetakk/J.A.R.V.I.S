@@ -780,7 +780,7 @@ class UI:
         copies stay."""
         chat, card, now = self.panel.get_visible(), self.card.visible, time.time()
         hovered = bool(self.bar.hover)
-        if active or hovered or chat:
+        if active or chat or hovered and self.bar.mode == "full":  # hovering the corner bar mustn't pull it out; a click does
             self._busy_at = now
         if active or hovered or self._touching() or not (chat or card):
             self._quiet_since = self._ticked = None
