@@ -200,8 +200,9 @@ class WhisperWake:
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
                  on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
-                 is_dictating=None):
+                 is_dictating=None, on_wait=None):
         self.names = names
+        self.on_wait = on_wait or (lambda seconds: None)  # listening without the name for this many seconds
         self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
         self.whisper = whisper
         # While dictating every phrase is text to type: no name needed, and "that's all" is for dictation to take.
@@ -450,6 +451,7 @@ class WhisperWake:
             self._wait(left)
 
     def _wait(self, seconds):
+        self.on_wait(seconds)
         self.waiting_until = until = time.time() + seconds
         threading.Timer(seconds + 0.3, self._expire, args=(until,)).start()
 

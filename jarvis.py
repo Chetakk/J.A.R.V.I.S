@@ -58,6 +58,7 @@ HELP = """Commands:
   /chat [on|off]   show/hide the chat panel   (or say "show chat" / "hide chat")
   /orb [on|off]    show/hide the floating orb (or say "show orb" / "hide orb")
   /hearing [on|off]  show everything speech recognition hears in the chat ("show what you hear")
+  /understood [on|off]  show what I took your words to mean on the voice bar ("hide what you understood")
   /desk     go to JARVIS's workspace
   /check <command>   show what safety level a shell command gets
   /status   voice, speech recognition, Claude, disk and memory at a glance ("EV, status")
@@ -116,6 +117,8 @@ POINTS_BACK = re.compile(r"\b(?:this|that|these|those|it|them|what (?:we|you|i) 
                          re.IGNORECASE)
 CHAT_PHRASES = {"show what you hear": "/hearing on", "hide what you hear": "/hearing off",
                 "stop showing what you hear": "/hearing off",
+                "show what you understood": "/understood on", "hide what you understood": "/understood off",
+                "stop showing what you understood": "/understood off",
                 "show chat": "/chat on", "open chat": "/chat on", "show the chat": "/chat on",
                 "hide chat": "/chat off", "close chat": "/chat off", "hide the chat": "/chat off",
                 "show orb": "/orb on", "hide orb": "/orb off",
@@ -274,6 +277,14 @@ class Jarvis:
         print("  [heard] %s -> %s" % (text and repr(text), outcome))
         if self.show_hearing:
             self.chat("heard", ("heard \u201c%s\u201d  \u2192 %s" % (text, outcome)) if text else "\u2026 %s" % outcome)
+            if self.ui and outcome.startswith(("ignored", "skipped", "couldn't")):
+                self.ui.count_ignored()
+
+    def understood(self, what):
+        """What your words were taken to mean, for the voice bar."""
+        # shortcut: a phrase with a blank ("volume {n}") shows nothing; fill it from match.slots if that's missed.
+        if self.ui and what and "{" not in what:
+            self.ui.show_understood(what)
 
     def claude_says(self, text):
         """Say Claude's own answer; the chat panel shows it as Claude's rather than JARVIS's."""
@@ -543,6 +554,7 @@ class Jarvis:
                 return True
             action = action.choices[picked]
         if action:
+            self.understood(action.description)
             if action.browser:
                 run = self.registry.browsers[action.browser]
                 self.last_app = run.get("process") or os.path.basename(run["run"].split()[0])
@@ -634,6 +646,7 @@ class Jarvis:
         number or secret, not a private request. `teaching.log: false` turns it off."""
         if self._rewording or self.from_claude or self._private:
             return
+        self.understood(phrase or re.sub(r"(?<!^)([A-Z])", r" \1", skill))  # "BrowserTabs" -> "Browser Tabs"
         if value or not teaching.fit_to_send(text):
             text = ""
         elif how == "pattern":
@@ -1227,6 +1240,7 @@ class Jarvis:
         return bool(self.intents and self.intents.match(t)[0])
 
     def _reword(self, phrase):
+        self.understood(phrase)
         self._rewording = True  # one rewrite only: the new phrase isn't rewritten again
         try:
             return self.handle(phrase)
@@ -1259,6 +1273,7 @@ class Jarvis:
         app, said = self.app_for(apps.OPEN, text)
         if not app:
             return False
+        self.understood("open %s" % app["name"])
         desktop.go_to_jarvis_workspace()
         before = verify.windows_now()
         if not self.apps.launch(app):
@@ -1275,6 +1290,7 @@ class Jarvis:
         app, said = self.app_for(apps.CLOSE, text)
         if not app:
             return False
+        self.understood("close %s" % app["name"])
         if not app["process"]:
             self.speaker.say("%s runs inside the browser, so I'd close the whole browser. Switch to it and say "
                              "close this window instead." % app["name"])
@@ -1332,6 +1348,10 @@ class Jarvis:
                              else "Okay, I'll stop showing what I hear.")
             if self.show_hearing and self.ui:
                 self.ui.show_chat(True)
+        elif cmd == "/understood":
+            if self.ui:
+                self.ui.set_understood({"on": True, "off": False}.get(arg.strip().lower()))
+            self.speaker.say(["Okay.", "Done."])
         elif cmd in ("/chat", "/orb"):
             on = {"on": True, "off": False}.get(arg.strip().lower())
             if not self.ui:
@@ -1432,7 +1452,8 @@ def start_voice(jarvis, whisper):
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
                            on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)),
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
-                           is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating)
+                           is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating,
+                           on_wait=lambda seconds: jarvis.ui and jarvis.ui.follow_timer(seconds))
         wake.start()
         jarvis.wake = wake
         jarvis.follow_up = wake.follow_up

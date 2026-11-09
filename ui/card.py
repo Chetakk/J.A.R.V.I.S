@@ -11,12 +11,9 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
 - id: a card with the same id as one on screen updates it in place (progress, live values).
 - stay: true keeps it up until you close it (the music card while a song plays); its clock starts on the
   update that sets it false.
-Several cards can be up at once (Deck): each new one opens where a card always goes and the earlier ones move
-along beside it, up to MAX_OPEN. Built from plain GTK widgets and a little Cairo, so it costs nothing while hidden.
+Several cards can be up at once (Deck), up to MAX_OPEN, in a row centred above the voice bar with the chat. Built from plain GTK widgets and a little Cairo, so it costs nothing while hidden.
 """
-import json
 import math
-import os
 import re
 import time
 
@@ -28,14 +25,13 @@ gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
 from ui import blocks  # noqa: E402
-from ui.window import ORB, PANEL_W, _clear, _make_transparent  # noqa: E402
+from ui.window import PANEL_H, PANEL_W, _clear, _make_transparent  # noqa: E402
 
 CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel (PANEL_H)
 HISTORY = 10
 MAX_OPEN = 10  # cards on screen at once; opening one more closes the oldest
 GAP = 10
 BUTTONS = 6  # a card shows this many choices as buttons; the rest you pick by number
-POS_FILE = os.path.expanduser("~/.local/share/jarvis/card.json")
 
 CSS = b"""
 .card label { color: #e6e6e6; }
@@ -62,6 +58,30 @@ CSS = b"""
 
 _LINK = re.compile(r"\[([^\]]+)\]\(((?:https?|file)://[^)\s]+)\)")
 _METER = re.compile(r"\[\[(\d{1,3})%\]\]")
+
+
+def arrange(sizes, left, width, bottom, top):
+    """Where windows of these (w, h) sizes go: rows centred on the screen, sitting on `bottom`. One is in the exact
+    middle, two either side of it, three left, middle and right. sizes[0] goes at the right of the bottom row. Rows
+    that no longer fit overlap instead, a little apart."""
+    spots, start, row_bottom = [None] * len(sizes), 0, bottom
+    while start < len(sizes):
+        end, used = start + 1, sizes[start][0]
+        while end < len(sizes) and used + GAP + sizes[end][0] <= width:
+            used += GAP + sizes[end][0]
+            end += 1
+        x = left + (width - used) // 2
+        for i in range(end - 1, start - 1, -1):
+            spots[i] = (x, row_bottom - sizes[i][1])
+            x += sizes[i][0] + GAP
+        row_bottom -= max(h for _w, h in sizes[start:end]) + GAP
+        start = end
+    full = 0
+    for i, (w, h) in enumerate(sizes):
+        if spots[i][1] < top:
+            full += 1
+            spots[i] = (left + (width - w) // 2 + 28 * full, max(top, bottom - h - 28 * full))
+    return spots
 
 
 def meter(percent, cells=10):
@@ -240,8 +260,7 @@ class Card:
     """One card window. GTK-thread only; ui.UI wraps the Deck with thread-safe calls. `last` and `visible` are safe
     to read from any thread."""
 
-    def __init__(self, orb_xy, chat_visible, on_choice, pinned=False, deck=None):
-        self.orb_xy, self.chat_visible = orb_xy, chat_visible  # callables, for placing next to the orb/chat
+    def __init__(self, on_choice, pinned=False, deck=None):
         self.on_choice = on_choice  # callback(phrase) when a choice button is clicked
         self.pinned = pinned  # a pinned copy: closing it destroys it; it never moves on its own
         self.deck = deck  # the Deck that places it (None for a pinned copy)
@@ -379,7 +398,7 @@ class Card:
             return False
         self._dragging = False
         if self.deck:
-            self.deck._dropped(self)
+            self.deck._place()
         return False
 
     def _place(self):
@@ -395,20 +414,19 @@ class Card:
 
 
 class Deck:
-    """The cards on screen: up to MAX_OPEN at once. The newest opens where a card always goes (beside the orb, or
-    where you last dragged one); the earlier ones line up beside it, then in a row above, and overlap a little once
-    the screen is full. A card with the id of one on screen updates that one in place, wherever it is.
+    """The cards on screen: up to MAX_OPEN at once, in a row centred above the voice bar with the chat (see arrange);
+    the newest sits next to the chat, and a card you drag stays where you put it. A card with the id of one on screen updates that one in place, wherever it is.
     GTK-thread only; `last`, `visible`, `history`, current() and ids() are safe to read from any thread."""
 
-    def __init__(self, orb_xy, chat_visible, on_choice):
-        self.orb_xy, self.chat_visible, self.on_choice = orb_xy, chat_visible, on_choice
+    def __init__(self, bottom, chat_visible, move_chat, on_choice):
+        self.bottom, self.chat_visible, self.move_chat, self.on_choice = bottom, chat_visible, move_chat, on_choice
         self.open = []  # windows on screen, oldest first
         self.spare = []  # closed windows, reused for the next card
         self.pins = []
         self.history, self.pos = [], -1  # recent cards, and which one "previous card" / "next card" is on
         self.last = None  # the card shown most recently (for showing it again)
-        self.anchor = _load_xy()  # top-left of the newest card, once you've dragged one
         self._placing = False
+        self._chat_spot = None
 
     @property
     def visible(self):
@@ -444,7 +462,7 @@ class Deck:
             return same.show(card)
         if card is self.last and self.open and self.open[-1].last is card:
             return False  # already up
-        win = self.spare.pop() if self.spare else Card(self.orb_xy, self.chat_visible, self.on_choice, deck=self)
+        win = self.spare.pop() if self.spare else Card(self.on_choice, deck=self)
         win.user_xy = None
         self.open.append(win)
         while len(self.open) > MAX_OPEN:
@@ -497,7 +515,7 @@ class Deck:
         if not self.open:
             return False
         win = self.open[-1]
-        copy = Card(self.orb_xy, self.chat_visible, self.on_choice, pinned=True)
+        copy = Card(self.on_choice, pinned=True)
         x, y = win.win.get_position()
         offset = 24 * (len(self.pins) + 1)
         copy.user_xy = (x - offset, max(0, y - offset))
@@ -518,19 +536,8 @@ class Deck:
             self.spare.append(win)
             self._place()
 
-    def _dropped(self, win):
-        """You dragged a card. The newest one moves where new cards open from now on; any other just stays put."""
-        if self.open and win is self.open[-1]:
-            self.anchor, win.user_xy = win.user_xy, None
-            try:
-                with open(POS_FILE, "w") as f:
-                    json.dump({"x": self.anchor[0], "y": self.anchor[1]}, f)
-            except OSError:
-                pass
-        self._place()
-
     def _place(self):
-        """Newest at the anchor, the rest beside it in rows towards the free side; overlapping once full."""
+        """The chat and the cards in their centred row; a card you dragged stays where it is."""
         if self._placing:
             return
         self._placing = True
@@ -539,35 +546,19 @@ class Deck:
             for w in self.open:
                 if w.user_xy and not w._dragging:
                     Card._place(w)
-            if not auto:
-                return
             geo = Gdk.Display.get_default().get_monitor(0).get_workarea()
-            ox, oy = self.orb_xy()
-            heights = [w.win.get_allocated_height() for w in auto]
-            if self.anchor:
-                right, bottom, step = self.anchor[0] + CARD_W, self.anchor[1] + heights[0], -1
-            else:
-                right = ox - (PANEL_W + 10 if self.chat_visible() else 0) - GAP  # beside the chat when it's open
-                bottom, step = oy + ORB, -1
-                if right - CARD_W < geo.x:  # no room on the left: open to the right of the orb
-                    right, step = ox + ORB + GAP + CARD_W, 1
-            room = right - geo.x if step < 0 else geo.x + geo.width - (right - CARD_W)
-            per_row = max(1, (room + GAP) // (CARD_W + GAP))
-            row_bottom, row_h, full = bottom, 0, 0
-            for i, (w, h) in enumerate(zip(auto, heights)):
-                col = i % per_row
-                if i and not col:
-                    row_bottom -= row_h + GAP
-                    row_h = 0
-                row_h = max(row_h, h)
-                x, y = right - CARD_W + step * col * (CARD_W + GAP), row_bottom - h
-                if y < geo.y:  # the screen is full: lay the rest over the newest, a little apart
-                    full += 1
-                    x, y = right - CARD_W - step * 28 * full, bottom - h - 28 * full
-                x = min(max(geo.x, x), geo.x + geo.width - CARD_W)
-                y = min(max(geo.y, y), geo.y + geo.height - h)
-                if w.win.get_position() != (int(x), int(y)):
-                    w.win.move(int(x), int(y))
+            chat = [(PANEL_W, PANEL_H)] if self.chat_visible() else []
+            # Real widths: a card with a drawn block comes out a few pixels wider, and the gaps must still be equal.
+            spots = arrange(chat + [(max(CARD_W, w.win.get_allocated_width()), w.win.get_allocated_height()) for w in auto],
+                            geo.x, geo.width,
+                            self.bottom(), geo.y)
+            spot = spots.pop(0) if chat else None
+            if spot and spot != self._chat_spot:
+                self.move_chat(*spot)
+            self._chat_spot = spot
+            for w, (x, y) in zip(auto, spots):
+                if w.win.get_position() != (x, y):
+                    w.win.move(x, y)
         finally:
             self._placing = False
 
@@ -583,12 +574,3 @@ def _load_css():
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         _css_loaded = True
-
-
-def _load_xy():
-    try:
-        with open(POS_FILE) as f:
-            pos = json.load(f)
-        return pos["x"], pos["y"]
-    except (OSError, ValueError, KeyError):
-        return None
