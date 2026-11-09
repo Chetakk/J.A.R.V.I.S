@@ -24,6 +24,7 @@ LABELS = {"idle": "Ready", "listening": "Listening…", "thinking": "Thinking…
 ANIMATED = {"listening", "thinking", "claude", "speaking", "starting"}
 MUTED = {"voice": "voice muted", "speaker": "speaker muted", "mic": "not listening"}
 LONG_CLAUDE = 10  # seconds of Claude before the dock comes back
+ORB_FADE = 0.3  # seconds the orb takes to cross-fade from one state to the next
 CLAUDE_RGB = (0.85, 0.47, 0.34)  # Claude's warm orange, as in the chat bubbles
 PANEL_W, PANEL_H = 390, 640
 GLOW = 12  # the .panel margin: transparent room round the chat and cards for their glow, like the bar's
@@ -117,6 +118,99 @@ def _clear(cr):
     cr.set_operator(cairo.OPERATOR_SOURCE)
     cr.paint()
     cr.set_operator(cairo.OPERATOR_OVER)
+
+
+def eye_look(layers, r, t, beat):
+    """The idle eyes' look for `layers` [(mood, strength 0..1, style)], as numbers that blend: moves and sizes add
+    up, scales multiply, so any mix (one dance move fading into the next, a talk mood over the music, falling
+    asleep) changes smoothly. The moods: from talk happy ^ ^ that bounce, sad drooping lids and a slow sigh, angry
+    lids slanting in with a tremble, stressed small darting eyes and a sweat drop; from music, with headphones on,
+    the dance and sway moves; from the computer busy squinting and scanning as if reading (straining sweats too), hot
+    drooping and wobbling with a sweat drop, squeezed pressed thin and fidgety, sleepy half shut with z's; and asleep
+    (mic or voice off): closed ‿ ‿ breathing slowly."""
+    L = dict(dx=0.0, dy=0.0, ew=1.0, eh=1.0, gap=1.0, bright=1.0, inner=0.0, outer=0.0, up=0.0, down=0.0, tilt=0.0,
+             phones=0.0, drop=0.0, zz=0.0, notes=0.0)
+    lift = [0.0, 0.0]
+    for mood, k, style in layers:
+        if not mood or k <= 0:
+            continue
+        if mood == "happy":
+            L["dy"] -= r * 0.05 * abs(math.sin(t * 5)) * k
+            L["up"] += k
+        elif mood == "sad":  # a slow sigh: sinking a little, then back
+            L["dy"] += r * (0.05 + 0.025 * (0.5 - 0.5 * math.cos(t * 1.4))) * k
+            L["outer"] += 0.5 * k
+            L["bright"] *= 1 - 0.3 * k
+        elif mood == "angry":
+            L["dx"] += r * 0.02 * math.sin(t * 45) * k
+            L["inner"] += 0.55 * k
+        elif mood == "stressed":
+            L["dx"] += r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k
+            L["eh"] *= 1 - 0.3 * k
+            L["drop"] = max(L["drop"], k)
+        elif mood == "dance":
+            hop = (1 - beat % 1) ** 2  # 1 on the beat, falling back till the next
+            swing = math.sin(math.pi * beat)  # one way, then the other, a beat each
+            L["phones"] = max(L["phones"], k)
+            if style == "nod":  # dips down on the beat, like nodding along
+                L["dy"] += r * 0.09 * hop * k
+                L["eh"] *= 1 - 0.3 * hop * k
+            elif style == "groove":  # happy ^ ^ that bounce and tilt side to side
+                L["up"] += k
+                L["tilt"] += 0.28 * swing * k
+                L["dy"] -= r * 0.06 * hop * k
+            elif style == "seesaw":  # one eye up while the other's down, swapping every beat
+                lift[0] -= r * 0.09 * swing * k
+                lift[1] += r * 0.09 * swing * k
+            elif style == "pulse":  # eyes and glow swell on the beat
+                L["ew"] *= 1 + 0.3 * hop * k
+                L["eh"] *= 1 + 0.25 * hop * k
+                L["bright"] *= 1 + 0.3 * hop * k
+            else:  # "hop": up on the beat, a step aside every beat
+                L["dy"] -= r * 0.08 * hop * k
+                L["eh"] *= 1 - 0.15 * hop * k
+                L["dx"] += r * 0.06 * swing * k
+        elif mood == "sway":  # relaxed, never sad: slow music is calm, not gloomy
+            slow = math.sin(math.pi * beat / 2)  # one way over two beats, then back
+            L["phones"] = max(L["phones"], k)
+            if style == "smile":  # soft ^ ^, rocking gently
+                L["up"] += k
+                L["tilt"] += 0.12 * slow * k
+            else:  # "notes": closed ‿ ‿, lost in it, swaying a little, little notes drifting up
+                L["down"] += k
+                L["dx"] += r * 0.06 * slow * k
+                L["notes"] = max(L["notes"], k)
+        elif mood in ("busy", "straining"):  # squinting, eyes scanning slowly across as if reading
+            L["eh"] *= 1 - 0.45 * k
+            L["inner"] += 0.15 * k
+            L["dx"] += r * 0.07 * math.sin(t * 1.3) * k
+            if mood == "straining":
+                L["drop"] = max(L["drop"], k)
+        elif mood == "hot":
+            L["dy"] += r * 0.06 * k
+            L["outer"] += 0.35 * k
+            L["dx"] += r * 0.015 * math.sin(t * 9) * k
+            L["eh"] *= 1 + 0.1 * math.sin(t * 3) * k
+            L["drop"] = max(L["drop"], k)
+        elif mood == "squeezed":
+            L["ew"] *= 1 - 0.35 * k
+            L["eh"] *= 1 + 0.08 * k
+            L["gap"] *= 1 - 0.25 * k
+            L["dx"] += r * 0.04 * math.sin(t * 8) * k
+        elif mood == "sleepy":
+            L["dy"] += r * 0.04 * k
+            L["inner"] += 0.5 * k
+            L["outer"] += 0.5 * k
+            L["bright"] *= 1 - 0.2 * k
+            L["zz"] = max(L["zz"], k)
+        elif mood == "asleep":  # closed, dim, rising and falling with slow breaths
+            L["down"] += k
+            L["dy"] += r * (0.03 * math.sin(t * math.pi / 2) - 0.02) * k
+            L["bright"] *= 1 - (0.45 - 0.1 * math.sin(t * math.pi / 2)) * k
+    L["inner"], L["outer"] = min(L["inner"], 0.9), min(L["outer"], 0.9)
+    L["up"], L["down"] = min(L["up"], 1.0), min(L["down"], 1.0)
+    L["lift"] = lift
+    return L
 
 
 class UI:
@@ -268,7 +362,7 @@ class UI:
         tau = 2 * math.pi
 
         # A glass ball, tinted like the chat panel, with a soft sheen across the top.
-        centre, edge, shine, rim = ORB_LOOK[getattr(self, "look", "glass")]
+        centre, edge, shine, _rim = ORB_LOOK[getattr(self, "look", "glass")]
         grad = cairo.RadialGradient(cx, cy - r * 0.35, 0, cx, cy, r)
         grad.add_color_stop_rgba(0, *centre)
         grad.add_color_stop_rgba(1, *edge)
@@ -282,6 +376,24 @@ class UI:
         cr.set_source(sheen)
         cr.fill()
 
+        # A new state cross-fades in over the old one, growing in a little, so nothing jumps.
+        if s != getattr(self, "_orb_to", s):
+            self._orb_from, self._orb_at = self._orb_to, t
+        self._orb_to = s
+        p = min(1.0, (t - getattr(self, "_orb_at", 0.0)) / ORB_FADE)
+        if p < 1:
+            for state, alpha, scale in ((self._orb_from, 1 - p, 1 + 0.06 * p), (s, p, 0.88 + 0.12 * p)):
+                cr.push_group()
+                self._orb_content(cr, state, cx, cy, r, t, scale)
+                cr.pop_group_to_source()
+                cr.paint_with_alpha(alpha)
+        else:
+            self._orb_content(cr, s, cx, cy, r, t)
+
+    def _orb_content(self, cr, s, cx, cy, r, t, scale=1.0):
+        """The rim and what's inside the orb for state `s`; the inside drawn `scale` times its size."""
+        tau = 2 * math.pi
+        rim = ORB_LOOK[getattr(self, "look", "glass")][3]
         glow = 0.5 + 0.5 * math.sin(t * 2.2)
         cr.set_line_width(1.3)
         if s == "claude":
@@ -290,6 +402,10 @@ class UI:
             cr.set_source_rgba(1, 1, 1, rim[0] if s in ("idle", "off") else rim[1])
         cr.arc(cx, cy, r - 0.65, 0, tau)
         cr.stroke()
+        cr.save()
+        cr.translate(cx, cy)
+        cr.scale(scale, scale)
+        cr.translate(-cx, -cy)
 
         if s == "listening":
             # Like Google's: four white bars in a row that jump with your voice and idle as bobbing dots.
@@ -362,94 +478,51 @@ class UI:
                 cr.set_line_width(1.5)
                 cr.stroke()
             self._core(cr, cx, cy, r * (0.18 + 0.07 * abs(math.sin(t * 9)) + 0.03 * math.sin(t * 23)), 0.95)
-        elif s == "off" or self._shown and self._shown[2]:
-            # Voice or mic off: the eyes are shut, asleep.
-            cr.set_line_cap(cairo.LINE_CAP_ROUND)
-            cr.set_line_width(2.0)
-            cr.set_source_rgba(1, 1, 1, 0.5)
-            for side in (-1, 1):
-                cr.arc(cx + side * r * 0.24, cy - r * 0.06, r * 0.12, 0.15 * math.pi, 0.85 * math.pi)
-                cr.stroke()
-            cr.set_line_cap(cairo.LINE_CAP_BUTT)
+        elif s == "off":
+            # JARVIS's voice off: the eyes are shut, asleep, breathing.
+            self._pet_eyes(cr, cx, cy, r, 1.0, 1.0, t=t, layers=[("asleep", 1.0, None)])
         else:
-            # Idle: a pet's eyes that breathe, blink and now and then glance aside.
+            # Idle: a pet's eyes that breathe, blink and now and then glance aside; moods and sleep are looks they
+            # blend between (bar.layers).
             from ui.bar import _breath, _eyes  # ui.bar imports this module
             gx, gy = self.bar.gaze
-            mood, k = self.bar.feeling
-            self._pet_eyes(cr, cx + gx * r * 0.13, cy + gy * r * 0.10, r, _eyes(t)[0], 0.78 + 0.22 * _breath(t), mood, k, t,
-                           self.bar.beat, self.bar.style)
+            self._pet_eyes(cr, cx + gx * r * 0.13, cy + gy * r * 0.10, r, _eyes(t)[0], 0.78 + 0.22 * _breath(t),
+                           t=t, beat=self.bar.beat, layers=self.bar.layers)
+        cr.restore()
 
     @staticmethod
-    def _pet_eyes(cr, cx, cy, r, awake, bright, mood=None, k=0.0, t=0.0, beat=0.0, style=None):
-        """Two glowing eyes. A mood (strength k, 0..1) reshapes them. From talk: happy ^ ^ that bounce, sad lids
-        drooping outwards, angry lids slanting in with a tremble, stressed small darting eyes and a sweat drop. From
-        music (`beat`: beats so far), with headphones on: dance and sway move in the `style` the bar picked. From
-        the computer: busy squints (straining sweats too), hot droops and wobbles with a sweat drop, squeezed is
-        pressed thin and fidgety, sleepy is half shut with z's floating up."""
+    def _pet_eyes(cr, cx, cy, r, awake, bright, mood=None, k=0.0, t=0.0, beat=0.0, style=None, layers=None):
+        """Two glowing eyes in the look `eye_look` makes of `layers` [(mood, strength, style)] (or of one mood): any
+        mix of looks is drawn, so one fades into the next with no jump."""
         from ui.blocks import _round_rect
-        ew, gap = r * 0.21, r * 0.26
-        eh = max(r * 0.06, r * 0.40 * awake)  # shut, it's a flat line
+        L = eye_look(layers if layers is not None else [(mood, k, style)], r, t, beat)
+        ew, gap, bright = r * 0.21 * L["ew"], r * 0.26 * L["gap"], bright * L["bright"]
+        eh = max(r * 0.06, r * 0.40 * awake) * L["eh"]  # shut, it's a flat line
         drop_x, drop_y, base_x, base_y = cx + r * 0.55, cy - r * 0.42, cx, cy
-        inner = outer = 0.0  # how far down each lid cuts, as a share of the eye's height
-        arcs, tilt, lift = ("up" if mood == "happy" else None), 0.0, (0.0, 0.0)  # ^ ^ or ‿ ‿, a head tilt, each eye's rise
-        if mood == "happy":
-            cy -= r * 0.05 * abs(math.sin(t * 5)) * k
-        elif mood == "sad":
-            cy, outer, bright = cy + r * 0.05 * k, 0.5 * k, bright * (1 - 0.3 * k)
-        elif mood == "angry":
-            cx, inner = cx + r * 0.02 * math.sin(t * 45) * k, 0.55 * k
-        elif mood == "stressed":
-            cx, eh = cx + r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k, eh * (1 - 0.3 * k)
-        elif mood == "dance":
-            hop = (1 - beat % 1) ** 2  # 1 on the beat, falling back till the next
-            swing = math.sin(math.pi * beat)  # one way, then the other, a beat each
-            if style == "nod":  # dips down on the beat, like nodding along
-                cy, eh = cy + r * 0.09 * hop * k, eh * (1 - 0.3 * hop * k)
-            elif style == "groove":  # happy ^ ^ that bounce and tilt side to side
-                arcs, tilt, cy = "up", 0.28 * swing * k, cy - r * 0.06 * hop * k
-            elif style == "seesaw":  # one eye up while the other's down, swapping every beat
-                lift = (-r * 0.09 * swing * k, r * 0.09 * swing * k)
-            elif style == "pulse":  # eyes and glow swell on the beat
-                ew, eh, bright = ew * (1 + 0.3 * hop * k), eh * (1 + 0.25 * hop * k), bright * (1 + 0.3 * hop * k)
-            else:  # "hop": up on the beat, a step aside every beat
-                cy, eh, cx = cy - r * 0.08 * hop * k, eh * (1 - 0.15 * hop * k), cx + r * 0.06 * swing * k
-        elif mood == "sway":  # relaxed, never sad: slow music is calm, not gloomy
-            slow = math.sin(math.pi * beat / 2)  # one way over two beats, then back
-            if style == "smile":  # soft ^ ^, rocking gently
-                arcs, tilt = "up", 0.12 * slow * k
-            else:  # "notes": closed ‿ ‿, lost in it, swaying a little, little notes drifting up
-                arcs, cx = "down", cx + r * 0.06 * slow * k
-        elif mood in ("busy", "straining"):
-            eh, inner = eh * (1 - 0.45 * k), 0.15 * k
-        elif mood == "hot":
-            cy, outer = cy + r * 0.06 * k, 0.35 * k
-            cx, eh = cx + r * 0.015 * math.sin(t * 9) * k, eh * (1 + 0.1 * math.sin(t * 3) * k)
-        elif mood == "squeezed":
-            ew, eh, gap = ew * (1 - 0.35 * k), eh * (1 + 0.08 * k), gap * (1 - 0.25 * k)
-            cx += r * 0.04 * math.sin(t * 8) * k
-        elif mood == "sleepy":
-            cy, inner, outer, bright = cy + r * 0.04 * k, 0.5 * k, 0.5 * k, bright * (1 - 0.2 * k)
-        shape = 1 - k if arcs else 1.0  # ^ ^ or ‿ ‿ cross-fade in from the pills
-        if tilt:
+        cx, cy = cx + L["dx"], cy + L["dy"]
+        inner, outer, up, down = L["inner"], L["outer"], L["up"], L["down"]
+        shape = max(0.0, 1 - up - down)  # the pills fade, and flatten, as ^ ^ or ‿ ‿ come in: eyes closing into them
+        eh *= 1 - 0.75 * min(1.0, up + down)
+        if L["tilt"]:
             cr.save()
             cr.translate(cx, cy)
-            cr.rotate(tilt)
+            cr.rotate(L["tilt"])
             cr.translate(-cx, -cy)
         mid = cy
-        if mood in ("dance", "sway") and k > 0.01:  # headphones: a band over the top, a cup on each side
+        if L["phones"] > 0.01:  # headphones: a band over the top, a cup on each side
             hy = mid + r * 0.04
             cr.set_line_cap(cairo.LINE_CAP_ROUND)
             cr.set_line_width(r * 0.09)
-            cr.set_source_rgba(1, 1, 1, 0.7 * k)
+            cr.set_source_rgba(1, 1, 1, 0.7 * L["phones"])
             cr.arc(cx, hy, r * 0.68, math.pi * 1.1, math.pi * 1.9)
             cr.stroke()
             cr.set_line_cap(cairo.LINE_CAP_BUTT)
             for side in (-1, 1):  # chunkier and rounder than the eyes, so they read as cups, not more eyes
                 _round_rect(cr, cx + side * r * 0.68 - r * 0.12, hy - r * 0.15, r * 0.24, r * 0.32, r * 0.11)
-                cr.set_source_rgba(1, 1, 1, 0.55 * k)
+                cr.set_source_rgba(1, 1, 1, 0.55 * L["phones"])
                 cr.fill()
         for side in (-1, 1):
-            x, cy = cx + side * gap, mid + lift[(side + 1) // 2]
+            x, cy = cx + side * gap, mid + L["lift"][(side + 1) // 2]
             glow = cairo.RadialGradient(x, cy, 0, x, cy, r * 0.42)
             glow.add_color_stop_rgba(0, 1, 1, 1, 0.28 * bright)
             glow.add_color_stop_rgba(1, 1, 1, 1, 0)
@@ -470,43 +543,41 @@ class UI:
                 cr.set_source_rgba(1, 1, 1, 0.95 * bright * shape)
                 cr.fill()
                 cr.restore()
-            if arcs and k > 0.01:
-                cr.set_line_cap(cairo.LINE_CAP_ROUND)
-                cr.set_line_width(ew * 0.6)
-                cr.set_source_rgba(1, 1, 1, 0.95 * bright * k)
-                if arcs == "up":
-                    cr.arc(x + side * r * 0.03, cy + r * 0.06, ew * 0.68, math.pi * 1.12, math.pi * 1.88)
-                else:
-                    cr.arc(x + side * r * 0.03, cy - r * 0.05, ew * 0.68, math.pi * 0.12, math.pi * 0.88)
-                cr.stroke()
-                cr.set_line_cap(cairo.LINE_CAP_BUTT)
-        if tilt:
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(r * 0.21 * 0.6)
+            for weight, start, y in ((up, 1.12, cy + r * 0.06), (down, 0.12, cy - r * 0.05)):  # ^ ^ and ‿ ‿
+                if weight > 0.01:
+                    cr.set_source_rgba(1, 1, 1, 0.95 * bright * min(1.0, weight))
+                    cr.arc(x + side * r * 0.03, y, r * 0.21 * 0.68, math.pi * start, math.pi * (start + 0.76))
+                    cr.stroke()
+            cr.set_line_cap(cairo.LINE_CAP_BUTT)
+        if L["tilt"]:
             cr.restore()
-        if mood == "sway" and style == "notes" and k > 0.01:  # little notes drifting up
+        if L["notes"] > 0.01:  # little notes drifting up
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
             for i in range(2):
                 p = (beat / 4 + i * 0.5) % 1
                 cr.set_font_size(r * (0.32 + 0.1 * p))
-                cr.set_source_rgba(1, 1, 1, 0.85 * k * math.sin(math.pi * p))
+                cr.set_source_rgba(1, 1, 1, 0.85 * L["notes"] * math.sin(math.pi * p))
                 cr.move_to(base_x + (1 - 2 * i) * r * (0.3 + 0.15 * p) - r * 0.08, base_y - r * (0.3 + 0.35 * p))
                 cr.show_text("♪")
             cr.new_path()
-        if mood == "sleepy" and k > 0.01:  # z's floating up and away
+        if L["zz"] > 0.01:  # z's floating up and away
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
             for i in range(2):
                 p = (t / 2.5 + i * 0.5) % 1
                 cr.set_font_size(r * (0.16 + 0.12 * p))
-                cr.set_source_rgba(1, 1, 1, 0.8 * k * (1 - p))
+                cr.set_source_rgba(1, 1, 1, 0.8 * L["zz"] * (1 - p))
                 cr.move_to(base_x + r * (0.32 + 0.2 * p), base_y - r * (0.22 + 0.4 * p))
                 cr.show_text("z")
             cr.new_path()
-        if mood in ("stressed", "straining", "hot") and k > 0.01:  # a sweat drop sliding down the side
+        if L["drop"] > 0.01:  # a sweat drop sliding down the side
             p = t % 1.6 / 1.6
             x, y, s = drop_x, drop_y + r * 0.25 * p, r * 0.09
             cr.move_to(x, y - s * 1.6)
             cr.curve_to(x + s, y - s * 0.4, x + s, y + s, x, y + s)
             cr.curve_to(x - s, y + s, x - s, y - s * 0.4, x, y - s * 1.6)
-            cr.set_source_rgba(1, 1, 1, 0.75 * k * (1 - 0.6 * p))
+            cr.set_source_rgba(1, 1, 1, 0.75 * L["drop"] * (1 - 0.6 * p))
             cr.fill()
 
     @staticmethod

@@ -139,3 +139,85 @@ def test_a_short_gap_keeps_the_music_and_a_long_one_ends_it():
     assert show._settle(None, end + 3, instant=False) == "sway"
     assert show._settle(None, end + 3 + GAP, instant=False) is None  # it stopped
     assert show._settle("sway", end + 4 + GAP, instant=False) is None  # music again: the wait starts over
+
+
+KEYS = ("dx", "dy", "ew", "eh", "gap", "bright", "inner", "outer", "up", "down", "tilt", "phones", "notes")
+
+
+def _worst_step(make, steps=50):
+    """The biggest change in any of the eyes' numbers from one step of a fade to the next."""
+    from ui.window import eye_look
+
+    worst, prev = 0.0, None
+    for i in range(steps + 1):
+        look = eye_look(make(i / steps), 25.0, 1000.3, 4.3)
+        now = [look[k] for k in KEYS] + look["lift"]
+        if prev:
+            worst = max(worst, max(abs(a - b) for a, b in zip(now, prev)))
+        prev = now
+    return worst
+
+
+def _pairs():
+    """(look, move) pairs a fade goes between: every move to every other, and each talk mood over each lasting mood."""
+    from ui.bar import DANCES, SWAYS
+
+    moves = [((m, a), (m, b)) for m, ms in (("dance", DANCES), ("sway", SWAYS)) for a in ms for b in ms if a != b]
+    talk = [((amb, st), (mood, None)) for amb, st in (("dance", "groove"), ("sway", "notes"), ("busy", None), ("sleepy", None))
+            for mood in ("happy", "sad", "angry", "stressed")]
+    return moves + talk
+
+
+@pytest.mark.parametrize("old,new", _pairs())
+def test_every_change_of_look_is_a_fade_not_a_jump(old, new):
+    (m1, s1), (m2, s2) = old, new
+    assert _worst_step(lambda w: [(m1, 1 - w, s1), (m2, w, s2)]) < 0.06  # the old cut between moves jumped by 1.2
+    assert _worst_step(lambda w: [(m1, 1 - w, s1), ("asleep", w, None)]) < 0.06  # and falling asleep from it
+
+
+def test_the_bar_blends_moves_talk_moods_and_sleep():
+    from types import SimpleNamespace
+    import ui.bar as B
+
+    bar = B.Bar.__new__(B.Bar)
+    bar._sleep_k, bar._blend_t, bar.style, bar._old_style, bar._style_at = 0.0, 0.0, "groove", "hop", 100.0
+    layers = bar._blend(100.3, (None, 0.0), ("dance", 1.0), asleep=False)
+    assert [(m, s) for m, _k, s in layers] == [("dance", "hop"), ("dance", "groove")]
+    assert sum(k for _m, k, _s in layers) == pytest.approx(1.0) and 0 < layers[1][1] < 1  # half way across
+    assert bar._blend(101.0, (None, 0.0), ("dance", 1.0), asleep=False) == [("dance", 1.0, "groove")]  # done
+    talk = bar._blend(101.1, ("happy", 0.25), ("dance", 1.0), asleep=False)
+    assert talk == [("dance", 0.75, "groove"), ("happy", 0.25, None)]  # the talk mood takes over bit by bit
+    bar._blend(101.2, (None, 0.0), ("dance", 1.0), asleep=True)
+    halfway = bar._blend(101.35, (None, 0.0), ("dance", 1.0), asleep=True)
+    assert halfway[-1][0] == "asleep" and 0 < halfway[-1][1] < 1 and 0 < halfway[0][1] < 1  # eyes closing, not shut
+    for i in range(10):
+        layers = bar._blend(101.4 + i * 0.1, (None, 0.0), ("dance", 1.0), asleep=True)
+    assert layers[-1] == ("asleep", 1.0, None) and layers[0][1] == 0.0
+
+
+def test_the_orb_cross_fades_from_one_state_to_the_next():
+    import cairo
+    import numpy as np
+    from types import SimpleNamespace
+    import ui.window as W
+
+    ui = SimpleNamespace(_shown=("idle", False, False), look="glass", _voice=0.0, _pet_eyes=W.UI._pet_eyes, _core=W.UI._core,
+                         bar=SimpleNamespace(gaze=[0, 0], layers=[], beat=0.0))
+    ui._orb_content = lambda *a: W.UI._orb_content(ui, *a)
+
+    def frame(at):
+        W.time.time = lambda: at
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 56, 56)
+        W.UI._paint_orb(ui, cairo.Context(surface), 56, 56)
+        return np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).astype(float)
+
+    real = W.time.time
+    try:
+        frames = [frame(1000.0 + i * 0.02) for i in range(5)]
+        ui._shown = ("thinking", False, False)
+        frames += [frame(1000.1 + i * 0.02) for i in range(25)]
+    finally:
+        W.time.time = real
+    steps = [np.abs(b - a).mean() for a, b in zip(frames, frames[1:])]
+    cut = np.abs(frames[-1] - frames[4]).mean()  # eyes straight to the comet
+    assert max(steps) < cut / 3

@@ -225,6 +225,10 @@ class Bar:
         self.music, self.body = Music(), Body()  # the moods music and the computer bring on
         self._ambient, self._ambient_k, self._ambient_t, self.beat = None, 0.0, 0.0, 0.0
         self.style, self._style_until, self._style_beat = None, 0.0, 0  # the dance or sway move, and till when
+        self._old_style, self._style_at = None, 0.0  # the move before it and when it changed: they cross-fade
+        self.layers, self._sleep_k, self._blend_t = [], 0.0, 0.0  # the looks the eyes show; how far asleep
+        self._glow_now, self._drawn_t = None, 0.0  # the glow eases to each state's strength
+        self._seen_state, self._prev_state, self._state_at = "idle", None, 0.0  # for fading the rim comet
         GLib.timeout_add_seconds(5, self.body.check)
         self._every = None  # the timer's ms: 33 while busy, moving or blinking, BREATH while idle, None when stopped
         self._settle = 0.0
@@ -310,10 +314,33 @@ class Bar:
             moves = DANCES if self._ambient == "dance" else SWAYS
             # A new move when the music starts, else once its time is up, right on a beat so the change is in time.
             if self.style not in moves or t >= self._style_until and int(self.beat) != self._style_beat:
+                # The new move fades in over the old one; a first move fades in with the music itself.
+                self._old_style, self._style_at = (self.style if self.style in moves else None), t
                 self.style = random.choice([m for m in moves if m != self.style] or moves)
                 self._style_until = t + random.uniform(*STYLE_SECS)
             self._style_beat = int(self.beat)
         return self._ambient, _smooth(self._ambient_k)
+
+    def _blend(self, t, talk, around, asleep):
+        """The looks the eyes show now, [(mood, strength, style)], so every change is a fade: a new dance move over
+        the old one, a talk mood taking over from the music or the computer's mood and handing it back, and the eyes
+        closing when the mic or voice goes off."""
+        dt, self._blend_t = min(0.2, t - (self._blend_t or t)), t
+        self._sleep_k = min(1.0, self._sleep_k + dt / 0.5) if asleep else max(0.0, self._sleep_k - dt / 0.5)
+        layers, (mood, k) = [], around
+        if mood:
+            k *= 1 - talk[1]
+            w = _smooth((t - self._style_at) / 0.6) if self._old_style and mood in ("dance", "sway") else 1.0
+            if w < 1:
+                layers.append((mood, k * (1 - w), self._old_style))
+            layers.append((mood, k * w, self.style))
+        if talk[0]:
+            layers.append((talk[0], talk[1], None))
+        awake = 1 - _smooth(self._sleep_k)
+        layers = [(m, s * awake, style) for m, s, style in layers]
+        if self._sleep_k > 0:
+            layers.append(("asleep", _smooth(self._sleep_k), None))
+        return layers
 
     def _watch(self, t):
         """Turn the idle eyes towards the pointer while it moves and a moment after, else ahead with the odd
@@ -442,15 +469,19 @@ class Bar:
         busy = moving or t < max(self._settle, self._words_at + WORDS_HOLD + 0.4) or (self.mode != "hidden" and self._state() in ANIMATED)
         if self.win.get_visible():
             self.win.queue_draw()
-        idle = self.mode != "hidden" and self._state() == "idle"
-        lively = self.music.want = idle and not self.ui._shown[2]
-        self.feeling = (None, 0.0)  # none while the eyes are shut or busy, so no old mood is shown
-        if lively:  # eyes open: they blink, watch the pointer and show moods; a talk mood goes before the rest
-            talk, around = self._mood_now(t), self._ambience(t)
-            self.feeling = talk if talk[0] else around
-            fps = self._watch(t)
-            lively = fps or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING or 0 < self._ambient_k < 1
-        every = 16 if lively and fps == 60 else 33 if busy or lively else BREATH if idle else None
+        state = self._state()
+        idle = self.mode != "hidden" and state == "idle"
+        awake = self.music.want = idle and not self.ui._shown[2]
+        self.feeling, lively, fps = (None, 0.0), False, 0  # no feeling while the eyes are shut or busy: no old mood shows
+        if idle:  # the eyes: they blink, watch the pointer and show moods (a talk mood over the rest), or sleep
+            talk, around = self._mood_now(t) if awake else (None, 0.0), self._ambience(t)
+            self.feeling = (talk if talk[0] else around) if awake else (None, 0.0)
+            self.layers = self._blend(t, talk, around, not awake)
+            fps = self._watch(t) if awake else 0
+            lively = (fps or awake and (_eyes(t)[2] or bool(self.mood)) or self._ambient in MOVING
+                      or 0 < self._ambient_k < 1 or 0 < self._sleep_k < 1 or t - self._style_at < 0.7)
+        # Asleep or voice off, the eyes still breathe: the slow frame rate.
+        every = 16 if lively and fps == 60 else 33 if busy or lively else BREATH if idle or state == "off" else None
         if every == self._every:
             return True
         self._timer, self._every = (GLib.timeout_add(every, self._tick) if every else None), every
@@ -611,7 +642,7 @@ class Bar:
             strength = 0.45
         return min(1.0, strength + (0.2 if self.hover else 0))
 
-    def _sweep(self, cr, w, state, t):
+    def _sweep(self, cr, w, state, t, fade=1.0):
         """Thinking: a bright comet running round the rim (Claude's is orange)."""
         x, y = rim_point(t * 0.42, PAD, PAD, w - 2 * PAD, PILL)
         r, g, b = CLAUDE_RGB if state == "claude" else SNOW
@@ -625,18 +656,27 @@ class Bar:
             cr.set_source(spot)
             cr.stroke()
             cr.pop_group_to_source()
-            cr.paint_with_alpha(alpha)
+            cr.paint_with_alpha(alpha * fade)
 
     def _draw(self, _win, cr):
         _clear(cr)
         w, t, state = _win.get_allocated_width(), time.time(), self._state()
         self._layers(w)
+        # The glow eases to the new state's strength, and the rim comet fades in and out, rather than jumping.
+        dt, self._drawn_t = min(0.1, t - (self._drawn_t or t)), t
+        aim = self._strength(state, t)
+        self._glow_now = aim if self._glow_now is None else self._glow_now + (aim - self._glow_now) * min(1.0, dt / 0.15)
         cr.set_source_surface(self._glow, 0, 0)
-        cr.paint_with_alpha(self._strength(state, t))
+        cr.paint_with_alpha(self._glow_now)
         cr.set_source_surface(self._glass, 0, 0)
         cr.paint()
+        if state != self._seen_state:
+            self._prev_state, self._seen_state, self._state_at = self._seen_state, state, t
+        p = min(1.0, (t - self._state_at) / 0.3)
         if state in ("thinking", "claude"):
-            self._sweep(cr, w, state, t)
+            self._sweep(cr, w, state, t, p)
+        elif self._prev_state in ("thinking", "claude") and p < 1:
+            self._sweep(cr, w, self._prev_state, t, 1 - p)
         cr.save()
         cr.translate(PAD, PAD)
         self.ui._paint_orb(cr, PILL, PILL)
