@@ -131,6 +131,7 @@ def eye_look(layers, r, t, beat):
     L = dict(dx=0.0, dy=0.0, ew=1.0, eh=1.0, gap=1.0, bright=1.0, inner=0.0, outer=0.0, up=0.0, down=0.0, tilt=0.0,
              phones=0.0, drop=0.0, zz=0.0, notes=0.0)
     lift = [0.0, 0.0]
+    roam = 1 - min(1.0, sum(k for mood, k, _s in layers if mood == "watching"))  # watching the pointer: no darting
     for mood, k, style in layers:
         if not mood or k <= 0:
             continue
@@ -145,7 +146,7 @@ def eye_look(layers, r, t, beat):
             L["dx"] += r * 0.02 * math.sin(t * 45) * k
             L["inner"] += 0.55 * k
         elif mood == "stressed":
-            L["dx"] += r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k
+            L["dx"] += r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k * roam
             L["eh"] *= 1 - 0.3 * k
             L["drop"] = max(L["drop"], k)
         elif mood == "dance":
@@ -183,7 +184,7 @@ def eye_look(layers, r, t, beat):
         elif mood in ("busy", "straining"):  # squinting, eyes scanning slowly across as if reading
             L["eh"] *= 1 - 0.45 * k
             L["inner"] += 0.15 * k
-            L["dx"] += r * 0.07 * math.sin(t * 1.3) * k
+            L["dx"] += r * 0.07 * math.sin(t * 1.3) * k * roam
             if mood == "straining":
                 L["drop"] = max(L["drop"], k)
         elif mood == "hot":

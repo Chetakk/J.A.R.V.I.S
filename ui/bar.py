@@ -33,6 +33,8 @@ BREATH = 100  # ms between idle frames: the slow breath needs no more than 10 a 
 BLINK = 5.0  # seconds between the idle eyes' blinks
 FOLLOW = 2.0  # seconds the idle eyes keep watching the pointer after it stops
 GAZE_W = 14.0  # the eyes' spring: they ease in and out and settle in about a third of a second, never overshooting
+LAZY = {"sleepy", "hot"}  # drowsy moods: the eyes follow the pointer too, but slowly and only part of the way
+LAZY_W, LAZY_REACH = 3.0, 0.4  # their spring (settles in about 1.5 s) and how far they turn
 MOOD_SECS = 5.0  # how long the idle eyes show a mood
 DANCES = ("hop", "nod", "groove", "seesaw", "pulse")  # dance moves, one at random at a time (ui/window.py draws them)
 SWAYS = ("smile", "notes")  # moves for slow, relaxed music, rotated the same way
@@ -200,14 +202,14 @@ def look_at(px, py, ox, oy):
     return dx / d * reach, dy / d * reach
 
 
-def spring(pos, vel, aim, dt):
+def spring(pos, vel, aim, dt, w=GAZE_W):
     """One step of a critically damped spring (exact, so smooth at any frame rate): new positions and speeds."""
-    e = math.exp(-GAZE_W * dt)
+    e = math.exp(-w * dt)
     out_p, out_v = [], []
     for p, v, a in zip(pos, vel, aim):
         x = p - a
-        out_p.append(a + (x + (v + GAZE_W * x) * dt) * e)
-        out_v.append((v - GAZE_W * (v + GAZE_W * x) * dt) * e)
+        out_p.append(a + (x + (v + w * x) * dt) * e)
+        out_v.append((v - w * (v + w * x) * dt) * e)
     return out_p, out_v
 
 
@@ -243,6 +245,7 @@ class Bar:
         self._pointer = self._last_pointer = None
         self._pointer_at = self._gaze_t = 0.0
         self._gaze_v = [0.0, 0.0]  # the eyes' speed, for the spring
+        self._watch_k = 0.0  # 0..1, eased: how much the eyes are on the pointer (a mood's own darting gives way)
         self.mood, self.feeling = None, (None, 0.0)  # the mood waiting to be shown, and (mood, strength 0..1) now
         self._mood_seen, self._sorry, self.mood_by = None, [], None  # mood_by: who said what brought it on
         self.music, self.body = Music(), Body()  # the moods music and the computer bring on
@@ -384,7 +387,11 @@ class Bar:
             aim = look_at(*spot, self._x + PAD + PILL / 2, self.top() + PAD + PILL / 2)
         else:
             aim = (0.0, 0.0) if music else (_eyes(t)[1], 0.0)
-        self.gaze, self._gaze_v = spring(self.gaze, self._gaze_v, aim, min(0.25, t - (self._gaze_t or t)))
+        lazy = self.feeling[1] if self.feeling[0] in LAZY else 0.0
+        reach, dt = 1 - (1 - LAZY_REACH) * lazy, min(0.25, t - (self._gaze_t or t))
+        self.gaze, self._gaze_v = spring(self.gaze, self._gaze_v, [a * reach for a in aim], dt,
+                                         GAZE_W + (LAZY_W - GAZE_W) * lazy)
+        self._watch_k += ((1.0 if watching else 0.0) - self._watch_k) * (1 - math.exp(-dt / 0.25))
         self._gaze_t = t
         if watching and t - self._pointer_at < 0.3:
             return 60
@@ -503,6 +510,8 @@ class Bar:
             self.feeling = (talk if talk[0] else around) if awake else (None, 0.0)
             self.layers = self._blend(t, talk, around, not awake)
             fps = self._watch(t) if awake else 0
+            if awake and self._watch_k > 0.01:  # not a mood: tells the look to hold its own darting still
+                self.layers = self.layers + [("watching", self._watch_k, None)]
             lively = (fps or awake and (_eyes(t)[2] or bool(self.mood)) or self._ambient in MOVING
                       or 0 < self._ambient_k < 1 or 0 < self._sleep_k < 1 or t - self._style_at < 0.7)
         # Asleep or voice off, the eyes still breathe: the slow frame rate.

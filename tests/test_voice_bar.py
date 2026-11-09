@@ -375,7 +375,7 @@ def test_while_music_plays_the_eyes_dance_and_leave_the_pointer_alone():
     bar.gaze, bar._gaze_v, bar._gaze_t, bar._last_pointer, bar._pointer_at = [0.0, 0.0], [0.0, 0.0], 0.0, (0, 0), 0.0
     spots = iter((900 + i, 0) for i in range(1000))  # the pointer keeps moving, far to the right
     bar._pointer = SimpleNamespace(get_position=lambda: (None, *next(spots)))
-    bar._ambient = "dance"
+    bar._ambient, bar.feeling, bar._watch_k = "dance", ("dance", 1.0), 0.0
     for i in range(30):
         fps = bar._watch(100.0 + i / 30)
     assert abs(bar.gaze[0]) < 1e-6 and fps != 60  # dancing in the middle, no chasing
@@ -384,6 +384,37 @@ def test_while_music_plays_the_eyes_dance_and_leave_the_pointer_alone():
         fps = bar._watch(101.0 + i / 30)
     assert bar.gaze[0] > 0.5 and fps == 60
 
+
+
+def test_every_mood_but_music_follows_the_pointer_drowsy_ones_slowly_and_only_part_way():
+    from types import SimpleNamespace
+    from ui.bar import Bar
+    from ui.window import eye_look
+
+    def follow(mood, secs):
+        bar = Bar.__new__(Bar)
+        bar._x, bar.top = 0.0, lambda: 0
+        bar.gaze, bar._gaze_v, bar._gaze_t, bar._last_pointer, bar._pointer_at = [0.0, 0.0], [0.0, 0.0], 0.0, (0, 0), 0.0
+        spots = iter((900 + i, 0) for i in range(1000))  # the pointer keeps moving, far to the right
+        bar._pointer = SimpleNamespace(get_position=lambda: (None, *next(spots)))
+        bar._ambient, bar.feeling, bar._watch_k = mood, (mood, 1.0), 0.0
+        for i in range(int(secs * 30)):
+            bar._watch(100.0 + i / 30)
+        return bar.gaze[0], bar._watch_k
+
+    for mood in ("happy", "sad", "angry", "stressed", "busy", "straining", "squeezed"):
+        assert follow(mood, 0.5)[0] > 0.8, mood  # quick and all the way
+    quick, slow, settled = follow("happy", 0.3)[0], follow("sleepy", 0.3)[0], follow("sleepy", 4)[0]
+    assert slow < quick / 3 and 0.3 < settled < 0.45  # sleepy: slow, and only part of the way
+    assert follow("hot", 4)[0] < 0.45
+    # Watching, a busy or stressed look's own scanning and darting hold still, so the eyes stay on the pointer.
+    k = follow("busy", 1)[1]
+    assert k > 0.9
+    for mood in ("busy", "stressed"):
+        roaming = {round(eye_look([(mood, 1.0, None)], 25.0, t / 10, 0)["dx"], 3) for t in range(30)}
+        held = {round(eye_look([(mood, 1.0, None), ("watching", 1.0, None)], 25.0, t / 10, 0)["dx"], 3)
+                for t in range(30)}
+        assert len(roaming) > 5 and held == {0.0}, mood
 
 def test_a_line_too_long_for_the_bar_holds_then_scrolls_to_its_end_and_starts_over():
     import cairo
@@ -405,3 +436,4 @@ def test_a_line_too_long_for_the_bar_holds_then_scrolls_to_its_end_and_starts_ov
     assert bar._scrolling and still >= 100 and first_ink(10.0 + HOLD - 0.1, long) == still  # held at the start
     assert first_ink(10.0 + HOLD + 2, long) == 100  # scrolled: its start is clipped off at the left edge
     assert bar._scroll == (long, 10.0)
+
