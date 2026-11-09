@@ -61,12 +61,53 @@ def test_compact_says_what_is_happening():
 
     bar = Bar.__new__(Bar)
     bar.ui, bar.words, bar.reply = SimpleNamespace(long_claude=lambda: 0), "open youtube", "Sure."
-    assert [bar._compact_text(s) for s in ("idle", "listening", "thinking", "speaking", "claude")] == [
-        "Ready", "Listening…", "open youtube", "Sure.", "Asking Claude…"]
+    assert [bar._compact_text(s, 0)[0] for s in ("listening", "thinking", "speaking", "claude")] == [
+        "Listening…", "open youtube", "Sure.", "Asking Claude…"]
     bar.words = ""
-    assert bar._compact_text("thinking") == "Thinking…"
+    assert bar._compact_text("thinking", 0) == ("Thinking…", 1.0)
     bar.ui = SimpleNamespace(long_claude=lambda: 75.5)
-    assert bar._compact_text("claude") == "Claude is working  1:15"
+    assert bar._compact_text("claude", 0) == ("Claude is working  1:15", 1.0)
+
+
+def test_idle_compact_says_ready_and_the_time_or_what_the_eyes_feel():
+    import time
+    from types import SimpleNamespace
+    from ui.bar import ROTATE, idle_line
+
+    music = SimpleNamespace(track="", bpm=124.0)
+    body = SimpleNamespace(cpu=91.0, gpu=12.0, hottest=79.0, free=0.07)
+    t = time.mktime((2026, 11, 9, 15, 42, 0, 0, 0, -1))  # 3:42 pm
+    assert idle_line(None, None, music, body, [], t, False) == ("Ready · 3:42 pm", 1.0)
+    assert idle_line(None, None, music, body, [], t, True) == ("3:42 pm", 1.0)  # mic off: the mark says it
+    assert idle_line(None, None, music, body, [("pasta", t + 252), ("", t + 900), ("", t - 5)], t, False) == (
+        "Pasta · 4:12", 1.0)  # the timer closest to done; one that's over is left out
+    assert idle_line("happy", "you", music, body, [], t, False) == ("Anytime", 1.0)
+    assert idle_line("sad", "jarvis", music, body, [], t, False)[0] == "Sorry about that"
+    t = t - t % (2 * ROTATE) + 1  # a lasting mood shows first, then takes turns with the plain line
+    assert idle_line("dance", None, music, body, [], t, False) == ("♪ 124 bpm", 1.0)
+    music.track = "Song · Artist"
+    assert idle_line("sway", None, music, body, [], t, False) == ("♪ Song · Artist", 1.0)
+    assert idle_line("hot", None, music, body, [], t, False)[0] == "Running hot · 79°C"
+    assert idle_line("straining", None, music, body, [], t, False)[0] == "Working hard · CPU 91%"
+    assert idle_line("squeezed", None, music, body, [], t, False)[0] == "Low on memory · 7% free"
+    assert idle_line("hot", None, music, body, [], t + ROTATE, False)[0].startswith("Ready · ")
+    assert idle_line("hot", None, music, body, [], t + ROTATE - 1.1, False)[1] < 1  # fading across
+
+
+def test_the_compact_bar_draws_its_mute_marks_and_keeps_the_words_short_of_them():
+    import cairo
+    from types import SimpleNamespace
+    from ui.bar import COMPACT_W, PAD, Bar
+
+    bar = Bar.__new__(Bar)
+    bar.ignored = 0
+    cr = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, COMPACT_W, 80))
+    bar.ui = SimpleNamespace(mutes={"voice": False, "speaker": False, "mic": False})
+    clear = bar._paint_marks(cr, COMPACT_W)
+    assert clear == COMPACT_W - PAD - 14
+    bar.ui.mutes.update(mic=True, speaker=True)
+    bar.ignored = 2
+    assert bar._paint_marks(cr, COMPACT_W) < clear - 44
 
 
 def test_a_reply_waits_until_your_words_have_been_up_a_moment():

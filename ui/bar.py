@@ -46,6 +46,10 @@ MOODS = (
     ("sad", "jarvis", r"^sorry\b|^i (couldn'?t|can'?t)\b|didn'?t (work|take)|went wrong|\bfailed\b"),
     ("happy", "jarvis", r"\b(you'?re welcome|my pleasure|glad)\b"),
 )
+TALK_LINES = {("happy", "you"): "Anytime", ("happy", "jarvis"): "Happy to help", ("angry", "you"): "…noted",
+              ("sad", "you"): "I'm here for you", ("sad", "jarvis"): "Sorry about that",
+              ("stressed", "jarvis"): "Rough patch. I'm on it"}
+ROTATE = 8.0  # seconds a lasting mood's line (music, a busy computer) takes turns with the plain one
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
 WALLPAPER = "org.gnome.desktop.background"
@@ -113,6 +117,58 @@ def mood_for(who, text):
     return next((mood for mood, by, words in MOODS if by == who and re.search(words, text.lower())), None)
 
 
+def idle_line(mood, by, music, body, timers, t, mic_off):
+    """(words, alpha) for the idle compact bar. A talk mood's line shows while it lasts; a lasting mood's (music, the
+    computer) takes turns with the plain line every ROTATE s, fading across. The plain line: the timer closest to
+    done, else Ready and the clock (just the clock while the mic is off: the shut eyes and the mark say it)."""
+    clock = time.strftime("%-I:%M %p", time.localtime(t)).lower()
+    left, what = min(((end - t, what) for what, end in timers if end > t), default=(0, ""))
+    plain = ("%s · %d:%02d" % (what.capitalize() or "Timer", left // 60, left % 60) if left
+             else clock if mic_off else "Ready · " + clock)
+    if (mood, by) in TALK_LINES:
+        return TALK_LINES[mood, by], 1.0
+    cpu = "GPU %d%%" % body.gpu if body.gpu > body.cpu else "CPU %d%%" % body.cpu
+    line = {"dance": "♪ " + (music.track or "%d bpm" % music.bpm), "sway": "♪ " + (music.track or "Easy listening"),
+            "hot": "Running hot · %d°C" % body.hottest, "straining": "Working hard · " + cpu, "busy": "Busy · " + cpu,
+            "squeezed": "Low on memory · %d%% free" % (body.free * 100), "sleepy": "It's late · " + clock}.get(mood)
+    if not line:
+        return plain, 1.0
+    phase = t % (2 * ROTATE)
+    return (line if phase < ROTATE else plain), min(1.0, phase % ROTATE / 0.3, (ROTATE - phase % ROTATE) / 0.3)
+
+
+def _mute_mark(cr, x, y, kind):
+    """A small "mic" or "speaker" with a slash through it, centred on (x, y)."""
+    cr.push_group()
+    cr.set_source_rgba(*SNOW, 1)
+    cr.set_line_cap(cairo.LINE_CAP_ROUND)
+    cr.set_line_width(1.5)
+    if kind == "mic":
+        _round_rect(cr, x - 2.5, y - 7.5, 5, 10, 2.5)
+        cr.fill()
+        cr.arc(x, y - 2, 5, 0, math.pi)  # the cup round its bottom (cairo's angles turn downwards)
+        cr.stroke()
+        cr.move_to(x, y + 3)
+        cr.line_to(x, y + 6.5)
+        cr.stroke()
+    else:
+        for px, py in ((-6, -2.5), (-3, -2.5), (2.5, -7), (2.5, 7), (-3, 2.5), (-6, 2.5)):
+            cr.line_to(x + px, y + py)
+        cr.close_path()
+        cr.fill()
+    cr.move_to(x - 7, y - 7)
+    cr.line_to(x + 7, y + 7)
+    cr.set_operator(cairo.OPERATOR_CLEAR)  # a gap either side of the slash, so it reads over the shape
+    cr.set_line_width(4.5)
+    cr.stroke_preserve()
+    cr.set_operator(cairo.OPERATOR_OVER)
+    cr.set_line_width(1.6)
+    cr.stroke()
+    cr.pop_group_to_source()
+    cr.paint_with_alpha(0.85)
+    cr.set_line_cap(cairo.LINE_CAP_BUTT)
+
+
 def look_at(px, py, ox, oy):
     """Where eyes at (ox, oy) look to see the pointer at (px, py): a direction, shorter when it's close."""
     dx, dy = px - ox, py - oy
@@ -165,7 +221,7 @@ class Bar:
         self._pointer_at = self._gaze_t = 0.0
         self._gaze_v = [0.0, 0.0]  # the eyes' speed, for the spring
         self.mood, self.feeling = None, (None, 0.0)  # the mood waiting to be shown, and (mood, strength 0..1) now
-        self._mood_seen, self._sorry = None, []
+        self._mood_seen, self._sorry, self.mood_by = None, [], None  # mood_by: who said what brought it on
         self.music, self.body = Music(), Body()  # the moods music and the computer bring on
         self._ambient, self._ambient_k, self._ambient_t, self.beat = None, 0.0, 0.0, 0.0
         self.style, self._style_until, self._style_beat = None, 0.0, 0  # the dance or sway move, and till when
@@ -226,7 +282,7 @@ class Bar:
             self._sorry = [s for s in self._sorry if now - s < 120] + [now]
             mood = "stressed" if len(self._sorry) >= 2 else mood
         if who == "you" or mood:
-            self.mood, self._mood_seen = mood, None
+            self.mood, self._mood_seen, self.mood_by = mood, None, who
 
     def _mood_now(self, t):
         """(mood, strength): the mood shows for MOOD_SECS once the eyes are up, fading in and out."""
@@ -388,6 +444,7 @@ class Bar:
             self.win.queue_draw()
         idle = self.mode != "hidden" and self._state() == "idle"
         lively = self.music.want = idle and not self.ui._shown[2]
+        self.feeling = (None, 0.0)  # none while the eyes are shut or busy, so no old mood is shown
         if lively:  # eyes open: they blink, watch the pointer and show moods; a talk mood goes before the rest
             talk, around = self._mood_now(t), self._ambience(t)
             self.feeling = talk if talk[0] else around
@@ -638,8 +695,9 @@ class Bar:
     def _paint_talk(self, cr, w, state, t, zones):
         left = PAD + PILL + 8
         if self.mode == "compact":
-            _show(cr, _layout(cr, self._compact_text(state), TEXT - 1, w - left - PAD - 14, keep_end=state == "thinking"),
-                  left, HEIGHT / 2, 0.92)
+            text, alpha = self._compact_text(state, t)
+            room = self._paint_marks(cr, w) - left
+            _show(cr, _layout(cr, text, TEXT - 1, room, keep_end=state == "thinking"), left, HEIGHT / 2, 0.92 * alpha)
             return
         room = min([a for a, _b in zones.values()] or [w - PAD - 20]) - left - 8
         note = self._note(state)
@@ -669,11 +727,31 @@ class Bar:
         """A reply waits a moment after your words, or a quick one would wipe them before you could read them."""
         return bool(self.reply) and t >= self._words_at + WORDS_HOLD
 
-    def _compact_text(self, state):
+    def _compact_text(self, state, t):
+        """(words, alpha) for the compact bar."""
         spent = int(self.ui.long_claude())
         if spent:
-            return "Claude is working  %d:%02d" % (spent // 60, spent % 60)
-        return {"thinking": self.words, "speaking": self.reply}.get(state) or LABELS.get(state, state)
+            return "Claude is working  %d:%02d" % (spent // 60, spent % 60), 1.0
+        if state == "idle":
+            mood, k = self.feeling
+            return idle_line(mood if k > 0.5 else None, self.mood_by, self.music, self.body,
+                             list(self.ui.timers.values()), t, self.ui.mutes["mic"])
+        return {"thinking": self.words, "speaking": self.reply}.get(state) or LABELS.get(state, state), 1.0
+
+    def _paint_marks(self, cr, w):
+        """The compact bar's marks at its right end: JARVIS's voice off, the mic off, speech it ignored. Returns
+        where they start: the words stop short of it."""
+        right, mid, mutes = w - PAD - 14, HEIGHT / 2, self.ui.mutes
+        for kind, on in (("speaker", mutes["voice"] or mutes["speaker"]), ("mic", mutes["mic"])):
+            if on:
+                _mute_mark(cr, right - 8, mid, kind)
+                right -= 22
+        if self.ignored:
+            layout = _layout(cr, "%d ⊘" % self.ignored, 9.5)
+            right -= layout.get_pixel_size()[0]
+            _show(cr, layout, right, mid, 0.8)
+            right -= 8
+        return right
 
     def _paint_zones(self, cr, zones):
         mid = HEIGHT / 2

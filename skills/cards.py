@@ -242,6 +242,7 @@ class Cards(Skill):
         self.say("Okay, %s for %s." % (name.lower() if what else "timer set", _spoken(seconds)))
 
         if self.j.ui:  # the ring counts down by itself (ui/blocks.py ```countdown): shown once, not every second
+            self.j.ui.set_timer(card_id, what, end)
             self.j.ui.show_card({"id": card_id, "title": name, "choices": [{"label": "Cancel", "do": "cancel the timer"}],
                                  "text": "```countdown\nend: %.0f\ntotal: %.0f\nlabel: %s\n```" % (
                                      end, seconds, _spoken(seconds))})
@@ -250,6 +251,8 @@ class Cards(Skill):
             while not stop.is_set() and end - time.time() > 0:
                 stop.wait(min(30.0, max(0.05, end - time.time())))
             self.timers.pop(card_id, None)
+            if self.j.ui:
+                self.j.ui.set_timer(card_id, what)
             if stop.is_set():
                 return
             if self.j.ui:

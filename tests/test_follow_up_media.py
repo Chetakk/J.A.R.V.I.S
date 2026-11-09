@@ -65,3 +65,14 @@ def test_a_player_that_never_answers_is_not_playing(monkeypatch):
     from skills import media
     monkeypatch.setattr(media.subprocess, "run", Bus("Playing", hang=True))
     assert media.something_playing() is False
+
+
+def test_the_song_playing_is_read_from_the_player(monkeypatch):
+    from skills import media
+
+    def bus(args, **k):
+        out = ("(<{'mpris:length': <int64 1>, 'xesam:title': <\"Don't Stop\">, 'xesam:artist': <['Queen', 'X']>}>,)"
+               if "Metadata" in args else "(<{'xesam:title': <''>}>,)")
+        return type("Done", (), {"stdout": out})()
+    monkeypatch.setattr(media.subprocess, "run", bus)
+    assert media.track("org.mpris.MediaPlayer2.chromium") == "Don't Stop · Queen"

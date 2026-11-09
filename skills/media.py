@@ -138,22 +138,44 @@ class Media(Skill):
             self.say("It's %s%s." % (title, " by %s" % artist if artist else ""))
 
 
-def something_playing():
-    """True while a player (Chrome, Spotify...) says it's playing: its talk mustn't pass for yours (~20 ms).
+def _gdbus(*args):
+    return subprocess.run(["gdbus", "call", "--session"] + list(args), stdout=subprocess.PIPE,
+                          stderr=subprocess.DEVNULL, timeout=2, universal_newlines=True).stdout
+
+
+def _player_property(name, prop):
+    return _gdbus("--dest", name, "--object-path", "/org/mpris/MediaPlayer2", "--method",
+                  "org.freedesktop.DBus.Properties.Get", "org.mpris.MediaPlayer2.Player", prop)
+
+
+def playing_player():
+    """The bus name of a player (Chrome, Spotify...) that says it's playing, else None (~20 ms).
     Asked through gdbus with a time limit: asked in-process, a player that never answered left the show recorder stuck."""
-    def call(*args):
-        return subprocess.run(["gdbus", "call", "--session"] + list(args), stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, timeout=2, universal_newlines=True).stdout
     try:
-        names = call("--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus",
-                     "--method", "org.freedesktop.DBus.ListNames")
+        names = _gdbus("--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus",
+                       "--method", "org.freedesktop.DBus.ListNames")
         for name in re.findall(r"'(org\.mpris\.MediaPlayer2\.[^']+)'", names):
-            if "'Playing'" in call("--dest", name, "--object-path", "/org/mpris/MediaPlayer2", "--method",
-                                   "org.freedesktop.DBus.Properties.Get", "org.mpris.MediaPlayer2.Player", "PlaybackStatus"):
-                return True
+            if "'Playing'" in _player_property(name, "PlaybackStatus"):
+                return name
     except (OSError, subprocess.SubprocessError):
         pass
-    return False
+    return None
+
+
+def something_playing():
+    """True while a player says it's playing: its talk mustn't pass for yours."""
+    return playing_player() is not None
+
+
+def track(name):
+    """"Song · Artist" of what the player on bus `name` plays, "" if it doesn't say."""
+    try:
+        md = _player_property(name, "Metadata")
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    title = re.search(r"'xesam:title': <(['\"])(.+?)\1>", md)  # gdbus quotes with " when the text has a '
+    artist = re.search(r"'xesam:artist': <\[(['\"])(.+?)\1", md)
+    return " · ".join(m.group(2) for m in (title, artist) if m) if title else ""
 
 
 def _mpris_player():

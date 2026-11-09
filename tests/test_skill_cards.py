@@ -143,6 +143,8 @@ def test_a_timer_shows_a_card_and_can_be_cancelled(jv):
     while jv.j.cards.timers and time.time() < deadline:  # its thread notices and goes
         time.sleep(0.05)
     assert not jv.j.cards.timers
+    sets = [c[1] for c in jv.ui.calls if c[0] == "set_timer"]  # the compact bar counts it down, then lets it go
+    assert sets[0][1] == "pasta" and sets[0][2] > time.time() + 590 and sets[-1][1:] == ("pasta",)
 
 
 def test_cancel_with_no_timer(jv):

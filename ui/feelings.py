@@ -63,15 +63,17 @@ class Music:
     def __init__(self):
         self.want = False
         self.kind, self.bpm, self.beat_at = None, 0.0, 0.0
+        self.track = ""  # "Song · Artist" while a player says what it plays
         threading.Thread(target=self._run, name="music-feel", daemon=True).start()
 
     def _run(self):
-        from skills.media import something_playing
+        from skills.media import playing_player, track
         proc, buf, checked, playing, felt = None, deque(maxlen=RATE * LISTEN // 800), 0.0, False, 0.0
         while True:
             now = time.time()
             if self.want and now - checked > 3:
-                checked, playing = now, something_playing()
+                checked, player = now, playing_player()
+                playing, self.track = bool(player), track(player) if player else ""
             if not (self.want and playing):
                 if proc:
                     proc.kill()
@@ -121,6 +123,8 @@ class Body:
 
     def __init__(self):
         self.mood = None
+        self.cpu = self.gpu = self.hottest = 0.0  # % busy, % busy, °C: the last readings, for the compact bar's words
+        self.free = 1.0  # share of memory free
         self._cpu = None  # (total, idle) ticks at the last check
         self._busy_since = None
 
@@ -136,6 +140,7 @@ class Body:
         self._busy_since = (self._busy_since or now) if max(cpu, gpu) >= 85 else None
         free = _meminfo("MemAvailable") / max(_meminfo("MemTotal"), 1)
         hottest = max((c for _n, c in _temps()), default=0)
+        self.cpu, self.gpu, self.hottest, self.free = cpu, gpu, hottest, free
         self.mood = pc_mood(cpu, gpu, hottest, free, time.localtime().tm_hour, now - (self._busy_since or now))
         return True  # keep the GLib timer going
 

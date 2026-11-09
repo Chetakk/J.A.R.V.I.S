@@ -146,6 +146,7 @@ class UI:
         self._ticked = None  # the last quiet tick, for counting each card's own quiet time
         self._busy_at = 0.0  # when JARVIS was last busy, or the chat or the bar last in use
         self.mutes = {"voice": False, "mic": False, "speaker": False}  # kept up to date by set_mutes()
+        self.timers = {}  # card id -> (what it's for, end) of each running timer, counted down by the compact bar
         from ui.bar import Bar  # needs the names above, so imported here
         self.bar = Bar(self, bool(self._prefs.get("understood", True)))
         self._build_panel()
@@ -166,6 +167,13 @@ class UI:
     def set_mutes(self, voice=None, mic=None, speaker=None):
         """What's muted now: the tray icon and its check boxes follow."""
         GLib.idle_add(self._set_mutes, voice, mic, speaker)
+
+    def set_timer(self, card_id, what, end=None):
+        """A timer running till `end` (None: it's done or cancelled); `what` it's for, "" for a plain one."""
+        if end:
+            self.timers[card_id] = (what, end)
+        else:
+            self.timers.pop(card_id, None)
 
     def add_chat(self, who, text):
         GLib.idle_add(self._add_chat, who, text)
