@@ -240,7 +240,8 @@ class UI:
         self._ticked = None  # the last quiet tick, for counting each card's own quiet time
         self._busy_at = 0.0  # when JARVIS was last busy, or the chat or the bar last in use
         self.mutes = {"voice": False, "mic": False, "speaker": False}  # kept up to date by set_mutes()
-        self.timers = {}  # card id -> (what it's for, end) of each running timer, counted down by the compact bar
+        self.timers = {}  # card id -> (what it's for, end, total s) of each running timer, counted down by the compact bar
+        self.extras = {}  # what the idle compact bar may add after "Ready" (ui/extras.py keeps it fresh)
         from ui.bar import Bar  # needs the names above, so imported here
         self.bar = Bar(self, bool(self._prefs.get("understood", True)))
         self._build_panel()
@@ -265,9 +266,13 @@ class UI:
     def set_timer(self, card_id, what, end=None):
         """A timer running till `end` (None: it's done or cancelled); `what` it's for, "" for a plain one."""
         if end:
-            self.timers[card_id] = (what, end)
+            self.timers[card_id] = (what, end, end - time.time())
         else:
             self.timers.pop(card_id, None)
+
+    def set_extras(self, extras):
+        """From ui/extras.py's thread: one dict swapped in whole, so the bar never sees it half done."""
+        self.extras = extras
 
     def add_chat(self, who, text):
         GLib.idle_add(self._add_chat, who, text)

@@ -178,6 +178,16 @@ def track(name):
     return " · ".join(m.group(2) for m in (title, artist) if m) if title else ""
 
 
+def progress(name):
+    """(seconds in, song length) of what the player on bus `name` plays; (0, 0) if it doesn't say."""
+    try:
+        length = re.search(r"'mpris:length': <u?int64 (\d+)>", _player_property(name, "Metadata"))
+        pos = re.search(r"<int64 (-?\d+)>", _player_property(name, "Position"))
+    except (OSError, subprocess.SubprocessError):
+        return 0.0, 0.0
+    return (int(pos.group(1)) / 1e6, int(length.group(1)) / 1e6) if pos and length else (0.0, 0.0)
+
+
 def _mpris_player():
     """(name, proxy) of the media player that's playing (or any, if none is)."""
     players = _players()

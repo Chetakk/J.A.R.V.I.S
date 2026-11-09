@@ -1641,6 +1641,8 @@ def main():
                        is_speaking=jarvis.speaker.busy)
         from gi.repository import GLib
         GLib.idle_add(jarvis.skills.clipboard_history.watch_clipboard)  # clipboard history ("paste the thing I copied before")
+        from ui.extras import feed
+        threading.Thread(target=feed, args=(jarvis,), name="bar-extras", daemon=True).start()
 
     ups = [u for u in persona.heads_ups(jarvis.settings) if not jarvis.skills.proactive.muted(u[0])][:2]
     for key, line, why in ups:

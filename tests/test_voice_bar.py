@@ -69,45 +69,96 @@ def test_compact_says_what_is_happening():
     assert bar._compact_text("claude", 0) == ("Claude is working  1:15", 1.0)
 
 
-def test_idle_compact_says_ready_and_the_time_or_what_the_eyes_feel():
+def test_idle_compact_says_ready_with_now_and_then_one_extra_or_what_the_eyes_feel():
     import time
     from types import SimpleNamespace
-    from ui.bar import ROTATE, idle_line
+    from ui.bar import EXTRA_SECS, ROTATE, idle_line, pick_extra
 
     music = SimpleNamespace(track="", bpm=124.0)
     body = SimpleNamespace(cpu=91.0, gpu=12.0, hottest=79.0, free=0.07)
-    t = time.mktime((2026, 11, 9, 15, 42, 0, 0, 0, -1))  # 3:42 pm
-    assert idle_line(None, None, music, body, [], t, False) == ("Ready · 3:42 pm", 1.0)
-    assert idle_line(None, None, music, body, [], t, True) == ("3:42 pm", 1.0)  # mic off: the mark says it
-    assert idle_line(None, None, music, body, [("pasta", t + 252), ("", t + 900), ("", t - 5)], t, False) == (
-        "Pasta · 4:12", 1.0)  # the timer closest to done; one that's over is left out
-    assert idle_line("happy", "you", music, body, [], t, False) == ("Anytime", 1.0)
-    assert idle_line("sad", "jarvis", music, body, [], t, False)[0] == "Sorry about that"
-    t = t - t % (2 * ROTATE) + 1  # a lasting mood shows first, then takes turns with the plain line
-    assert idle_line("dance", None, music, body, [], t, False) == ("♪ 124 bpm", 1.0)
+    t = time.mktime((2026, 11, 9, 19, 42, 0, 0, 0, -1))  # an evening
+    t = t - t % EXTRA_SECS + 1  # just into a slot
+    assert idle_line(None, None, music, body, {}, t, False)[0] in ("Ready", "Good evening")  # one or the other
+    extras = {"weather": "24° · clear", "next": "9:30 standup", "tips": ["brief me"]}
+    seen = {pick_extra(n, extras, 19) for n in range(200)}  # each slot one at random, or none at all
+    assert seen == {"Good evening", "24° · clear", "9:30 standup", "Try “brief me”", ""}
+    assert pick_extra(7, extras, 19) == pick_extra(7, extras, 19)  # the same all through the slot
+    assert pick_extra(1, {}, 3) == ""  # 3 am: no greeting, nothing else known
+    n = next(n for n in range(200) if pick_extra(n, extras, 19) == "24° · clear")
+    assert idle_line(None, None, music, body, extras, n * EXTRA_SECS + 5, False) == ("24° · clear", 1.0)
+    assert idle_line(None, None, music, body, extras, n * EXTRA_SECS + 5, True) == ("24° · clear", 1.0)  # mic off
+    assert idle_line("happy", "you", music, body, {}, t, False) == ("Anytime", 1.0)
+    assert idle_line("sad", "jarvis", music, body, {}, t, False)[0] == "Sorry about that"
+    assert idle_line("dance", None, music, body, {}, t, False) == ("♪ 124 bpm", 1.0)  # a lasting mood shows first
     music.track = "Song · Artist"
-    assert idle_line("sway", None, music, body, [], t, False) == ("♪ Song · Artist", 1.0)
-    assert idle_line("hot", None, music, body, [], t, False)[0] == "Running hot · 79°C"
-    assert idle_line("straining", None, music, body, [], t, False)[0] == "Working hard · CPU 91%"
-    assert idle_line("squeezed", None, music, body, [], t, False)[0] == "Low on memory · 7% free"
-    assert idle_line("hot", None, music, body, [], t + ROTATE, False)[0].startswith("Ready · ")
-    assert idle_line("hot", None, music, body, [], t + ROTATE - 1.1, False)[1] < 1  # fading across
+    assert idle_line("sway", None, music, body, {}, t, False) == ("♪ Song · Artist", 1.0)
+    assert idle_line("hot", None, music, body, {}, t, False)[0] == "Running hot · 79°C"
+    assert idle_line("straining", None, music, body, {}, t, False)[0] == "Working hard · CPU 91%"
+    assert idle_line("squeezed", None, music, body, {}, t, False)[0] == "Low on memory · 7% free"
+    assert idle_line("hot", None, music, body, {}, t + ROTATE, False)[0].startswith("Ready")  # then takes turns
+    assert idle_line("hot", None, music, body, {}, t + ROTATE - 1.1, False)[1] < 1  # fading across
 
 
-def test_the_compact_bar_draws_its_mute_marks_and_keeps_the_words_short_of_them():
+def test_the_compact_bar_right_end_shows_one_thing_and_the_marks_sit_before_it():
     import cairo
+    from collections import deque
     from types import SimpleNamespace
     from ui.bar import COMPACT_W, PAD, Bar
 
     bar = Bar.__new__(Bar)
-    bar.ignored = 0
+    bar.ignored, bar.feeling, bar.beat = 0, (None, 0.0), 0.3
+    bar.body = SimpleNamespace(history=deque([20, 95, 90], maxlen=24))
     cr = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, COMPACT_W, 80))
-    bar.ui = SimpleNamespace(mutes={"voice": False, "speaker": False, "mic": False})
-    clear = bar._paint_marks(cr, COMPACT_W)
-    assert clear == COMPACT_W - PAD - 14
+    bar.ui = SimpleNamespace(mutes={"voice": False, "speaker": False, "mic": False}, extras={}, timers={})
+    assert bar._paint_right(cr, COMPACT_W, 0, clock=0.0) == COMPACT_W - PAD - 16  # something else to say: no clock
+    clock = bar._paint_right(cr, COMPACT_W, 0)
+    assert COMPACT_W - PAD - 90 < clock < COMPACT_W - PAD - 30  # the clock's width
+    bar.ui.timers = {"t1": ("pasta", 300.0, 600.0)}
+    assert bar._paint_right(cr, COMPACT_W, 0) < COMPACT_W - PAD - 16 - 40  # a timer: its ring and time left
+    bar.ui.timers, bar.feeling = {}, ("dance", 1.0)
+    assert bar._paint_right(cr, COMPACT_W, 0) == COMPACT_W - PAD - 36  # beat bars
+    bar.feeling = ("busy", 1.0)
+    assert bar._paint_right(cr, COMPACT_W, 0) == COMPACT_W - PAD - 52  # the CPU line
+    clear = bar._paint_marks(cr, clock)
+    assert clear == clock - 10
     bar.ui.mutes.update(mic=True, speaker=True)
-    bar.ignored = 2
-    assert bar._paint_marks(cr, COMPACT_W) < clear - 44
+    bar.ui.extras, bar.ignored = {"unread": 3}, 2
+    assert bar._paint_marks(cr, clock) < clear - 44 - 25
+
+
+def test_the_song_line_shows_how_far_in_only_while_music_plays():
+    import cairo
+    from types import SimpleNamespace
+    from ui.bar import COMPACT_W, Bar
+
+    bar = Bar.__new__(Bar)
+    bar.music = SimpleNamespace(pos=30.0, length=0.0, pos_at=100.0)
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, COMPACT_W, 80)
+    bar.feeling = ("sway", 1.0)
+    bar._paint_progress(cairo.Context(surface), COMPACT_W, 110)  # no length known: nothing drawn
+    assert not any(surface.get_data())
+    bar.music.length = 200.0
+    bar.ui = SimpleNamespace(card_open=lambda card_id: card_id == "playing")
+    bar._paint_progress(cairo.Context(surface), COMPACT_W, 110)  # the now-playing card shows it already
+    assert not any(surface.get_data())
+    bar.ui = SimpleNamespace(card_open=lambda card_id: False)
+    bar._paint_progress(cairo.Context(surface), COMPACT_W, 110)
+    assert any(surface.get_data())
+
+
+def test_the_bar_leaves_the_song_name_to_the_now_playing_card_when_it_is_open():
+    from types import SimpleNamespace
+    from ui.bar import EXTRA_SECS, Bar
+
+    bar = Bar.__new__(Bar)
+    bar.feeling, bar.mood_by = ("dance", 1.0), None
+    bar.music, bar.body = SimpleNamespace(track="Song · Artist", bpm=120.0), SimpleNamespace(
+        cpu=0, gpu=0, hottest=0, free=1)
+    bar.ui = SimpleNamespace(long_claude=lambda: 0, extras={}, mutes={"mic": False}, card_open=lambda card_id: False)
+    t = 1000 * EXTRA_SECS + 1
+    assert bar._compact_text("idle", t)[0] == "♪ Song · Artist"
+    bar.ui.card_open = lambda card_id: card_id == "playing"
+    assert not bar._compact_text("idle", t)[0].startswith("♪")
 
 
 def test_a_reply_waits_until_your_words_have_been_up_a_moment():

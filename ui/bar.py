@@ -50,6 +50,7 @@ TALK_LINES = {("happy", "you"): "Anytime", ("happy", "jarvis"): "Happy to help",
               ("sad", "you"): "I'm here for you", ("sad", "jarvis"): "Sorry about that",
               ("stressed", "jarvis"): "Rough patch. I'm on it"}
 ROTATE = 8.0  # seconds a lasting mood's line (music, a busy computer) takes turns with the plain one
+EXTRA_SECS = 2 * ROTATE  # seconds each random extra after "Ready" stays
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
 WALLPAPER = "org.gnome.desktop.background"
@@ -117,24 +118,43 @@ def mood_for(who, text):
     return next((mood for mood, by, words in MOODS if by == who and re.search(words, text.lower())), None)
 
 
-def idle_line(mood, by, music, body, timers, t, mic_off):
-    """(words, alpha) for the idle compact bar. A talk mood's line shows while it lasts; a lasting mood's (music, the
-    computer) takes turns with the plain line every ROTATE s, fading across. The plain line: the timer closest to
-    done, else Ready and the clock (just the clock while the mic is off: the shut eyes and the mark say it)."""
-    clock = time.strftime("%-I:%M %p", time.localtime(t)).lower()
-    left, what = min(((end - t, what) for what, end in timers if end > t), default=(0, ""))
-    plain = ("%s · %d:%02d" % (what.capitalize() or "Timer", left // 60, left % 60) if left
-             else clock if mic_off else "Ready · " + clock)
+def greeting(hour):
+    return ("Good morning" if 5 <= hour < 12 else "Good afternoon" if 12 <= hour < 17 else
+            "Good evening" if 17 <= hour < 22 else "")
+
+
+def pick_extra(n, extras, hour):
+    """What follows "Ready" in slot n: one at random (the same all through the slot) of the greeting, the weather,
+    the next reminder, a thing to try, or nothing."""
+    rng, tips = random.Random(n), extras.get("tips") or []
+    some = [greeting(hour), extras.get("weather"), extras.get("next"), tips and "Try “%s”" % rng.choice(tips)]
+    return rng.choice([x for x in some if x] + [""])
+
+
+def _fade(at, span):
+    return min(1.0, at / 0.3, (span - at) / 0.3)
+
+
+def idle_line(mood, by, music, body, extras, t, mic_off):
+    """(words, alpha) for the idle compact bar: one line, never crowded. A talk mood's line shows while it lasts; a
+    lasting mood's (music, the computer) takes turns with the plain line every ROTATE s. The plain line is Ready or,
+    now and then, one extra in its place (pick_extra), fading across when it changes; with the mic off, never Ready."""
     if (mood, by) in TALK_LINES:
         return TALK_LINES[mood, by], 1.0
     cpu = "GPU %d%%" % body.gpu if body.gpu > body.cpu else "CPU %d%%" % body.cpu
     line = {"dance": "♪ " + (music.track or "%d bpm" % music.bpm), "sway": "♪ " + (music.track or "Easy listening"),
             "hot": "Running hot · %d°C" % body.hottest, "straining": "Working hard · " + cpu, "busy": "Busy · " + cpu,
-            "squeezed": "Low on memory · %d%% free" % (body.free * 100), "sleepy": "It's late · " + clock}.get(mood)
-    if not line:
-        return plain, 1.0
-    phase = t % (2 * ROTATE)
-    return (line if phase < ROTATE else plain), min(1.0, phase % ROTATE / 0.3, (ROTATE - phase % ROTATE) / 0.3)
+            "squeezed": "Low on memory · %d%% free" % (body.free * 100), "sleepy": "It's late"}.get(mood)
+    at = t % EXTRA_SECS
+    if line and at < ROTATE:
+        return line, _fade(at, ROTATE)
+    n, hour = int(t // EXTRA_SECS), time.localtime(t).tm_hour
+    extra = pick_extra(n, extras, hour)
+    words = extra or ("" if mic_off else "Ready")
+    if line:
+        return words, _fade(at - ROTATE, ROTATE)
+    return words, min(1.0, at / 0.3 if pick_extra(n - 1, extras, hour) != extra else 1.0,
+                      (EXTRA_SECS - at) / 0.3 if pick_extra(n + 1, extras, hour) != extra else 1.0)
 
 
 def _mute_mark(cr, x, y, kind):
@@ -736,7 +756,9 @@ class Bar:
         left = PAD + PILL + 8
         if self.mode == "compact":
             text, alpha = self._compact_text(state, t)
-            room = self._paint_marks(cr, w) - left
+            clock = alpha if text in ("Ready", "") else 0.0  # the time only when there's nothing else to say
+            room = self._paint_marks(cr, self._paint_right(cr, w, t, clock)) - left
+            self._paint_progress(cr, w, t)
             _show(cr, _layout(cr, text, TEXT - 1, room, keep_end=state == "thinking"), left, HEIGHT / 2, 0.92 * alpha)
             return
         room = min([a for a, _b in zones.values()] or [w - PAD - 20]) - left - 8
@@ -774,18 +796,109 @@ class Bar:
             return "Claude is working  %d:%02d" % (spent // 60, spent % 60), 1.0
         if state == "idle":
             mood, k = self.feeling
-            return idle_line(mood if k > 0.5 else None, self.mood_by, self.music, self.body,
-                             list(self.ui.timers.values()), t, self.ui.mutes["mic"])
+            if mood in ("dance", "sway") and self._song_on_card():
+                mood = None  # the card says what's playing: the bar says something else
+            return idle_line(mood if k > 0.5 else None, self.mood_by, self.music, self.body, self.ui.extras, t,
+                             self.ui.mutes["mic"])
         return {"thinking": self.words, "speaking": self.reply}.get(state) or LABELS.get(state, state), 1.0
 
-    def _paint_marks(self, cr, w):
-        """The compact bar's marks at its right end: JARVIS's voice off, the mic off, speech it ignored. Returns
-        where they start: the words stop short of it."""
-        right, mid, mutes = w - PAD - 14, HEIGHT / 2, self.ui.mutes
+    def _paint_right(self, cr, w, t, clock=1.0):
+        """The one thing at the compact bar's right end: a timer's draining ring and time left, bars jumping on the
+        music's beat, the CPU's last two minutes while it's busy or hot, else the clock at `clock` alpha (0: none).
+        Returns where it starts."""
+        right, mid = w - PAD - 16, HEIGHT / 2
+        mood = self.feeling[0] if self.feeling[1] > 0.5 else None
+        left, total = min(((end - t, total) for _what, end, total in list(self.ui.timers.values()) if end > t),
+                          default=(0, 0))
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        if left:
+            layout = _layout(cr, "%d:%02d" % (left // 60, left % 60), 9.5)
+            right -= layout.get_pixel_size()[0]
+            _show(cr, layout, right, mid, 0.85)
+            cx = right - 11
+            cr.set_line_width(2)
+            cr.set_source_rgba(*SNOW, 0.2)
+            cr.arc(cx, mid, 6, 0, 2 * math.pi)
+            cr.stroke()
+            cr.set_source_rgba(*SNOW, 0.9)
+            cr.arc(cx, mid, 6, -math.pi / 2, -math.pi / 2 + 2 * math.pi * left / max(total, 1))
+            cr.stroke()
+            right = cx - 6
+        elif mood in ("dance", "sway"):
+            cr.set_line_width(3)
+            for i in range(4):
+                if mood == "dance":  # each bar jumps on the beat by its own amount, a new mix every beat
+                    jump = (1 - self.beat % 1) ** 2 * (0.55 + 0.45 * math.sin(i * 1.7 + math.floor(self.beat) * 2.3))
+                else:  # slow music: a gentle rise and fall
+                    jump = 0.45 + 0.35 * math.sin(math.pi * self.beat / 2 + i * 1.1)
+                x = right - 1.5 - (3 - i) * 5.5
+                cr.set_source_rgba(*SNOW, 0.85)
+                cr.move_to(x, mid + 6)
+                cr.line_to(x, mid + 6 - 2 - 10 * max(0.0, jump))
+                cr.stroke()
+            right -= 20
+        elif mood in ("busy", "straining", "hot") and len(self.body.history) > 1:
+            cr.set_line_width(1.4)
+            step = 36 / (self.body.history.maxlen - 1)
+            x0 = right - step * (len(self.body.history) - 1)
+            for i, v in enumerate(self.body.history):
+                cr.line_to(x0 + i * step, mid + 7 - 14 * min(v, 100) / 100)
+            cr.set_source_rgba(*SNOW, 0.85)
+            cr.stroke_preserve()
+            cr.line_to(right, mid + 7)
+            cr.line_to(x0, mid + 7)
+            cr.set_source_rgba(*SNOW, 0.15)
+            cr.fill()
+            right -= 36
+        elif clock > 0:
+            layout = _layout(cr, time.strftime("%-I:%M %p", time.localtime(t)).lower(), 9.5)
+            right -= layout.get_pixel_size()[0]
+            _show(cr, layout, right, mid, 0.6 * clock)
+        cr.set_line_cap(cairo.LINE_CAP_BUTT)
+        return right
+
+    def _song_on_card(self):
+        """The now-playing card (skills/media.py, id "playing") is open: it shows the song and how far in."""
+        return self.ui.card_open("playing")
+
+    def _paint_progress(self, cr, w, t):
+        """While music with a known length plays: how far into the song, a thin line along the bottom of the pill."""
+        m = self.music
+        if not m.length or self.feeling[0] not in ("dance", "sway") or self._song_on_card():
+            return
+        part = max(0.0, min(1.0, (m.pos + t - m.pos_at) / m.length))
+        x0, x1, y = PAD + PILL + 8, w - PAD - 22, PAD + PILL - 7
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.set_line_width(2)
+        for to, alpha in ((x1, 0.12 * self.feeling[1]), (x0 + (x1 - x0) * part, 0.6 * self.feeling[1])):
+            cr.set_source_rgba(*SNOW, alpha)
+            cr.move_to(x0, y)
+            cr.line_to(to, y)
+            cr.stroke()
+        cr.set_line_cap(cairo.LINE_CAP_BUTT)
+
+    def _paint_marks(self, cr, right):
+        """The compact bar's marks, right to left from `right`: JARVIS's voice off, the mic off, new notifications,
+        speech it ignored. Returns where they start: the words stop short of it."""
+        right, mid, mutes = right - 10, HEIGHT / 2, self.ui.mutes
         for kind, on in (("speaker", mutes["voice"] or mutes["speaker"]), ("mic", mutes["mic"])):
             if on:
                 _mute_mark(cr, right - 8, mid, kind)
                 right -= 22
+        unread = self.ui.extras.get("unread")
+        if unread:
+            layout = _layout(cr, str(unread), 9.5)
+            right -= layout.get_pixel_size()[0]
+            _show(cr, layout, right, mid, 0.8)
+            x = right - 17  # an envelope just before the count
+            cr.set_source_rgba(*SNOW, 0.8)
+            cr.set_line_width(1.3)
+            cr.rectangle(x, mid - 4.5, 13, 9)
+            cr.move_to(x, mid - 4.5)
+            cr.line_to(x + 6.5, mid + 0.5)
+            cr.line_to(x + 13, mid - 4.5)
+            cr.stroke()
+            right = x - 8
         if self.ignored:
             layout = _layout(cr, "%d ⊘" % self.ignored, 9.5)
             right -= layout.get_pixel_size()[0]
