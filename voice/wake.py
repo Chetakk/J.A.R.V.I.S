@@ -323,7 +323,10 @@ class WhisperWake:
                 command = command if named else text
                 if not command:
                     self.on_heard(text, "the name again; still waiting for the command")
-                    continue  # just the name again; keep waiting
+                    if not dictating:  # you called it: a full new wait, and what comes next is no follow-up
+                        self.following = False
+                        self._wait(self.wait_seconds)
+                    continue
                 self.waiting_until = 0.0
                 if STOP.match(command) and not dictating:
                     self.on_heard(text, "done; back to waiting for the name")

@@ -155,7 +155,7 @@ class Speaker:
         """True if `heard` is JARVIS's own voice coming back through the mic: it began while JARVIS was
         (still) playing, and 90% of its words match, in order, one thing JARVIS just said (or a piece of it).
         Not all its words pooled together: common words like "just", "it", "that" made your own sentences match."""
-        if started_at > self.done_at() + 1.0:
+        if started_at > self._ends_at() + 1.0:
             return False  # began well after JARVIS finished: that's you
         words = _words(heard)
         if not words:
