@@ -24,7 +24,7 @@ PILL = 56
 TEXT = 11.5  # point size of what you said
 STRIP = 62  # the height of the dock's strip: the pill sits in its middle
 HEIGHT = PILL + 2 * PAD
-FULL_W = 420 + 2 * PAD  # the pill: shorter than the dock, about as tall
+FULL_W = 420 + 2 * PAD  # the widest the pill gets: shorter than the dock, about as tall; it fits what it says
 COMPACT_W = 296
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
@@ -94,6 +94,7 @@ class Bar:
         self._settle = 0.0
         self._cached = None
         self._glow = self._glass = None
+        self._measure = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))  # sizes text off screen
         self._wall = Gio.Settings.new(WALLPAPER) if Gio.SettingsSchemaSource.get_default().lookup(WALLPAPER, True) else None
         self._wall_uri = self._blurred = None
         try:
@@ -169,8 +170,24 @@ class Bar:
     def _target(self, mode):
         geo = self._screen()
         if mode == "full":
-            return geo.x + (geo.width - FULL_W) / 2, FULL_W
+            w = self._fit()
+            return geo.x + (geo.width - w) / 2, w
         return geo.x + geo.width - COMPACT_W, COMPACT_W
+
+    def _fit(self):
+        """The full bar's width: just room for what it shows now, so it grows as you talk, up to FULL_W."""
+        state = self._state()
+        if self._reply_up(time.time()):
+            room = self._text_w(self.reply, TEXT)
+        else:
+            words = self.words or ("Listening…" if state == "listening" else "")
+            note = self._text_w(self._note(state), TEXT - 1)
+            room = max((self._text_w(words, TEXT) + 12 if words else 0) + note, 2 * note)  # _row gives a note half
+        buttons = FULL_W - min(a for a, _b in self._zones(FULL_W).values())
+        return min(FULL_W, PAD + PILL + 16 + room + 2 + buttons)
+
+    def _text_w(self, text, size):
+        return _layout(self._measure, text, size).get_pixel_size()[0] if text else 0
 
     def set_mode(self, mode):
         if mode == self.mode:
@@ -213,7 +230,8 @@ class Bar:
 
     def _tick(self):
         moving = self._step()
-        alive = moving or time.time() < self._settle or (self.mode != "hidden" and self._state() in ANIMATED)
+        # A reply comes up WORDS_HOLD after your words, and the bar's width follows it.
+        alive = moving or time.time() < max(self._settle, self._words_at + WORDS_HOLD + 0.4) or (self.mode != "hidden" and self._state() in ANIMATED)
         if self.win.get_visible():
             self.win.queue_draw()
         if not alive:
@@ -435,8 +453,7 @@ class Bar:
                   left, HEIGHT / 2, 0.92)
             return
         room = min([a for a, _b in zones.values()] or [w - PAD - 20]) - left - 8
-        note = "Asking Claude…" if state == "claude" else \
-            "→ " + self.understood if self.understood and self.show_understood else ""
+        note = self._note(state)
         mid = HEIGHT / 2
         if self._reply_up(t):
             fade = min(1.0, (t - max(self._text_at, self._words_at + WORDS_HOLD)) / 0.2)
@@ -445,6 +462,11 @@ class Bar:
             self._row(cr, left, mid, room, self.words, note, TEXT, 0.98 * min(1.0, (t - self._words_at) / 0.2))
         else:
             self._row(cr, left, mid, room, "Listening…" if state == "listening" else "", note, TEXT, 0.6)
+
+    def _note(self, state):
+        if state == "claude":
+            return "Asking Claude…"
+        return "→ " + self.understood if self.understood and self.show_understood else ""
 
     def _reply_up(self, t):
         """A reply waits a moment after your words, or a quick one would wipe them before you could read them."""

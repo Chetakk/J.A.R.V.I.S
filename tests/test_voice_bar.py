@@ -111,3 +111,21 @@ def test_understood_shows_the_phrase_but_not_one_with_a_blank(jv):
     jv.j.understood("open youtube")
     jv.j.understood("set volume to {n}")
     assert [c for c in jv.ui.calls if c[0] == "show_understood"] == [("show_understood", ("open youtube",))]
+
+
+def test_the_full_bar_fits_what_it_says_and_grows_as_you_talk_up_to_full_width():
+    from types import SimpleNamespace
+    import cairo
+    from ui.bar import FULL_W, Bar
+
+    bar = Bar.__new__(Bar)  # no window and no talking to the shell
+    bar.ui, bar.mode, bar.show_understood, bar.ignored = SimpleNamespace(_shown=("listening",)), "full", True, 0
+    bar.words = bar.understood = bar.reply = ""
+    bar._words_at, bar._measure = 0.0, cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))
+    listening = bar._fit()
+    bar.words = "open youtube"
+    talking = bar._fit()
+    bar.ignored = 2
+    assert listening < talking < bar._fit() < FULL_W  # the ignored count gets its room too
+    bar.words = "play the one about the robots that fall in love on the moon please " * 3
+    assert bar._fit() == FULL_W
