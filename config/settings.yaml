@@ -87,6 +87,9 @@ stt:                       # speech-to-text: whisper.cpp server on the GPU
   port: 8178
   threads: 4
   audio_ctx: 512           # 0 = the full 30 s window (slower)
+  # Below this Whisper confidence, speech that would go to Claude gets "didn't catch that" instead. Set from your
+  # recordings (tools/speechtest.py): at -0.6 no correctly heard command was lost; -0.5 refuses more junk, and 3 in 33 good ones.
+  min_confidence: -0.6
 
 push_to_talk:
   key: right_ctrl

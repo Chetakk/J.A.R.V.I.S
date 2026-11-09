@@ -1,0 +1,89 @@
+# What tools/speechtest.py asks you to read. The recordings stay in ~/.local/share/jarvis/speech-test.
+# Changing a line means recording that line again: each recording is matched to its line by number.
+
+# Said after the name, unless the line starts with the name itself (then it's all one breath).
+commands:
+  - what time is it
+  - what's the weather today
+  - cpu usage
+  - what is my gpu usage
+  - set a timer for two minutes
+  - remind me in five minutes to drink water
+  - add buy milk to my todo list
+  - what's on my todo list
+  - brief me
+  - where was I
+  - show me the dashboard
+  - show chat
+  - close it
+  - stop
+  - do that again
+  - that's not what I said
+  - did that work
+  - yes please
+  - no thanks
+  - mute the mic
+  - volume up
+  - set volume to forty
+  - next song
+  - play some music
+  - pause the music
+  - switch audio to the echo dot
+  - open youtube
+  - open chrome
+  - open discord
+  - close discord
+  - open vs code
+  - open the fourth video
+  - put chrome on the left
+  - go to workspace two
+  - take a screenshot
+  - what's on my screen
+  - run a speed test
+  - am I connected to the internet
+  - show me my projects
+  - run study buddy
+  - open avtec hs in vs code
+  - Jarvis, any changes in jarvis
+  - Jarvis, what's running
+  - Jarvis, sync contributions
+  - Jarvis, open onboard
+  - Hey Jarvis, what did I download today
+  - Hey Jarvis, find my job offer
+  - Hey Jarvis, summarise this page
+  - Hey Jarvis, ask Claude what's the capital of France
+  - Hey Jarvis, open my work github account
+
+# The name alone, the way you'd call it from across the room: for the wake word.
+wake:
+  - Jarvis
+  - Jarvis
+  - Jarvis
+  - Jarvis
+  - Jarvis
+  - Hey Jarvis
+  - Hey Jarvis
+  - Hey Jarvis
+  - Hey Jarvis
+  - Hey Jarvis
+  - Jarvis (a bit louder)
+  - Jarvis (a bit louder)
+  - Jarvis (quietly)
+  - Jarvis (quietly)
+  - Jarvis (quickly)
+  - Jarvis (quickly)
+  - Hey Jarvis (looking away from the mic)
+  - Hey Jarvis (looking away from the mic)
+  - Jarvis (like you're a little annoyed)
+  - Hey Jarvis (like you're a little annoyed)
+
+# Not meant for JARVIS at all: it should never act on these.
+noise:
+  - Cough once
+  - Clear your throat
+  - Say "hmm, let me think" to yourself
+  - Say to someone in the room, "can you pass me the charger"
+  - Say to someone in the room, "I'll be there in ten minutes"
+  - Mumble a sentence, not clearly
+  - Play a video out loud, and stop it after this is saved
+  - Play a different part of a video out loud, and stop it after this is saved
