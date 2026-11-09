@@ -4,6 +4,7 @@ It sits in the strip the dock reserves: while the bar is up only the dock's pict
 reserved, so no window moves. A click opens the chat. It animates only while JARVIS is busy or the bar is moving.
 """
 import math
+import re
 import time
 
 import cairo
@@ -28,6 +29,16 @@ FULL_W = 420 + 2 * PAD  # the widest the pill gets: shorter than the dock, about
 COMPACT_W = 296
 BREATH = 100  # ms between idle frames: the slow breath needs no more than 10 a second
 BLINK = 5.0  # seconds between the idle eyes' blinks
+FOLLOW = 2.0  # seconds the idle eyes keep watching the pointer after it stops
+MOOD_SECS = 5.0  # how long the idle eyes show a mood
+# (mood, who said it, words that bring it on), first match wins. Two failures in two minutes: stressed, not sad.
+MOODS = (
+    ("happy", "you", r"\b(thanks?|thank you|good (job|boy)|well done|great job|awesome|love you|you'?re the best|nice one)\b"),
+    ("angry", "you", r"\b(stupid|idiot|useless|dumb|shut up|hate you|annoying)\b"),
+    ("sad", "you", r"\b(i'?m (so |really |very )?(sad|upset|lonely|down)|bad day)\b"),
+    ("sad", "jarvis", r"^sorry\b|^i (couldn'?t|can'?t)\b|didn'?t (work|take)|went wrong|\bfailed\b"),
+    ("happy", "jarvis", r"\b(you'?re welcome|my pleasure|glad)\b"),
+)
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
 WALLPAPER = "org.gnome.desktop.background"
@@ -90,6 +101,19 @@ def _eyes(t):
     return 1 - shut, look, moving
 
 
+def mood_for(who, text):
+    """The mood these words from "you" or "jarvis" bring on, or None."""
+    return next((mood for mood, by, words in MOODS if by == who and re.search(words, text.lower())), None)
+
+
+def look_at(px, py, ox, oy):
+    """Where eyes at (ox, oy) look to see the pointer at (px, py): a direction, shorter when it's close."""
+    dx, dy = px - ox, py - oy
+    d = math.hypot(dx, dy) or 1.0
+    reach = min(1.0, d / 250)
+    return dx / d * reach, dy / d * reach
+
+
 def _smooth(x):
     x = max(0.0, min(1.0, x))
     return x * x * (3 - 2 * x)
@@ -118,6 +142,11 @@ class Bar:
         self._w, self._x, self._vis = float(FULL_W), 0.0, 0.0
         self._placed = None
         self._timer = None
+        self.gaze = [0.0, 0.0]  # where the idle eyes look: -1..1 across and down
+        self._pointer = self._last_pointer = None
+        self._pointer_at = 0.0
+        self.mood, self.feeling = None, (None, 0.0)  # the mood waiting to be shown, and (mood, strength 0..1) now
+        self._mood_seen, self._sorry = None, []
         self._every = None  # the timer's ms: 33 while busy, moving or blinking, BREATH while idle, None when stopped
         self._settle = 0.0
         self._cached = None
@@ -153,6 +182,7 @@ class Bar:
 
     def heard(self, text):
         if text:
+            self._feel("you", text)
             self.words, self.understood, self.reply = text, "", ""
             self._words_at = time.time()
             self._changed()
@@ -161,8 +191,47 @@ class Bar:
         if who == "you":
             self.heard(text)
         elif who in ("jarvis", "claude"):
+            self._feel("jarvis", text)
             self.reply = text
             self._changed()
+
+    def _feel(self, who, text):
+        """Pick the eyes' next mood from what was said. What you say sets it afresh; JARVIS's words only add one."""
+        mood = mood_for(who, text)
+        if mood == "sad" and who == "jarvis":
+            now = time.time()
+            self._sorry = [s for s in self._sorry if now - s < 120] + [now]
+            mood = "stressed" if len(self._sorry) >= 2 else mood
+        if who == "you" or mood:
+            self.mood, self._mood_seen = mood, None
+
+    def _mood_now(self, t):
+        """(mood, strength): the mood shows for MOOD_SECS once the eyes are up, fading in and out."""
+        if not self.mood or self._state() != "idle" or self.mode == "hidden":
+            return None, 0.0
+        self._mood_seen = self._mood_seen or t
+        age = t - self._mood_seen
+        if age > MOOD_SECS:
+            self.mood = None
+            return None, 0.0
+        return self.mood, _smooth(min(age / 0.35, (MOOD_SECS - age) / 0.5))
+
+    def _watch(self, t):
+        """Turn the idle eyes towards the pointer while it moves and a moment after, else ahead with the odd
+        glance. True while that needs the fast frame rate."""
+        try:
+            self._pointer = self._pointer or Gdk.Display.get_default().get_default_seat().get_pointer()
+            spot = tuple(self._pointer.get_position()[1:])
+        except (AttributeError, TypeError):
+            spot = None
+        if spot != self._last_pointer:
+            if self._last_pointer is not None:
+                self._pointer_at = t
+            self._last_pointer = spot
+        watching = spot is not None and t - self._pointer_at < FOLLOW
+        aim = look_at(*spot, self._x + PAD + PILL / 2, self.top() + PAD + PILL / 2) if watching else (_eyes(t)[1], 0.0)
+        self.gaze = [g + (a - g) * 0.3 for g, a in zip(self.gaze, aim)]
+        return t - self._pointer_at < FOLLOW + 0.8
 
     def set_understood(self, text):
         self.understood = text
@@ -268,7 +337,11 @@ class Bar:
         if self.win.get_visible():
             self.win.queue_draw()
         idle = self.mode != "hidden" and self._state() == "idle"
-        every = 33 if busy or idle and _eyes(t)[2] and not self.ui._shown[2] else BREATH if idle else None
+        lively = False
+        if idle and not self.ui._shown[2]:  # eyes open: they blink, watch the pointer and show moods
+            self.feeling = self._mood_now(t)
+            lively = self._watch(t) or _eyes(t)[2] or bool(self.mood)
+        every = 33 if busy or lively else BREATH if idle else None
         if every == self._every:
             return True
         self._timer, self._every = (GLib.timeout_add(every, self._tick) if every else None), every

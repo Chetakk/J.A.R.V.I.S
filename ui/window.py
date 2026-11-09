@@ -363,14 +363,28 @@ class UI:
         else:
             # Idle: a pet's eyes that breathe, blink and now and then glance aside.
             from ui.bar import _breath, _eyes  # ui.bar imports this module
-            awake, look, _ = _eyes(t)
-            self._pet_eyes(cr, cx + look * r * 0.12, cy, r, awake, 0.78 + 0.22 * _breath(t))
+            gx, gy = self.bar.gaze
+            mood, k = self.bar.feeling
+            self._pet_eyes(cr, cx + gx * r * 0.13, cy + gy * r * 0.10, r, _eyes(t)[0], 0.78 + 0.22 * _breath(t), mood, k, t)
 
     @staticmethod
-    def _pet_eyes(cr, cx, cy, r, awake, bright):
+    def _pet_eyes(cr, cx, cy, r, awake, bright, mood=None, k=0.0, t=0.0):
+        """Two glowing eyes. A mood (strength k, 0..1) reshapes them: happy ^ ^ that bounce, sad lids drooping
+        outwards, angry lids slanting in with a tremble, stressed small darting eyes and a sweat drop."""
         from ui.blocks import _round_rect
         ew, gap = r * 0.21, r * 0.26
         eh = max(r * 0.06, r * 0.40 * awake)  # shut, it's a flat line
+        drop_x, drop_y = cx + r * 0.55, cy - r * 0.42
+        inner = outer = 0.0  # how far down each lid cuts, as a share of the eye's height
+        if mood == "happy":
+            cy -= r * 0.05 * abs(math.sin(t * 5)) * k
+        elif mood == "sad":
+            cy, outer, bright = cy + r * 0.05 * k, 0.5 * k, bright * (1 - 0.3 * k)
+        elif mood == "angry":
+            cx, inner = cx + r * 0.02 * math.sin(t * 45) * k, 0.55 * k
+        elif mood == "stressed":
+            cx, eh = cx + r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k, eh * (1 - 0.3 * k)
+        shape = 1 - k if mood == "happy" else 1.0  # happy cross-fades the pills into ^ ^
         for side in (-1, 1):
             x = cx + side * gap
             glow = cairo.RadialGradient(x, cy, 0, x, cy, r * 0.42)
@@ -379,8 +393,34 @@ class UI:
             cr.arc(x, cy, r * 0.42, 0, 2 * math.pi)
             cr.set_source(glow)
             cr.fill()
-            _round_rect(cr, x - ew / 2, cy - eh / 2, ew, eh, min(ew, eh) / 2)
-            cr.set_source_rgba(1, 1, 1, 0.95 * bright)
+            if shape > 0.01:
+                cr.save()
+                if inner or outer:  # the lid: keep what's below a slanted line, inner end towards the nose
+                    top = cy - eh / 2
+                    cr.move_to(x - side * ew, top + inner * eh)
+                    cr.line_to(x + side * ew, top + outer * eh)
+                    cr.line_to(x + side * ew, cy + eh)
+                    cr.line_to(x - side * ew, cy + eh)
+                    cr.close_path()
+                    cr.clip()
+                _round_rect(cr, x - ew / 2, cy - eh / 2, ew, eh, min(ew, eh) / 2)
+                cr.set_source_rgba(1, 1, 1, 0.95 * bright * shape)
+                cr.fill()
+                cr.restore()
+            if mood == "happy" and k > 0.01:
+                cr.set_line_cap(cairo.LINE_CAP_ROUND)
+                cr.set_line_width(ew * 0.6)
+                cr.set_source_rgba(1, 1, 1, 0.95 * bright * k)
+                cr.arc(x + side * r * 0.03, cy + r * 0.06, ew * 0.68, math.pi * 1.12, math.pi * 1.88)
+                cr.stroke()
+                cr.set_line_cap(cairo.LINE_CAP_BUTT)
+        if mood == "stressed" and k > 0.01:  # a sweat drop sliding down the side
+            p = t % 1.6 / 1.6
+            x, y, s = drop_x, drop_y + r * 0.25 * p, r * 0.09
+            cr.move_to(x, y - s * 1.6)
+            cr.curve_to(x + s, y - s * 0.4, x + s, y + s, x, y + s)
+            cr.curve_to(x - s, y + s, x - s, y - s * 0.4, x, y - s * 1.6)
+            cr.set_source_rgba(1, 1, 1, 0.75 * k * (1 - 0.6 * p))
             cr.fill()
 
     @staticmethod

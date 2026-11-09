@@ -204,3 +204,52 @@ def test_the_idle_eyes_blink_double_blink_and_glance_and_say_when_they_need_fast
     assert _eyes(3 * BLINK + 0.40)[0] < 1e-9  # every third blink is a double one
     assert _eyes(4 * BLINK + 0.40)[0] == 1.0
     assert abs(_eyes(13 + 8.0)[1]) == 1.0 and _eyes(13 + 8.0)[2]  # glancing aside
+
+
+@pytest.mark.parametrize("who,text,mood", [
+    ("you", "Thanks Jarvis", "happy"), ("you", "good job", "happy"), ("you", "you're so stupid", "angry"),
+    ("you", "I'm really sad today", "sad"), ("jarvis", "Sorry, that didn't work.", "sad"),
+    ("jarvis", "I couldn't find a place called Narnia.", "sad"), ("jarvis", "You're welcome.", "happy"),
+    ("you", "open youtube", None), ("jarvis", "Opening YouTube.", None), ("jarvis", "thanks", None)])
+def test_what_is_said_gives_the_eyes_a_mood(who, text, mood):
+    from ui.bar import mood_for
+
+    assert mood_for(who, text) == mood
+
+
+def test_moods_show_once_idle_fade_out_and_a_second_failure_is_stress():
+    from types import SimpleNamespace
+    from ui.bar import MOOD_SECS, Bar
+
+    bar = Bar.__new__(Bar)
+    bar.ui, bar.mode, bar.mood, bar._mood_seen, bar._sorry = SimpleNamespace(_shown=("speaking",)), "full", None, None, []
+    bar._feel("jarvis", "Sorry, that didn't work.")
+    assert bar.mood == "sad" and bar._mood_now(100.0) == (None, 0.0)  # waits while JARVIS is still talking
+    bar._feel("jarvis", "Sorry, that didn't work either.")
+    assert bar.mood == "stressed"
+    bar._feel("jarvis", "Opening it.")  # JARVIS's plain words leave the mood alone
+    bar.ui._shown = ("idle",)
+    assert bar._mood_now(100.0) == ("stressed", 0.0) and bar._mood_now(101.0) == ("stressed", 1.0)
+    assert bar._mood_now(100.0 + MOOD_SECS + 0.1) == (None, 0.0) and bar.mood is None
+    bar._feel("you", "thanks")
+    bar._feel("you", "open youtube")  # what you say next sets it afresh
+    assert bar.mood is None
+
+
+def test_the_eyes_look_towards_the_pointer_less_so_when_it_is_close():
+    from ui.bar import look_at
+
+    assert look_at(1000, 500, 500, 500) == (1.0, 0.0)  # far right
+    x, y = look_at(400, 400, 500, 500)  # up-left
+    assert x == y and -1 < x < 0
+    assert look_at(510, 500, 500, 500) == (10 / 250, 0.0)  # near: a small turn
+
+
+@pytest.mark.parametrize("mood", [None, "happy", "sad", "angry", "stressed"])
+def test_each_mood_draws_its_eyes(mood):
+    import cairo
+    from ui.window import UI
+
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 56, 56)
+    UI._pet_eyes(cairo.Context(surface), 28, 28, 25, 1.0, 1.0, mood, 1.0, 3.0)
+    assert any(surface.get_data())
