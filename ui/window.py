@@ -148,7 +148,8 @@ class UI:
         self._build_panel()
         from ui.card import Deck
         self._chat_on = False
-        self.card = Deck(self.bar.top, lambda: self._chat_on, self.panel.move, self.on_command)  # a choice = said it
+        self.card = Deck(self.bar.top, lambda: self._chat_on, self.panel.move, self.on_command,  # a choice = said it
+                         lambda: self.bar.mode == "compact")
         self._build_tray()
         if cfg.get("chat", False):
             self._set_chat(True)

@@ -60,17 +60,18 @@ _LINK = re.compile(r"\[([^\]]+)\]\(((?:https?|file)://[^)\s]+)\)")
 _METER = re.compile(r"\[\[(\d{1,3})%\]\]")
 
 
-def arrange(sizes, left, width, bottom, top):
+def arrange(sizes, left, width, bottom, top, right=False):
     """Where windows of these (w, h) sizes go: rows centred on the screen, sitting on `bottom`. One is in the exact
     middle, two either side of it, three left, middle and right. sizes[0] goes at the right of the bottom row. Rows
-    that no longer fit overlap instead, a little apart."""
+    that no longer fit overlap instead, a little apart. `right`: the rows sit at the screen's right edge instead,
+    above the compact bar."""
     spots, start, row_bottom = [None] * len(sizes), 0, bottom
     while start < len(sizes):
         end, used = start + 1, sizes[start][0]
         while end < len(sizes) and used + GAP + sizes[end][0] <= width:
             used += GAP + sizes[end][0]
             end += 1
-        x = left + (width - used) // 2
+        x = left + (width - used if right else (width - used) // 2)
         for i in range(end - 1, start - 1, -1):
             spots[i] = (x, row_bottom - sizes[i][1])
             x += sizes[i][0] + GAP
@@ -80,7 +81,8 @@ def arrange(sizes, left, width, bottom, top):
     for i, (w, h) in enumerate(sizes):
         if spots[i][1] < top:
             full += 1
-            spots[i] = (left + (width - w) // 2 + 28 * full, max(top, bottom - h - 28 * full))
+            x = left + width - w - 28 * full if right else left + (width - w) // 2 + 28 * full
+            spots[i] = (x, max(top, bottom - h - 28 * full))
     return spots
 
 
@@ -418,8 +420,9 @@ class Deck:
     the newest sits next to the chat, and a card you drag stays where you put it. A card with the id of one on screen updates that one in place, wherever it is.
     GTK-thread only; `last`, `visible`, `history`, current() and ids() are safe to read from any thread."""
 
-    def __init__(self, bottom, chat_visible, move_chat, on_choice):
+    def __init__(self, bottom, chat_visible, move_chat, on_choice, compact=lambda: False):
         self.bottom, self.chat_visible, self.move_chat, self.on_choice = bottom, chat_visible, move_chat, on_choice
+        self.compact = compact  # True: the row goes to the right, where the compact bar is
         self.open = []  # windows on screen, oldest first
         self.spare = []  # closed windows, reused for the next card
         self.pins = []
@@ -537,7 +540,7 @@ class Deck:
             self._place()
 
     def _place(self):
-        """The chat and the cards in their centred row; a card you dragged stays where it is."""
+        """The chat and the cards in their row, centred or by the compact bar; a card you dragged stays where it is."""
         if self._placing:
             return
         self._placing = True
@@ -551,7 +554,7 @@ class Deck:
             # Real widths: a card with a drawn block comes out a few pixels wider, and the gaps must still be equal.
             spots = arrange(chat + [(max(CARD_W, w.win.get_allocated_width()), w.win.get_allocated_height()) for w in auto],
                             geo.x, geo.width,
-                            self.bottom() + GLOW, geo.y)
+                            self.bottom() + GLOW, geo.y, self.compact())
             spot = spots.pop(0) if chat else None
             if spot and spot != self._chat_spot:
                 self.move_chat(*spot)

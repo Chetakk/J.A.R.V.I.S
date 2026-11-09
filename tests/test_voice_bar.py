@@ -147,3 +147,15 @@ def test_the_follow_up_line_draws_and_lights_the_bar_while_time_is_left():
     bar._follow_end = 106.0
     assert lit(101.0) and lit(105.9)  # whole and almost out (the fast beat)
     assert not lit(106.0)  # time's up: nothing drawn
+
+
+def test_with_the_compact_bar_the_row_sits_at_the_right_with_the_chat_nearest_it():
+    from ui.card import arrange
+
+    def spots(*widths):
+        return [x for x, _y in arrange([(w, 100) for w in widths], 0, 1920, 1000, 25, right=True)]
+
+    assert spots(460) == [1460]  # flush with the right edge, like the bar
+    assert spots(390, 460) == [1530, 1084]  # the chat at the far right, the card left of it
+    many = arrange([(460, 400)] * 9, 0, 1920, 1000, 25, right=True)
+    assert many[8] == (1920 - 460 - 28, 572)  # overflow stacks from the right too

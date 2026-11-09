@@ -197,6 +197,8 @@ class Bar:
             self._dock(HIDE_DOCK)
         elif was == "full":
             self.show_dock()
+        if "compact" in (mode, was):
+            self.ui.card._place()  # the chat and cards follow the bar to the right and back
         if not self.win.get_visible():
             self._x, self._w = self._target(mode)
             self._vis = 0.0
