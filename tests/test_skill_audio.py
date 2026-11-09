@@ -165,18 +165,13 @@ def test_unmute_the_sound_brings_it_back(jv, pulse):
     assert not jv.j.mutes["speaker"] and "speaker" not in jv.j.muted_on_purpose
 
 
-def test_muting_the_mic_stops_only_jarvis_and_asks_first(jv, pulse):
-    jv.do("mute the mic", "yes")
-    assert jv.questions == ["Want me to stop listening?"]
+def test_muting_the_mic_stops_only_jarvis_straight_away(jv, pulse):
+    jv.do("mute the mic")
+    assert not jv.questions  # you said it: no "are you sure"
     assert jv.j.deaf and jv.j.mutes["mic"]
     assert pulse.get(USB_MIC)["mute"] is False  # the system microphone stays live for other apps
     assert jv.says("not listening") and not jv.says("tray")  # nothing about the tray, ever
     assert not any("set-source-mute" in c for c in jv.shell.calls)
-
-
-def test_saying_no_leaves_jarvis_listening(jv, pulse):
-    jv.do("mute the mic", "no")
-    assert not jv.j.deaf and jv.says("still")
 
 
 def test_the_tray_stops_and_resumes_listening_without_asking(jv, pulse):

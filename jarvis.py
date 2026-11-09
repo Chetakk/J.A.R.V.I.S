@@ -937,7 +937,7 @@ class Jarvis:
         if what == "voice":
             self.skills.voice_prefs.quiet(not self.speaker.muted if on is None else on)
         elif what == "mic":
-            self.skills.audio.mic_mute(not self.mutes["mic"] if on is None else on, ask=False)
+            self.skills.audio.mic_mute(not self.mutes["mic"] if on is None else on)
         else:
             self.skills.audio.sound_mute(not self.mutes["speaker"] if on is None else on)
 

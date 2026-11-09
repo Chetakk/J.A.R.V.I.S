@@ -5,8 +5,8 @@ it low) asks first. The Echo Dot connects by itself from the Alexa app; when it 
 
 Muting, three separate things, never one toggle:
   "mute the sound"  the speaker, so nothing on this computer is heard; "unmute" brings it back.
-  "mute the mic"    JARVIS stops listening; the system microphone stays live for other apps. It asks first,
-                    because afterwards JARVIS can't hear you: only the tray icon (or typing) turns it back on.
+  "mute the mic"    JARVIS stops listening, straight away; the system microphone stays live for other apps.
+                    Afterwards JARVIS can't hear you: only the tray icon (or typing) turns it back on.
   "mute yourself"   JARVIS's own voice, which is quiet mode (skills/voice_prefs.py).
 Each says which way it's going, so saying "unmute" when nothing is muted never mutes you."""
 import re
@@ -204,10 +204,10 @@ class Audio(Skill):
                   "Ugh, fine, sound's off."] if on
                  else ["Okay, sound's back.", "There you go, sound's back.", "And we're back."])
 
-    def mic_mute(self, on, ask=True):
+    def mic_mute(self, on):
         """JARVIS stops listening (or starts again). Only JARVIS: the system microphone stays live, so Zoom,
-        Meet and recordings are unaffected. Muting asks first, because afterwards a spoken "unmute" can't be
-        heard: the tray icon (or typing in the chat) turns it back on."""
+        Meet and recordings are unaffected. Muting doesn't ask: you said it. Afterwards a spoken "unmute" can't
+        be heard: the tray icon (or typing in the chat) turns it back on."""
         j = self.j
         mic = None if on or j.deaf else audio.current("source")
         if mic and mic.mute:  # the tray box shows the system's own mute too: unticking it must undo that
@@ -220,12 +220,9 @@ class Audio(Skill):
         if j.deaf == on:
             self.say("I'm already not listening, don't worry." if on else "I'm already listening.")
             return
-        if on and ask and not j.ask("Want me to stop listening?"):
-            self.say(["Okay, I'm still here.", "Alright, still listening."])
-            return
         j.deaf = on
         j.show_mutes(mic=on)
-        j.last_undo = lambda: self.mic_mute(not on, ask=False)
+        j.last_undo = lambda: self.mic_mute(not on)
         self.say(NOT_LISTENING if on else ["I'm back, I can hear you.", "Okay, I'm listening again.", "Ears open again.",
                                       "Okay, I'm all ears."])
 
