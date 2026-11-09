@@ -18,6 +18,7 @@ gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 from ui.blocks import _round_rect  # noqa: E402
+from ui.feelings import Body, Music  # noqa: E402
 from ui.window import ANIMATED, CLAUDE_RGB, LABELS, _clear, _make_transparent  # noqa: E402
 
 PAD = 12  # transparent room around the pill for the glow
@@ -31,6 +32,7 @@ BREATH = 100  # ms between idle frames: the slow breath needs no more than 10 a 
 BLINK = 5.0  # seconds between the idle eyes' blinks
 FOLLOW = 2.0  # seconds the idle eyes keep watching the pointer after it stops
 MOOD_SECS = 5.0  # how long the idle eyes show a mood
+MOVING = {"dance", "sway", "hot", "squeezed"}  # moods from music or the computer that move all the time
 # (mood, who said it, words that bring it on), first match wins. Two failures in two minutes: stressed, not sad.
 MOODS = (
     ("happy", "you", r"\b(thanks?|thank you|good (job|boy)|well done|great job|awesome|love you|you'?re the best|nice one)\b"),
@@ -147,6 +149,9 @@ class Bar:
         self._pointer_at = 0.0
         self.mood, self.feeling = None, (None, 0.0)  # the mood waiting to be shown, and (mood, strength 0..1) now
         self._mood_seen, self._sorry = None, []
+        self.music, self.body = Music(), Body()  # the moods music and the computer bring on
+        self._ambient, self._ambient_k, self._ambient_t, self.beat = None, 0.0, 0.0, 0.0
+        GLib.timeout_add_seconds(5, self.body.check)
         self._every = None  # the timer's ms: 33 while busy, moving or blinking, BREATH while idle, None when stopped
         self._settle = 0.0
         self._cached = None
@@ -215,6 +220,20 @@ class Bar:
             self.mood = None
             return None, 0.0
         return self.mood, _smooth(min(age / 0.35, (MOOD_SECS - age) / 0.5))
+
+    def _ambience(self, t):
+        """(mood, strength) from the music, else the computer: the old one fades out before the new one fades in."""
+        aim = self.music.kind or self.body.mood
+        dt, self._ambient_t = min(0.2, t - (self._ambient_t or t)), t
+        if aim != self._ambient:
+            self._ambient_k -= dt / 0.4
+            if self._ambient_k <= 0:
+                self._ambient, self._ambient_k = aim, 0.0
+        elif aim:
+            self._ambient_k = min(1.0, self._ambient_k + dt / 0.6)
+        if self._ambient in ("dance", "sway"):  # beats since the last one heard: the eyes move on them
+            self.beat = (t - self.music.beat_at) * self.music.bpm / 60 if self.music.bpm else t / 2
+        return self._ambient, _smooth(self._ambient_k)
 
     def _watch(self, t):
         """Turn the idle eyes towards the pointer while it moves and a moment after, else ahead with the odd
@@ -337,10 +356,12 @@ class Bar:
         if self.win.get_visible():
             self.win.queue_draw()
         idle = self.mode != "hidden" and self._state() == "idle"
-        lively = False
-        if idle and not self.ui._shown[2]:  # eyes open: they blink, watch the pointer and show moods
-            self.feeling = self._mood_now(t)
-            lively = self._watch(t) or _eyes(t)[2] or bool(self.mood)
+        lively = self.music.want = idle and not self.ui._shown[2]
+        if lively:  # eyes open: they blink, watch the pointer and show moods; a talk mood goes before the rest
+            talk, around = self._mood_now(t), self._ambience(t)
+            self.feeling = talk if talk[0] else around
+            lively = (self._watch(t) or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING
+                      or 0 < self._ambient_k < 1)
         every = 33 if busy or lively else BREATH if idle else None
         if every == self._every:
             return True

@@ -365,16 +365,20 @@ class UI:
             from ui.bar import _breath, _eyes  # ui.bar imports this module
             gx, gy = self.bar.gaze
             mood, k = self.bar.feeling
-            self._pet_eyes(cr, cx + gx * r * 0.13, cy + gy * r * 0.10, r, _eyes(t)[0], 0.78 + 0.22 * _breath(t), mood, k, t)
+            self._pet_eyes(cr, cx + gx * r * 0.13, cy + gy * r * 0.10, r, _eyes(t)[0], 0.78 + 0.22 * _breath(t), mood, k, t,
+                           self.bar.beat)
 
     @staticmethod
-    def _pet_eyes(cr, cx, cy, r, awake, bright, mood=None, k=0.0, t=0.0):
-        """Two glowing eyes. A mood (strength k, 0..1) reshapes them: happy ^ ^ that bounce, sad lids drooping
-        outwards, angry lids slanting in with a tremble, stressed small darting eyes and a sweat drop."""
+    def _pet_eyes(cr, cx, cy, r, awake, bright, mood=None, k=0.0, t=0.0, beat=0.0):
+        """Two glowing eyes. A mood (strength k, 0..1) reshapes them. From talk: happy ^ ^ that bounce, sad lids
+        drooping outwards, angry lids slanting in with a tremble, stressed small darting eyes and a sweat drop. From
+        music (`beat`: beats so far): dance hops on each beat and steps side to side, sway drifts slowly, dreamy. From
+        the computer: busy squints (straining sweats too), hot droops and wobbles with a sweat drop, squeezed is
+        pressed thin and fidgety, sleepy is half shut with z's floating up."""
         from ui.blocks import _round_rect
         ew, gap = r * 0.21, r * 0.26
         eh = max(r * 0.06, r * 0.40 * awake)  # shut, it's a flat line
-        drop_x, drop_y = cx + r * 0.55, cy - r * 0.42
+        drop_x, drop_y, base_x, base_y = cx + r * 0.55, cy - r * 0.42, cx, cy
         inner = outer = 0.0  # how far down each lid cuts, as a share of the eye's height
         if mood == "happy":
             cy -= r * 0.05 * abs(math.sin(t * 5)) * k
@@ -384,6 +388,23 @@ class UI:
             cx, inner = cx + r * 0.02 * math.sin(t * 45) * k, 0.55 * k
         elif mood == "stressed":
             cx, eh = cx + r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k, eh * (1 - 0.3 * k)
+        elif mood == "dance":
+            hop = (1 - beat % 1) ** 2  # up on the beat, falling back till the next
+            cy, eh = cy - r * 0.08 * hop * k, eh * (1 - 0.15 * hop * k)
+            cx += r * 0.06 * math.sin(math.pi * beat) * k  # a step aside every beat
+        elif mood == "sway":
+            cx, cy = cx + r * 0.08 * math.sin(math.pi * beat / 2) * k, cy + r * 0.03 * k
+            outer, bright = 0.3 * k, bright * (1 - 0.15 * k)
+        elif mood in ("busy", "straining"):
+            eh, inner = eh * (1 - 0.45 * k), 0.15 * k
+        elif mood == "hot":
+            cy, outer = cy + r * 0.06 * k, 0.35 * k
+            cx, eh = cx + r * 0.015 * math.sin(t * 9) * k, eh * (1 + 0.1 * math.sin(t * 3) * k)
+        elif mood == "squeezed":
+            ew, eh, gap = ew * (1 - 0.35 * k), eh * (1 + 0.08 * k), gap * (1 - 0.25 * k)
+            cx += r * 0.04 * math.sin(t * 8) * k
+        elif mood == "sleepy":
+            cy, inner, outer, bright = cy + r * 0.04 * k, 0.5 * k, 0.5 * k, bright * (1 - 0.2 * k)
         shape = 1 - k if mood == "happy" else 1.0  # happy cross-fades the pills into ^ ^
         for side in (-1, 1):
             x = cx + side * gap
@@ -414,7 +435,16 @@ class UI:
                 cr.arc(x + side * r * 0.03, cy + r * 0.06, ew * 0.68, math.pi * 1.12, math.pi * 1.88)
                 cr.stroke()
                 cr.set_line_cap(cairo.LINE_CAP_BUTT)
-        if mood == "stressed" and k > 0.01:  # a sweat drop sliding down the side
+        if mood == "sleepy" and k > 0.01:  # z's floating up and away
+            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+            for i in range(2):
+                p = (t / 2.5 + i * 0.5) % 1
+                cr.set_font_size(r * (0.16 + 0.12 * p))
+                cr.set_source_rgba(1, 1, 1, 0.8 * k * (1 - p))
+                cr.move_to(base_x + r * (0.32 + 0.2 * p), base_y - r * (0.22 + 0.4 * p))
+                cr.show_text("z")
+            cr.new_path()
+        if mood in ("stressed", "straining", "hot") and k > 0.01:  # a sweat drop sliding down the side
             p = t % 1.6 / 1.6
             x, y, s = drop_x, drop_y + r * 0.25 * p, r * 0.09
             cr.move_to(x, y - s * 1.6)
