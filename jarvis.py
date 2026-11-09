@@ -31,6 +31,7 @@ from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
 from skills import Skills, registry
+from skills.media import something_playing
 from voice.listen import PushToTalk
 from system.projects import Projects
 from system.apps import Apps
@@ -1486,7 +1487,8 @@ def run_loop(jarvis, has_ui):
             if not line:
                 jarvis.speaker.say(persona.lines("didnt_catch", persona.address(jarvis.settings)))
                 jarvis.state(jarvis.rest)
-                jarvis.follow_up()
+                if not something_playing():
+                    jarvis.follow_up()
                 continue
         if not line.startswith("/") and kind != "again":  # ("again" was shown when it answered a question)
             jarvis.chat("you", line)
@@ -1501,7 +1503,10 @@ def run_loop(jarvis, has_ui):
             if jarvis.ui and kind in ("voice", "follow"):
                 jarvis.ui.show_heard("")
             jarvis.state(jarvis.rest)
-        if kind == "voice" or (kind == "follow" and not jarvis.ignored):
+        if something_playing():  # a show's or a song's words would pass for the next request: the name is needed
+            if kind in ("voice", "follow", "again"):
+                print("[wake] something is playing: say my name for the next request")
+        elif kind in ("voice", "again") or (kind == "follow" and not jarvis.ignored):
             jarvis.follow_up()  # "what's the weather?" next, without the name
         elif kind == "follow":
             jarvis.keep_following()  # it was noise: the rest of the window is still yours
