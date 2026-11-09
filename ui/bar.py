@@ -4,6 +4,7 @@ It sits in the strip the dock reserves: while the bar is up only the dock's pict
 reserved, so no window moves. A click opens the chat. It animates only while JARVIS is busy or the bar is moving.
 """
 import math
+import random
 import re
 import time
 
@@ -33,6 +34,9 @@ BLINK = 5.0  # seconds between the idle eyes' blinks
 FOLLOW = 2.0  # seconds the idle eyes keep watching the pointer after it stops
 GAZE_W = 14.0  # the eyes' spring: they ease in and out and settle in about a third of a second, never overshooting
 MOOD_SECS = 5.0  # how long the idle eyes show a mood
+DANCES = ("hop", "nod", "groove", "seesaw", "pulse")  # dance moves, one at random at a time (ui/window.py draws them)
+SWAYS = ("smile", "notes")  # moves for slow, relaxed music, rotated the same way
+STYLE_SECS = (30, 90)  # a move is kept at least this long, then swapped for another at a random moment
 MOVING = {"dance", "sway", "hot", "squeezed"}  # moods from music or the computer that move all the time
 # (mood, who said it, words that bring it on), first match wins. Two failures in two minutes: stressed, not sad.
 MOODS = (
@@ -164,6 +168,7 @@ class Bar:
         self._mood_seen, self._sorry = None, []
         self.music, self.body = Music(), Body()  # the moods music and the computer bring on
         self._ambient, self._ambient_k, self._ambient_t, self.beat = None, 0.0, 0.0, 0.0
+        self.style, self._style_until, self._style_beat = None, 0.0, 0  # the dance or sway move, and till when
         GLib.timeout_add_seconds(5, self.body.check)
         self._every = None  # the timer's ms: 33 while busy, moving or blinking, BREATH while idle, None when stopped
         self._settle = 0.0
@@ -246,6 +251,12 @@ class Bar:
             self._ambient_k = min(1.0, self._ambient_k + dt / 0.6)
         if self._ambient in ("dance", "sway"):  # beats since the last one heard: the eyes move on them
             self.beat = (t - self.music.beat_at) * self.music.bpm / 60 if self.music.bpm else t / 2
+            moves = DANCES if self._ambient == "dance" else SWAYS
+            # A new move when the music starts, else once its time is up, right on a beat so the change is in time.
+            if self.style not in moves or t >= self._style_until and int(self.beat) != self._style_beat:
+                self.style = random.choice([m for m in moves if m != self.style] or moves)
+                self._style_until = t + random.uniform(*STYLE_SECS)
+            self._style_beat = int(self.beat)
         return self._ambient, _smooth(self._ambient_k)
 
     def _watch(self, t):

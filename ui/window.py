@@ -369,13 +369,13 @@ class UI:
             gx, gy = self.bar.gaze
             mood, k = self.bar.feeling
             self._pet_eyes(cr, cx + gx * r * 0.13, cy + gy * r * 0.10, r, _eyes(t)[0], 0.78 + 0.22 * _breath(t), mood, k, t,
-                           self.bar.beat)
+                           self.bar.beat, self.bar.style)
 
     @staticmethod
-    def _pet_eyes(cr, cx, cy, r, awake, bright, mood=None, k=0.0, t=0.0, beat=0.0):
+    def _pet_eyes(cr, cx, cy, r, awake, bright, mood=None, k=0.0, t=0.0, beat=0.0, style=None):
         """Two glowing eyes. A mood (strength k, 0..1) reshapes them. From talk: happy ^ ^ that bounce, sad lids
         drooping outwards, angry lids slanting in with a tremble, stressed small darting eyes and a sweat drop. From
-        music (`beat`: beats so far): dance hops on each beat and steps side to side, sway drifts slowly, dreamy. From
+        music (`beat`: beats so far), with headphones on: dance and sway move in the `style` the bar picked. From
         the computer: busy squints (straining sweats too), hot droops and wobbles with a sweat drop, squeezed is
         pressed thin and fidgety, sleepy is half shut with z's floating up."""
         from ui.blocks import _round_rect
@@ -383,6 +383,7 @@ class UI:
         eh = max(r * 0.06, r * 0.40 * awake)  # shut, it's a flat line
         drop_x, drop_y, base_x, base_y = cx + r * 0.55, cy - r * 0.42, cx, cy
         inner = outer = 0.0  # how far down each lid cuts, as a share of the eye's height
+        arcs, tilt, lift = ("up" if mood == "happy" else None), 0.0, (0.0, 0.0)  # ^ ^ or ‿ ‿, a head tilt, each eye's rise
         if mood == "happy":
             cy -= r * 0.05 * abs(math.sin(t * 5)) * k
         elif mood == "sad":
@@ -392,12 +393,24 @@ class UI:
         elif mood == "stressed":
             cx, eh = cx + r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k, eh * (1 - 0.3 * k)
         elif mood == "dance":
-            hop = (1 - beat % 1) ** 2  # up on the beat, falling back till the next
-            cy, eh = cy - r * 0.08 * hop * k, eh * (1 - 0.15 * hop * k)
-            cx += r * 0.06 * math.sin(math.pi * beat) * k  # a step aside every beat
-        elif mood == "sway":
-            cx, cy = cx + r * 0.08 * math.sin(math.pi * beat / 2) * k, cy + r * 0.03 * k
-            outer, bright = 0.3 * k, bright * (1 - 0.15 * k)
+            hop = (1 - beat % 1) ** 2  # 1 on the beat, falling back till the next
+            swing = math.sin(math.pi * beat)  # one way, then the other, a beat each
+            if style == "nod":  # dips down on the beat, like nodding along
+                cy, eh = cy + r * 0.09 * hop * k, eh * (1 - 0.3 * hop * k)
+            elif style == "groove":  # happy ^ ^ that bounce and tilt side to side
+                arcs, tilt, cy = "up", 0.28 * swing * k, cy - r * 0.06 * hop * k
+            elif style == "seesaw":  # one eye up while the other's down, swapping every beat
+                lift = (-r * 0.09 * swing * k, r * 0.09 * swing * k)
+            elif style == "pulse":  # eyes and glow swell on the beat
+                ew, eh, bright = ew * (1 + 0.3 * hop * k), eh * (1 + 0.25 * hop * k), bright * (1 + 0.3 * hop * k)
+            else:  # "hop": up on the beat, a step aside every beat
+                cy, eh, cx = cy - r * 0.08 * hop * k, eh * (1 - 0.15 * hop * k), cx + r * 0.06 * swing * k
+        elif mood == "sway":  # relaxed, never sad: slow music is calm, not gloomy
+            slow = math.sin(math.pi * beat / 2)  # one way over two beats, then back
+            if style == "smile":  # soft ^ ^, rocking gently
+                arcs, tilt = "up", 0.12 * slow * k
+            else:  # "notes": closed ‿ ‿, lost in it, swaying a little, little notes drifting up
+                arcs, cx = "down", cx + r * 0.06 * slow * k
         elif mood in ("busy", "straining"):
             eh, inner = eh * (1 - 0.45 * k), 0.15 * k
         elif mood == "hot":
@@ -408,9 +421,27 @@ class UI:
             cx += r * 0.04 * math.sin(t * 8) * k
         elif mood == "sleepy":
             cy, inner, outer, bright = cy + r * 0.04 * k, 0.5 * k, 0.5 * k, bright * (1 - 0.2 * k)
-        shape = 1 - k if mood == "happy" else 1.0  # happy cross-fades the pills into ^ ^
+        shape = 1 - k if arcs else 1.0  # ^ ^ or ‿ ‿ cross-fade in from the pills
+        if tilt:
+            cr.save()
+            cr.translate(cx, cy)
+            cr.rotate(tilt)
+            cr.translate(-cx, -cy)
+        mid = cy
+        if mood in ("dance", "sway") and k > 0.01:  # headphones: a band over the top, a cup on each side
+            hy = mid + r * 0.04
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(r * 0.09)
+            cr.set_source_rgba(1, 1, 1, 0.7 * k)
+            cr.arc(cx, hy, r * 0.68, math.pi * 1.1, math.pi * 1.9)
+            cr.stroke()
+            cr.set_line_cap(cairo.LINE_CAP_BUTT)
+            for side in (-1, 1):  # chunkier and rounder than the eyes, so they read as cups, not more eyes
+                _round_rect(cr, cx + side * r * 0.68 - r * 0.12, hy - r * 0.15, r * 0.24, r * 0.32, r * 0.11)
+                cr.set_source_rgba(1, 1, 1, 0.55 * k)
+                cr.fill()
         for side in (-1, 1):
-            x = cx + side * gap
+            x, cy = cx + side * gap, mid + lift[(side + 1) // 2]
             glow = cairo.RadialGradient(x, cy, 0, x, cy, r * 0.42)
             glow.add_color_stop_rgba(0, 1, 1, 1, 0.28 * bright)
             glow.add_color_stop_rgba(1, 1, 1, 1, 0)
@@ -431,13 +462,27 @@ class UI:
                 cr.set_source_rgba(1, 1, 1, 0.95 * bright * shape)
                 cr.fill()
                 cr.restore()
-            if mood == "happy" and k > 0.01:
+            if arcs and k > 0.01:
                 cr.set_line_cap(cairo.LINE_CAP_ROUND)
                 cr.set_line_width(ew * 0.6)
                 cr.set_source_rgba(1, 1, 1, 0.95 * bright * k)
-                cr.arc(x + side * r * 0.03, cy + r * 0.06, ew * 0.68, math.pi * 1.12, math.pi * 1.88)
+                if arcs == "up":
+                    cr.arc(x + side * r * 0.03, cy + r * 0.06, ew * 0.68, math.pi * 1.12, math.pi * 1.88)
+                else:
+                    cr.arc(x + side * r * 0.03, cy - r * 0.05, ew * 0.68, math.pi * 0.12, math.pi * 0.88)
                 cr.stroke()
                 cr.set_line_cap(cairo.LINE_CAP_BUTT)
+        if tilt:
+            cr.restore()
+        if mood == "sway" and style == "notes" and k > 0.01:  # little notes drifting up
+            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+            for i in range(2):
+                p = (beat / 4 + i * 0.5) % 1
+                cr.set_font_size(r * (0.32 + 0.1 * p))
+                cr.set_source_rgba(1, 1, 1, 0.85 * k * math.sin(math.pi * p))
+                cr.move_to(base_x + (1 - 2 * i) * r * (0.3 + 0.15 * p) - r * 0.08, base_y - r * (0.3 + 0.35 * p))
+                cr.show_text("♪")
+            cr.new_path()
         if mood == "sleepy" and k > 0.01:  # z's floating up and away
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
             for i in range(2):
