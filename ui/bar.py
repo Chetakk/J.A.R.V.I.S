@@ -31,6 +31,7 @@ COMPACT_W = 296
 BREATH = 100  # ms between idle frames: the slow breath needs no more than 10 a second
 BLINK = 5.0  # seconds between the idle eyes' blinks
 FOLLOW = 2.0  # seconds the idle eyes keep watching the pointer after it stops
+GAZE_W = 14.0  # the eyes' spring: they ease in and out and settle in about a third of a second, never overshooting
 MOOD_SECS = 5.0  # how long the idle eyes show a mood
 MOVING = {"dance", "sway", "hot", "squeezed"}  # moods from music or the computer that move all the time
 # (mood, who said it, words that bring it on), first match wins. Two failures in two minutes: stressed, not sad.
@@ -116,6 +117,17 @@ def look_at(px, py, ox, oy):
     return dx / d * reach, dy / d * reach
 
 
+def spring(pos, vel, aim, dt):
+    """One step of a critically damped spring (exact, so smooth at any frame rate): new positions and speeds."""
+    e = math.exp(-GAZE_W * dt)
+    out_p, out_v = [], []
+    for p, v, a in zip(pos, vel, aim):
+        x = p - a
+        out_p.append(a + (x + (v + GAZE_W * x) * dt) * e)
+        out_v.append((v - GAZE_W * (v + GAZE_W * x) * dt) * e)
+    return out_p, out_v
+
+
 def _smooth(x):
     x = max(0.0, min(1.0, x))
     return x * x * (3 - 2 * x)
@@ -146,7 +158,8 @@ class Bar:
         self._timer = None
         self.gaze = [0.0, 0.0]  # where the idle eyes look: -1..1 across and down
         self._pointer = self._last_pointer = None
-        self._pointer_at = 0.0
+        self._pointer_at = self._gaze_t = 0.0
+        self._gaze_v = [0.0, 0.0]  # the eyes' speed, for the spring
         self.mood, self.feeling = None, (None, 0.0)  # the mood waiting to be shown, and (mood, strength 0..1) now
         self._mood_seen, self._sorry = None, []
         self.music, self.body = Music(), Body()  # the moods music and the computer bring on
@@ -237,7 +250,7 @@ class Bar:
 
     def _watch(self, t):
         """Turn the idle eyes towards the pointer while it moves and a moment after, else ahead with the odd
-        glance. True while that needs the fast frame rate."""
+        glance. The frame rate that needs: 60 while the pointer moves, 30 while the eyes settle, else 0."""
         try:
             self._pointer = self._pointer or Gdk.Display.get_default().get_default_seat().get_pointer()
             spot = tuple(self._pointer.get_position()[1:])
@@ -249,8 +262,11 @@ class Bar:
             self._last_pointer = spot
         watching = spot is not None and t - self._pointer_at < FOLLOW
         aim = look_at(*spot, self._x + PAD + PILL / 2, self.top() + PAD + PILL / 2) if watching else (_eyes(t)[1], 0.0)
-        self.gaze = [g + (a - g) * 0.3 for g, a in zip(self.gaze, aim)]
-        return t - self._pointer_at < FOLLOW + 0.8
+        self.gaze, self._gaze_v = spring(self.gaze, self._gaze_v, aim, min(0.25, t - (self._gaze_t or t)))
+        self._gaze_t = t
+        if t - self._pointer_at < 0.3:
+            return 60
+        return 30 if max(map(abs, self._gaze_v)) > 0.05 or t - self._pointer_at < FOLLOW + 0.8 else 0
 
     def set_understood(self, text):
         self.understood = text
@@ -340,7 +356,7 @@ class Bar:
         self._settle = time.time() + 0.4
         if self.win.get_visible():
             self.win.queue_draw()
-        if self._every != 33:
+        if self._every not in (16, 33):  # already fast enough: leave it
             if self._timer:
                 GLib.source_remove(self._timer)
             self._timer, self._every = GLib.timeout_add(33, self._tick), 33
@@ -360,9 +376,9 @@ class Bar:
         if lively:  # eyes open: they blink, watch the pointer and show moods; a talk mood goes before the rest
             talk, around = self._mood_now(t), self._ambience(t)
             self.feeling = talk if talk[0] else around
-            lively = (self._watch(t) or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING
-                      or 0 < self._ambient_k < 1)
-        every = 33 if busy or lively else BREATH if idle else None
+            fps = self._watch(t)
+            lively = fps or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING or 0 < self._ambient_k < 1
+        every = 16 if lively and fps == 60 else 33 if busy or lively else BREATH if idle else None
         if every == self._every:
             return True
         self._timer, self._every = (GLib.timeout_add(every, self._tick) if every else None), every

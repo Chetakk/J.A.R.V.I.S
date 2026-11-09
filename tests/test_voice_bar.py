@@ -253,3 +253,21 @@ def test_each_mood_draws_its_eyes(mood):
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 56, 56)
     UI._pet_eyes(cairo.Context(surface), 28, 28, 25, 1.0, 1.0, mood, 1.0, 3.0)
     assert any(surface.get_data())
+
+
+def test_the_eyes_spring_to_the_pointer_smoothly_the_same_at_any_frame_rate_and_never_overshoot():
+    from ui.bar import spring
+
+    def run(fps, seconds=0.6):
+        pos, vel, path = [0.0], [0.0], []
+        for _ in range(int(seconds * fps)):
+            pos, vel = spring(pos, vel, [1.0], 1 / fps)
+            path.append(pos[0])
+        return path
+
+    fast, slow = run(60), run(10)
+    assert all(0 <= p <= 1 for p in fast + slow)  # no overshoot
+    assert fast[0] < 0.05  # starts gently, no snap
+    assert abs(fast[-1] - slow[-1]) < 1e-9 and fast[-1] > 0.98  # same place at the same time, whatever the fps
+    steps = [b - a for a, b in zip(fast, fast[1:])]
+    assert steps.index(max(steps)) > 0  # speeds up, then slows down
