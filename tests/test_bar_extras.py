@@ -22,7 +22,26 @@ def test_tips_are_phrases_you_can_say_as_they_are():
     assert tips(skills) == ["brief me"]
 
 
-def test_the_feed_hands_the_bar_weather_reminder_tips_and_unread(monkeypatch):
+def test_the_notification_count_is_what_is_in_gnomes_list():
+    from gi.repository import GLib
+    from ui.extras import tray_count
+
+    class Bus:
+        def __init__(self, reply):
+            self.reply = reply
+
+        def call_sync(self, *a):
+            if isinstance(self.reply, Exception):
+                raise self.reply
+            return SimpleNamespace(unpack=lambda: self.reply)
+
+    assert tray_count(Bus((True, "3"))) == 3
+    assert tray_count(Bus((False, ""))) == 0
+    assert tray_count(Bus(GLib.Error("no shell"))) == 0
+    assert tray_count(None) == 0
+
+
+def test_the_feed_hands_the_bar_weather_reminder_tips_and_notifications(monkeypatch):
     import ui.extras as extras
 
     got = []
@@ -35,11 +54,10 @@ def test_the_feed_hands_the_bar_weather_reminder_tips_and_unread(monkeypatch):
 
     monkeypatch.setattr(extras.time, "sleep", sleep)
     monkeypatch.setattr(extras, "_get", lambda url, params: {"current": {"temperature_2m": 23.6, "weather_code": 2}})
-    watcher = SimpleNamespace(read_at=5.0, running=lambda: True,
-                              recent=lambda since: [n for n in ({"at": 1}, {"at": 9}, {"at": 10}) if n["at"] > since])
+    monkeypatch.setattr(extras, "tray_count", lambda bus: 2)
     skills = SimpleNamespace(all=[SimpleNamespace(phrases=("brief me",))],
                              weather=SimpleNamespace(home=lambda: "Bengaluru", find=lambda p: {"lat": 1, "lon": 2}),
-                             todos=SimpleNamespace(_list=lambda key: []), notifications=SimpleNamespace(watcher=watcher))
+                             todos=SimpleNamespace(_list=lambda key: []))
     jarvis = SimpleNamespace(skills=skills, ui=SimpleNamespace(set_extras=got.append))
     try:
         extras.feed(jarvis)

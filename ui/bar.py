@@ -51,6 +51,7 @@ TALK_LINES = {("happy", "you"): "Anytime", ("happy", "jarvis"): "Happy to help",
               ("stressed", "jarvis"): "Rough patch. I'm on it"}
 ROTATE = 8.0  # seconds a lasting mood's line (music, a busy computer) takes turns with the plain one
 EXTRA_SECS = 2 * ROTATE  # seconds each random extra after "Ready" stays
+RIGHT_SECS, SLIDE = 5.0, 0.6  # each thing at the compact bar's right end stays this long; the next slides in this fast
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
 WALLPAPER = "org.gnome.desktop.background"
@@ -487,6 +488,7 @@ class Bar:
         # A reply comes up WORDS_HOLD after your words, and the bar's width follows it.
         t = time.time()
         busy = moving or t < max(self._settle, self._words_at + WORDS_HOLD + 0.4) or (self.mode != "hidden" and self._state() in ANIMATED)
+        busy = busy or self.mode == "compact" and t % RIGHT_SECS < SLIDE + 0.1  # the right end sliding to its next
         if self.win.get_visible():
             self.win.queue_draw()
         state = self._state()
@@ -756,8 +758,7 @@ class Bar:
         left = PAD + PILL + 8
         if self.mode == "compact":
             text, alpha = self._compact_text(state, t)
-            clock = alpha if text in ("Ready", "") else 0.0  # the time only when there's nothing else to say
-            room = self._paint_marks(cr, self._paint_right(cr, w, t, clock)) - left
+            room = self._paint_right(cr, w, t) - left
             self._paint_progress(cr, w, t)
             _show(cr, _layout(cr, text, TEXT - 1, room, keep_end=state == "thinking"), left, HEIGHT / 2, 0.92 * alpha)
             return
@@ -802,60 +803,104 @@ class Bar:
                              self.ui.mutes["mic"])
         return {"thinking": self.words, "speaking": self.reply}.get(state) or LABELS.get(state, state), 1.0
 
-    def _paint_right(self, cr, w, t, clock=1.0):
-        """The one thing at the compact bar's right end: a timer's draining ring and time left, bars jumping on the
-        music's beat, the CPU's last two minutes while it's busy or hot, else the clock at `clock` alpha (0: none).
-        Returns where it starts."""
-        right, mid = w - PAD - 16, HEIGHT / 2
+    def _right_items(self, cr, t):
+        """What the compact bar's right end can show now, in turn: [(width, draw(right edge x))]. A timer's draining
+        ring and time left, bars on the music's beat, the CPU's last two minutes while it's busy or hot, the
+        notifications in GNOME's list, the mic off, JARVIS's voice or the speaker off, and the time."""
+        mid, items, mutes = HEIGHT / 2, [], self.ui.mutes
         mood = self.feeling[0] if self.feeling[1] > 0.5 else None
         left, total = min(((end - t, total) for _what, end, total in list(self.ui.timers.values()) if end > t),
                           default=(0, 0))
-        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+
+        def text(words, alpha=0.85):
+            layout = _layout(cr, words, 9.5)
+            return layout.get_pixel_size()[0], lambda right: _show(cr, layout, right - layout.get_pixel_size()[0],
+                                                                    mid, alpha)
         if left:
-            layout = _layout(cr, "%d:%02d" % (left // 60, left % 60), 9.5)
-            right -= layout.get_pixel_size()[0]
-            _show(cr, layout, right, mid, 0.85)
-            cx = right - 11
-            cr.set_line_width(2)
-            cr.set_source_rgba(*SNOW, 0.2)
-            cr.arc(cx, mid, 6, 0, 2 * math.pi)
-            cr.stroke()
-            cr.set_source_rgba(*SNOW, 0.9)
-            cr.arc(cx, mid, 6, -math.pi / 2, -math.pi / 2 + 2 * math.pi * left / max(total, 1))
-            cr.stroke()
-            right = cx - 6
-        elif mood in ("dance", "sway"):
-            cr.set_line_width(3)
-            for i in range(4):
-                if mood == "dance":  # each bar jumps on the beat by its own amount, a new mix every beat
-                    jump = (1 - self.beat % 1) ** 2 * (0.55 + 0.45 * math.sin(i * 1.7 + math.floor(self.beat) * 2.3))
-                else:  # slow music: a gentle rise and fall
-                    jump = 0.45 + 0.35 * math.sin(math.pi * self.beat / 2 + i * 1.1)
-                x = right - 1.5 - (3 - i) * 5.5
-                cr.set_source_rgba(*SNOW, 0.85)
-                cr.move_to(x, mid + 6)
-                cr.line_to(x, mid + 6 - 2 - 10 * max(0.0, jump))
+            tw, words = text("%d:%02d" % (left // 60, left % 60))
+
+            def timer(right):
+                words(right)
+                cx = right - tw - 11
+                cr.set_line_width(2)
+                cr.set_source_rgba(*SNOW, 0.2)
+                cr.arc(cx, mid, 6, 0, 2 * math.pi)
                 cr.stroke()
-            right -= 20
-        elif mood in ("busy", "straining", "hot") and len(self.body.history) > 1:
-            cr.set_line_width(1.4)
-            step = 36 / (self.body.history.maxlen - 1)
-            x0 = right - step * (len(self.body.history) - 1)
-            for i, v in enumerate(self.body.history):
-                cr.line_to(x0 + i * step, mid + 7 - 14 * min(v, 100) / 100)
-            cr.set_source_rgba(*SNOW, 0.85)
-            cr.stroke_preserve()
-            cr.line_to(right, mid + 7)
-            cr.line_to(x0, mid + 7)
-            cr.set_source_rgba(*SNOW, 0.15)
-            cr.fill()
-            right -= 36
-        elif clock > 0:
-            layout = _layout(cr, time.strftime("%-I:%M %p", time.localtime(t)).lower(), 9.5)
-            right -= layout.get_pixel_size()[0]
-            _show(cr, layout, right, mid, 0.6 * clock)
-        cr.set_line_cap(cairo.LINE_CAP_BUTT)
-        return right
+                cr.set_source_rgba(*SNOW, 0.9)
+                cr.arc(cx, mid, 6, -math.pi / 2, -math.pi / 2 + 2 * math.pi * left / max(total, 1))
+                cr.stroke()
+            items.append((tw + 17, timer))
+        if mood in ("dance", "sway"):
+            def bars(right):
+                cr.set_line_width(3)
+                cr.set_source_rgba(*SNOW, 0.85)
+                for i in range(4):
+                    if mood == "dance":  # each bar jumps on the beat by its own amount, a new mix every beat
+                        jump = (1 - self.beat % 1) ** 2 * (0.55 + 0.45 * math.sin(i * 1.7 + math.floor(self.beat) * 2.3))
+                    else:  # slow music: a gentle rise and fall
+                        jump = 0.45 + 0.35 * math.sin(math.pi * self.beat / 2 + i * 1.1)
+                    x = right - 1.5 - (3 - i) * 5.5
+                    cr.move_to(x, mid + 6)
+                    cr.line_to(x, mid + 6 - 2 - 10 * max(0.0, jump))
+                    cr.stroke()
+            items.append((20, bars))
+        history = self.body.history
+        if mood in ("busy", "straining", "hot") and len(history) > 1:
+            def graph(right):
+                step = 36 / (history.maxlen - 1)
+                x0 = right - step * (len(history) - 1)
+                for i, v in enumerate(history):
+                    cr.line_to(x0 + i * step, mid + 7 - 14 * min(v, 100) / 100)
+                cr.set_line_width(1.4)
+                cr.set_source_rgba(*SNOW, 0.85)
+                cr.stroke_preserve()
+                cr.line_to(right, mid + 7)
+                cr.line_to(x0, mid + 7)
+                cr.set_source_rgba(*SNOW, 0.15)
+                cr.fill()
+            items.append((36, graph))
+        unread = self.ui.extras.get("unread")
+        if unread:
+            nw, count = text(str(unread))
+
+            def notes(right):  # an envelope and how many
+                count(right)
+                x = right - nw - 17
+                cr.set_source_rgba(*SNOW, 0.8)
+                cr.set_line_width(1.3)
+                cr.rectangle(x, mid - 4.5, 13, 9)
+                cr.move_to(x, mid - 4.5)
+                cr.line_to(x + 6.5, mid + 0.5)
+                cr.line_to(x + 13, mid - 4.5)
+                cr.stroke()
+            items.append((nw + 17, notes))
+        for kind, on in (("mic", mutes["mic"]), ("speaker", mutes["voice"] or mutes["speaker"])):
+            if on:
+                items.append((16, lambda right, kind=kind: _mute_mark(cr, right - 8, mid, kind)))
+        items.append(text(time.strftime("%-I:%M %p", time.localtime(t)).lower(), 0.6))
+        return items
+
+    def _paint_right(self, cr, w, t):
+        """The compact bar's right end: one thing at a time, each up for RIGHT_SECS, the next sliding up from below
+        as the last slides out the top. Returns where the words must stop: short of the widest, so they keep still."""
+        items, right = self._right_items(cr, t), w - PAD - 16
+        n, at = int(t // RIGHT_SECS), t % RIGHT_SECS
+        k = _smooth(at / SLIDE) if len(items) > 1 else 1.0
+        shown = [(items[n % len(items)], 12 * (1 - k), k)]
+        if k < 1:
+            shown.append((items[(n - 1) % len(items)], -12 * k, 1 - k))
+        cr.save()
+        _round_rect(cr, PAD, PAD, w - 2 * PAD, PILL, PILL / 2)  # sliding things vanish at the pill's edge
+        cr.clip()
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        for (_width, draw), dy, alpha in shown:
+            cr.push_group()
+            cr.translate(0, dy)
+            draw(right)
+            cr.pop_group_to_source()
+            cr.paint_with_alpha(alpha)
+        cr.restore()
+        return right - max(width for width, _draw in items) - 10
 
     def _song_on_card(self):
         """The now-playing card (skills/media.py, id "playing") is open: it shows the song and how far in."""
@@ -876,35 +921,6 @@ class Bar:
             cr.line_to(to, y)
             cr.stroke()
         cr.set_line_cap(cairo.LINE_CAP_BUTT)
-
-    def _paint_marks(self, cr, right):
-        """The compact bar's marks, right to left from `right`: JARVIS's voice off, the mic off, new notifications,
-        speech it ignored. Returns where they start: the words stop short of it."""
-        right, mid, mutes = right - 10, HEIGHT / 2, self.ui.mutes
-        for kind, on in (("speaker", mutes["voice"] or mutes["speaker"]), ("mic", mutes["mic"])):
-            if on:
-                _mute_mark(cr, right - 8, mid, kind)
-                right -= 22
-        unread = self.ui.extras.get("unread")
-        if unread:
-            layout = _layout(cr, str(unread), 9.5)
-            right -= layout.get_pixel_size()[0]
-            _show(cr, layout, right, mid, 0.8)
-            x = right - 17  # an envelope just before the count
-            cr.set_source_rgba(*SNOW, 0.8)
-            cr.set_line_width(1.3)
-            cr.rectangle(x, mid - 4.5, 13, 9)
-            cr.move_to(x, mid - 4.5)
-            cr.line_to(x + 6.5, mid + 0.5)
-            cr.line_to(x + 13, mid - 4.5)
-            cr.stroke()
-            right = x - 8
-        if self.ignored:
-            layout = _layout(cr, "%d ⊘" % self.ignored, 9.5)
-            right -= layout.get_pixel_size()[0]
-            _show(cr, layout, right, mid, 0.8)
-            right -= 8
-        return right
 
     def _paint_zones(self, cr, zones):
         mid = HEIGHT / 2

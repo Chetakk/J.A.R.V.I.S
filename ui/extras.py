@@ -1,17 +1,31 @@
-"""The few words the idle compact bar may add after "Ready", gathered on a slow loop off the GTK thread: the weather
-at home, the next reminder, things you can say, and how many notifications came since you last heard them."""
+"""What the idle compact bar may show besides "Ready", gathered on a loop off the GTK thread: the weather at home, the
+next reminder, things you can say, and how many notifications sit in GNOME's list."""
+import json
 import re
 import time
 
+from gi.repository import Gio, GLib
+
 from skills.weather import FORECAST, SKY, _get
 
-WEATHER_EVERY, REMINDERS_EVERY, TICK = 1800, 60, 15  # seconds
+WEATHER_EVERY, REMINDERS_EVERY, TICK = 1800, 60, 3  # seconds; TICK: a dismissed notification leaves the bar soon
+COUNT = "imports.ui.main.messageTray.getSources().reduce((n,s)=>n+s.notifications.length,0)"
+
+
+def tray_count(bus):
+    """How many notifications are in GNOME's list: dismissed ones are gone from it. 0 if the shell won't say."""
+    try:
+        ok, out = bus.call_sync("org.gnome.Shell", "/org/gnome/Shell", "org.gnome.Shell", "Eval",
+                                GLib.Variant("(s)", (COUNT,)), None, Gio.DBusCallFlags.NONE, 1000, None).unpack()
+        return int(json.loads(out)) if ok else 0
+    except (GLib.Error, AttributeError, ValueError, TypeError):  # AttributeError: no session bus
+        return 0
 
 
 def tips(skills):
     """Things you can say just as they are: no <x> to fill in, no (notes), two words or more ("type" alone means
     little), short enough to fit after "Ready" in the bar."""
-    return [p for s in skills for p in s.phrases if not re.search(r"[<(]", p) and " " in p and len(p) <= 16]
+    return [p for s in skills for p in s.phrases if not re.search(r"[<(]", p) and " " in p and len(p) <= 12]
 
 
 def next_reminder(reminders, now):
@@ -27,6 +41,10 @@ def feed(jarvis):
     """Runs on its own thread for good, handing jarvis.ui a fresh copy every TICK seconds."""
     s = jarvis.skills
     extras, weather_at, reminders_at = {"tips": tips(s.all)}, 0.0, 0.0
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    except GLib.Error:
+        bus = None
     while True:
         now = time.time()
         if now - weather_at > WEATHER_EVERY:
@@ -45,7 +63,6 @@ def feed(jarvis):
                 extras["next"] = next_reminder(s.todos._list("reminders"), now)
             except Exception:  # the day tracker isn't running (HubDown) or answered oddly: no reminder line
                 extras["next"] = ""
-        w = s.notifications.watcher
-        extras["unread"] = len(w.recent(w.read_at)) if w.running() else 0
+        extras["unread"] = tray_count(bus)
         jarvis.ui.set_extras(dict(extras))
         time.sleep(TICK)

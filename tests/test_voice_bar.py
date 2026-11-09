@@ -99,31 +99,30 @@ def test_idle_compact_says_ready_with_now_and_then_one_extra_or_what_the_eyes_fe
     assert idle_line("hot", None, music, body, {}, t + ROTATE - 1.1, False)[1] < 1  # fading across
 
 
-def test_the_compact_bar_right_end_shows_one_thing_and_the_marks_sit_before_it():
+def test_the_compact_bar_right_end_shows_one_thing_at_a_time_sliding_in_turn():
     import cairo
     from collections import deque
     from types import SimpleNamespace
-    from ui.bar import COMPACT_W, PAD, Bar
+    from ui.bar import COMPACT_W, PAD, RIGHT_SECS, Bar
 
     bar = Bar.__new__(Bar)
-    bar.ignored, bar.feeling, bar.beat = 0, (None, 0.0), 0.3
+    bar.feeling, bar.beat = (None, 0.0), 0.3
     bar.body = SimpleNamespace(history=deque([20, 95, 90], maxlen=24))
-    cr = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, COMPACT_W, 80))
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, COMPACT_W, 80)
+    cr = cairo.Context(surface)
     bar.ui = SimpleNamespace(mutes={"voice": False, "speaker": False, "mic": False}, extras={}, timers={})
-    assert bar._paint_right(cr, COMPACT_W, 0, clock=0.0) == COMPACT_W - PAD - 16  # something else to say: no clock
-    clock = bar._paint_right(cr, COMPACT_W, 0)
-    assert COMPACT_W - PAD - 90 < clock < COMPACT_W - PAD - 30  # the clock's width
-    bar.ui.timers = {"t1": ("pasta", 300.0, 600.0)}
-    assert bar._paint_right(cr, COMPACT_W, 0) < COMPACT_W - PAD - 16 - 40  # a timer: its ring and time left
-    bar.ui.timers, bar.feeling = {}, ("dance", 1.0)
-    assert bar._paint_right(cr, COMPACT_W, 0) == COMPACT_W - PAD - 36  # beat bars
-    bar.feeling = ("busy", 1.0)
-    assert bar._paint_right(cr, COMPACT_W, 0) == COMPACT_W - PAD - 52  # the CPU line
-    clear = bar._paint_marks(cr, clock)
-    assert clear == clock - 10
+    assert len(bar._right_items(cr, 0)) == 1  # nothing else on: just the time
+    bar.ui.timers, bar.ui.extras, bar.feeling = {"t1": ("pasta", 300.0, 600.0)}, {"unread": 3}, ("busy", 1.0)
     bar.ui.mutes.update(mic=True, speaker=True)
-    bar.ui.extras, bar.ignored = {"unread": 3}, 2
-    assert bar._paint_marks(cr, clock) < clear - 44 - 25
+    items = bar._right_items(cr, 0)
+    assert len(items) == 6  # the timer, the CPU line, notifications, mic off, speaker off, the time
+    bar.feeling = ("dance", 1.0)
+    assert [w for w, _d in bar._right_items(cr, 0)][1] == 20  # the beat bars in the CPU line's place
+    # the words stop short of the widest, so they keep still whichever is up
+    assert bar._paint_right(cr, COMPACT_W, 0) == COMPACT_W - PAD - 16 - max(w for w, _d in items) - 10
+    for t in (0.0, 0.3, 2.0, RIGHT_SECS + 0.2, 7 * RIGHT_SECS + 0.5):  # settled and mid-slide
+        bar._paint_right(cr, COMPACT_W, t)
+    assert any(surface.get_data())
 
 
 def test_the_song_line_shows_how_far_in_only_while_music_plays():
