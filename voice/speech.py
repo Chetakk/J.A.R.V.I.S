@@ -14,6 +14,7 @@ import time
 import yaml
 
 from system.terminal import RUN_DIR
+from voice import kokoro
 
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "Hmm, ..." is spoken as "Hmm. ...": a sentence break, so Piper leaves a small, natural pause.
@@ -94,6 +95,30 @@ class Speaker:
             self.engine = "spd-say"
         if self.engine == "spd-say" and not shutil.which("spd-say"):
             self.enabled = False
+        self.kokoro_voice = cfg.get("kokoro_voice")  # used instead of Piper's voice once Kokoro has loaded
+        self.kokoro_dir = os.path.expanduser(cfg.get("kokoro_dir", ""))
+        self._kokoro_next_try = 0.0
+        self._kokoro_wait = 60
+        if self.kokoro_voice and not (self.engine == "piper" and shutil.which("socat")
+                                      and os.path.isfile(self.kokoro_dir + "/venv/bin/python")):
+            print("[speech] Kokoro or socat not found, staying with Piper")
+            self.kokoro_voice = None
+        self._use_kokoro()  # starts loading now, so it's ready for the first replies
+
+    def _use_kokoro(self):
+        """True when Kokoro is loaded and can speak. If it isn't running, starts it (less often each time it fails)."""
+        if not self.kokoro_voice:
+            return False
+        if kokoro.is_up():
+            return True
+        if time.time() >= self._kokoro_next_try:
+            self._kokoro_next_try = time.time() + self._kokoro_wait
+            self._kokoro_wait *= 2
+            with open(os.path.expanduser("~/.local/share/jarvis/kokoro.log"), "ab") as log:
+                # Its own session: it stays loaded while JARVIS restarts.
+                subprocess.Popen([self.kokoro_dir + "/venv/bin/python", "-W", "ignore", kokoro.__file__, self.kokoro_dir],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=log, start_new_session=True)
+        return False
 
     def say(self, text):
         """Speak without blocking; `text` may be a list of alternatives. Text is always printed (and shown in the chat panel) too."""
@@ -130,13 +155,14 @@ class Speaker:
         if self.engine == "piper":
             # One sentence per line: Piper starts speaking the first while making the rest.
             sentences = _SENTENCE_END.split(_PAUSE.sub(r"\1.", line))
-            try:
-                self._pipeline().stdin.write(("\n".join(sentences) + "\n").encode())
-                self._pipeline().stdin.flush()
-                return
-            except (BrokenPipeError, OSError):
-                self._proc = None
-                self.engine = "spd-say"
+            for _ in range(2):  # the second go: if Kokoro has just died, Piper takes this line
+                try:
+                    self._pipeline().stdin.write(("\n".join(sentences) + "\n").encode())
+                    self._pipeline().stdin.flush()
+                    return
+                except (BrokenPipeError, OSError):
+                    self._proc = None
+            self.engine = "spd-say"
         subprocess.Popen(["spd-say", "--", line], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def _ends_at(self):
@@ -209,7 +235,7 @@ class Speaker:
         if self._proc:
             self._proc.stdin.close()
             try:
-                self._proc.wait(timeout=5)
+                self._proc.wait(timeout=15)  # Kokoro is still making the later sentences while the first plays
                 if self._player:
                     self._player.wait(timeout=max(1.0, self.done_at() - time.time()))
             except subprocess.TimeoutExpired:
@@ -224,15 +250,18 @@ class Speaker:
         return self.tuning.get("length_scale", 1.0)
 
     def _key(self):
-        return self.quiet(), self.sink, tuple(sorted(self.tuning.items()))
+        return self.quiet(), self.sink, tuple(sorted(self.tuning.items())), self._use_kokoro()
 
     def _pipeline(self):
         if self._proc and self._proc.poll() is None:
             return self._proc
-        with open(self.voice + ".json") as f:
-            rate = json.load(f)["audio"]["sample_rate"]
         self._proc_key = self._key()
-        quiet = self._proc_key[0]
+        quiet, use_kokoro = self._proc_key[0], self._proc_key[3]
+        if use_kokoro:
+            rate = kokoro.RATE
+        else:
+            with open(self.voice + ".json") as f:
+                rate = json.load(f)["audio"]["sample_rate"]
         if (quiet or self.sink) and shutil.which("pacat"):
             player = "pacat --raw --rate=%d --format=s16le --channels=1%s%s" % (
                 rate, " --volume=%d" % (65536 * self.quiet_volume // 100) if quiet else "",
@@ -242,12 +271,18 @@ class Speaker:
         piper = "%s --model %s %s --output-raw 2>/dev/null" % (
             shlex.quote(self.piper), shlex.quote(self.voice),
             " ".join("--%s %s" % kv for kv in sorted(self.tuning.items())))
+        if use_kokoro:
+            piper = "socat -t 60 - UNIX-CONNECT:%s 2>/dev/null" % shlex.quote(kokoro.SOCKET)
         # Piper's audio passes through JARVIS on its way to the player, so it knows exactly how long
         # it will play (to ignore its own voice in the mic for that long, and no longer).
         self._proc = subprocess.Popen(piper, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                       start_new_session=True)
         self._player = subprocess.Popen(player + " 2>/dev/null", shell=True, stdin=subprocess.PIPE,
                                         start_new_session=True)
+        if use_kokoro:
+            self._proc.stdin.write((json.dumps({
+                "voice": self.kokoro_voice, "speed": 1.0 / self.tuning.get("length_scale", 1.0),
+                "silence": self.tuning.get("sentence_silence", 0.25)}) + "\n").encode())
         threading.Thread(target=self._pump, args=(self._proc, self._player, rate * 2), daemon=True).start()
         return self._proc
 

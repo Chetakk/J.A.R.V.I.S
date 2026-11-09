@@ -62,10 +62,14 @@ speech:
   # Other fast voices in the same folder: en_GB-jenny_dioco-medium, en_GB-alan-medium,
   # en_GB-northern_english_male-medium, en_US-hfc_male-medium, en_US-joe-medium
   voice: ~/.local/share/jarvis/voices/en_US-lessac-medium.onnx
-  length_scale: 1.05       # >1 slower, <1 faster
+  # Kokoro on the GPU speaks instead, once it's loaded (~17 s; Piper speaks until then and if Kokoro fails).
+  # Others downloaded: bm_lewis, bm_daniel, bm_fable, bf_emma, bf_isabella, bf_alice, bf_lily. Remove for Piper only.
+  kokoro_voice: bm_george
+  kokoro_dir: ~/.local/share/jarvis/kokoro-gpu
+  length_scale: 0.8        # >1 slower, <1 faster (0.8 = George at 1.25x)
   noise_scale: 0.75        # more = more expressive (default 0.667)
   noise_w: 0.9             # more = more varied rhythm (default 0.8)
-  sentence_silence: 0.25   # pause between sentences, seconds
+  sentence_silence: 0      # extra pause between sentences, seconds (Kokoro already pauses at . and ,)
   # Private mode ("headphones only"): Bluetooth or named headphones when they're connected, else this output
   # (the headphone jack, which can't tell whether anything is plugged in).
   private_sink: alsa_output.platform-sound.analog-stereo
