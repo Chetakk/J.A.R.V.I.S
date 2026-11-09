@@ -84,8 +84,9 @@ Reply with ONLY one JSON object (no prose, no code fences):
     later (a preference, a habit, a fact like their diet or a birthday), not already in the bracketed lines:
     {"text": "it in their own words, first person, e.g. I prefer battery life over performance",
      "kind": "preference" or "note"}. {name} asks before keeping it. Never passwords, codes or other secrets.
-  "misheard": null, or when a voice request (or a recent "User:" line) looks misheard by speech recognition:
-    {"heard": "what came through", "meant": "what {user} most likely said"}
+  "misheard": null, or when a request (or a recent "User:" line) looks misheard by speech recognition or
+    mistyped: {"heard": "what came through", "meant": "what {user} most likely said"} ({name} learns the "meant"
+    sentence, so it must make sense; a typo needn't be mentioned in "say")
   "fix": null, or when {user} asks to change, fix or improve {name} ITSELF (how it listens, answers, behaves,
     its code or settings; not just adding a shortcut, which is "save"):
     {"task": "clear instructions for a coding agent working in {name}'s project folder: what is wrong or

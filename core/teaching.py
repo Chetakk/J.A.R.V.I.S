@@ -105,8 +105,12 @@ you aren't sure: a wrong guess teaches JARVIS to do the wrong thing from then on
 someone saying those words would always want exactly that, with nothing filled in (a request naming a file, app,
 project, time or number means none: those take a value). A question for you, or a chat, means none.
 
-Reply with one JSON object, nothing else: {"what they said": "the phrase it meant", ...}. Leave out the
-ones that meant none of them."""
+For each one you place, also write the sentence as they meant to say it: their own words and language, with
+the misheard or mistyped words put right so it makes sense ("shobi dashboard" -> "show me the dashboard"). Change
+nothing else; if it already makes sense, give it back as it is. That sentence is what JARVIS learns.
+
+Reply with one JSON object, nothing else: {"what they said": {"sentence": "what they meant to say", "phrase":
+"the phrase it meant"}, ...}. Leave out the ones that meant none of them."""
 
 
 def fit_to_send(text):
@@ -201,10 +205,26 @@ def ask_wordings(once, phrases, wanted=6, notes=None, near=3, nots=None):
 
 
 def ask_meant(once, saids, phrases):
-    """{what you said: the phrase Claude says it meant}, for the ones it was sure about."""
+    """{what you said: (the sentence put right, the phrase Claude says it meant)}, for the ones it was sure about."""
     reply = once(MEANT % ("\n".join("- %s" % s for s in saids), "\n".join("- %s" % p for p in sorted(phrases))),
                  SYSTEM)
-    return {s: p.strip() for s, p in parse(reply, saids).items() if isinstance(p, str) and p.strip() in phrases}
+    out = {}
+    for s, v in parse(reply, saids).items():
+        sentence, p = (v.get("sentence"), v.get("phrase")) if isinstance(v, dict) else (s, v)  # (a bare phrase: as said)
+        if isinstance(p, str) and p.strip() in phrases:
+            sentence = str(sentence or s).strip().lower().rstrip("?.!")
+            out[s] = (sentence or s, p.strip())
+    return out
+
+
+def fixed(text, misheard):
+    """What you meant to say, when Claude's answer put `text` right ({"heard", "meant"}); else `text` as it is.
+    Its "heard" may be an earlier line, not this one: then it's not this one's fix."""
+    if not isinstance(misheard, dict) or not str(misheard.get("meant") or "").strip():
+        return text
+    heard = str(misheard.get("heard") or text)
+    words = lambda t: re.findall(r"[\w']+", t.lower())  # noqa: E731
+    return str(misheard["meant"]).strip() if words(heard) == words(text) else text
 
 
 def tidy(phrase, says, have):
@@ -501,9 +521,9 @@ def run(jarvis, cfg=None):
         _save(state)
         for said in saids:  # Claude says one only just placed meant something else: never that again
             reached = near.get(said)
-            if reached and meant.get(said) and meant[said] != reached:
-                unlearn(jarvis, said, reached, "Claude said it meant “%s”" % meant[said])
-        kept, refused = teach(jarvis, list(meant.items()), "something you said")
+            if reached and meant.get(said) and meant[said][1] != reached:
+                unlearn(jarvis, said, reached, "Claude said it meant “%s”" % meant[said][1])
+        kept, refused = teach(jarvis, list(meant.values()), "something you said")
         _log(kept, refused)
         learnt += kept
         if kept:

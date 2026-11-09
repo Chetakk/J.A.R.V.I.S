@@ -773,7 +773,7 @@ class Jarvis:
             finally:
                 self.from_claude = False
         if len(dos) == 1 and not self.do_missed:
-            self._learn(text, str(dos[0]))
+            self._learn(teaching.fixed(text, answer["misheard"]), str(dos[0]))  # learned as you meant to say it
         if answer["details"]:
             print("  " + str(answer["details"]).replace("\n", "\n  "))
             self.chat("claude", str(answer["details"]))

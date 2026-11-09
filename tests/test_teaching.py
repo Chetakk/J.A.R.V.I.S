@@ -146,6 +146,24 @@ def test_claude_says_what_a_miss_meant_and_it_is_learned(jv):
     assert jv.j.intents.early("the sound is way too loud for me") == "volume down"
 
 
+def test_a_misheard_miss_is_learned_as_it_was_meant_to_be_said(jv):
+    """Claude puts the misheard words right first: JARVIS learns the sentence that makes sense, not the garble."""
+    misses("the sown is way to lowd for me")
+    jv.claude.reply(json.dumps({"the sown is way to lowd for me": {
+        "sentence": "the sound is way too loud for me", "phrase": "volume down"}}))
+    jv.claude.reply("{}")
+    assert "placed 1 of 1" in teaching.run(jv.j, CFG)
+    assert learned.load()["wordings"] == {"the sound is way too loud for me": "volume down"}
+
+
+def test_claudes_fix_for_this_request_is_what_is_learned():
+    fix = {"heard": "shobi dashboard", "meant": "show me the dashboard"}
+    assert teaching.fixed("Shobi dashboard.", fix) == "show me the dashboard"
+    assert teaching.fixed("open my dashboard", fix) == "open my dashboard"  # its fix was for an earlier line
+    assert teaching.fixed("shobi dashboard", {"meant": "show me the dashboard"}) == "show me the dashboard"
+    assert teaching.fixed("shobi dashboard", None) == "shobi dashboard"
+
+
 def test_a_miss_claude_said_means_nothing_is_not_asked_about_again(jv):
     misses("book me a table for two at the thai place")
     jv.claude.reply("none of these mean anything JARVIS does, so: {}")
