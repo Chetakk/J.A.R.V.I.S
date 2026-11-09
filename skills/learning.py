@@ -37,15 +37,32 @@ class Learning(Skill):
         ]
 
     def save_last(self, m):
-        """"Save that command": what you just confirmed is already kept (jarvis.py learns it on your yes), so this
-        says so, instead of "save that" saving whatever card is on screen."""
+        """"Save that command": what Claude just did for you is kept (_save_claudes); what you just confirmed already
+        is (jarvis.py learns it on your yes), so this says so, instead of "save that" saving whatever card is on screen."""
         rows = learned.history()
         last = rows[-1] if rows else None
         recent = last and last.get("time", "") >= time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - 600))
+        did = getattr(self.j, "claude_did", None)
+        if did and time.time() - did[0] < 600 and (not recent or time.strftime(
+                "%Y-%m-%d %H:%M", time.localtime(did[0])) >= last["time"]):
+            return self._save_claudes(did[1], did[2])
         if not recent or last.get("unlearned") or last["means"] == LEAVE:
             self.say("There's nothing new to save. When you say yes to one of my guesses, I keep it on my own.")
             return True
         self.say("Already saved. Next time, %s means %s." % (last["said"], last["means"]))
+        return True
+
+    def _save_claudes(self, said, phrase):
+        """Claude did what you asked with one of JARVIS's own phrases: keep your wording for it, so next time needs no
+        Claude. You asked for it, so it's kept even if JARVIS had chosen not to ask (too long, has a number, declined)."""
+        said = said.strip(" .!?")
+        if said.lower() == phrase.lower().strip(" .!?") or learned.load()["wordings"].get(said.lower()) == phrase:
+            self.say("Already saved. Next time, %s means %s." % (said, phrase))
+            return True
+        learned.remember(said, phrase, why="you asked me to remember it")
+        if self.j.intents:
+            self.j.intents.learn(said, phrase)
+        self.say("Saved. Next time, %s means %s." % (said, phrase))
         return True
 
     def whats_new(self, m):

@@ -258,6 +258,8 @@ class Jarvis:
         self.handling_since = None  # when the request being handled started (the watchdog restarts a stuck one)
         self._rewording = False  # handling a phrase the meaning matcher rewrote; it isn't rewritten again
         self.do_missed = False  # Claude's "do" phrase matched nothing (then it isn't learned)
+        self.claude_did = None  # (time, what you asked, Claude's one "do" phrase): for "remember that"
+        self._claude_asked_back = None  # (time, request) Claude answered with a question: your answer completes it
         self.whisper = self.wake = None
         self.ignored = False  # last follow-up was chatter, not a request
         self.failed = False  # set by a skill's fail()
@@ -779,7 +781,13 @@ class Jarvis:
             finally:
                 self.from_claude = False
         if len(dos) == 1 and not self.do_missed:
-            self._learn(teaching.fixed(text, answer["misheard"]), str(dos[0]))  # learned as you meant to say it
+            said = teaching.fixed(text, answer["misheard"])
+            back = self._claude_asked_back
+            # "pull up big boss" -> "which one?" -> "a series on Hotstar": what you asked first is what to keep
+            self.claude_did = (time.time(), back[1] if back and time.time() - back[0] < 120 else said, str(dos[0]))
+            self._learn(said, str(dos[0]))  # learned as you meant to say it
+        self._claude_asked_back = (time.time(), teaching.fixed(text, answer["misheard"])) \
+            if not dos and str(answer["say"] or "").rstrip().endswith("?") else None
         if answer["details"]:
             print("  " + str(answer["details"]).replace("\n", "\n  "))
             self.chat("claude", str(answer["details"]))
