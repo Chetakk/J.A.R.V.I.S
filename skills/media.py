@@ -17,6 +17,7 @@ from system import desktop
 ART_DIR = os.path.expanduser("~/.cache/jarvis/art")
 FOLLOW_FOR = 12 * 3600  # seconds the now-playing card is kept in step at most
 SPOTIFY = b"SpotifyWeb"  # in the Spotify web app's command line (--class / --user-data-dir)
+CONNECT = "spotify-connect"  # playing_player()'s name for Spotify playing on another device (no bus name)
 
 
 class Media(Skill):
@@ -48,6 +49,9 @@ class Media(Skill):
     def spotify(self):
         """Play in Spotify: resume it if it's open, else start it, press its Space key until it plays."""
         player = _spotify_player()
+        if _elsewhere(player):
+            self.say("Spotify's already playing.")  # on another device: Play here would only show a dead card
+            return
         if player:
             if _mpris_status(player[1]) != "Playing":
                 player[1].call_sync("Play", None, 0, 2000, None)
@@ -109,6 +113,11 @@ class Media(Skill):
 
     def media(self, action, music=False):
         player = _mpris_player()
+        if action == "Pause" and _elsewhere(player):
+            desktop.focus(desktop.find_window("spotifyweb"))
+            time.sleep(0.4)
+            desktop.keys("space")  # the web app pauses the device it plays on
+            return
         if player:
             player[1].call_sync(action, None, 0, 2000, None)  # Play / Pause / Next / Previous
             return
@@ -126,6 +135,11 @@ class Media(Skill):
 
     def playing(self):
         player = _mpris_player()
+        elsewhere = _elsewhere(player)
+        if elsewhere:
+            title, _, artist = elsewhere.partition(" • ")
+            self.say("It's %s%s." % (title, " by %s" % artist if artist else ""))
+            return
         if not player:
             self.fail("Nothing seems to be playing.")
             return
@@ -159,7 +173,7 @@ def playing_player():
                 return name
     except (OSError, subprocess.SubprocessError):
         pass
-    return None
+    return CONNECT if spotify_title() else None
 
 
 def something_playing():
@@ -169,6 +183,8 @@ def something_playing():
 
 def track(name):
     """"Song · Artist" of what the player on bus `name` plays, "" if it doesn't say."""
+    if name == CONNECT:
+        return spotify_title().replace(" • ", " · ")
     try:
         md = _player_property(name, "Metadata")
     except (OSError, subprocess.SubprocessError):
@@ -176,6 +192,18 @@ def track(name):
     title = re.search(r"'xesam:title': <(['\"])(.+?)\1>", md)  # gdbus quotes with " when the text has a '
     artist = re.search(r"'xesam:artist': <\[(['\"])(.+?)\1", md)
     return " · ".join(m.group(2) for m in (title, artist) if m) if title else ""
+
+
+def spotify_title():
+    """"Song • Artist" from the Spotify web app's window title while it plays, here or on another device (Spotify
+    Connect, e.g. the Echo: its Chrome player then says Stopped, but the title still names the song); else ""."""
+    win = desktop.find_window("spotifyweb")
+    return win.title if win and " • " in win.title else ""
+
+
+def _elsewhere(player):
+    """Spotify's "Song • Artist" when it plays on another device, i.e. no player here says Playing; else ""."""
+    return "" if player and _mpris_status(player[1]) == "Playing" else spotify_title()
 
 
 def progress(name):

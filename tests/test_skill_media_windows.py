@@ -273,3 +273,46 @@ def test_a_staying_card_isnt_aged_out():
     wins = [SimpleNamespace(quiet=0, last={"stay": s}, close=lambda s=s: closed.append(s)) for s in (True, False)]
     card.Deck.age(SimpleNamespace(open=wins), 61, 60)
     assert closed == [False]
+
+
+# --- Spotify playing on another device (Spotify Connect, e.g. the Echo) ---
+
+@pytest.fixture
+def on_echo(jv, monkeypatch):
+    """The web app's Chrome player says Stopped; only its window title names the song."""
+    stopped = Player(status="Stopped")
+    monkeypatch.setattr(media, "_mpris_player", lambda: ("org.mpris.MediaPlayer2.chromium.instance1", stopped))
+    monkeypatch.setattr(media, "_spotify_player", lambda: ("org.mpris.MediaPlayer2.chromium.instance1", stopped))
+    jv.desktop.add("Bang Bang • Benny Dayal, Neeti Mohan", "open.spotify.com SpotifyWeb", front=False)
+    return stopped
+
+
+def test_whats_playing_on_the_echo(jv, on_echo):
+    jv.do("what's playing")
+    assert jv.said == ["It's Bang Bang by Benny Dayal, Neeti Mohan."]
+
+
+def test_pause_on_the_echo_presses_space_in_spotify(jv, on_echo):
+    jv.do("pause the music")
+    assert jv.desktop.did("focus") == ["Bang Bang • Benny Dayal, Neeti Mohan"] and jv.desktop.did("keys") == ["space"]
+    assert on_echo.calls == []
+
+
+def test_play_spotify_while_on_the_echo_leaves_it(jv, on_echo):
+    jv.do("play spotify")
+    assert jv.said == ["Spotify's already playing."] and on_echo.calls == [] and not jv.desktop.did("keys")
+
+
+def test_the_orb_counts_spotify_on_the_echo_as_playing(jv, on_echo, monkeypatch):
+    monkeypatch.setattr(media, "_gdbus", lambda *a: "(['org.freedesktop.DBus'],)")
+    assert media.playing_player() == media.CONNECT and media.track(media.CONNECT) == "Bang Bang · Benny Dayal, Neeti Mohan"
+
+
+def test_open_spotify_twice_focuses_the_one_window(jv, monkeypatch):
+    launched, app = [], {"name": "Spotify", "process": "", "window": "spotifyweb"}
+    monkeypatch.setitem(jv.j.apps.by_name, "spotify", app)  # installed, so "open spotify" is the app, not the site
+    monkeypatch.setattr(jv.j.apps, "find", lambda name: app if name == "spotify" else None)
+    monkeypatch.setattr(jv.j.apps, "launch", lambda app, paths=(): launched.append(app["name"]) or True)
+    jv.desktop.add("Spotify – Web Player", "open.spotify.com SpotifyWeb", front=False)
+    jv.do("open spotify")
+    assert launched == [] and jv.desktop.did("focus") == ["Spotify – Web Player"]

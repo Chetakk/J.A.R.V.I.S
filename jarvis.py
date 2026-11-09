@@ -1280,6 +1280,12 @@ class Jarvis:
         if not app:
             return False
         self.understood("open %s" % app["name"])
+        cls = app.get("window") if not app["process"] else ""  # a web app: launching again opens a second window
+        win = cls and next((w for w in reversed(desktop.windows()) if cls in w.wm_class.split()), None)
+        if win:
+            desktop.focus(win)
+            self.speaker.say("Here's %s." % app["name"])
+            return True
         desktop.go_to_jarvis_workspace()
         before = verify.windows_now()
         if not self.apps.launch(app):

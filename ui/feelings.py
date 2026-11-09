@@ -72,8 +72,9 @@ class Music:
         threading.Thread(target=self._run, name="music-feel", daemon=True).start()
 
     def _run(self):
-        from skills.media import _is_spotify, playing_player, progress, track
+        from skills.media import CONNECT, _is_spotify, playing_player, progress, track
         proc, buf, checked, playing, felt = None, deque(maxlen=RATE * LISTEN // 800), 0.0, False, 0.0
+        device = "@DEFAULT_MONITOR@"
         while True:
             now = time.time()
             if self.want and now - checked > 3:
@@ -81,6 +82,13 @@ class Music:
                 playing, self.track = bool(player), track(player) if player else ""
                 (self.pos, self.length), self.pos_at = progress(player) if player else (0.0, 0.0), now
                 self.instant = bool(player) and ("spotify" in player.lower() or _is_spotify(player))
+                # Spotify on the Echo plays nothing here: the mic hears it in the room instead
+                was, device = device, "@DEFAULT_SOURCE@" if player == CONNECT else "@DEFAULT_MONITOR@"
+                if proc and device != was:
+                    proc.kill()
+                    proc.wait()
+                    proc = None
+                    buf.clear()
             if not (self.want and playing):
                 if proc:
                     proc.kill()
@@ -92,7 +100,7 @@ class Music:
                 continue
             if not proc:
                 try:
-                    proc = subprocess.Popen(["parec", "--device=@DEFAULT_MONITOR@", "--format=s16le", "--channels=1",
+                    proc = subprocess.Popen(["parec", "--device=" + device, "--format=s16le", "--channels=1",
                                              "--rate=%d" % RATE, "--raw", "--latency-msec=50"],
                                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
                 except OSError:

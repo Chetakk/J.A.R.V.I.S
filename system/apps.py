@@ -45,6 +45,7 @@ def _read(path):
         exe = next((os.path.basename(w) for w in e.get("Exec").split()[1:] if "=" not in w), "")
     return {"path": path, "name": e.get("Name").strip(), "generic": (e.get("GenericName") or "").strip(),
             "keywords": [k.strip() for k in (e.get("Keywords") or "").split(";") if k.strip()],
+            "window": (e.get("StartupWMClass") or "").lower(),
             "process": "" if exe in BROWSERS and "chrome" not in e.get("Name").lower()
             and "firefox" not in e.get("Name").lower() else PROCESS.get(exe, exe)[:15]}
 

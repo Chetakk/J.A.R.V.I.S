@@ -57,6 +57,7 @@ class Bus:
 def test_what_the_player_says(monkeypatch, status, playing):
     from skills import media
     monkeypatch.setattr(media.subprocess, "run", Bus(status))
+    monkeypatch.setattr(media, "spotify_title", lambda: "")  # (not the real Spotify window)
     assert media.something_playing() is playing
 
 
@@ -64,6 +65,7 @@ def test_a_player_that_never_answers_is_not_playing(monkeypatch):
     """It once left the show recorder stuck for good: now each question has a time limit."""
     from skills import media
     monkeypatch.setattr(media.subprocess, "run", Bus("Playing", hang=True))
+    monkeypatch.setattr(media, "spotify_title", lambda: "")
     assert media.something_playing() is False
 
 
