@@ -16,8 +16,11 @@ PRIVATE_ON = r"(?:turn on |switch on |go into |use )?(?:private|headphones?(?: o
              r"(?:only )?(?:speak|talk) (?:only )?(?:in|through|on|into|to) (?:my )?(?:headphones|headset|" \
              r"earphones|earbuds)(?: only)?|headphones only|only (?:through|in|on) (?:my )?headphones|" \
              r"(?:speak|talk) privately"
-PRIVATE_OFF = r"(?:turn off |switch off |stop |end |leave |exit )(?:private|headphones?|headset) mode|" \
-              r"(?:private|headphones?|headset) mode off|(?:use|back to|go back to|talk through|speak through|" \
+# "of": how speech-to-text often writes "off" ("private mode of" had turned it on).
+PRIVATE_OFF = r"(?:turn off |switch off |stop |end |leave |exit )(?:private|privacy|headphones?|headset) mode|" \
+              r"(?:turn |switch )?(?:private|privacy|headphones?|headset) mode (?:off|of)|" \
+              r"(?:turn on |switch on |go into |go |use |back to )?public mode(?: on)?|" \
+              r"(?:use|back to|go back to|talk through|speak through|" \
               r"switch (?:back )?to) (?:the )?speakers?(?: again)?"
 QUIET_ON = r"(?:turn on |switch on |go into |use )?(?:quiet|silent|text|cards?) (?:mode|only)(?: on)?|" \
            r"(?:don'?t|do not) (?:talk|speak)(?: out loud)?(?: for a while| any ?more| now)?|mute yourself|" \

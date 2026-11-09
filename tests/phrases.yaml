@@ -922,6 +922,8 @@
 "talk through my headphones": skill:private
 "private mode off": skill:private
 "back to the speakers": skill:private
+"private mode of": skill:private
+"public mode": skill:private
 "switch audio to headphones": skill:output
 "quiet mode": skill:quiet
 "don't talk": skill:quiet

@@ -63,6 +63,14 @@ def test_private_mode_goes_to_the_headphones(jv, speaker):
     assert speaker.sink is None and pref(jv, "private") is None
 
 
+@pytest.mark.parametrize("off", ["private mode of", "public mode", "turn private mode off", "privacy mode off"])
+def test_private_mode_off_as_speech_to_text_writes_it(jv, speaker, off):
+    Pulse(jv.shell).add("sink", BUDS, "WH-1000XM4", form="headset")
+    jv.do("private mode")
+    jv.do(off)
+    assert speaker.sink is None and pref(jv, "private") is None
+
+
 def test_private_without_headphones_offers_quiet_instead(jv, speaker):
     Pulse(jv.shell).add("sink", USB, "USB Audio", default=True)  # (the jack is the configured fallback)
     jv.do("headphones only", "yes")
