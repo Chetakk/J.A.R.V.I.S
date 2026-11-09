@@ -260,6 +260,7 @@ class Jarvis:
         self._claude_saying = False  # what's being said is Claude's answer: the chat panel shows it as Claude's
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
         self.asking = None  # the question waiting for your answer, for the dashboard
+        self.interrupted = False  # the last yes/no question was answered with a new request instead
         self.late_yes = None  # (until, fn): an offer that got no answer in time; a "yes" before `until` runs fn
         self._private = False  # this request is private: what's said in it isn't passed on to Claude
 
@@ -341,7 +342,22 @@ class Jarvis:
 
     def ask(self, question):
         """Ask a yes/no question; the answer can be typed or spoken."""
-        return is_yes(self._answer(question), question if isinstance(question, str) else question[0])
+        return is_yes(self._yes_or_no(question), question if isinstance(question, str) else question[0])
+
+    def _yes_or_no(self, question):
+        """The answer to a yes/no question. A clear new request isn't one ("Open hot star" to "Did you mean X?"): it goes
+        back in the queue to be done next, and the question counts as unanswered."""
+        self.interrupted = False
+        answer = self._answer(question)
+        said = clean(answer, self.names, self.settings.get("heard_as") or ()) if answer else ""  # (no full stop, no name)
+        if said and not is_yes(said, question if isinstance(question, str) else question[0]) \
+                and not NO.match(said) and not NOT_YES.search(said) \
+                and (self.registry.match_exact(said) or self.browser.parse(said)
+                     or (self.intents and self.intents.match(said)[0])):
+            self.inbox.put(("again", answer))
+            self.interrupted = True
+            return None
+        return answer
 
     def choose(self, question, options):
         """Ask "X, or Y?": the option picked ("the first", "Y", "pause"), or None for "neither"/no answer."""
@@ -1123,7 +1139,9 @@ class Jarvis:
                 self.context.chose([best, other], phrase)  # for "the other one"
         elif unsure <= score < threshold:  # one likely meaning (no close second: that was the case above)
             question = "Did you mean %s?" % best
-            answer = self._answer(question)
+            answer = self._yes_or_no(question)
+            if self.interrupted:  # you went on to something else: that's next, and this one is dropped
+                return True
             phrase = best if is_yes(answer, question) else None
             if answer and NO.match(answer) and teaching.fit_to_send(text) and not self._private:
                 self.intents.block(text, best)  # you said no: never asked about, nor taken as, that one again
@@ -1470,7 +1488,7 @@ def run_loop(jarvis, has_ui):
                 jarvis.state(jarvis.rest)
                 jarvis.follow_up()
                 continue
-        if not line.startswith("/"):
+        if not line.startswith("/") and kind != "again":  # ("again" was shown when it answered a question)
             jarvis.chat("you", line)
         jarvis.state("thinking")
         jarvis.handling_since = time.time()  # for the watchdog
