@@ -159,3 +159,22 @@ def test_with_the_compact_bar_the_row_sits_at_the_right_with_the_chat_nearest_it
     assert spots(390, 460) == [1530, 1084]  # the chat at the far right, the card left of it
     many = arrange([(460, 400)] * 9, 0, 1920, 1000, 25, right=True)
     assert many[8] == (1920 - 460 - 28, 572)  # overflow stacks from the right too
+
+
+def test_cards_and_the_chat_glide_to_their_new_spot_and_a_dragged_card_is_let_go():
+    from types import SimpleNamespace
+    from ui.card import Deck
+
+    moves = []
+    deck = Deck(lambda: 0, lambda: True, lambda x, y: moves.append(("chat", x, y)), None)
+    card = type("Card", (), {})()  # hashable, like a real Card
+    card.user_xy, card._dragging = None, False
+    card.win = SimpleNamespace(get_visible=lambda: True, move=lambda x, y: moves.append(("card", x, y)))
+    deck._slide("chat", None, (500, 300))
+    assert moves == [("chat", 500, 300)] and not deck._glide  # nothing to slide from: put there at once
+    deck._glide = {"chat": [500, 300, 1500, 300], card: [0, 0, 1000, 0]}
+    deck._glide_step()
+    assert moves[1:] == [("chat", 820, 300), ("card", 320, 0)]  # a third of the way, like the bar
+    while deck._glide_step():
+        card._dragging = True  # you grab the card: the chat goes on, the card is yours
+    assert moves[-1] == ("chat", 1500, 300) and ("card", 1000, 0) not in moves

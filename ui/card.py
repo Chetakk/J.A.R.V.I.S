@@ -430,6 +430,7 @@ class Deck:
         self.last = None  # the card shown most recently (for showing it again)
         self._placing = False
         self._chat_spot = None
+        self._glide = {}  # what's sliding to its spot: a Card or "chat" -> [x, y, aim x, aim y]
 
     @property
     def visible(self):
@@ -537,6 +538,7 @@ class Deck:
         if win in self.open:
             self.open.remove(win)
             self.spare.append(win)
+            win.placed = False  # reused for a new card, it appears in its spot rather than sliding from the old one
             self._place()
 
     def _place(self):
@@ -557,13 +559,45 @@ class Deck:
                             self.bottom() + GLOW, geo.y, self.compact())
             spot = spots.pop(0) if chat else None
             if spot and spot != self._chat_spot:
-                self.move_chat(*spot)
+                self._slide("chat", self._chat_spot, spot)
+            if not spot:
+                self._glide.pop("chat", None)
             self._chat_spot = spot
             for w, (x, y) in zip(auto, spots):
-                if w.win.get_position() != (x, y):
-                    w.win.move(x, y)
+                if w in self._glide or w.win.get_position() != (x, y):
+                    self._slide(w, w.win.get_position() if getattr(w, "placed", False) else None, (x, y))
+                w.placed = True
         finally:
             self._placing = False
+
+    def _slide(self, key, start, aim):
+        """Move a window to `aim`, gliding there with the bar; from nowhere (just opened) it's put there at once."""
+        if key in self._glide:
+            self._glide[key][2:] = aim  # already on its way: turn towards the new spot
+        elif start is None:
+            self._move(key, *aim)
+            return
+        else:
+            self._glide[key] = [*start, *aim]
+        if len(self._glide) == 1 and not getattr(self, "_gliding", False):
+            self._gliding = True
+            GLib.timeout_add(33, self._glide_step)  # the bar's frame rate and pace, so they move as one
+
+    def _move(self, key, x, y):
+        self.move_chat(x, y) if key == "chat" else key.win.move(x, y)
+
+    def _glide_step(self):
+        for key, g in list(self._glide.items()):
+            if key != "chat" and (key.user_xy or key._dragging or not key.win.get_visible()):
+                del self._glide[key]  # you took it, or it closed
+                continue
+            g[0], g[1] = g[0] + (g[2] - g[0]) * 0.32, g[1] + (g[3] - g[1]) * 0.32
+            if abs(g[2] - g[0]) <= 1 and abs(g[3] - g[1]) <= 1:
+                g[0], g[1] = g[2], g[3]
+                del self._glide[key]
+            self._move(key, round(g[0]), round(g[1]))
+        self._gliding = bool(self._glide)
+        return self._gliding
 
 
 _css_loaded = False
