@@ -1338,15 +1338,15 @@
 "not so fast": skill:speed
 "reduce your speaking speed": skill:speed
 "go private": skill:private
-"stop listening to me": skill:private
-"don't listen in": skill:private
+"stop listening to me": skill:mic_mute
+"don't listen in": skill:mic_mute
 "enter private mode": skill:private
 "i need some privacy": skill:private
-"stop recording": skill:private
+"stop recording": skill:mic_mute
 "start private mode": skill:private
 "disable private mode": skill:private
-"you can listen again": skill:private
-"back to normal listening": skill:private
+"you can listen again": skill:mic_mute
+"back to normal listening": skill:mic_mute
 "go quiet": skill:quiet
 "stay silent": skill:quiet
 "be quiet for a while": skill:quiet
