@@ -465,7 +465,7 @@ class Desktop:
             self.workspace = n
 
         fakes = {
-            "windows": lambda: list(self.wins),
+            "windows": lambda stacking=True: list(self.wins),
             "active_window": lambda: self.active,
             "current_workspace": lambda: self.workspace,
             "pid": lambda w: getattr(self._get(w.id), "pid", None),

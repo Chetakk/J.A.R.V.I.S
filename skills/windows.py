@@ -2,11 +2,15 @@
 import re
 
 from skills.base import Skill
+from skills.helpers import NTH, ORDINALS
 from skills.screen import front_window
 from system import desktop
 
 IT = re.compile(r"(?:it|this|that|this one|(?:the |this )?(?:video|page|tab|app))", re.I)
-NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+NUMBERS = {w: n for w, n in ORDINALS.items() if 0 < n <= 6}  # "three", "third", "3rd"
+NUMBERS["forth"] = 4  # how "fourth" often comes out of speech
+# "move 2nd to next workspace", "move the 3rd window ...": a window on this workspace, oldest opened first
+NTH_WINDOW = re.compile(r"(?:%s|forth)(?: window| one| app)?" % NTH[1:-1], re.I)
 
 
 class Windows(Skill):
@@ -22,7 +26,8 @@ class Windows(Skill):
     def patterns(self):
         return [
             (r"(?:switch|go) to workspace (\w+)", self.workspace),
-            (r"move (?:this|the|this window|it|(.+?)) to workspace (\w+)", self.move_window),
+            (r"(?:move|put|send|shift) (?:(?:this|it|that)(?: window| one)?|(?:the )?(.+?))?\s*(?:to|on|onto) "
+             r"(?:the )?(?:workspace (\w+)|(\w+) workspace)", self.move_window),
             (r"(maximi[sz]e|minimi[sz]e|full ?screen|restore)(?: the| this)?(?: window)?(?: (.+))?", self.window_state),
             (r"close (?:this|the) window", lambda m: self.close_window() or self.say("I don't see a window to close.")),
             (r"(?:put|move|snap) (?:this|it|the window|(.+?)) (?:to |on )?(?:the )?(left|right)(?: side| half)?",
@@ -37,9 +42,26 @@ class Windows(Skill):
         desktop.switch_to(n)
 
     def move_window(self, m):
-        n = _number(m.group(2))
-        win = desktop.find_window(m.group(1)) if m.group(1) else desktop.active_window()
-        if not (n and win):
+        target, word = m.group(1), (m.group(2) or m.group(3)).lower()
+        if word not in ("next", "previous") and not _number(word):  # not a workspace: someone else's request
+            return False
+        if target and NTH_WINDOW.fullmatch(target):
+            here = desktop.current_workspace()
+            wins = [w for w in desktop.windows(stacking=False) if w.workspace == here and "jarvis" not in w.wm_class]
+            nth = target.split()[0].lower()
+            i = 4 if nth == "forth" else ORDINALS.get(nth) or int(nth)
+            if not wins or i == 0 or i > len(wins):
+                return self.fail("There %s only %d window%s on this workspace." % (
+                    "is" if len(wins) == 1 else "are", len(wins), "" if len(wins) == 1 else "s"))
+            win = wins[i - 1 if i > 0 else -1]
+        elif target:
+            win = desktop.find_window(target)
+            if not win:
+                return self.fail("I don't see %s open." % target)
+        else:
+            win = desktop.active_window()
+        n = _number(word, win.workspace) if win else None
+        if not n:
             return False
         desktop.move_to_workspace(win, n)
         self.say("Moved it to workspace %d." % n)
@@ -88,6 +110,10 @@ class Windows(Skill):
         desktop.focus(win)
 
 
-def _number(word):
+def _number(word, base=None):
+    """A workspace by its number or word; "next" / "previous" counted from `base` (else the one you're on)."""
     word = (word or "").lower()
+    if word in ("next", "previous"):
+        n = (base or desktop.current_workspace()) + (1 if word == "next" else -1)
+        return n if n > 0 else None
     return int(word) if word.isdigit() else NUMBERS.get(word)

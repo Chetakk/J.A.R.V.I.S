@@ -69,12 +69,12 @@ def _prop(d, win, name):
     return p.value if p else None
 
 
-def windows():
-    """All app windows, bottom to top (the last one is the front-most)."""
+def windows(stacking=True):
+    """All app windows, bottom to top (the last one is the front-most); stacking=False: oldest opened first."""
     out = []
     try:
         d = display.Display()
-        for wid in _prop(d, d.screen().root, "_NET_CLIENT_LIST_STACKING") or []:
+        for wid in _prop(d, d.screen().root, "_NET_CLIENT_LIST_STACKING" if stacking else "_NET_CLIENT_LIST") or []:
             win = d.create_resource_object("window", wid)
             name = _prop(d, win, "_NET_WM_NAME")
             title = name.decode("utf-8", "replace") if isinstance(name, bytes) else ""
