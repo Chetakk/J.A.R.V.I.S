@@ -424,15 +424,40 @@ class Bar:
         self._paint_talk(cr, w, state, t, zones)
         self._paint_zones(cr, zones)
         if state == "listening" and t < self._follow_end and self.mode == "full":
-            part = (self._follow_end - t) / (self._follow_total or 1)
-            half = (w - 2 * PAD - 56) / 2 * min(1.0, part)
-            cr.set_source_rgba(*SNOW, 0.9)
-            cr.set_line_width(1.6)
-            cr.set_line_cap(cairo.LINE_CAP_ROUND)
-            cr.move_to(w / 2 - half, HEIGHT - PAD - 3)
-            cr.line_to(w / 2 + half, HEIGHT - PAD - 3)
-            cr.stroke()
+            self._paint_follow(cr, w, t)
         return False
+
+    def _paint_follow(self, cr, w, t):
+        """The follow-up timer: a glowing line draining to the middle, sparks running out along it. It brightens
+        while you speak and beats faster in its last quarter."""
+        part = min(1.0, (self._follow_end - t) / (self._follow_total or 1))
+        half = (w - 2 * PAD - 56) / 2 * part
+        if half < 1:
+            return
+        c, y = w / 2, HEIGHT - PAD - 3
+        beat = 0.8 + 0.2 * math.sin(t * (4 if part > 0.25 else 11))
+        lift = 0.75 + 0.25 * min(1.0, self.ui._voice * 1.6)
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        for width, alpha in ((8, 0.12), (3.5, 0.3), (1.6, 1.0)):  # glow, halo, core
+            line = cairo.LinearGradient(c - half, 0, c + half, 0)
+            for at, a in ((0, 0), (0.18, 0.55), (0.5, 1), (0.82, 0.55), (1, 0)):  # tapered ends
+                line.add_color_stop_rgba(at, *SNOW, a * alpha * beat * lift)
+            cr.set_source(line)
+            cr.set_line_width(width)
+            cr.move_to(c - half, y)
+            cr.line_to(c + half, y)
+            cr.stroke()
+        for phase in (0.0, 0.5):  # two sparks a side, born in the middle, fading as they reach the ends
+            s = (t * 0.7 + phase) % 1
+            for side in (-1, 1):
+                x = c + side * half * s
+                spark = cairo.RadialGradient(x, y, 0, x, y, 7)
+                spark.add_color_stop_rgba(0, *SNOW, 0.95 * (1 - s) * lift)
+                spark.add_color_stop_rgba(1, *SNOW, 0)
+                cr.arc(x, y, 7, 0, 2 * math.pi)
+                cr.set_source(spark)
+                cr.fill()
+        cr.set_line_cap(cairo.LINE_CAP_BUTT)
 
     def _row(self, cr, x, mid, room, words, note, size, alpha):
         """What you said (keeping its end if it's long) and, right after it, the fainter note."""

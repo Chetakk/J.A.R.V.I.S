@@ -129,3 +129,21 @@ def test_the_full_bar_fits_what_it_says_and_grows_as_you_talk_up_to_full_width()
     assert listening < talking < bar._fit() < FULL_W  # the ignored count gets its room too
     bar.words = "play the one about the robots that fall in love on the moon please " * 3
     assert bar._fit() == FULL_W
+
+
+def test_the_follow_up_line_draws_and_lights_the_bar_while_time_is_left():
+    from types import SimpleNamespace
+    import cairo
+    from ui.bar import FULL_W, HEIGHT, Bar
+
+    bar = Bar.__new__(Bar)
+    bar.ui, bar._follow_total = SimpleNamespace(_voice=0.5), 6.0
+
+    def lit(t):
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, FULL_W, HEIGHT)
+        bar._paint_follow(cairo.Context(surface), FULL_W, t)
+        return any(surface.get_data())
+
+    bar._follow_end = 106.0
+    assert lit(101.0) and lit(105.9)  # whole and almost out (the fast beat)
+    assert not lit(106.0)  # time's up: nothing drawn
