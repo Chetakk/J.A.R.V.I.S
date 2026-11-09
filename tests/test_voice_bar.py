@@ -437,3 +437,12 @@ def test_a_line_too_long_for_the_bar_holds_then_scrolls_to_its_end_and_starts_ov
     assert first_ink(10.0 + HOLD + 2, long) == 100  # scrolled: its start is clipped off at the left edge
     assert bar._scroll == (long, 10.0)
 
+
+def test_the_mood_demo_shows_each_mood_in_turn_only_when_asked(monkeypatch):
+    from ui.bar import DEMO, DEMO_SECS, demo_mood
+
+    monkeypatch.delenv("JARVIS_MOOD_DEMO", raising=False)
+    assert demo_mood(5.0) is None
+    monkeypatch.setenv("JARVIS_MOOD_DEMO", "1")
+    shown = [demo_mood(i * DEMO_SECS + 1.0) for i in range(len(DEMO))]
+    assert sorted(shown) == sorted(DEMO) and "dance" not in shown and "sway" not in shown
