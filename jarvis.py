@@ -1628,7 +1628,8 @@ def main():
     if ui_cfg.get("enabled", True) and os.environ.get("DISPLAY"):
         from ui.window import UI
         jarvis.ui = UI(ui_cfg, on_text=lambda t: inbox.put(("text", t)),
-                       on_command=lambda c: inbox.put(("quit", "") if c == "/quit" else ("text", c)),
+                       # Quit ends the UI at once: queued, it would wait behind a request that's stuck
+                       on_command=lambda c: jarvis.ui.quit() if c == "/quit" else inbox.put(("text", c)),
                        is_speaking=jarvis.speaker.busy)
         from gi.repository import GLib
         GLib.idle_add(jarvis.skills.clipboard_history.watch_clipboard)  # clipboard history ("paste the thing I copied before")
@@ -1665,13 +1666,16 @@ def main():
         if jarvis.ui:
             import signal
             from gi.repository import GLib
-            GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda: inbox.put(("quit", "")) or True)
+            GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda: jarvis.ui.quit() or True)
             threading.Thread(target=loop, daemon=True).start()
             jarvis.ui.run()
         else:
             loop()
     except KeyboardInterrupt:
         print()
+    # Speech or Parakeet can hang while closing (a transcription holding its lock, a GPU process slow to exit):
+    # never let that keep JARVIS from quitting or restarting.
+    threading.Timer(20, os._exit, [jarvis.exit_code]).start()
     jarvis.memory.seen()
     jarvis.speaker.say("Restarting, back in a moment." if jarvis.exit_code == RESTART_CODE
                        else ["Goodbye!", "See you later.", "Bye for now."])
