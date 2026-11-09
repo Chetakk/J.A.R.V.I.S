@@ -451,7 +451,9 @@ class Jarvis:
         if phrase:  # "a bit more", "make it 70", "and firefox too": about what JARVIS just did
             self.heard(text, "means \"%s\"" % phrase)
             return self._reword(phrase)
-        if not self._rewording and not self.from_claude and sounds_like_follow_up(text):
+        # "it's too loud" with nothing just done: a listed wording (volume down), not a lost follow-up
+        if not self._rewording and not self.from_claude and sounds_like_follow_up(text) and not (
+                self.intents and self.intents.early(text)):
             self.heard(text, "a follow-up, but there's nothing recent to apply it to")
             lost = persona.lines("lost_track", persona.address(self.settings))
             self.speaker.say(lost if context.MORE.match(text) or context.LESS.match(text) else lost[0])

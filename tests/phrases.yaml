@@ -1448,8 +1448,8 @@
 
 # Saying your words back (skills/voice_prefs.py)
 "say hello there": skill:say_back
-"repeat after me": skill:say_back
-"repeat after me i am iron man": skill:say_back
+"repeat after me": skill:echo_on
+"repeat after me i am iron man": skill:echo_on
 "say this": skill:say_back
 "say this: good morning": skill:say_back
 "can you say thank you": skill:say_back

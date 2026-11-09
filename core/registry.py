@@ -30,7 +30,7 @@ def opposite_direction(said, phrase):
 _GREETING = r"(?:hey|hello|hi|ok|okay)"
 # The name followed by one of these is the thing talked about ("open the Jarvis project"), not a call.
 NAME_AS_THING = r"\s+(?:project|folder|repo|repository|code ?base|source code|directory|logs?|readme)\b"
-_TRAILING_FILLER = re.compile(r"[\s,]*(?:please|for me|(?<!\bnot )now)?[\s.!?]*$", re.IGNORECASE)  # "not now" stays
+_TRAILING_FILLER = re.compile(r"[\s,]*(?:\b(?:please|for me|(?<!\bnot )now))?[\s.!?]*$", re.IGNORECASE)  # "not now", "know" stay
 
 
 def _names_regex(names):
