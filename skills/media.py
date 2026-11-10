@@ -315,6 +315,8 @@ class Media(Skill):
             return
         if player:
             player[1].call_sync(action, None, 0, 2000, None)  # Play / Pause / Next / Previous
+            if action == "Play" and (_spotify_player() or [None])[0] == player[0]:
+                self.follow(spotify=True)  # resuming Spotify brings its card back (it closes itself once paused)
             return
         win = desktop.find_window("youtube")
         if win and action in ("Play", "Pause"):

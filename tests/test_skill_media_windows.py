@@ -102,6 +102,18 @@ def test_play_spotify_resumes_it_when_its_open(jv, spotify):
     assert [c for c in jv.cards if c.get("title") == "Spotify"]
 
 
+def test_play_resumes_paused_spotify_and_brings_its_card_back(jv, spotify):
+    spotify["player"] = ("org.mpris.MediaPlayer2.chrome.instance7", Player("Blinding Lights", status="Paused"))
+    jv.do("play")
+    assert spotify["player"][1].calls.count("Play") == 1 and [c for c in jv.cards if c.get("title") == "Spotify"]
+
+
+def test_play_resumes_another_player_without_a_spotify_card(jv, player, monkeypatch):
+    monkeypatch.setattr(media, "_spotify_player", lambda: None)
+    jv.do("play")
+    assert player.calls == ["Play"] and not [c for c in jv.cards if c.get("title") == "Spotify"]
+
+
 def test_play_music_without_spotify_goes_on(jv, monkeypatch):
     monkeypatch.setattr(jv.j.apps, "find", lambda name: None)
     monkeypatch.setattr(media, "_spotify_player", lambda: None)
