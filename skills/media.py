@@ -16,7 +16,7 @@ from system import desktop
 
 ART_DIR = os.path.expanduser("~/.cache/jarvis/art")
 FOLLOW_FOR = 12 * 3600  # seconds the now-playing card is kept in step at most
-SPOTIFY = b"SpotifyWeb"  # in the Spotify web app's command line (--class / --user-data-dir)
+WINDOW = "open.spotify.com"  # Spotify's window: an --app window of your main Chrome
 CONNECT = "spotify-connect"  # playing_player()'s name for Spotify playing on another device (no bus name)
 
 
@@ -66,7 +66,7 @@ class Media(Skill):
         threading.Thread(target=self._start_spotify, args=(app,), daemon=True, name="spotify").start()
 
     def _start_spotify(self, app):
-        win = desktop.find_window("spotifyweb")
+        win = desktop.find_window(WINDOW)
         if not win:
             desktop.go_to_jarvis_workspace()
             if not self.j.apps.launch(app):
@@ -75,7 +75,7 @@ class Media(Skill):
         end = time.time() + 30  # a cold start is the window, then the web player loading
         while time.time() < end:
             time.sleep(1.5)
-            win = desktop.find_window("spotifyweb")
+            win = desktop.find_window(WINDOW)
             if not win:
                 continue
             desktop.focus(win)
@@ -123,7 +123,7 @@ class Media(Skill):
     def media(self, action, music=False):
         player = _mpris_player()
         if action == "Pause" and _elsewhere(player):
-            desktop.focus(desktop.find_window("spotifyweb"))
+            desktop.focus(desktop.find_window(WINDOW))
             time.sleep(0.4)
             desktop.keys("space")  # the web app pauses the device it plays on
             return
@@ -207,7 +207,7 @@ def track(name):
 def spotify_title():
     """"Song • Artist" from the Spotify web app's window title while it plays, here or on another device (Spotify
     Connect, e.g. the Echo: its Chrome player then says Stopped, but the title still names the song); else ""."""
-    win = desktop.find_window("spotifyweb")
+    win = desktop.find_window(WINDOW)
     return win.title if win and " • " in win.title else ""
 
 
@@ -237,16 +237,14 @@ def _spotify_player():
 
 
 def _is_spotify(name):
-    """True if the bus name belongs to the Spotify web app's Chrome."""
+    """True if the bus name is Chrome's player and it holds Spotify: Spotify's window is open and the song names an
+    album (YouTube's videos don't). Spotify runs in your main Chrome, which also plays YouTube, on the same bus.
+    shortcut: YouTube Music names an album too; tell them apart (e.g. by window title) if both get used."""
+    if "chrom" not in name or not desktop.find_window(WINDOW):
+        return False
     try:
-        from gi.repository import Gio, GLib
-        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        pid = bus.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
-                            "GetConnectionUnixProcessID", GLib.Variant("(s)", (name,)), None, 0, 1000,
-                            None).unpack()[0]
-        with open("/proc/%d/cmdline" % pid, "rb") as f:
-            return SPOTIFY in f.read()
-    except Exception:
+        return bool(re.search(r"'xesam:album': <(['\"])(?!\1)", _player_property(name, "Metadata")))
+    except (OSError, subprocess.SubprocessError):
         return False
 
 

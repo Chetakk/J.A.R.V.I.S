@@ -71,7 +71,7 @@ def spotify(jv, monkeypatch):
 
 
 def test_play_music_starts_spotify_presses_play_and_shows_its_card(jv, spotify):
-    jv.desktop.add("Spotify - Web Player", "spotifyweb SpotifyWeb", front=False)  # the window, once it's up
+    jv.desktop.add("Spotify - Web Player", "open.spotify.com google-chrome", front=False)  # the window, once it's up
     jv.do("play some music")
     assert spotify["launched"] == [] and jv.desktop.did("keys") == ["space"]  # its window was up already
     assert jv.desktop.did("focus") == ["Spotify - Web Player"]
@@ -283,7 +283,7 @@ def on_echo(jv, monkeypatch):
     stopped = Player(status="Stopped")
     monkeypatch.setattr(media, "_mpris_player", lambda: ("org.mpris.MediaPlayer2.chromium.instance1", stopped))
     monkeypatch.setattr(media, "_spotify_player", lambda: ("org.mpris.MediaPlayer2.chromium.instance1", stopped))
-    jv.desktop.add("Bang Bang • Benny Dayal, Neeti Mohan", "open.spotify.com SpotifyWeb", front=False)
+    jv.desktop.add("Bang Bang • Benny Dayal, Neeti Mohan", "open.spotify.com google-chrome", front=False)
     return stopped
 
 
@@ -309,11 +309,11 @@ def test_the_orb_counts_spotify_on_the_echo_as_playing(jv, on_echo, monkeypatch)
 
 
 def test_open_spotify_twice_focuses_the_one_window(jv, monkeypatch):
-    launched, app = [], {"name": "Spotify", "process": "", "window": "spotifyweb"}
+    launched, app = [], {"name": "Spotify", "process": "", "window": "open.spotify.com"}
     monkeypatch.setitem(jv.j.apps.by_name, "spotify", app)  # installed, so "open spotify" is the app, not the site
     monkeypatch.setattr(jv.j.apps, "find", lambda name: app if name == "spotify" else None)
     monkeypatch.setattr(jv.j.apps, "launch", lambda app, paths=(): launched.append(app["name"]) or True)
-    jv.desktop.add("Spotify – Web Player", "open.spotify.com SpotifyWeb", front=False)
+    jv.desktop.add("Spotify – Web Player", "open.spotify.com google-chrome", front=False)
     jv.do("open spotify")
     assert launched == [] and jv.desktop.did("focus") == ["Spotify – Web Player"]
 
@@ -322,8 +322,21 @@ def test_open_spotify_twice_focuses_the_one_window(jv, monkeypatch):
 def test_spotify_on_the_echo_gets_a_card_from_the_window_title(jv, spotify, text):
     """Spotify Connect: Chrome's player says Stopped and names nothing; the song is only in the window title."""
     spotify["player"] = ("org.mpris.MediaPlayer2.chrome.instance7", Player(status="Stopped"))
-    jv.desktop.add("Dj Waley Babu • Badshah, Aastha Gill", "spotifyweb SpotifyWeb", front=False)
+    jv.desktop.add("Dj Waley Babu • Badshah, Aastha Gill", "open.spotify.com google-chrome", front=False)
     jv.do(text)
     c = [c for c in jv.cards if c.get("id") == "playing"][-1]
     assert "title: Dj Waley Babu\nartist: Badshah, Aastha Gill" in c["text"] and c["stay"] is True
     assert "art:" not in c["text"] and not spotify["player"][1].calls  # no Chrome logo, nothing played here
+
+
+@pytest.mark.parametrize("window, album, spotify", [
+    (True, "<'Raaz Reboot'>", True),
+    (True, "<\"Don't Look Up\">", True),  # gdbus quotes with " when the text has a '
+    (True, "<''>", False),  # YouTube in the same Chrome: no album
+    (False, "<'Raaz Reboot'>", False),  # no Spotify window: some other site's music
+])
+def test_spotify_in_main_chrome_is_told_from_youtube(jv, monkeypatch, window, album, spotify):
+    if window:
+        jv.desktop.add("Yaad Hai Na • Arijit Singh", "open.spotify.com google-chrome", front=False)
+    monkeypatch.setattr(media, "_player_property", lambda name, prop: "({'xesam:album': %s},)" % album)
+    assert media._is_spotify("org.mpris.MediaPlayer2.chromium.instance82030") is spotify
