@@ -77,7 +77,8 @@ def test_play_music_starts_spotify_presses_play_and_shows_its_card(jv, spotify):
     assert jv.desktop.did("focus") == ["Spotify - Web Player"]
     c = [c for c in jv.cards if c.get("title") == "Spotify"][-1]
     assert "title: Blinding Lights" in c["text"] and "artist: The Weeknd" in c["text"]
-    assert [x["label"] for x in c["choices"]] == ["Previous", "Pause", "Next", "Like"]
+    assert [x["label"] for x in c["choices"]] == ["Previous", "Pause", "Next"]
+    assert "like: like this song" in c["text"]  # the heart drawn in the block
 
 
 def test_play_music_launches_spotify_when_its_not_open(jv, spotify):

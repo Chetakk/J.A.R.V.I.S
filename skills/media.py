@@ -511,14 +511,14 @@ def _connect_card(song, playing):
 
 
 def _music_card(lines, playing, title):
+    if title == "Spotify":  # the heart drawn in the block, above the time left
+        lines = lines + ["like: like this song"]
     return {"id": "playing", "title": title, "stay": playing,  # up while it plays
             "text": "```music\n%s\n```" % "\n".join(lines),
             "choices": [{"label": "Previous", "do": "previous song", "icon": "media-skip-backward-symbolic"},
                         {"label": "Pause" if playing else "Play", "do": "pause" if playing else "play",
                          "icon": "media-playback-pause-symbolic" if playing else "media-playback-start-symbolic"},
-                        {"label": "Next", "do": "next song", "icon": "media-skip-forward-symbolic"}] +
-                       ([{"label": "Like", "do": "like this song", "icon": "emblem-favorite-symbolic"}]
-                        if title == "Spotify" else [])}
+                        {"label": "Next", "do": "next song", "icon": "media-skip-forward-symbolic"}]}
 
 
 def _metadata(proxy):

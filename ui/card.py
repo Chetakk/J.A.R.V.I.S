@@ -320,6 +320,13 @@ class Card:
         w.add(outer)
         w.set_size_request(CARD_W, -1)
 
+    def _hit(self, widget, ev):
+        """A click on a drawn block: say the phrase it has there (the music card's heart)."""
+        phrase = widget.hit(ev.x, ev.y) if ev.button == 1 else None
+        if phrase:
+            self.on_choice(phrase)
+        return bool(phrase)
+
     def show(self, card):
         """Put `card` in this window (replacing what it showed)."""
         self.last = card
@@ -337,6 +344,8 @@ class Card:
         self._moving = []
         for widget in build(card.get("text")):
             self.body.pack_start(widget, False, False, 0)
+            if getattr(widget, "hit", None):
+                widget.connect("button-press-event", self._hit)
             if getattr(widget, "every", None):
                 widget.due = 0.0
                 self._moving.append(widget)

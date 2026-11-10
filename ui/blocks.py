@@ -90,10 +90,13 @@ def make(kind, lines):
         return None
     if not spec:
         return None
-    height, draw, every = spec
+    height, draw, every, *hit = spec
     area = Gtk.DrawingArea()
     area.set_size_request(W, int(height))
     area.every = every  # seconds between redraws while on screen (None: still)
+    if hit:  # hit(x, y, width) -> the phrase a click there says, or None (the music card's heart)
+        area.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        area.hit = lambda x, y: hit[0](x, y, area.get_allocated_width() or W)
     area.connect("draw", lambda widget, cr: _safe(draw, widget, cr))
     return area
 
@@ -1081,8 +1084,9 @@ ART = 96  # the album-art square on a ```music block
 
 
 def _music(lines):
-    """title: / artist: / album: / art: <image path> / time: 63/215 playing. Album art (or a glass square with a
-    note) beside the song, an equalizer that moves while it plays, and a progress bar that moves by itself."""
+    """title: / artist: / album: / art: <image path> / time: 63/215 playing / like: <phrase>. Album art (or a
+    glass square with a note) beside the song, an equalizer that moves while it plays, a progress bar that moves by
+    itself, and with like: a heart in a circle above the time left that says that phrase when clicked."""
     f = dict(_split(l) for l in lines)
     m = re.match(r"([\d.]+)\s*/\s*([\d.]+)\s*(\w*)", f.get("time", ""))
     pos, length, playing = (float(m.group(1)), float(m.group(2)), m.group(3).lower() == "playing") if m else \
@@ -1097,6 +1101,12 @@ def _music(lines):
         except GLib.Error:
             pix = None
     shown_at = time.time()
+    like, heart = f.get("like"), None
+    if like:
+        theme = Gtk.IconTheme.get_default()  # None without a screen (tests): the ♥ glyph is drawn then
+        info = theme and theme.lookup_icon("emblem-favorite-symbolic", 14, 0)
+        heart = info.load_symbolic(Gdk.RGBA(1, 1, 1, 0.9), None, None, None)[0] if info else None
+    HX, HY, HR = -14, 56, 13  # the heart's circle: centre from the right edge, centre y, radius
 
     def draw(cr, width):
         _round_rect(cr, 0, 0, ART, ART, 12)
@@ -1117,8 +1127,22 @@ def _music(lines):
         x = ART + 16
         w = width - x
         _text(cr, x, 4, f.get("title") or "Something", size=12.5, a=0.96, bold=True, width=w - 30)
-        _text(cr, x, 28, f.get("artist", ""), size=9.5, a=0.72, width=w)
-        _text(cr, x, 46, f.get("album", ""), size=8.5, a=0.45, width=w)
+        room = w - 2 * HR - 8 if like else w  # keep the artist and album clear of the heart
+        _text(cr, x, 28, f.get("artist", ""), size=9.5, a=0.72, width=room)
+        _text(cr, x, 46, f.get("album", ""), size=8.5, a=0.45, width=room)
+        if like:
+            cr.arc(width + HX, HY, HR, 0, 2 * math.pi)
+            _white(cr, 0.07)
+            cr.fill_preserve()
+            _white(cr, 0.16)
+            cr.set_line_width(1)
+            cr.stroke()
+            if heart:
+                Gdk.cairo_set_source_pixbuf(cr, heart, width + HX - heart.get_width() / 2,
+                                            HY - heart.get_height() / 2)
+                cr.paint()
+            else:
+                _text(cr, width + HX, HY - 9, "♥", size=10, a=0.9, align="center")
         t = time.time()
         for i in range(4):  # equalizer, top right: bars bounce while it plays, rest low when paused
             h = 4 + 10 * abs(math.sin(t * (3.1 + i * 0.9) + i * 1.7)) if playing else 3
@@ -1140,7 +1164,9 @@ def _music(lines):
             _text(cr, width, 86, "-" + _clock(length - now), size=8, a=0.55, align="right")
         else:
             _text(cr, x, 80, "Playing" if playing else "Paused", size=8.5, a=0.55)
-    return ART + 4, draw, 0.08 if playing else None
+    def hit(px, py, width):
+        return like if like and math.hypot(px - (width + HX), py - HY) <= HR + 3 else None
+    return ART + 4, draw, 0.08 if playing else None, hit
 
 
 KINDS = {"ring": _ring, "countdown": _countdown, "spark": _spark, "stack": _stack, "donut": _donut,

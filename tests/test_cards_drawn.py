@@ -215,9 +215,11 @@ def test_the_music_block_draws_with_and_without_art(tmp_path):
     from ui import blocks
     art = tmp_path / "cover.png"
     GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, False, 8, 300, 200).savev(str(art), "png", [], [])
-    for extra in (["art: %s" % art], ["art: /no/such.jpg"], []):
-        height, draw, every = blocks._music(["title: Blinding Lights", "artist: The Weeknd",
-                                             "time: 63/200 playing"] + extra)
+    for extra in (["art: %s" % art], ["art: /no/such.jpg"], [], ["like: like this song"]):
+        height, draw, every, hit = blocks._music(["title: Blinding Lights", "artist: The Weeknd",
+                                                  "time: 63/200 playing"] + extra)
         draw(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, blocks.W, height)), blocks.W)
         assert height == blocks.ART + 4 and every
+    assert hit(blocks.W - 14, 56, blocks.W) == "like this song"  # the heart, above the time left
+    assert hit(10, 10, blocks.W) is None
     assert blocks._music(["title: X", "time: paused"])[2] is None  # still while paused
