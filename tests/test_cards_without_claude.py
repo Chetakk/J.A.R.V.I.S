@@ -88,9 +88,10 @@ def test_recent_tasks(jv):
 
 # --- your day ---
 
-def test_briefing(jv):
+@pytest.mark.parametrize("said", ["brief me", "Briefme."])  # (Whisper glues it into one word)
+def test_briefing(jv, said):
     Hub(jv.net, todos=[{"id": "a", "text": "Buy milk", "done": False, "created": 1}])
-    jv.do("brief me")
+    jv.do(said)
     assert any(c["title"].startswith("Briefing: ") for c in jv.cards) and not jv.claude.calls
 
 

@@ -53,7 +53,7 @@ class Briefing(Skill):
              r"(?:don'?t|no more|never) (?:brief me|(?:give me )?(?:a |the )?(?:daily |morning )?briefings?)"
              r"(?: every (?:day|morning)| in the morning)?", self.set_auto),
             (r"(?:give me |read me |do |start |what'?s )?(?:my |the |a |today'?s )?(?:daily |morning |day'?s )?"
-             r"(?:briefing|rundown)(?: for today| for the day)?|brief me(?: on (?:my |the )?day| for (?:the|to)day)?|"
+             r"(?:briefing|rundown)(?: for today| for the day)?|brief ?me(?: on (?:my |the )?day| for (?:the|to)day)?|"
              r"what (?:does|will) (?:my |the )?day look like(?: today)?|how does (?:my |the )?day look(?: today)?|"
              r"what'?s my day (?:look(?:ing)? like|got(?: for me)?)|what'?s (?:on )?(?:my |the )?(?:plan|agenda) "
              r"(?:for )?today|what (?:do i have|have i got|is there) (?:on |going on |to do )?today|"
