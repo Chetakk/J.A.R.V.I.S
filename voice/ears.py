@@ -110,12 +110,13 @@ class Ears:
     def _load(self):
         """Start the transcriber unless it's running, and warm it up: its first request is slow (GPU setup)."""
         with self._lock:
-            if self._alive():
+            if self.whisper:  # (its start() reuses one an earlier JARVIS left running, and warms a new one up)
+                if not (self.ready and self._alive()):  # a left-over server answering isn't "ready" yet: "Voice off"
+                    self.ready = self.whisper.start()
+                    self._asleep = False
+                    self.used_at = time.time()
                 return
-            if self.whisper:  # (its start() warms it up too)
-                self.ready = self.whisper.start()
-                self._asleep = False
-                self.used_at = time.time()
+            if self._alive():
                 return
             self._proc = subprocess.Popen([self.server, self.model, str(self.threads)], stdin=subprocess.PIPE,
                                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)
