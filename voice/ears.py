@@ -20,6 +20,7 @@ import numpy as np
 import onnxruntime as ort
 
 from voice.stt import MIN_PEAK, RATE, Whisper, _clean, _peak
+from voice.wake import split_name
 
 JARVIS = os.path.expanduser("~/.local/share/jarvis")
 WAKE = os.path.join(JARVIS, "models", "wake")
@@ -49,6 +50,10 @@ class Ears:
 
     def __init__(self, cfg, stt=None):
         self.whisper = Whisper(stt or {}) if cfg.get("words") == "whisper" else None
+        # A second opinion on each wake-up from the same Whisper (never a second model: RAM): shows, other people and
+        # Hindi talk set the wake model off about 3 times in 10, and Whisper with the names hint heard the name in none
+        self.checker = self.whisper if cfg.get("name_check") else None
+        self.names = []
         self.server = os.path.expanduser(cfg.get("parakeet_bin", JARVIS + "/whisper.cpp/build/bin/parakeet-serve"))
         self.model = os.path.expanduser(cfg.get("parakeet_model", JARVIS + "/models/parakeet/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"))
         if self.whisper:  # (the watchdog finds the process by this name)
@@ -77,6 +82,7 @@ class Ears:
         return all(os.path.isfile(p) for p in (self.server, self.model, self.wake_model))
 
     def set_names(self, names):  # the wake model knows its name; Parakeet takes no hints, Whisper does
+        self.names = names
         if self.whisper:
             self.whisper.set_names(names)
 
@@ -147,6 +153,23 @@ class Ears:
             self._unload()
             self._asleep = self.ready = False
 
+    def _named(self, pcm):
+        """Does Whisper hear the name in what woke the wake model? Yes when there's no checker, or it isn't up yet:
+        a real call must never be lost to a checker that's loading or was unloaded while idle."""
+        if not self.checker:
+            return True
+        if not self.checker._ping():
+            threading.Thread(target=self._load, daemon=True).start()  # back for the command that follows
+            return True
+        try:
+            text = self.checker.transcribe(pcm)
+        except Exception:
+            return True
+        if split_name(text, self.names)[0]:
+            return True
+        print("[ears] the wake model heard the name, Whisper didn't (%r): not a call" % text)
+        return False
+
     def _ping(self):
         return self._asleep or self._alive()
 
@@ -207,6 +230,8 @@ class Ears:
         end = self.name_end(pcm, self.strict if command else self.cutoff)
         if end is None:
             return self._words(pcm) if command else ""
+        if not command and not self._named(pcm):
+            return ""
         rest = pcm[end * 2:]
         if len(rest) >= AFTER_NAME * RATE * 2:
             text = self._words(rest, "Jarvis, ")

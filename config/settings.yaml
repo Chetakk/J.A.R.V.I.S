@@ -55,7 +55,10 @@ wake_word:
 
 # Ears (wake_word.engine: ears). Cutoffs from tools/wake_train.py and tools/speechtest.py score-ears, on your own recordings.
 ears:
-  words: parakeet           # who writes down what you say after the name: parakeet or whisper (restart to change)
+  words: whisper            # who writes down what you say after the name: parakeet or whisper (restart to change).
+                            # Parakeet got more commands right (39/50 vs 34/50) but can't check the name; only one is loaded
+  name_check: true          # words: whisper only. Whisper listens again to what woke it: no name heard = not a call. Shows,
+                            # other people and Hindi talk woke it ~3 times in 10; Whisper heard the name in none. ~0.25 s a wake-up
   wake_cutoff: 0.98         # lower = wakes more easily, and more often when nobody called it
   wake_cutoff_strict: 0.995 # while already listening for a command: a false hit would cut its start off
   idle_minutes: 60          # the transcriber unloads after this long unused, freeing ~1.5 GB; comes back when you call (0 = always loaded)

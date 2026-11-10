@@ -373,3 +373,68 @@ def test_false_wake_moves_the_last_wake_up_but_not_the_call_that_said_so(monkeyp
     assert len(list((tmp_path / "false").glob("*.wav"))) == 1 and len(list((tmp_path / "hits").glob("*.wav"))) == 1
     assert "open youtube" in (tmp_path / "false" / "false.jsonl").read_text()
     assert e.mark_false("that was a false wake") is None  # said twice: still just the one
+
+
+def test_a_yes_said_over_the_question_answers_it(monkeypatch):
+    """Seen in the log: "Want me to fix it?" ... "Yeah." was dropped as talking over JARVIS, then "I'll leave it"."""
+    w = wake_with("Yeah.", monkeypatch)
+    w.barge_in, stopped = "named", []
+    w.on_stop = lambda: stopped.append(True)
+    w.is_echo = lambda text, started: False
+    w.is_asking = lambda: True
+    assert w._barge_in(np.full(8000, 0.2, dtype=np.float32), 0.5, time.time()) and stopped
+    assert w.passed == ["Yeah."]
+    w = wake_with("Yeah, the music is loud.", monkeypatch)  # no question: still chatter
+    w.barge_in, w.is_echo, w.on_stop = "named", (lambda text, started: False), (lambda: None)
+    w._barge_in(np.full(8000, 0.2, dtype=np.float32), 0.5, time.time())
+    assert w.passed == []
+
+
+class Checker:
+    """Stands in for the Whisper name check."""
+    def __init__(self, heard, up=True):
+        self.heard, self.up, self.calls, self.started = heard, up, 0, 0
+
+    def _ping(self):
+        return self.up
+
+    def start(self):
+        self.started += 1
+        return True
+
+    def transcribe(self, pcm):
+        self.calls += 1
+        return self.heard
+
+
+def checked(monkeypatch, heard, up=True):
+    e = ears(monkeypatch, 8000)
+    e.names, e.keep_hits, e.checker = ["jarvis", "ev"], 0, Checker(heard, up)
+    return e
+
+
+def test_a_wake_up_whisper_hears_no_name_in_is_not_a_call(monkeypatch):
+    e = checked(monkeypatch, "Yeah, I think this one could be the most successful thing.")
+    assert e.transcribe(LOUD) == "" and not e.parakeet_calls
+
+
+def test_a_wake_up_whisper_hears_the_name_in_goes_through(monkeypatch):
+    assert checked(monkeypatch, "Jarvis, open YouTube.").transcribe(LOUD) == "Jarvis, open youtube"
+
+
+def test_a_checker_that_is_not_up_never_loses_a_call(monkeypatch):
+    e = checked(monkeypatch, "nothing", up=False)
+    loads = []
+    monkeypatch.setattr(e, "_load", lambda: loads.append(1))
+    monkeypatch.setattr(E.threading, "Thread", lambda target, daemon: type("T", (), {"start": lambda self: target()})())
+    assert e.transcribe(LOUD) == "Jarvis, open youtube" and loads and not e.checker.calls
+
+
+def test_the_check_uses_the_one_whisper_that_writes_the_words():
+    e = Ears({"words": "whisper", "name_check": True})
+    assert e.checker is e.whisper and Ears({"words": "parakeet", "name_check": True}).checker is None
+
+
+def test_the_command_itself_is_not_checked_for_the_name(monkeypatch):
+    e = checked(monkeypatch, "open youtube")
+    assert e.transcribe(LOUD, command=True) == "Jarvis, open youtube" and not e.checker.calls
