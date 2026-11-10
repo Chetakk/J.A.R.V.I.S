@@ -7,8 +7,11 @@ import os
 import shlex
 import subprocess
 import re
+import threading
+import time
 import urllib.request
 
+from claude.bridge import open_in_vscode
 from core import verify
 from skills.base import Skill
 from skills.daytracker import HUB
@@ -22,7 +25,8 @@ _WORKED = (r" (?:that |which )?i (?:(?:was|were|have been|'?ve been|had been) (?
            r"worked on)")
 _AFTER = r"(?: (?:last time|before|earlier))?(?: in vs ?code)?"
 # "open <folder or file> in <app>" / "open <app> in <folder>"
-_IN = re.compile(r" (?:in|with|using|inside|at|from) (?:a |an |the |my )?", re.IGNORECASE)
+_IN = re.compile(r" (?:in|with|using|inside|at|from|for) (?:a |an |the |my )?", re.IGNORECASE)
+_HERE = re.compile(r"\b(?:this|that) (?:folder|directory)$", re.IGNORECASE)  # the folder on your screen
 _CLAUDE = re.compile(r"claude(?: code)?", re.IGNORECASE)
 _TERMINAL = re.compile(r"(?:gnome )?terminal|shell|console|command line", re.IGNORECASE)
 _BROWSER = re.compile(r"(?:default |web )?browser", re.IGNORECASE)
@@ -168,7 +172,13 @@ class Dev(Skill):
             return False  # "open youtube in chrome" is the browser's, "open it in a new window" isn't an app
         path, kind, app = plan
         folder = path if os.path.isdir(path) else os.path.dirname(path)
-        if kind == "claude":
+        if kind == "claude" and _HERE.search(m.group(1)):  # "open claude in this folder": VS Code in it, with Claude
+            self.j.executor.run("code %s" % shlex.quote(folder), reply="Opening Claude in VS Code in %s."
+                                % spoken_place(folder), window=True)
+            if self.j.executor.ok:
+                threading.Thread(target=_claude_panel, args=(os.path.basename(folder),), daemon=True).start()
+            self.j.last_app = "code"
+        elif kind == "claude":
             self.j.claude.open_terminal(cwd=folder)
             self.say("Opening Claude in %s." % spoken_place(folder))
         elif kind == "terminal":
@@ -293,6 +303,17 @@ def _app(j, said):
     if not app:
         return None, None
     return ("terminal", None) if app["process"].startswith("gnome-terminal") else ("app", app)
+
+
+def _claude_panel(name, seconds=15):
+    """Claude's panel in the VS Code window just opened on folder `name`, not in whichever one was used last."""
+    end = time.time() + seconds
+    while time.time() < end:
+        win = desktop.active_window()
+        if win and "code" in win.wm_class.lower() and name in (win.title or ""):
+            break
+        time.sleep(0.3)
+    open_in_vscode(here=True)
 
 
 def _local(said):

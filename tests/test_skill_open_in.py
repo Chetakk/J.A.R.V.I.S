@@ -3,6 +3,7 @@
 never made."""
 import os
 import shlex
+import time
 
 import pytest
 
@@ -111,3 +112,34 @@ def test_this_in_vs_code_is_what_was_just_opened(jv, launched):
     jv.do("open projects folder")
     jv.do("Open this in VS Code")
     assert launched == [("Visual Studio Code", [os.path.join(conftest.HOME, "Projects")])]
+
+
+def test_vs_code_in_this_folder(jv, launched, monkeypatch):
+    """Seen in the log: "open VS code in this folder" with Files on Projects opened VS Code on its last window."""
+    need(jv, "vs code")
+    path = os.path.join(conftest.HOME, "Projects")
+    monkeypatch.setattr("skills.files.front_folder", lambda j: path)
+    for said in ("Open VS code in this folder.", "open vs code for this folder"):
+        launched.clear()
+        jv.do(said)
+        assert launched == [("Visual Studio Code", [path])], said
+
+
+def test_claude_in_this_folder_is_vs_code_there(jv, launched, monkeypatch):
+    """Seen in the log: "open Claude in this folder" with Files on Projects opened JARVIS's own Claude terminal.
+    It's VS Code on that folder, then Claude's panel in that window."""
+    path = os.path.join(conftest.HOME, "Projects")
+    monkeypatch.setattr("skills.files.front_folder", lambda j: path)
+    panel = []
+    monkeypatch.setattr("skills.dev._claude_panel", lambda name: panel.append(name))
+    jv.desktop.add("Projects", "org.gnome.Nautilus Org.gnome.Nautilus")
+    for said in ("Open Claude in this folder.", "open claude for this folder"):
+        panel.clear()
+        jv.shell.calls.clear()
+        jv.do(said)
+        for _ in range(20):  # the panel waits for the window on a thread
+            if panel:
+                break
+            time.sleep(0.05)
+        assert jv.shell.ran("^code %s$" % shlex.quote(path)) and panel == ["Projects"], said
+    assert not jv.claude.calls  # not JARVIS's Claude terminal

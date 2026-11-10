@@ -474,6 +474,8 @@ def place(j, said, folder=False):
         said, folder = m.group(1), True
     if said.lower() in PLACES:
         return PLACES[said.lower()]
+    if re.fullmatch(r"(?:this|that)(?: one)?", said, re.IGNORECASE) and folder:
+        return front_folder(j)  # "open vs code in this folder": the one on your screen
     if said.lower() == "project":  # "the project folder": the one in the window you're in, else ~/Projects
         p = j.projects.focused()
         return p.path if p else PROJECTS

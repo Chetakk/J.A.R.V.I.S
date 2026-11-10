@@ -897,7 +897,7 @@ class Jarvis:
             self.heard(self._text, "Claude here: VS Code")
             self.speaker.say(["Sure, opening Claude here in VS Code.", "Okay, Claude's coming up in VS Code."])
             return True
-        if any(t in win.wm_class for t in TERMINALS):
+        if any(t in win.wm_class for t in TERMINALS) and not re.search(r"\b(?:folder|directory)\b", self._text):
             p = self.projects.in_title(win)
             m = re.search(r":\s*(~?/[^\s]*)\s*$", win.title or "")  # "user@host: ~/Downloads"
             folder = p.path if p else os.path.expanduser(m.group(1)) if m else None
