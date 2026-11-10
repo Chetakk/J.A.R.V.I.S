@@ -100,6 +100,9 @@ MUTE_WHAT = {"voice": "voice", "speech": "voice", "me": "voice", "jarvis": "voic
 CLAUDE_HERE = re.compile(r"^(?:open|start|launch|bring up|pull up|give me)\b.*\bclaude\b.*\b(?:here|in this"
                          r"(?: window| project| folder| terminal)?)$", re.IGNORECASE)
 TERMINALS = ("terminal", "kitty", "konsole", "xterm", "tilix", "alacritty", "terminator", "wezterm")
+# "open another chrome", "launch a new vs code window": a second window even though one is open
+ANOTHER = re.compile(r"^(open|launch|start|fire up|bring up) (?:another|a new|new|a second|one more) (.+?)(?: window)?$",
+                     re.IGNORECASE)
 ASK_CLAUDE_VSCODE = re.compile(r"^(?:ask|tell) claude(?: code)? in (?:vs ?code) (?:to )?(.+)$", re.IGNORECASE)
 # JARVIS itself, not an app or a project called Jarvis (%s: its names): "close Jarvis", "restart yourself".
 # Also "I said restart yourselves", "please close yourself now": a lead-in, Whisper's "yourselves", a tail.
@@ -546,6 +549,11 @@ class Jarvis:
             self._ask_claude(text)
             return True
 
+        fresh = ANOTHER.match(text)
+        if fresh and self.app_for(apps.OPEN, "%s %s" % fresh.groups())[0]:
+            text = "%s %s" % fresh.groups()  # "open another chrome" runs "open chrome", which starts a new window
+        elif self._go_to_open_app(text):
+            return True
         # 1. Other wording with a value ("put milk on my to-do list"), 2. exact command, 3. an installed app,
         # 4. browser phrase, 5. same meaning in other words, 6. close-enough spelling, 7. Claude.
         phrase = self.intents.fill(text) if self.intents and not self._rewording else None
@@ -1297,12 +1305,6 @@ class Jarvis:
         if not app:
             return False
         self.understood("open %s" % app["name"])
-        cls = app.get("window") if not app["process"] else ""  # a web app: launching again opens a second window
-        win = cls and next((w for w in reversed(desktop.windows()) if cls in w.wm_class.split()), None)
-        if win:
-            desktop.focus(win)
-            self.speaker.say("Here's %s." % app["name"])
-            return True
         desktop.go_to_jarvis_workspace()
         before = verify.windows_now()
         if not self.apps.launch(app):
@@ -1313,6 +1315,23 @@ class Jarvis:
         self.last_app = app["process"] or None
         self.context.done(text, said)
         self.speaker.say(["Opening %s." % app["name"], "Sure, here's %s." % app["name"]])
+        return True
+
+    def _go_to_open_app(self, text):
+        """"open chrome" with Chrome already open: its window, not a second one ("open another chrome" for that)."""
+        app, said = self.app_for(apps.OPEN, text)
+        if not app:
+            return False
+        names = {n for n in (app["window"], app["process"], os.path.basename(app["path"])[:-8].lower()) if n}
+        win = next((w for w in reversed(desktop.windows())
+                    if names & set(w.wm_class.split()) and "jarvis" not in w.wm_class), None)
+        if not win:
+            return False
+        self.understood("open %s" % app["name"])
+        desktop.focus(win)
+        self.last_app = app["process"] or None
+        self.context.done(text, said)
+        self.speaker.say(["%s is already open, here it is." % app["name"], "Here's %s, it's already open." % app["name"]])
         return True
 
     def _close_app(self, text):
