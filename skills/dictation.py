@@ -68,7 +68,9 @@ class Dictation(Skill):
         """While dictating: types what was said (or obeys "new line", "stop dictation"). True if it did."""
         if not self.dictating:
             return False
-        low = re.sub(r"[^\w' ]", "", text.lower()).strip()
+        # "Stop uh typing" is still "stop typing": hesitations don't count when matching what follows.
+        low = " ".join(w for w in re.sub(r"[^\w' ]", "", text.lower()).split()
+                       if w not in ("uh", "um", "uhm", "umm", "hmm", "er"))
         # Whisper hears "stop transcribing" as "stop transcripting"; "I said stop typing" is said when it didn't stop.
         if re.fullmatch(r"(?:(?:i said|please|ok|okay|now|just) )*(?:(?:stop|end|finish|cancel|exit|quit|turn off)"
                         r" (?:the )?(?:dictation|dictating|typing|transcri\w*|listening)(?: now| please)?"

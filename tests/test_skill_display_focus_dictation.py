@@ -250,7 +250,7 @@ def test_while_dictating_commands_are_typed_as_heard_not_done(jv):
     assert jv.said == ["Dictation on. Say stop dictation when you're done."]
 
 
-@pytest.mark.parametrize("said", ["I said stop typing.", "stop", "That's all.", "turn off dictation please"])
+@pytest.mark.parametrize("said", ["I said stop typing.", "Stop uh typing.", "stop", "That's all.", "turn off dictation please"])
 def test_ways_to_stop_dictation(jv, said):
     jv.desktop.add("Untitled - gedit", "gedit Gedit")
     jv.do("start dictation")
