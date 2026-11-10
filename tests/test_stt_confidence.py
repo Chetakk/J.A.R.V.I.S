@@ -41,6 +41,11 @@ def test_non_speech_markers_are_dropped():
     assert _clean("*Coughs*") == "" and _clean("[BLANK_AUDIO]") == "" and _clean("Hello *there") == "Hello *there"
 
 
+def test_thanks_is_dropped_from_whisper_but_kept_from_parakeet():
+    assert _clean("Thank you.") == "" and _clean("Thank you.", whisper=False) == "Thank you."
+    assert _clean("Um.", whisper=False) == ""
+
+
 class Doubts:
     def __init__(self, doubted):
         self.doubted = doubted

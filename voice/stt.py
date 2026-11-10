@@ -12,8 +12,9 @@ import wave
 
 RATE = 16000
 MIN_PEAK = 600  # 16-bit peak below this is background noise, not speech (Whisper still read speech at 600; 1500 dropped quiet commands)
-HALLUCINATIONS = {"you", "thank you", "thanks", "thank you very much", "thanks for watching",
-                  "thank you for watching", "bye", "so", "uh", "um", "hmm", ""}
+HALLUCINATIONS = {"you", "so", "uh", "um", "hmm", ""}
+# Whisper invents these from silence; Parakeet doesn't, so from it "Thank you." is really you thanking JARVIS.
+WHISPER_INVENTS = {"thank you", "thanks", "thank you very much", "thanks for watching", "thank you for watching", "bye"}
 
 
 class Whisper:
@@ -157,12 +158,13 @@ def _peak(pcm):
     return max((abs(s) for s in samples), default=0)
 
 
-def _clean(text):
+def _clean(text, whisper=True):
     text = " ".join(text.split())
     # Whisper writes non-speech as "[BLANK_AUDIO]", "(music)" etc., and invents a few
     # stock phrases from silence or noise.
     if not text or (text[0] in "[(*" and text[-1] in "])*"):
         return ""
-    if text.lower().strip(" .!?,") in HALLUCINATIONS:
+    said = text.lower().strip(" .!?,")
+    if said in HALLUCINATIONS or (whisper and said in WHISPER_INVENTS):
         return ""
     return text

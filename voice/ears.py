@@ -183,7 +183,7 @@ class Ears:
                 return text, confidence
             line = self._ask(pcm)
         confidence, _, text = line.rstrip("\n").partition("\t")
-        return _clean(text), float(confidence)
+        return _clean(text, whisper=False), float(confidence)
 
     def _ask(self, pcm):
         self._proc.stdin.write(struct.pack("<I", len(pcm) // 2) + pcm)
