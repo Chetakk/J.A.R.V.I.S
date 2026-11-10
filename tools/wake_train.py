@@ -63,9 +63,11 @@ def speak(lines, scales):
     for voice in sorted(v for v in os.listdir(voices) if v.endswith(".onnx")):
         for scale in scales:
             with tempfile.TemporaryDirectory() as d:
-                subprocess.run([os.path.join(JARVIS, "piper", "piper"), "--model", os.path.join(voices, voice), "--output_dir", d,
-                                "--length_scale", str(scale), "--sentence_silence", "0"], input="\n".join(lines).encode(),
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                done = subprocess.run([os.path.join(JARVIS, "piper", "piper"), "--model", os.path.join(voices, voice), "--output_dir", d,
+                                       "--length_scale", str(scale), "--sentence_silence", "0"], input="\n".join(lines).encode(),
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if done.returncode:  # a voice this Piper can't run (en_US-mike needs a newer one): train without it
+                    break
                 out += [read(os.path.join(d, w)) for w in sorted(os.listdir(d))]
     return out
 
