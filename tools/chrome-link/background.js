@@ -32,6 +32,16 @@ async function run(tab, func) {
 }
 
 async function handle(msg) {
+  if (msg.op === "reload") {  // picks up a changed background.js without a trip to chrome://extensions
+    setTimeout(() => chrome.runtime.reload(), 100);
+    return {ok: true};
+  }
+  if (msg.op === "spotify") {  // the Spotify web app's tab, wherever it is (its own --app window)
+    const [t] = await chrome.tabs.query({url: "https://open.spotify.com/*"});
+    if (!t) return {error: "no spotify"};
+    const [r] = await chrome.scripting.executeScript({target: {tabId: t.id}, func: spotify, args: [msg]});
+    return {result: r && r.result};
+  }
   const tab = await activeTab();
   if (!tab) return {error: "no tab"};
   if (msg.op === "page") {
@@ -113,6 +123,105 @@ function videoControl(msg) {
   if (msg.do === "speed") v.playbackRate = msg.to;
   if (msg.do === "speed_step") v.playbackRate = Math.min(4, Math.max(0.25, v.playbackRate + msg.by));
   return {time: v.currentTime, speed: v.playbackRate};
+}
+
+// Runs in Spotify's page. msg.do: "state"; "library" (Your Library, in its own order); "play" msg.path (a
+// playlist / album / artist page: its big play button; a /search/... page: its first play button); "shuffle" /
+// "repeat" msg.on (true, false, or "one" for repeat); "like"; "volume" msg.to (0..1). Each answers with the state.
+async function spotify(msg) {
+  const q = (s, root) => (root || document).querySelector(s);
+  const bar = () => q('[data-testid="now-playing-bar"]') || q("footer") || document;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const wait = async (find, ms) => {
+    for (let t = 0; t < (ms || 8000); t += 250) {
+      const x = find();
+      if (x) return x;
+      await sleep(250);
+    }
+    return null;
+  };
+  const like = () => q('[data-testid="add-button"]', q('[data-testid="now-playing-widget"]') || bar());
+  const range = () => q('[data-testid="volume-bar"] input[type="range"]');
+  const state = () => {
+    const sh = q('[data-testid="control-button-shuffle"]'), rp = q('[data-testid="control-button-repeat"]');
+    const v = range(), l = like();
+    return {path: location.pathname,
+            shuffle: sh ? sh.getAttribute("aria-checked") === "true" : null,
+            repeat: rp ? {"true": true, "mixed": "one"}[rp.getAttribute("aria-checked")] || false : null,
+            liked: l ? l.getAttribute("aria-checked") === "true" : null,
+            volume: v ? Number(v.value) / Number(v.max || 1) : null};
+  };
+  if (msg.do === "library") {
+    const seen = new Map();
+    const read = () => {
+      for (const el of document.querySelectorAll('[id^="listrow-title-spotify:"]')) {
+        const uri = el.id.slice("listrow-title-".length);
+        const sub = document.getElementById("listrow-subtitle-" + uri);
+        const p = uri.split(":");  // spotify:playlist:ID, spotify:user:NAME:collection (Liked Songs)
+        const path = p[p.length - 1] === "collection" ? "/collection/tracks" : "/" + p[1] + "/" + p[2];
+        if (!seen.has(uri)) seen.set(uri, {name: el.textContent.trim(), sub: sub ? sub.textContent.trim() : "", path});
+      }
+    };
+    read();
+    // The list only draws the rows near its scroll position: walk it to the end, then put it back.
+    const first = q('[id^="listrow-title-spotify:"]');
+    let box = first && first.parentElement;
+    while (box && !(box.scrollHeight > box.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+    if (box) {
+      const top = box.scrollTop;
+      for (let y = 0; y < box.scrollHeight && y < 40000; y += box.clientHeight / 2) {
+        box.scrollTop = y;
+        await sleep(120);
+        read();
+      }
+      box.scrollTop = top;
+    }
+    return {items: [...seen.values()]};
+  }
+  if (msg.do === "play") {
+    if (location.pathname !== msg.path) {
+      // Buttons on the page we leave mustn't be taken for the new page's.
+      document.querySelectorAll('[data-testid="play-button"], button[aria-label^="Play"]').forEach((b) => b.dataset.jarvisOld = "");
+      history.pushState({}, "", msg.path);  // in-app navigation: no reload, so the player keeps going
+      dispatchEvent(new PopStateEvent("popstate", {state: {}}));
+    }
+    const fresh = (s) => [...document.querySelectorAll(s)].find((b) => !("jarvisOld" in b.dataset));
+    const button = await wait(() => msg.path.startsWith("/search/")
+      ? fresh('[data-testid="top-result-card"] [data-testid="play-button"]') ||
+        fresh('[data-testid="tracklist-row"] button[aria-label^="Play"]') || fresh('main [data-testid="play-button"]')
+      : fresh('[data-testid="action-bar-row"] [data-testid="play-button"]'));
+    document.querySelectorAll("[data-jarvis-old]").forEach((b) => delete b.dataset.jarvisOld);
+    if (!button) return {error: "no play button", state: state()};
+    const title = (q('[data-testid="entityTitle"]') || q("main h1") || {}).textContent || "";
+    if (/^Play/.test(button.getAttribute("aria-label") || "Play")) button.click();  // "Pause": it's playing already
+    return Object.assign(state(), {played: true, title: title.trim()});
+  }
+  if (msg.do === "shuffle" || msg.do === "repeat") {
+    const b = q('[data-testid="control-button-' + msg.do + '"]');
+    if (!b) return {error: "no " + msg.do + " button"};
+    for (let i = 0; i < 3 && state()[msg.do] !== msg.on; i++) {  // repeat goes off -> all -> one -> off
+      b.click();
+      await sleep(300);
+    }
+  }
+  if (msg.do === "like") {
+    const l = like();
+    if (!l) return {error: "no like button"};
+    if (l.getAttribute("aria-checked") !== "true") {  // liked already: a click opens "add to playlist" instead
+      l.click();
+      await sleep(400);
+    }
+  }
+  if (msg.do === "volume") {
+    const v = range();
+    if (!v) return {error: "no volume bar"};
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    set.call(v, String(Math.max(0, Math.min(1, msg.to)) * Number(v.max || 1)));  // React only sees the native setter
+    v.dispatchEvent(new Event("input", {bubbles: true}));
+    v.dispatchEvent(new Event("change", {bubbles: true}));
+    await sleep(200);
+  }
+  return state();
 }
 
 // Runs in the page: numbers 1..n on the links JARVIS lists (in that order), gone after a minute or on [].

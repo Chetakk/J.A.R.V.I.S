@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JARVIS Link",
   "version": "1.0",
-  "description": "Lets JARVIS see the videos, links and tabs in your Chrome, open one by name or number, and control the video (full screen, skip, speed).",
+  "description": "Lets JARVIS see the videos, links and tabs in your Chrome, open one by name or number, control the video (full screen, skip, speed), and play and control Spotify's web app.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvg7IovxWWNKDiZJH3fc/xxF5mSKqtNWdZl78g09kaMsdbEcglo/PmfaxDGDMhwJEb9uovozWwL5W/kVmniNU636HxOu193UIwF6tFOtzAqsMKaQKw2wYgJr9jYFW/u6YcH0wAMKD7x1fkov6Bn8VQCW92razugU/aTYHkToFKtpqsObOgcNONdI7+xa/g3cTC3aFPOMjwWsTrzZ03Mfeu/JVQdFvLR0btbcIWIsHHMNcRjMGUOgzV96XVfALoHegUfbuO0KKzQBJdPKl2g5mIdS5GKTwOeTQSzPXP/sDnBZxtBAjHGldWKkE/J3vLh5yUPXAXwfuVxeh1BQEV2LueQIDAQAB",
   "permissions": [
     "nativeMessaging",

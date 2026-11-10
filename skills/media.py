@@ -1,8 +1,13 @@
-"""Music and video: pause, play, next, previous (any MPRIS player, or YouTube), what's playing (said, and a card
-with the album art, the song, a progress bar that moves while it plays, and previous / pause / next buttons).
-"Play music" starts the Spotify web app (a Chrome --app window) and plays; its card follows the song, and stays
-on screen while it plays (it hides by itself only once paused, or when you close it)."""
+"""Music and video: pause, play, next, previous, skip / rewind, restart the song (any MPRIS player, or YouTube),
+what's playing (said, and a card with the album art, the song, a progress bar that moves while it plays, and
+previous / pause / next buttons). "Play music" starts the Spotify web app (a Chrome --app window) and plays; its card
+follows the song, and stays on screen while it plays (it hides by itself only once paused, or when you close it).
+Through JARVIS Link (tools/chrome-link) it also drives Spotify's own page: "play <a playlist, album or artist of
+yours>", "play <song> by <artist>" / "play <x> on spotify" (Spotify's search), "play my usual", "what playlists do I
+have", shuffle, repeat, "like this song", "spotify volume 40". Your library is kept in STORE, with how often JARVIS
+played each one: what you usually listen to is the most played, then Spotify's own Recents order."""
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -12,21 +17,30 @@ import urllib.parse
 import urllib.request
 
 from skills.base import Skill
-from system import desktop
+from skills.studybuddy import N, NUM
+from skills.videos import best
+from system import chrome_link, desktop
 
 ART_DIR = os.path.expanduser("~/.cache/jarvis/art")
 FOLLOW_FOR = 12 * 3600  # seconds the now-playing card is kept in step at most
 WINDOW = "open.spotify.com"  # Spotify's window: an --app window of your main Chrome
 CONNECT = "spotify-connect"  # playing_player()'s name for Spotify playing on another device (no bus name)
+STORE = os.path.expanduser("~/.local/share/jarvis/spotify.json")  # {"library": [...], "at": read at, "plays": {path: n}}
+LIBRARY_FOR = 600  # seconds a read of your library is trusted while Spotify is open
+SPOTIFY_WORDS = r"(?:on|in|from|with) spotify"
 
 
 class Media(Skill):
     group = "media"
     does = "Music and video: any MPRIS player, or YouTube's own key; \"play music\" starts Spotify"
-    phrases = ("pause", "play", "next song", "previous song", "what's playing", "play music", "play spotify")
-    gives = "playback changed, or speech and a now-playing card that follows the song"
+    phrases = ("pause", "play", "next song", "previous song", "what's playing", "play music", "play spotify",
+               "play my <x> playlist", "play <x> by <y>", "play <x> on spotify", "play my usual",
+               "what playlists do I have", "shuffle on", "repeat this song", "repeat off", "like this song",
+               "spotify volume <n>", "restart the song")
+    gives = "playback changed, or speech and a now-playing card that follows the song; your playlists as a card"
     permission = "auto"
-    checks = "says when nothing is playing; play music checks Spotify's player says Playing"
+    checks = ("says when nothing is playing; play music checks Spotify's player says Playing; Spotify's page answers "
+              "with its shuffle / repeat / like / volume state after each change")
 
     def __init__(self, jarvis):
         self._following = None  # the token of the one thread keeping the now-playing card up to date
@@ -37,6 +51,33 @@ class Media(Skill):
             (r"(?:play|start|put on)(?: some| me some| my)? (?:music|songs|tunes)(?: (?:on|in|from) spotify)?|"
              r"(?:play|start|put on)(?: some| my)?(?: music| songs)? (?:on |in |from )?spotify|spotify,? play",
              lambda m: self.spotify()),
+            (r"(?:play|put on) (?:my usual|what i (?:usually|normally|always) (?:listen to|play)|my (?:favourite|favorite|"
+             r"usual) (?:music|songs|playlist))(?: %s)?" % SPOTIFY_WORDS, lambda m: self.play_usual()),
+            (r"(?:what|which) (?:playlists|albums|music) (?:do i have|have i got)(?: %s)?|(?:show|list|read)(?: me)? my "
+             r"(?:spotify )?(?:playlists|library|albums)|my (?:spotify )?playlists|what do i (?:usually|normally) "
+             r"listen to|(?:refresh|update|reload) my (?:spotify )?(?:playlists|library)" % SPOTIFY_WORDS,
+             lambda m: self.show_library(fresh=m.group(0).lower().startswith(("refresh", "update", "reload")))),
+            (r"(?:play|put on|start)(?: me)?(?: (?:the|some|a))? (?:songs?|tracks?|music) (?:by|from) (.+?)(?: %s)?"
+             % SPOTIFY_WORDS, lambda m: self.play_named(m.group(1))),
+            (r"(?:play|put on|start)(?: me)?(?: the)? (?:song|track) (.+?)(?: %s)?" % SPOTIFY_WORDS,
+             lambda m: self.play_named(m.group(1), song=True)),
+            (r"(?:play|put on|start)(?: me)? (.+?) %s" % SPOTIFY_WORDS, lambda m: self.play_named(m.group(1))),
+            (r"(?:play|put on|start) (?:my|the) (.+?) (?:playlist|album|mix)", lambda m: self.play_named(m.group(1))),
+            (r"(?:play|put on|start)(?: me)? (.+? by .+)", lambda m: self.play_named(m.group(1), song=True)),
+            (r"(?:turn |switch |put )?shuffle (on|off)|(?:turn|switch) (on|off) (?:the )?shuffle|(shuffle)(?: (?:the |this "
+             r"|my )?(?:music|songs|playlist|album|it))?|(?:stop|don't|no) (shuffl)(?:e|ing)|(unshuffle)",
+             lambda m: self.toggle("shuffle", next(g for g in m.groups() if g).lower() in ("on", "shuffle"))),
+            (r"repeat (?:this|the) (?:song|track)|(?:put |keep )?(?:this|the) (?:song|track) on repeat|repeat one",
+             lambda m: self.toggle("repeat", "one")),
+            (r"(?:turn |switch |put )?repeat (on|off)|(?:turn|switch) (on|off) (?:the )?repeat|repeat (?:the |this "
+             r"|my )?(playlist|album|all)|(?:stop|don't|no) (repeat)(?:ing)?(?: (?:the|this) (?:song|track|playlist))?",
+             lambda m: self.toggle("repeat", next(g for g in m.groups() if g).lower() not in ("off", "repeat"))),
+            (r"(?:like|love|save|heart) (?:this|the|that)(?: song| track)?(?: %s)?|add (?:this|the|that)(?: song| track)? "
+             r"to (?:my )?liked songs|i (?:like|love) this (?:song|track)" % SPOTIFY_WORDS, lambda m: self.like()),
+            (r"(?:set |turn )?spotify(?:'s)? volume(?: to)? (\d+)(?: ?%| percent)?|(?:set |turn )?(?:the )?volume (?:of|on|in) "
+             r"spotify(?: to)? (\d+)(?: ?%| percent)?", lambda m: self.spotify_volume(int(m.group(1) or m.group(2)))),
+            (r"(?:turn )?spotify (up|down|louder|quieter)|(?:turn|make) spotify (up|down|louder|quieter)",
+             lambda m: self.spotify_volume(step=1 if (m.group(1) or m.group(2)).lower() in ("up", "louder") else -1)),
             (r"(?:(?:press|hit|click) )?(?:pause|stop)(?: the)?(?: music| video| song| youtube| playback)?|(?:kill|mute) the (?:music|song|video)", lambda m: self.media("Pause")),
             (r"(?:(?:press|hit|click) )?(?:play|resume|continue|unpause)(?: the)?(?: music| video| song| youtube| playback)?",
              lambda m: self.media("Play", music="video" not in m.group(0) and "youtube" not in m.group(0))),
@@ -45,6 +86,15 @@ class Media(Skill):
             (r"what'?s playing|what (?:song|music) is (?:this|playing)|what'?s this song|what am i listening to|"
              r"show (?:me )?(?:the |a )?(?:spotify|music|song|now playing) card",
              lambda m: self.playing()),
+            (r"(?:restart|replay) (?:this|the) (?:song|track)|(?:play )?(?:this |the )?(?:song|track) (?:again )?from the "
+             r"(?:start|beginning|top)|start (?:this|the) (?:song|track) (?:again|over)", lambda m: self.restart()),
+            # After videos.py's "skip 10 seconds" (the video on the page): with no video there, the playing player
+            (r"(?:skip|jump|go|fast forward|move)(?: ahead| forward| forwards| on)?(?: by)? %s (seconds?|secs?|"
+             r"minutes?|mins?)(?: ahead| forward| on)?" % N, lambda m: self.seek_by(m, 1)),
+            (r"(?:go back|rewind|jump back|skip back|back)(?: by)? %s (seconds?|secs?|minutes?|mins?)|(?:go|jump|skip) "
+             r"%s (seconds?|secs?|minutes?|mins?) back(?:wards)?" % (N, N), lambda m: self.seek_by(m, -1)),
+            # Last: "play <x>" is Spotify's only when x is in your library (else the browser / Claude has it)
+            (r"(?:play|put on)(?: me)? (.+)", lambda m: self.play_named(m.group(1), only_yours=True)),
         ]
 
     def spotify(self):
@@ -120,6 +170,141 @@ class Media(Skill):
 
         threading.Thread(target=loop, daemon=True, name="now-playing").start()
 
+    # --- Spotify's own page, through JARVIS Link ---
+
+    def library(self, fresh=False):
+        """Your library as Spotify lists it ([{"name", "sub", "path"}]), read again when it's old and Spotify's open."""
+        data = _load()
+        if fresh or time.time() - data.get("at", 0) > LIBRARY_FOR:
+            r = _page("library", timeout=15)
+            if r and r.get("items"):
+                data.update(library=r["items"], at=time.time())
+                _save(data)
+        return data.get("library", [])
+
+    def _usual(self, n=1):
+        """What you usually listen to: the most played by JARVIS, then Spotify's own order (Recents by default)."""
+        lib, plays = self.library(), _load().get("plays", {})
+        return sorted(lib, key=lambda it: -plays.get(it["path"], 0))[:n]
+
+    def _ready(self):
+        """True once Spotify's page answers; starts it when it isn't open (False when it can't be reached)."""
+        if _page("state"):
+            return True
+        if desktop.find_window(WINDOW):
+            self.fail("Spotify's open, but JARVIS Link can't reach it. Reload JARVIS Link in chrome://extensions.")
+            return None
+        app = self.j.apps.find("spotify")
+        if not app:
+            return False
+        self.say("Starting Spotify.")
+        desktop.go_to_jarvis_workspace()
+        if not self.j.apps.launch(app):
+            self.fail("Hmm, Spotify didn't start.")
+            return None
+        end = time.time() + 30
+        while time.time() < end:
+            time.sleep(1.5)
+            if _page("state"):
+                return True
+        self.fail("Spotify didn't open its window.")
+        return None
+
+    def play_named(self, said, song=False, only_yours=False):
+        """One of yours by name (a playlist, album, artist), else Spotify's search: its top result, or for a song
+        its first track. only_yours ("play <x>" without Spotify in it): hand it on unless x is in your library."""
+        said = re.sub(r"^(?:my|the|some|a) |\s+(?:playlist|album|mix|songs|music)$", "", said.strip(), flags=re.I)
+        if not said or re.fullmatch(r"(?:it|this|that|music|songs?|something|anything|again|.* on youtube)", said, re.I):
+            return False
+        item = None if song else best(said, [dict(it, title=it["name"]) for it in self.library()],
+                                       strict=only_yours)
+        if only_yours and not item:
+            return False
+        ready = self._ready()
+        if not ready:
+            return ready  # False: no Spotify at all, so the browser / Claude can have it
+        path = item["path"] if item else "/search/" + urllib.parse.quote(said) + ("/tracks" if song else "")
+        r = _page("play", timeout=12, path=path)
+        if not (r and r.get("played")):
+            self.fail("Spotify didn't find %s." % said if not item else "Spotify wouldn't play %s." % item["name"])
+            return
+        if item:
+            data = _load()
+            data.setdefault("plays", {})[item["path"]] = data.get("plays", {}).get(item["path"], 0) + 1
+            _save(data)
+        self.say("Playing %s." % (item["name"] if item else said))
+        self.follow(spotify=True)
+
+    def play_usual(self):
+        usual = self._usual()
+        if not usual:
+            return self.spotify()  # nothing known yet: whatever Spotify had on
+        return self.play_named(usual[0]["name"])
+
+    def show_library(self, fresh=False):
+        lib = self.library(fresh=fresh)
+        if not lib:
+            self.fail("I haven't seen your Spotify library yet. Open Spotify and ask again.")
+            return
+        usual = self._usual(3)
+        self.j.show({"id": "spotify-library", "title": "Your Spotify",
+                     "text": "\n".join("- **%s**%s" % (it["name"], " · " + it["sub"] if it["sub"] else "") for it in lib[:15])
+                             + ("\n\n…and %d more" % (len(lib) - 15) if len(lib) > 15 else ""),
+                     "choices": [{"label": it["name"][:24], "do": "play %s on spotify" % it["name"]} for it in usual]})
+        self.say("You usually listen to %s." % _and(it["name"] for it in usual))
+
+    def _control(self, do, **args):
+        """Spotify's state after `do`, or None (said why) when its page can't be reached or has no such button."""
+        if not _page("state"):
+            self.fail("Spotify isn't open." if not desktop.find_window(WINDOW) else
+                      "JARVIS Link can't reach Spotify. Reload it in chrome://extensions.")
+            return None
+        r = _page(do, **args)
+        if not r:
+            self.fail("Spotify's %s button isn't there." % do)
+        return r
+
+    def toggle(self, what, on):
+        r = self._control(what, on=on, timeout=4)
+        if r is None:
+            return
+        now = r.get(what)
+        if what == "repeat":
+            self.say({True: "Repeating the playlist.", "one": "Repeating this song.", False: "Repeat off."}.get(now, "Done."))
+        else:
+            self.say("Shuffle on." if now else "Shuffle off.")
+
+    def like(self):
+        r = self._control("like")
+        if r is not None:
+            self.say("Added to your Liked Songs." if r.get("liked") else "Hmm, it didn't take.")
+
+    def spotify_volume(self, percent=None, step=0):
+        state = _page("state") or {}
+        to = percent / 100 if percent is not None else (state.get("volume") or 0.5) + 0.15 * step
+        r = self._control("volume", to=max(0.0, min(1.0, to)))
+        if r is not None and r.get("volume") is not None:
+            self.say("Spotify at %d%%." % round(r["volume"] * 100))
+
+    def seek_by(self, m, sign):
+        n, unit = [x for x in m.groups() if x][:2]
+        secs = (NUM[n.lower()] if n.lower() in NUM else float(n)) * (60 if unit.lower().startswith("m") else 1)
+        player = _mpris_player()
+        if not player or _mpris_status(player[1]) not in ("Playing", "Paused"):
+            self.fail("Nothing seems to be playing.")
+            return
+        from gi.repository import GLib
+        player[1].call_sync("Seek", GLib.Variant("(x)", (int(sign * secs * 1e6),)), 0, 2000, None)
+
+    def restart(self):
+        player = _mpris_player()
+        track = player and _metadata(player[1]).get("mpris:trackid")
+        if not track:
+            self.fail("Nothing seems to be playing.")
+            return
+        from gi.repository import GLib
+        player[1].call_sync("SetPosition", GLib.Variant("(ox)", (track, 0)), 0, 2000, None)
+
     def media(self, action, music=False):
         player = _mpris_player()
         if action == "Pause" and _elsewhere(player):
@@ -160,6 +345,34 @@ class Media(Skill):
         else:
             self.follow(spotify=_is_spotify(player[0]))
             self.say("It's %s%s." % (title, " by %s" % artist if artist else ""))
+
+
+def _page(do, timeout=3.0, **args):
+    """What Spotify's page answered (its state, or what `do` gave), or None: not open, no JARVIS Link, or it said
+    why it couldn't (no such button)."""
+    r = chrome_link.call("spotify", timeout=timeout, do=do, **args)
+    result = r and r.get("result")
+    return result if isinstance(result, dict) and "error" not in result else None
+
+
+def _load():
+    try:
+        with open(STORE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _save(data):
+    os.makedirs(os.path.dirname(STORE), exist_ok=True)
+    with open(STORE + ".tmp", "w") as f:
+        json.dump(data, f)
+    os.replace(STORE + ".tmp", STORE)
+
+
+def _and(names):
+    names = list(names)
+    return ", ".join(names[:-1]) + " and " + names[-1] if len(names) > 1 else "".join(names)
 
 
 def _gdbus(*args):
@@ -302,7 +515,8 @@ def _music_card(lines, playing, title):
             "text": "```music\n%s\n```" % "\n".join(lines),
             "choices": [{"label": "Previous", "do": "previous song"},
                         {"label": "Pause" if playing else "Play", "do": "pause" if playing else "play"},
-                        {"label": "Next", "do": "next song"}]}
+                        {"label": "Next", "do": "next song"}] +
+                       ([{"label": "Like", "do": "like this song"}] if title == "Spotify" else [])}
 
 
 def _metadata(proxy):

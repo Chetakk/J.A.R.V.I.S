@@ -70,10 +70,12 @@ class VoicePrefs(Skill):
             # "Repeat after me": everything you say is said back until "stop repeating" (see echoing).
             (r"(?:can you |could you |please )?(?:repeat|say) after me(?: please)?", lambda m: self.echo_on("")),
             (r"(?:can you |could you |please )?(?:repeat|say) after me[:,]? (.+)", lambda m: self.echo_on(m.group(1))),
-            # "Repeat ...": just the one sentence. Not "repeat that" / "repeat yourself" (its last line again).
+            # "Repeat ...": just the one sentence. Not "repeat that" / "repeat yourself" (its last line again),
+            # nor music's "repeat this song" / "repeat on" (skills/media.py).
             (r"(?:can you |could you |please )?(?:say this|repeat this|say the following|repeat the following|repeat)",
              lambda m: self.say_back("")),
-            (r"(?:can you |could you |please )?(?:say this|repeat this|say the following|repeat the following|"
+            (r"(?!repeat (?:this |the |my )?(?:song|track|playlist|album|on|off|one|all)$)"
+             r"(?:can you |could you |please )?(?:say this|repeat this|say the following|repeat the following|"
              r"repeat(?! (?:that|it|yourself|what|your|the last|again|my)\b))[:,]? (.+)",
              lambda m: self.say_back(m.group(1))),
             # Not "say that again" (repeats its last line), "say less" (above) or "say my notifications".
