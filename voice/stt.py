@@ -60,12 +60,13 @@ class Whisper:
         """Start whisper-server and wait until the model is loaded."""
         args = [self.server, "-m", self.model, "--host", "127.0.0.1", "--port", str(self.port),
                 "-t", str(self.threads), "-nt"] + (["-ac", str(self.audio_ctx)] if self.audio_ctx else [])
+        # One left running by an earlier JARVIS: reused only if it runs these settings (else a model change
+        # in settings.yaml would never take effect). Not pinged first: still busy with the old JARVIS's last
+        # request, it misses the 0.5 s ping, and a second server can't take its port ("Voice off").
+        if subprocess.call(["pgrep", "-xf", " ".join(args)], stdout=subprocess.DEVNULL) == 0:
+            self.ready = True
+            return True
         if self._ping():
-            # One left running by an earlier JARVIS: reused only if it runs these settings (else a model change
-            # in settings.yaml would never take effect).
-            if subprocess.call(["pgrep", "-xf", " ".join(args)], stdout=subprocess.DEVNULL) == 0:
-                self.ready = True
-                return True
             subprocess.call(["pkill", "-f", "%s -m .* --port %d " % (self.server, self.port)],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             time.sleep(0.5)
