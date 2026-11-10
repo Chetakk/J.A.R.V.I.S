@@ -14,7 +14,7 @@ import time
 RATE = 24000
 RUN_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "jarvis-%d" % os.getuid())
 SOCKET = os.path.join(RUN_DIR, "kokoro.sock")
-IDLE_EXIT = 600  # seconds with JARVIS gone before giving the GPU memory back
+IDLE_EXIT = 600  # seconds without saying anything before giving its ~3 GB back (JARVIS restarts it when needed)
 LONG = 480  # the model takes 510 phonemes at most: a longer sentence is split into pieces
 # espeak's IPA -> Kokoro's phonemes, longest first (Kokoro writes diphthongs as one letter).
 IPA = (("eɪ", "A"), ("aɪ", "I"), ("ɔɪ", "Y"), ("aʊ", "W"), ("əʊ", "Q"), ("oʊ", "Q"), ("eə", "ɛː"),
@@ -91,7 +91,7 @@ def main(base):
             lexicon.setdefault(word, sounds.replace(" ", ""))
     packs = {}
     gpu = threading.Lock()
-    state = {"clients": 0, "left": time.time()}
+    state = {"used": time.time()}
 
     def synth(text, voice, speed):
         out = []
@@ -102,6 +102,7 @@ def main(base):
             with torch.cuda.amp.autocast(dtype=torch.float16):  # less GPU memory (0.72 -> 0.58 GB), a bit faster
                 for piece in phonemes(text, lexicon, espeak):
                     out.append(model(piece, packs[voice][len(piece) - 1], speed=speed).float().numpy())
+            state["used"] = time.time()
         return (np.clip(np.concatenate(out), -1, 1) * 32767).astype("int16").tobytes() if out else b""
 
     def leave(code):
@@ -118,7 +119,6 @@ def main(base):
                 return  # just is_up() checking
             cfg = json.loads(head)
             pause = bytes(2 * int(RATE * float(cfg.get("silence", 0.25))))
-            state["clients"] += 1
             try:
                 for line in self.rfile:
                     try:
@@ -130,15 +130,14 @@ def main(base):
                         self.wfile.write(audio + pause)
             except (BrokenPipeError, ConnectionResetError):
                 pass  # JARVIS cut it off: the rest of what was queued is dropped with the connection
-            finally:
-                state["clients"] -= 1
-                state["left"] = time.time()
 
     def watch_idle():
         while True:
             time.sleep(30)
-            if not state["clients"] and time.time() - state["left"] > IDLE_EXIT:
-                leave(0)
+            with gpu:  # not in the middle of a sentence
+                # shortcut: a line arriving in the same instant is lost (JARVIS's open pipe isn't watched); rare
+                if time.time() - state["used"] > IDLE_EXIT:
+                    leave(0)
 
     synth("Hello.", "bm_george", 1.0)  # the GPU's first run is slow: not on the first real reply
     os.makedirs(RUN_DIR, mode=0o700, exist_ok=True)

@@ -110,6 +110,7 @@ class Speaker:
         if not self.kokoro_voice:
             return False
         if kokoro.is_up():
+            self._kokoro_wait = 60  # it unloads itself when idle: restarting it then isn't a failure
             return True
         if time.time() >= self._kokoro_next_try:
             self._kokoro_next_try = time.time() + self._kokoro_wait
