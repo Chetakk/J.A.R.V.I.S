@@ -48,7 +48,8 @@ class Media(Skill):
 
     def patterns(self):
         return [
-            (r"(?:play|start|put on)(?: some| me some| my)? (?:music|songs|tunes)(?: (?:on|in|from) spotify)?|"
+            # "play the music" too: bare "play" / "resume the music" resume what you watch, "play ... music" is Spotify
+            (r"(?:play|start|put on)(?: some| me some| my| the)? (?:music|songs|tunes)(?: (?:on|in|from) spotify)?|"
              r"(?:play|start|put on)(?: some| my)?(?: music| songs)? (?:on |in |from )?spotify|spotify,? play",
              lambda m: self.spotify()),
             (r"(?:play|put on) (?:my usual|what i (?:usually|normally|always) (?:listen to|play)|my (?:favourite|favorite|"

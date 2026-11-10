@@ -81,6 +81,14 @@ def test_play_music_starts_spotify_presses_play_and_shows_its_card(jv, spotify):
     assert "like: like this song" in c["text"]  # the heart drawn in the block
 
 
+def test_play_the_music_is_spotify_not_the_paused_video(jv, spotify):
+    jv.desktop.add("Some video - YouTube - Google Chrome", "google-chrome")  # what you were watching, paused
+    jv.desktop.add("Spotify - Web Player", "open.spotify.com google-chrome", front=False)
+    jv.do("play the music")
+    assert jv.desktop.did("keys") == ["space"] and jv.desktop.did("focus") == ["Spotify - Web Player"]  # not YouTube's k
+    assert [c for c in jv.cards if c.get("title") == "Spotify"]
+
+
 def test_play_music_launches_spotify_when_its_not_open(jv, spotify):
     jv.do("play music on spotify")
     assert spotify["launched"] == ["Spotify"]

@@ -56,7 +56,7 @@
 "pause": skill:media
 "pause the music": skill:media
 "turn off the music": skill:media
-"play the music": skill:media
+"play the music": skill:spotify
 "play music": skill:spotify
 "play spotify": skill:spotify
 "play music on spotify": skill:spotify
@@ -1253,8 +1253,8 @@
 "delete a file": "skill:ask_delete_file"
 "start focusing": "skill:focus"
 "i need to focus": "skill:focus"
-"play something": "skill:media"
-"play a song": "skill:media"
+"play something": "skill:spotify"
+"play a song": "skill:spotify"
 "ask claude in vs code": "vscode"
 "record my screen": "claude"
 "save a layout": "skill:save"
