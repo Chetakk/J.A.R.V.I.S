@@ -34,7 +34,7 @@ except ImportError:
 from core import context, learned, misslog, outcomes, persona, teaching, undo, verify
 from system import apps, audio, desktop, watchdog
 from system.browser import Browser
-from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
+from claude.bridge import WORKSPACE, Claude, ClaudeError, Stopped, open_in_vscode
 from core.executor import Executor
 from skills import Skills, registry
 from skills.media import something_playing
@@ -753,6 +753,8 @@ class Jarvis:
                                          self.skills.notes.for_claude(text)) if k)
             answer = self.claude.ask(text + ("\n\n[%s]" % known if known else ""), recent, on_say=speak_early,
                                      image=image, about=self._about())
+        except Stopped:
+            return  # you said "stop"
         except ClaudeError as e:
             self.speaker.say(persona.lines("problem", persona.address(self.settings), str(e).rstrip(".")))
             return
@@ -1477,7 +1479,7 @@ def start_voice(jarvis, whisper):
             put_voice("follow" if follow_up else "voice", text)
         wake = WhisperWake(jarvis.names, whisper, on_text, on_wake=on_listen, is_busy=busy, is_echo=jarvis.speaker.is_echo, on_heard=jarvis.heard,
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
-                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.state(jarvis.rest)),
+                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.claude.cancel(), jarvis.state(jarvis.rest)),
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
                            is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating,
                            on_wait=lambda seconds: jarvis.ui and jarvis.ui.follow_timer(seconds))

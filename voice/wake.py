@@ -188,8 +188,9 @@ def split_name(text, names):
     return True, ("%s %s" % (before.strip(" ,.!?-"), after)).strip(" ,.!?-")
 
 
-# Ends a follow-up early: "thanks", "that's all", "stop", "never mind".
-STOP = re.compile(r"^\W*(thanks?|thank you|that'?s all|that'?s it|stop|never ?mind|nothing|no thanks?)\W*$",
+# Ends a follow-up early: "thanks", "okay, thank you", "that's all", "stop", "never mind".
+# ("Tanks." is how Whisper hears both "thanks" and "thank you".)
+STOP = re.compile(r"^\W*(?:ok(?:ay)?\W+)?(th?anks?(?: you)?(?: (?:so|very) much)?|thank you|that'?s all|that'?s it|stop|never ?mind|nothing|no thanks?)\W*$",
                   re.IGNORECASE)
 
 
@@ -337,6 +338,8 @@ class WhisperWake:
                 self.waiting_until = 0.0
                 if STOP.match(command) and not dictating:
                     self.on_heard(text, "done; back to waiting for the name")
+                    if INTERRUPT.match(command) and self.on_stop:  # "stop" also stops Claude if it's still thinking
+                        self.on_stop()
                     self.on_wake(False)
                     continue
                 beep(660)

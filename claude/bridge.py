@@ -66,6 +66,10 @@ class ClaudeError(Exception):
     pass
 
 
+class Stopped(ClaudeError):
+    """You said "stop" while Claude was still working: nothing to report."""
+
+
 class Claude:
     def __init__(self, cfg, name="Jarvis", user="the user", abilities=""):
         self.model = cfg.get("model", "claude-haiku-5-5")
@@ -81,6 +85,8 @@ class Claude:
         self.usage_file = os.path.join(STATE_DIR, "claude_usage.json")
         self.abilities = abilities
         self.name, self.user = name, user
+        self.running = set()  # Claude processes JARVIS started that are still working; cancel() kills them
+        self.stopped = set()
         try:  # for `jarvis` (tools/jarvis) to list, so Claude in VS Code can find them too
             os.makedirs(RUN_DIR, mode=0o700, exist_ok=True)
             with open(os.path.join(RUN_DIR, "abilities.txt"), "w") as f:
@@ -131,6 +137,20 @@ class Claude:
         except OSError:
             pass
 
+    def cancel(self):
+        """Stop every Claude job JARVIS started ("stop" while it's thinking). Returns True if one was running."""
+        for proc in list(self.running):
+            self.stopped.add(proc)
+            proc.kill()
+        return bool(self.stopped)
+
+    def _done(self, proc):
+        """Forget a finished process; raise Stopped if cancel() killed it."""
+        self.running.discard(proc)
+        if proc in self.stopped:
+            self.stopped.discard(proc)
+            raise Stopped("stopped")
+
     def ask(self, text, recent=(), on_say=None, image=None, about=None):
         """Return Claude's answer as a dict with say/details/command/run_now/output/save/steps/spoken.
 
@@ -158,6 +178,7 @@ class Claude:
         args += ["--resume", sid] if sid else ["--session-id", str(uuid.uuid4())]
         proc = subprocess.Popen(args, cwd=WORKSPACE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                 env=_ENV)
+        self.running.add(proc)
         timer = threading.Timer(self.timeout, proc.kill)
         timer.start()
         block, result, spoken = "", None, False
@@ -186,6 +207,7 @@ class Claude:
         finally:
             timed_out = not timer.is_alive() and proc.returncode not in (0, None) and result is None
             timer.cancel()
+            self._done(proc)
         if timed_out:
             raise ClaudeError("Claude took too long to answer")
         if result is None:
@@ -250,13 +272,19 @@ class Claude:
                 "--output-format", "json"] + (["--allowedTools", tools] if allow and tools else [])
         if deny:
             args += ["--disallowedTools", ",".join(deny)]
+        proc = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=_ENV)
+        self.running.add(proc)
         try:
-            res = subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=timeout or self.timeout,
-                                 env=_ENV)
-            out = json.loads(res.stdout)
-            self._count(out)
+            stdout, _ = proc.communicate(timeout=timeout or self.timeout)
         except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
             raise ClaudeError("Claude took too long to answer")
+        finally:
+            self._done(proc)
+        try:
+            out = json.loads(stdout)
+            self._count(out)
         except ValueError:
             raise ClaudeError("I couldn't reach Claude")
         if out.get("is_error"):
