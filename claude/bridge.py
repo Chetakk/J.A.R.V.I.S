@@ -72,7 +72,9 @@ class Claude:
         self.timeout = cfg.get("timeout", 60)
         self.effort = cfg.get("effort", "low")
         self.idle = cfg.get("new_after_minutes", 20) * 60  # quiet this long -> next question starts fresh
-        self.bin = shutil.which("claude")
+        # ~/.npm-global is the install `claude update` keeps current; JARVIS's PATH (no ~/.bashrc) only has the old one
+        self.bin = shutil.which("claude", path=os.path.expanduser("~/.npm-global/bin") + os.pathsep +
+                                os.environ.get("PATH", ""))
         with open(PROMPT_FILE) as f:
             self.prompt = f.read().replace("{abilities}", abilities).replace("{name}", name).replace("{user}", user)
         self.session_file = os.path.join(STATE_DIR, "claude_session")
@@ -282,7 +284,7 @@ class Claude:
                                          "Stop": [{"hooks": hook}],
                                          "UserPromptSubmit": [{"hooks": hook}],
                                          "Notification": [{"hooks": hook}]}})
-        args = ["claude", "--model", model or self.model, "--settings", settings, "--append-system-prompt",
+        args = [self.bin or "claude", "--model", model or self.model, "--settings", settings, "--append-system-prompt",
                 "%s\n\n%s Phrases for `jarvis do`:\n  %s" % (VOICE_PROMPT, JARVIS_TOOL, self.abilities)]
         if not task and self.session:
             args += ["--resume", self.session, "--fork-session"]
