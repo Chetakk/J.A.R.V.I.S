@@ -32,7 +32,7 @@ except ImportError:
     pass
 
 from core import context, learned, misslog, outcomes, persona, teaching, undo, verify
-from system import apps, desktop, watchdog
+from system import apps, audio, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, open_in_vscode
 from core.executor import Executor
@@ -279,6 +279,11 @@ class Jarvis:
         self._private = False  # this request is private: what's said in it isn't passed on to Claude
 
     def state(self, name):
+        # Music down while you talk to JARVIS (so it hears you), back up once it's done with what you said
+        if name == "listening":
+            audio.duck(True)
+        elif name != "thinking":
+            audio.duck(False)
         if self.ui:
             self.ui.set_state(name)
 

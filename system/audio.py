@@ -2,6 +2,7 @@
 recording moves along) and the volume. Monitor sources (a speaker's own echo) aren't microphones and are left out."""
 import re
 import subprocess
+import threading
 from collections import namedtuple
 
 Device = namedtuple("Device", "kind name label volume mute default form port")  # kind: "sink" / "source"
@@ -116,3 +117,29 @@ def set_volume(device, percent):
     if ok and device.mute and percent > 0:
         _pactl("set-%s-mute" % device.kind, device.name, "0")
     return ok
+
+
+OWN = {"pacat", "aplay", "paplay"}  # JARVIS's voice, its beeps and the Echo's keep-alive: never turned down
+DUCK_TO = 0.3  # what's playing drops to this share of its volume while JARVIS listens
+_ducked = {}  # stream -> the volume (%) it had
+_duck_lock = threading.Lock()
+
+
+def duck(on):
+    """on: turn every other app's sound (music, videos) down while JARVIS listens; off: put it back as it was."""
+    with _duck_lock:
+        if not on:
+            for stream, percent in _ducked.items():
+                _pactl("set-sink-input-volume", stream, "%d%%" % percent)  # (fails quietly if it has ended)
+            _ducked.clear()
+            return
+        for block in _pactl("list", "sink-inputs")[1].split("\n\n"):
+            stream = re.search(r"^Sink Input #(\d+)", block)
+            binary = re.search(r'application\.process\.binary = "([^"]*)"', block)
+            percent = [int(p) for p in re.findall(r"(\d+)%", (re.search(r"^\s*Volume: (.*)$", block, re.M) or
+                                                               [None, ""])[1])]
+            if (not stream or stream.group(1) in _ducked or not percent or "Corked: yes" in block
+                    or (binary and binary.group(1) in OWN)):
+                continue
+            _ducked[stream.group(1)] = max(percent)
+            _pactl("set-sink-input-volume", stream.group(1), "%d%%" % (max(percent) * DUCK_TO))
