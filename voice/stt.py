@@ -4,6 +4,7 @@ import collections
 import io
 import json
 import os
+import re
 import subprocess
 import time
 import urllib.request
@@ -15,6 +16,19 @@ MIN_PEAK = 600  # 16-bit peak below this is background noise, not speech (Whispe
 HALLUCINATIONS = {"you", "so", "uh", "um", "hmm", ""}
 # Whisper invents these from silence; Parakeet doesn't, so from it "Thank you." is really you thanking JARVIS.
 WHISPER_INVENTS = {"thank you", "thanks", "thank you very much", "thanks for watching", "thank you for watching", "bye"}
+# Parakeet knows 25 European languages and guesses one when you speak Hindi: "So no mirada y sería una dirección",
+# "Es que Listening Maturas diciendo algo". JARVIS only takes English, so these are dropped quietly. Small words of
+# Spanish, Italian, French, German and Portuguese that English doesn't use (not "per", "mit", "todo", "die", "ma").
+FOREIGN = set("""que y el la los las una unos por para con algo pero muy mas del al esta eso esto como cuando donde
+    porque nada mira ser diciendo aqui ahora che sono questo questa il anche molto je et les une des est pas mais avec
+    dans pour und der das ist nicht ich ein eine auch não você uma isso""".split())
+
+
+def _foreign(text):
+    """True for text that isn't English: an accented letter, or two different little words of another language.
+    shortcut: an English command naming something with an accent ("play Bésame Mucho") is dropped too; rare."""
+    words = set(re.findall(r"[^\W\d_]+", text.lower()))
+    return any(ord(c) > 127 and c.isalpha() for c in text) or len(words & FOREIGN) >= 2
 
 
 class Whisper:
@@ -166,5 +180,8 @@ def _clean(text, whisper=True):
         return ""
     said = text.lower().strip(" .!?,")
     if said in HALLUCINATIONS or (whisper and said in WHISPER_INVENTS):
+        return ""
+    if not whisper and _foreign(text):  # (Whisper here is English-only: small.en)
+        print("[stt] not English, ignored: %r" % text)
         return ""
     return text

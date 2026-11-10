@@ -640,7 +640,7 @@ class Jarvis:
         if self.skills.lookup.answer(text):  # "who is Alan Turing": Wikipedia answers it, no Claude needed
             return True
         if self.whisper and self.whisper.unsure(raw):  # likely misheard: not worth a Claude call
-            self.heard(text, "ignored (Whisper wasn't sure it heard that right)")
+            self.heard(text, "ignored (not sure it heard that right)")
             self._miss(text, "unclear")
             self.recent.append("JARVIS ignored that (too unclear)")
             if follow_up:  # room noise in a follow-up shouldn't make it apologise over and over

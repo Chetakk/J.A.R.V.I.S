@@ -77,3 +77,17 @@ def test_a_doubted_command_jarvis_knows_still_runs(jv):
     jv.j.whisper = Doubts(True)
     jv.do("what time is it")
     assert jv.said and not any("catch" in line or "repeat" in line for line in jv.said)
+
+
+@pytest.mark.parametrize("heard", [
+    "So no mirada y sería una dirección",  # Hindi, written down by Parakeet, 20:22
+    "Es que Listening Maturas diciendo algo", "Mira ser camura ahí para niña", "Mas área todavía", "Questo sì inugher"])
+def test_parakeet_guessing_another_language_is_dropped(heard):
+    assert _clean(heard, whisper=False) == ""
+
+
+@pytest.mark.parametrize("heard", [
+    "add milk to my todo list", "play la la land", "open YouTube in Chrome", "what's the time", "play Despacito",
+    "set volume to 40 per cent", "press del", "It calmja bi wave for movie karate stream"])
+def test_english_and_garble_are_kept(heard):
+    assert _clean(heard, whisper=False) == heard  # garble stays: the confidence check deals with that
