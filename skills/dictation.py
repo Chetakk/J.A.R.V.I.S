@@ -36,7 +36,7 @@ class Dictation(Skill):
     def start_dictation(self):
         main_box(desktop.active_window())
         self.dictating = True
-        self.say("Dictation on. Say stop dictation when you're done.")
+        self.j.chat("jarvis", "Dictation on. Say stop dictation when you're done.")  # on the bar, not spoken: you start talking right away
 
     def type_in(self, m):
         win, app = copy_between.target(self.j, m.group(1))

@@ -247,7 +247,8 @@ def test_while_dictating_commands_are_typed_as_heard_not_done(jv):
     jv.do("Commit and push everything on GitHub.")
     jv.do("I said check the storage")
     assert [t for t in pasted(jv) if t] == ["Commit and push everything on GitHub. ", "I said check the storage "]
-    assert jv.said == ["Dictation on. Say stop dictation when you're done."]
+    assert jv.said == []  # "Dictation on" is shown, not spoken
+    assert ("add_chat", ("jarvis", "Dictation on. Say stop dictation when you're done.")) in jv.ui.calls
 
 
 @pytest.mark.parametrize("said", ["I said stop typing.", "Stop uh typing.", "stop", "That's all.", "turn off dictation please"])
@@ -321,7 +322,7 @@ def test_the_box_youre_already_in_is_left_alone(jv, monkeypatch):
     boxes(monkeypatch, search, message, reply)
     jv.do("type")
     assert not message.acc.grabbed and not reply.acc.grabbed
-    assert jv.says("Dictation on")
+    assert ("add_chat", ("jarvis", "Dictation on. Say stop dictation when you're done.")) in jv.ui.calls
 
 
 def test_type_in_an_app_thats_not_open_types_the_words(jv):
@@ -354,7 +355,7 @@ def test_type_in_discord_only_in_the_tray_opens_it_instead_of_typing_the_words(j
     monkeypatch.setattr(jv.j.apps, "launch", launch)
     jv.do("type in discord")
     assert launched == ["Discord"] and not pasted(jv)
-    assert message.acc.grabbed and jv.says("Dictation on")
+    assert message.acc.grabbed and ("add_chat", ("jarvis", "Dictation on. Say stop dictation when you're done.")) in jv.ui.calls
 
 
 def test_what_you_said_fills_the_typing_box_but_never_over_your_own_typing():
