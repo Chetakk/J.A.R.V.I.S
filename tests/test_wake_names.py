@@ -138,3 +138,26 @@ def test_the_name_while_dictating_opens_no_window(monkeypatch):
     w.is_dictating = lambda: True
     w._listen(None)
     assert w.waits == []
+
+
+def test_a_misheard_echo_while_it_is_still_talking_is_its_own_voice():
+    """Seen in the log: Whisper misheard its own voice, so these didn't match word for word and got through."""
+    for heard, said in (("Clones Text Editor.", "Closing Text Editor."),
+                        ("Forgive me, CK, could you repeat that?", "Forgive me, Ckay, could you repeat that?"),
+                        ("One moment's thinking.", "One moment, thinking."),
+                        ("Opening the project folder and", "Opening the Projects folder.")):  # live, 20:11
+        assert _speaker(-1, said).is_echo(heard, time.time() - 0.5), heard
+
+
+def test_your_answer_while_it_is_still_talking_is_not_its_echo():
+    """Near-matching words mustn't swallow what you say over it: letters alone ("close it" in "Closing Text
+    Editor") would; a different number or a different last word keeps it yours."""
+    for heard, said in (("close it", "Closing Text Editor."), ("set volume to 40", "Setting the volume to 45."),
+                        ("turn it down", "Turning it up."), ("open spotify", "Opening YouTube."),
+                        ("open the downloads folder", "Opening the Projects folder."), ("yes", "Close Visual Studio Code?"),
+                        ("what's the weather", "What's new with you?"), ("play some music", "Playing your focus playlist.")):
+        assert not _speaker(-1, said).is_echo(heard, time.time() - 0.5), heard
+
+
+def test_a_misheard_word_only_counts_while_it_is_talking():
+    assert not _speaker(5, "Closing Text Editor.").is_echo("Clones Text Editor.", time.time() - 2)

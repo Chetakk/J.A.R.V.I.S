@@ -27,6 +27,16 @@ def _words(text):
     return re.findall(r"[a-z0-9']+", text.lower())
 
 
+def _like(word, said):
+    """`word`, or the word in `said` that Whisper probably misheard it from ("clones" for "closing", "ck" for
+    "ckay"). Numbers must match exactly: "set volume to 40" isn't the echo of "Setting the volume to 45"."""
+    if word in said or word.isdigit():
+        return word
+    ratio = lambda other: difflib.SequenceMatcher(None, word, other).ratio()
+    near = max((w for w in said if not w.isdigit()), key=ratio, default=None)
+    return near if near and ratio(near) >= 0.6 else word
+
+
 def pick(text):
     """One line at random when `text` is a list of alternatives, so replies don't sound canned."""
     return random.choice(text) if isinstance(text, (list, tuple)) else text
@@ -135,7 +145,7 @@ class Speaker:
         if text:
             self.last = text
             self.history.append((time.time(), text))
-        print("JARVIS: %s" % text)
+        print("%s JARVIS: %s" % (time.strftime("%H:%M:%S"), text))  # times: to see how late an echo came
         if self.on_say and text:
             self.on_say(text)
         if not self.enabled or not text or self.muted:
@@ -184,16 +194,21 @@ class Speaker:
     def is_echo(self, heard, started_at):
         """True if `heard` is JARVIS's own voice coming back through the mic: it began while JARVIS was
         (still) playing, and 90% of its words match, in order, one thing JARVIS just said (or a piece of it).
-        Not all its words pooled together: common words like "just", "it", "that" made your own sentences match."""
+        Not all its words pooled together: common words like "just", "it", "that" made your own sentences match.
+        While its audio is still playing, a misheard word counts too ("Clones Text Editor" for "Closing Text Editor"),
+        and 80% is enough: Whisper adds a word ("Opening the project folder and")."""
         if started_at > self._ends_at() + 1.0:
             return False  # began well after JARVIS finished: that's you
         words = _words(heard)
         if not words:
             return False
+        playing = started_at <= self._ends_at()
         for when, text in self.history:
             if when > time.time() - 30:
-                blocks = difflib.SequenceMatcher(None, words, _words(text), autojunk=False).get_matching_blocks()
-                if sum(b.size for b in blocks) / len(words) >= 0.9:
+                said = _words(text)
+                heard_words = [_like(w, said) for w in words] if playing else words
+                blocks = difflib.SequenceMatcher(None, heard_words, said, autojunk=False).get_matching_blocks()
+                if sum(b.size for b in blocks) / len(words) >= (0.8 if playing else 0.9):
                     return True
         return False
 

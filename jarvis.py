@@ -289,7 +289,7 @@ class Jarvis:
 
     def heard(self, text, outcome):
         """Show what speech recognition heard (and what JARVIS did with it) in the chat panel and the log."""
-        print("  [heard] %s -> %s" % (text and repr(text), outcome))
+        print("%s   [heard] %s -> %s" % (time.strftime("%H:%M:%S"), text and repr(text), outcome))
         if self.show_hearing:
             self.chat("heard", ("heard \u201c%s\u201d  \u2192 %s" % (text, outcome)) if text else "\u2026 %s" % outcome)
             if self.ui and outcome.startswith(("ignored", "skipped", "couldn't")):
