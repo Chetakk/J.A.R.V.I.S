@@ -61,3 +61,22 @@ def test_piper_speaks_until_kokoro_is_up(tmp_path, monkeypatch):
     speaker, started = _speaker(tmp_path, monkeypatch, False)
     proc = speaker._pipeline()
     assert "--model" in started[0] and "-r 22050" in started[1] and proc.stdin.getvalue() == b""
+
+
+def test_supertonic_takes_over_when_set(tmp_path, monkeypatch):
+    from voice import supertonic_voice
+    speaker, started = _speaker(tmp_path, monkeypatch, False)
+    monkeypatch.setattr(supertonic_voice, "is_up", lambda: True)
+    speaker = speech.Speaker({"piper_bin": str(tmp_path / "piper"), "voice": str(tmp_path / "voice.onnx"),
+                              "kokoro_voice": "bm_george", "kokoro_dir": str(tmp_path), "supertonic_voice": "M5",
+                              "supertonic_dir": str(tmp_path), "length_scale": 1.25, "sentence_silence": 0.2})
+    proc = speaker._pipeline()
+    assert "supertonic.sock" in started[-2] and "-r 44100" in started[-1]
+    assert json.loads(proc.stdin.getvalue())["voice"] == "M5"
+
+
+def test_piper_speaker_is_passed_on(tmp_path, monkeypatch):
+    speaker, started = _speaker(tmp_path, monkeypatch, False)
+    speaker.kokoro_voice, speaker.piper_speaker = None, 1
+    speaker._pipeline()
+    assert started[-2].count("--speaker 1 ") == 1

@@ -76,15 +76,24 @@ speech:
   piper_bin: ~/.local/share/jarvis/piper/piper
   # Other fast voices in the same folder: en_GB-jenny_dioco-medium, en_GB-alan-medium,
   # en_GB-northern_english_male-medium, en_US-hfc_male-medium, en_US-joe-medium
-  voice: ~/.local/share/jarvis/voices/en_US-lessac-medium.onnx
+  # Also there: en_US-lessac-medium (the old voice), en_GB-aru-medium (12 speakers; 9 was the runner-up), and
+  # bryce, john, kusal, norman, reza_ibrahim, ryan, sam (en_US-*-medium). en_US-mike needs a newer Piper.
+  voice: ~/.local/share/jarvis/voices/en_GB-semaine-medium.onnx
+  speaker: 1               # semaine's speakers: 0 prudence, 1 spike, 2 obadiah, 3 poppy
   # Kokoro on the GPU speaks instead, once it's loaded (~17 s; Piper speaks until then and if Kokoro fails).
-  # Others downloaded: bm_lewis, bm_daniel, bm_fable, bf_emma, bf_isabella, bf_alice, bf_lily. Remove for Piper only.
-  kokoro_voice: bm_george
+  # Others downloaded: bm_lewis, bm_daniel, bm_fable, bf_emma, bf_isabella, bf_alice, bf_lily. Off: Piper's Spike speaks.
+  # Kokoro's files were deleted 2026-11-10: turning it back on needs kokoro-gpu set up again.
+  # kokoro_voice: bm_george
   kokoro_dir: ~/.local/share/jarvis/kokoro-gpu
-  length_scale: 0.8        # >1 slower, <1 faster (0.8 = George at 1.25x)
+  # Supertonic on the CPU speaks instead of Kokoro (~0.7 GB vs ~3.8 GB, but ~3-4 s before each reply starts).
+  # Voices M1-M5, F1-F5. Off: Piper's Spike speaks (instantly, ~190 MB).
+  # Deleted 2026-11-10: turning it back on needs a Python 3.9 venv with `pip install supertonic==1.3.1` there.
+  # supertonic_voice: M5
+  supertonic_dir: ~/.local/share/jarvis/supertonic
+  length_scale: 1.0        # >1 slower, <1 faster (George sounded right at 0.8)
   noise_scale: 0.75        # more = more expressive (default 0.667)
   noise_w: 0.9             # more = more varied rhythm (default 0.8)
-  sentence_silence: 0      # extra pause between sentences, seconds (Kokoro already pauses at . and ,)
+  sentence_silence: 0.2    # extra pause between sentences, seconds (0 for Kokoro: it already pauses at . and ,)
   # Private mode ("headphones only"): Bluetooth or named headphones when they're connected, else this output
   # (the earphones on the AB13X USB audio, which can't tell whether they're plugged in).
   private_sink: alsa_output.usb-Generic_AB13X_USB_Audio_20210726905926-00.analog-stereo

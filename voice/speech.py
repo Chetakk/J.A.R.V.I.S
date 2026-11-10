@@ -14,7 +14,7 @@ import time
 import yaml
 
 from system.terminal import RUN_DIR
-from voice import kokoro
+from voice import kokoro, supertonic_voice
 
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "Hmm, ..." is spoken as "Hmm. ...": a sentence break, so Piper leaves a small, natural pause.
@@ -69,6 +69,7 @@ class Speaker:
         self.engine = cfg.get("engine", "piper")
         self.piper = os.path.expanduser(cfg.get("piper_bin", ""))
         self.voice = os.path.expanduser(cfg.get("voice", ""))
+        self.piper_speaker = cfg.get("speaker")  # for Piper voices with several speakers (e.g. semaine: 1 = spike)
         self.tuning = {k: float(cfg[k]) for k in ("length_scale", "noise_scale", "noise_w", "sentence_silence")
                        if k in cfg}
         self.default_speed = self.tuning.get("length_scale", 1.0)
@@ -95,13 +96,15 @@ class Speaker:
             self.engine = "spd-say"
         if self.engine == "spd-say" and not shutil.which("spd-say"):
             self.enabled = False
-        self.kokoro_voice = cfg.get("kokoro_voice")  # used instead of Piper's voice once Kokoro has loaded
-        self.kokoro_dir = os.path.expanduser(cfg.get("kokoro_dir", ""))
+        # Supertonic (CPU) or Kokoro (GPU) speaks instead of Piper's voice once it has loaded; Supertonic if both are set.
+        self.server = supertonic_voice if cfg.get("supertonic_voice") else kokoro
+        self.kokoro_voice = cfg.get("supertonic_voice") or cfg.get("kokoro_voice")
+        self.kokoro_dir = os.path.expanduser(cfg.get("supertonic_dir" if cfg.get("supertonic_voice") else "kokoro_dir", ""))
         self._kokoro_next_try = 0.0
         self._kokoro_wait = 60
         if self.kokoro_voice and not (self.engine == "piper" and shutil.which("socat")
                                       and os.path.isfile(self.kokoro_dir + "/venv/bin/python")):
-            print("[speech] Kokoro or socat not found, staying with Piper")
+            print("[speech] %s or socat not found, staying with Piper" % self.server.__name__)
             self.kokoro_voice = None
         self._use_kokoro()  # starts loading now, so it's ready for the first replies
 
@@ -109,15 +112,15 @@ class Speaker:
         """True when Kokoro is loaded and can speak. If it isn't running, starts it (less often each time it fails)."""
         if not self.kokoro_voice:
             return False
-        if kokoro.is_up():
+        if self.server.is_up():
             self._kokoro_wait = 60  # it unloads itself when idle: restarting it then isn't a failure
             return True
         if time.time() >= self._kokoro_next_try:
             self._kokoro_next_try = time.time() + self._kokoro_wait
             self._kokoro_wait *= 2
-            with open(os.path.expanduser("~/.local/share/jarvis/kokoro.log"), "ab") as log:
+            with open(os.path.expanduser("~/.local/share/jarvis/%s.log" % self.server.__name__.split(".")[-1]), "ab") as log:
                 # Its own session: it stays loaded while JARVIS restarts.
-                subprocess.Popen([self.kokoro_dir + "/venv/bin/python", "-W", "ignore", kokoro.__file__, self.kokoro_dir],
+                subprocess.Popen([self.kokoro_dir + "/venv/bin/python", "-W", "ignore", self.server.__file__, self.kokoro_dir],
                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=log, start_new_session=True)
         return False
 
@@ -259,7 +262,7 @@ class Speaker:
         self._proc_key = self._key()
         quiet, use_kokoro = self._proc_key[0], self._proc_key[3]
         if use_kokoro:
-            rate = kokoro.RATE
+            rate = self.server.RATE
         else:
             with open(self.voice + ".json") as f:
                 rate = json.load(f)["audio"]["sample_rate"]
@@ -271,9 +274,10 @@ class Speaker:
             player = "aplay -q -r %d -f S16_LE -t raw -" % rate
         piper = "%s --model %s %s --output-raw 2>/dev/null" % (
             shlex.quote(self.piper), shlex.quote(self.voice),
-            " ".join("--%s %s" % kv for kv in sorted(self.tuning.items())))
+            " ".join("--%s %s" % kv for kv in sorted(self.tuning.items()))
+            + (" --speaker %d" % int(self.piper_speaker) if self.piper_speaker is not None else ""))
         if use_kokoro:
-            piper = "socat -t 60 - UNIX-CONNECT:%s 2>/dev/null" % shlex.quote(kokoro.SOCKET)
+            piper = "socat -t 60 - UNIX-CONNECT:%s 2>/dev/null" % shlex.quote(self.server.SOCKET)
         # Piper's audio passes through JARVIS on its way to the player, so it knows exactly how long
         # it will play (to ignore its own voice in the mic for that long, and no longer).
         self._proc = subprocess.Popen(piper, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
