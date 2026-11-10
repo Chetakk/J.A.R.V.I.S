@@ -7,7 +7,8 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
   ``` blocks, a ```bars block ("Label: 55%" per line), [[55%]] meters, "> quote", "---", **bold**, *italic*,
   `code`, [links](https://...); drawn blocks (```ring, ```steps, ```weather, ```map... see ui/blocks.py) and
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
-- choices: buttons ("Open it", or {"label", "do"}); clicking one says its phrase to JARVIS.
+- choices: buttons ("Open it", or {"label", "do", "icon"}); clicking one says its phrase to JARVIS. With an
+  "icon" (a GTK icon name) the button shows only that icon.
 - id: a card with the same id as one on screen updates it in place (progress, live values).
 - stay: true keeps it up until you close it (the music card while a song plays); its clock starts on the
   update that sets it false.
@@ -339,11 +340,16 @@ class Card:
             if getattr(widget, "every", None):
                 widget.due = 0.0
                 self._moving.append(widget)
+        icons = {c["label"]: c["icon"] for c in card.get("choices") or [] if isinstance(c, dict) and c.get("icon")}
         for n, (label, phrase) in enumerate(choices(card), 1):
             button = Gtk.Button()
-            text = Gtk.Label()
-            text.set_markup('<span alpha="50%%">%d</span>  %s' % (n, GLib.markup_escape_text(label)))
-            button.add(text)
+            if label in icons:  # an icon-only button (the music card's controls); the label stays for voice
+                button.add(Gtk.Image.new_from_icon_name(icons[label], Gtk.IconSize.BUTTON))
+                button.set_tooltip_text(label)
+            else:
+                text = Gtk.Label()
+                text.set_markup('<span alpha="50%%">%d</span>  %s' % (n, GLib.markup_escape_text(label)))
+                button.add(text)
             button.get_style_context().add_class("choice")
             button.connect("clicked", lambda _b, p=phrase: self.on_choice(p))
             self.buttons.add(button)

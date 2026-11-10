@@ -130,7 +130,7 @@ def test_a_paused_song_offers_play(jv, monkeypatch):
     monkeypatch.setattr(media, "time", Clock())
     monkeypatch.setattr(media, "_mpris_player", lambda: ("org.mpris.MediaPlayer2.vlc", Player("Paused")))
     jv.do("what's playing")
-    assert card(jv, "Now playing")["choices"][1] == {"label": "Play", "do": "play"}
+    assert card(jv, "Now playing")["choices"][1] == {"label": "Play", "do": "play", "icon": "media-playback-start-symbolic"}
 
 
 def test_volume_up_shows_the_new_level_then_goes(jv, monkeypatch):
