@@ -1605,7 +1605,8 @@ def start_voice(jarvis, whisper):
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
                            is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating,
                            on_wait=lambda seconds: jarvis.ui and jarvis.ui.follow_timer(seconds),
-                           said_lately=jarvis.speaker.said_lately)
+                           said_lately=jarvis.speaker.said_lately,
+                           is_echo_sound=jarvis.speaker.is_echo_sound)
         wake.start()
         jarvis.wake = wake
         jarvis.follow_up = wake.follow_up

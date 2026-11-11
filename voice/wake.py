@@ -204,6 +204,10 @@ class WhisperWake:
         """What JARVIS said in the last half minute (JARVIS passes its own in)."""
         return []
 
+    def is_echo_sound(self, seg, started):
+        """The mic bit is JARVIS's own voice by its sound (JARVIS passes its own check in)."""
+        return False
+
     def _called(self, text, started):
         """The name in `text` is yours, unless JARVIS just said its name and the rest is its line too ("the newest
         is JARVIS wake 2" came back). "Jarvis, take me to Chrome" over that line is still you."""
@@ -216,7 +220,8 @@ class WhisperWake:
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
                  on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
-                 is_dictating=None, on_wait=None, said_lately=None, on_cut=None):
+                 is_dictating=None, on_wait=None, said_lately=None, on_cut=None,
+                 is_echo_sound=None):
         self.names = names
         self.on_wait = on_wait or (lambda seconds: None)  # listening without the name for this many seconds
         self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
@@ -235,6 +240,8 @@ class WhisperWake:
         self.is_echo = is_echo or (lambda text, started: False)  # (heard text, start time) -> own voice?
         if said_lately:
             self.said_lately = said_lately
+        if is_echo_sound:
+            self.is_echo_sound = is_echo_sound
         # Talking over JARVIS: "any" = a new request stops it (no name needed in a conversation),
         # "named" = only with the name, "off" = only "stop". is_talking: JARVIS speaking (not push-to-talk).
         self.is_talking = is_talking or self.is_busy
@@ -319,6 +326,9 @@ class WhisperWake:
                 self.on_heard("", "skipped %.1f s of speech (JARVIS was talking or push-to-talk was on)" % seconds)
                 continue
             started = time.time() - seconds - VAD_TAIL  # roughly when this bit of speech began
+            if self.is_echo_sound(seg, started):  # the tail of its voice (Bluetooth lags): Whisper needn't run
+                self.on_heard("", "ignored (my own voice, by its sound; %.1f s)" % seconds)
+                continue
             # Counted from when you STARTED talking, so a long command after "EV" isn't cut off.
             dictating = self.is_dictating()
             waiting = started <= self.waiting_until or dictating
@@ -422,7 +432,7 @@ class WhisperWake:
                 self._wait(self.wait_seconds)
             return True
         if (self.barge_in == "any" and time.time() - self.last_request < 60
-                and not echo):
+                and not echo and not self.is_echo_sound(seg, started)):  # (its voice garbled past its words)
             (self.on_cut or self.on_stop)()
             self._pass_on(text, text, True, "interrupted, follow-up")
             return True

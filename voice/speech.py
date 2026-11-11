@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 
+import numpy as np
 import yaml
 
 from system.terminal import RUN_DIR
@@ -38,6 +39,46 @@ def _like(word, said):
     ratio = lambda other: difflib.SequenceMatcher(None, word, other).ratio()
     near = max((w for w in said if not w.isdigit()), key=ratio, default=None)
     return near if near and ratio(near) >= 0.6 else word
+
+
+HEARD_RATE = 16000  # the mic's rate (voice/stt.py)
+
+
+def _spectrum(x):
+    """Power in 31 Hz bins every 10 ms of 16 kHz audio: (frames, bins)."""
+    if len(x) < 512:
+        return np.zeros((0, 257), np.float32)
+    frames = np.lib.stride_tricks.sliding_window_view(x.astype(np.float32), 512)[::160] * np.hanning(512)
+    return np.abs(np.fft.rfft(frames, axis=1)) ** 2
+
+
+def echo_match(heard, played):
+    """How much `heard` (the mic) is `played` (what JARVIS sent to the speaker, a few seconds around it):
+    (score, extra). score, 0-1: the best correlation over every delay of the spectrum's shape frame by frame
+    (harmonics and formants, loudness taken off: only the same voice saying the same thing matches; your voice
+    scored at most 0.32 on your clips, its echo through the Echo Dot 0.57 up). extra: per mille of the mic's loud bits the echo can't
+    explain at that delay, even with the room's reverb: someone talking in its pauses or between its harmonics."""
+    H, P = _spectrum(heard), _spectrum(played)
+    if not len(H) or len(P) < len(H):
+        return 0.0, 0
+    shape = lambda S: (lambda L: L - L.mean(1, keepdims=True))(np.log(S[:, 3:100] + 1e3))  # 94 Hz-3.1 kHz
+    h, p = shape(H), shape(P)
+    h -= h.mean(0)
+    h /= np.linalg.norm(h) + 1e-9
+    windows = np.lib.stride_tricks.sliding_window_view(p, len(h), axis=0)  # (delays, bins, frames)
+    windows = windows - windows.mean(2, keepdims=True)
+    corr = np.einsum("dbf,fb->d", windows, h) / (np.sqrt(np.einsum("dbf,dbf->d", windows, windows)) + 1e-9)
+    lag = int(corr.argmax())
+    he = 10 * np.log10(H[:, 3:110] + 1e2)
+    pe = 10 * np.log10(P[lag:lag + len(H), 3:110] + 1e2)
+    loud = pe > pe.max() - 25
+    gain = np.median(he[loud] - pe[loud])  # the speaker and room, from where it was loud
+    for i in range(1, len(pe)):
+        pe[i] = np.maximum(pe[i], pe[i - 1] - 1.0)  # the room's reverb tail: 100 dB a second
+    pe = np.maximum.reduce([pe, np.roll(pe, 1, 1) - 3, np.roll(pe, -1, 1) - 3])  # (pitch drifts, the window leaks)
+    cells = he > 55  # clearly over the room's noise
+    extra = ((he - (pe + gain) > 10) & cells).sum() * 1000 // max(1, cells.sum())
+    return float(max(0.0, corr[lag])), int(extra)
 
 
 def pick(text):
@@ -97,6 +138,7 @@ class Speaker:
         # Extra time the speaker needs to actually play it (Bluetooth adds a delay, often 0.3-1 s).
         self.output_delay = float(cfg.get("output_delay", 0.8))
         self.history = collections.deque(maxlen=12)  # (when, text) of what JARVIS said, to spot its own echo
+        self.played = collections.deque()  # (when it plays, 16 kHz samples) of the last 40 s sent to the speaker
         self.on_say = None  # callback(text), e.g. the chat panel
         self.on_message = None  # callback(dict) for {"show"/"do"} lines from tools/jarvis
         self.quiet = lambda: False  # set by JARVIS: True during quiet hours (softer and shorter)
@@ -215,6 +257,48 @@ class Speaker:
                 return True
         return False
 
+    def _keep_played(self, when, pcm, rate):
+        x = np.frombuffer(pcm, np.int16).astype(np.float32)
+        if rate != HEARD_RATE and len(x):
+            x = np.interp(np.arange(0, len(x), rate / HEARD_RATE), np.arange(len(x)), x).astype(np.float32)
+        self.played.append((when, x))
+        while self.played and self.played[0][0] < when - 40:
+            self.played.popleft()
+
+    def played_audio(self, since, until):
+        """What JARVIS sent to the speaker between these times, at the mic's rate (silence where it sent nothing)."""
+        out = np.zeros(max(0, int((until - since) * HEARD_RATE)), np.float32)
+        for when, x in list(self.played):
+            at = int(round((when - since) * HEARD_RATE))
+            lo, hi = max(at, 0), min(at + len(x), len(out))
+            if lo < hi:
+                out[lo:hi] = x[lo - at:hi - at]
+        return out
+
+    # Seconds the speaker (Bluetooth: ~0.5 s measured) and the mic's timing can be behind what was sent, and ahead.
+    SOUND_LATE, SOUND_EARLY = 3.0, 1.0
+    # Its own voice: echo_match from 0.5 up, with under 15% unexplained. On two recordings through the Echo Dot this
+    # caught 82-91% of its echo and none of your clips, alone or starting in its tail; talking over its whole line
+    # at your usual level (14 dB under its echo) 36-54% passed for its echo.
+    SOUND_ECHO, SOUND_EXTRA = 0.5, 150
+
+    def sound_match(self, heard, started):
+        """echo_match of the mic bit `heard` (16 kHz floats) that began at `started` against what JARVIS played
+        around then; None if it played nothing then (nothing to compare: most of the time, and free)."""
+        since, until = started - self.SOUND_LATE, started + len(heard) / HEARD_RATE + self.SOUND_EARLY
+        if not any(when < until and when + len(x) / HEARD_RATE > since for when, x in list(self.played)):
+            return None
+        return echo_match(heard, self.played_audio(since, until))
+
+    def is_echo_sound(self, heard, started):
+        """True if the mic bit (floats -1 to 1, as the wake has it) is JARVIS's own voice by its sound, whatever
+        words Whisper would make of it."""
+        match = self.sound_match(np.asarray(heard, np.float32) * 32767, started)
+        if match is None:
+            return False
+        print("[echo] sound %.2f, %d/1000 not its voice, %.1f s" % (match + (len(heard) / HEARD_RATE,)))  # (to tune)
+        return match[0] >= self.SOUND_ECHO and match[1] < self.SOUND_EXTRA
+
     def said_lately(self):
         """What JARVIS said in the last 30 s: what its echo can still come back as. The latest line counts until
         30 s after it finished playing: a long answer's tail comes back more than 30 s after it was said."""
@@ -258,6 +342,7 @@ class Speaker:
                     pass
         self._proc = self._player = None
         self._busy_until = self._audio_until = 0.0
+        self.played = collections.deque((w, x) for w, x in self.played if w < time.time())  # the rest never plays
         if self.engine == "spd-say":
             subprocess.Popen(["spd-say", "-S"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -319,8 +404,14 @@ class Speaker:
         return self._proc
 
     def _pump(self, piper, player, bytes_per_second):
+        odd = b""  # (a chunk can end in half a sample)
         for chunk in iter(lambda: piper.stdout.read1(4096), b""):
-            self._audio_until = max(time.time(), self._audio_until) + len(chunk) / bytes_per_second
+            start = max(time.time(), self._audio_until)
+            self._audio_until = start + len(chunk) / bytes_per_second
+            whole = odd + chunk
+            odd = whole[len(whole) // 2 * 2:]
+            carried = len(whole) - len(chunk)  # (the half sample from before plays just before `start`)
+            self._keep_played(start - carried / bytes_per_second, whole[:len(whole) // 2 * 2], bytes_per_second // 2)
             try:
                 player.stdin.write(chunk)
                 player.stdin.flush()
