@@ -517,11 +517,15 @@ class Calendar(GoogleSkill):
             events = [e for e in self.meetings(start, end) if not e["all_day"]]
         except google.GoogleError as e:
             return ["**Meetings**", "- %s" % e], ""
+        if not day_offset:  # today is drawn as the dashboard draws it: meetings and reminders on one timeline
+            lines = _timeline(events, (), self._reminders(start, end))
+        elif not events:
+            lines = ["**Meetings %s**" % label, "- None"]
+        else:
+            lines = ["**Meetings %s**" % label] + ["- %s %s%s" % (clock(e["start"]), e["title"], " · with %s" % ", ".join(
+                e["with"][:3]) if e["with"] else "") for e in events]
         if not events:
-            return ["**Meetings %s**" % label, "- None"], "No meetings %s." % label
-        lines = ["**Meetings %s**" % label] + (_timeline(events) if not day_offset else []) + [
-            "- %s %s%s" % (clock(e["start"]), e["title"], " · with %s" % ", ".join(e["with"][:3]) if e["with"] else "")
-            for e in events]
+            return lines, "No meetings %s." % label
         first = events[0]
         said = "%s, %s at %s." % ("One meeting %s" % label if len(events) == 1 else "%d meetings %s, first" % (
             len(events), label), first["title"], clock(first["start"]))

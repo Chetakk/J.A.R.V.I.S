@@ -117,12 +117,12 @@ class Briefing(Skill):
         lines, said = [], ["It's %s." % date]
         calendar = getattr(self.j.skills, "calendar", None)
         meet_lines, meet_said = calendar.for_briefing() if calendar else ([], "")  # Google Calendar, when connected
-        if meet_lines:
-            lines += meet_lines + [""]
+        # one "Today" timeline of meetings and reminders, as on the dashboard (the reminders alone without Google)
+        lines += ["**Today**"] + (meet_lines or self.j.skills.dashboard._today(()) or
+                                  ["{ok} Nothing on today's calendar"])
         if meet_said:
             said.append(meet_said)
         if reminders:
-            lines += ["**Reminders today**", _timeline(reminders)]
             first = reminders[0]
             said.append("%s: %s at %s." % ("One reminder" if len(reminders) == 1 else "%d reminders, first" % len(
                 reminders), first["text"], _clock(first["at"] / 1000)))
