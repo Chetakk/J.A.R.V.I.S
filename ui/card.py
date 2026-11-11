@@ -714,7 +714,7 @@ class Card:
         x, y = self.win.get_position()
         self._grab = (ev.x_root - x, ev.y_root - y, ev.x_root, ev.y_root)
         self._dragging = True
-        GLib.timeout_add(16, self._follow)
+        self.win.add_tick_callback(lambda *_: self._follow())  # once per screen frame: smooth, no timer drift
         return True
 
     def _follow(self):
