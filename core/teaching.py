@@ -249,7 +249,9 @@ def claimed(jarvis, wording):
     Only patterns are matched here, never a handler: asking the question must never do the thing."""
     text = wording.strip().rstrip("?.!")
     for skill in jarvis.skills.all:
-        for pattern, _ in skill.rules:
+        for pattern, fn in skill.rules:
+            if fn == jarvis.skills.cards.button:  # matches any text; card buttons come and go, so it owns nothing
+                continue
             m = pattern.match(text)
             if m and sum(len(g) for g in m.groups() if g) * 2 < len(text):
                 return type(skill).__name__

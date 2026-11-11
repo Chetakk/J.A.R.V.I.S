@@ -101,13 +101,18 @@ class Cards(Skill):
         ui = self.j.ui
         return ui.open_cards() if ui and ui.card_visible() else []
 
-    def button(self, m):
-        said = _words(m.group(0))
+    def _button_for(self, text):
+        """(card, label, phrase) of a button on a card on screen that says `text`, or None."""
+        said = _words(text)
         for card in self._open_cards():
             for label, phrase in choices(card)[:BUTTONS]:
                 if _words(label) == said and _words(phrase) != said:  # a label that is its own phrase: said as is
-                    return self._press(card, label, phrase)
-        return False
+                    return card, label, phrase
+        return None
+
+    def button(self, m):
+        hit = self._button_for(m.group(0))
+        return self._press(*hit) if hit else False
 
     def open_it(self, m):
         """"Open it" with no button saying so: the card's Open (else Read, Play, Join) button, else its first link."""

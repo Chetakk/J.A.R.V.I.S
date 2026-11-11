@@ -1356,7 +1356,10 @@ class Jarvis:
         # may be a list ("bread and milk").
         parts = [LEAD.sub("", p.strip(" ,.")) for p in STRONG.split(text) if p.strip(" ,.")]
         known = [self.understands(p, loose=False) for p in parts]  # (a close-enough meaning isn't sure enough here)
-        if 2 <= len(parts) <= 4 and any(known) and all(k or worth_asking(p, self.names) for p, k in zip(parts, known)):
+        # "Change the timing of the to-do. Change it to a reminder": a later part pointing back is the same request
+        back = any(re.search(r"\b(?:it|this|that|these|those|them)\b", p, re.I) for p in parts[1:])
+        if 2 <= len(parts) <= 4 and not back and any(known) and \
+                all(k or worth_asking(p, self.names) for p, k in zip(parts, known)):
             return parts
         return None
 
@@ -1369,7 +1372,10 @@ class Jarvis:
             return True
         if self.intents and (self.intents.early(t) or self.intents.fill(t)):
             return True
-        if any(pattern.match(t) for skill in self.skills.all for pattern, _ in skill.rules):
+        # (the card-button rule matches any text: it only counts when a card on screen has that button)
+        cards = self.skills.cards
+        if any(pattern.match(t) for skill in self.skills.all for pattern, fn in skill.rules if fn != cards.button) \
+                or cards._button_for(t):
             return True
         match = self.registry.match_exact(t)
         if match and not self._not_running(match):

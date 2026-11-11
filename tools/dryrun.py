@@ -167,6 +167,8 @@ class DryJarvis:
                 m.group(0).lower().startswith(("switch", "change", "move", "send", "set"))
         if obj is getattr(self.j.skills, "gmail", None):  # "show me work mails": the site, handed on
             passes["search"] = lambda m: not J_gmail.just_open(m)
+        if obj is self.j.skills.cards:  # its button rule matches any text: only a button on a card on screen is its
+            passes["button"] = lambda m: obj._button_for(m.group(0))
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

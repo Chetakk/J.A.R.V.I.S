@@ -142,6 +142,19 @@ def test_a_then_chain_with_an_unknown_part_stays_one_plan(jv):
     assert jv.j._split("work out a sum, then delete old.txt please") is None
 
 
+def test_one_request_in_sentences_isnt_cut_into_three(jv):
+    # The card-button rule matches any text; it made every part look understood, so this ran as three requests
+    # (a "when?" question, a "do this" reminder and Claude's reminder: three replies, two reminders).
+    assert not jv.j.understands("Change the timing of the to-do")
+    assert jv.j._split("Change the timing of the to-do. Change it to a reminder and remind me at 11.30 "
+                       "to do this") is None
+
+
+def test_a_card_button_on_screen_counts_as_understood(jv):
+    jv.ui.show_card({"title": "Doc", "text": "x", "choices": [{"label": "Add to my to-dos", "do": "add x to my todo list"}]})
+    assert jv.j.understands("add to my to-dos")
+
+
 # --- Claude thinks in the background: what you say meanwhile isn't kept waiting ---
 
 import threading  # noqa: E402
