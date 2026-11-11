@@ -59,7 +59,7 @@ RIGHT_SECS, SLIDE = 5.0, 0.6  # each thing at the compact bar's right end stays 
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
 WALLPAPER = "org.gnome.desktop.background"
-TIPS = {"ignored": "Speech JARVIS ignored. Click to see it in the chat", "alerts": "Unread alerts. Click to see them", "bar": "Click to open the chat. Right-click for options"}
+TIPS = {"ignored": "Speech JARVIS ignored. Click to see it in the chat", "alerts": "Unread alerts. Click to see them"}
 DOCK = "imports.ui.main.uiGroup.get_children().filter(a=>a.name=='dashtodockContainer').forEach(a=>{%s})"
 EASE = "duration:160,mode:imports.gi.Clutter.AnimationMode.EASE_OUT_QUAD"
 # The shell's input area is switched too: it can make the dock visible again while faded, and then the dock's
@@ -601,7 +601,7 @@ class Bar:
             elif zone == "chat":
                 tip = "Close the chat" if self.ui.panel.get_visible() else "Open the chat"
             else:
-                tip = TIPS[zone]
+                tip = TIPS.get(zone)  # the plain bar has none
             self.win.set_tooltip_text(tip)
             self.poke()
         return False
