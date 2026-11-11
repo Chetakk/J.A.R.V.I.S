@@ -2,6 +2,12 @@
 # Keeps JARVIS running in the background: restarts it if it crashes, stops when you choose
 # "Quit JARVIS" in the tray menu. Output goes to ~/.local/share/jarvis/jarvis.log.
 cd "$(dirname "$0")/.." || exit 1
+# Started from a terminal: carry on detached, so closing the terminal doesn't stop JARVIS (jarvis.py does the same).
+if [ -t 0 ] && [ -z "$JARVIS_FOREGROUND" ]; then
+  setsid -f nohup tools/run_jarvis.sh < /dev/null > /dev/null 2>&1  # -f: detached before this exits (with & it lost the race)
+  echo "JARVIS is starting in the background (log: ~/.local/share/jarvis/jarvis.log). Closing this terminal won't stop it."
+  exit 0
+fi
 LOG="$HOME/.local/share/jarvis/jarvis.log"
 mkdir -p "$(dirname "$LOG")"
 
