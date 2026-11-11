@@ -71,8 +71,9 @@ class Gmail(GoogleSkill):
              self.search),
             (r"(?:any |do i have (?:any )?|have i got (?:any )?|did i get (?:any )?)(?:new |unread )?%s(?: (?:today|yet|"
              r"for me))?|check (?:my )?(?:e-?mails?|mail|inbox|gmail)(?: for me)?|what'?s (?:new )?in my inbox|"
-             r"(?:read|show|list)(?: me)? my (?:new |unread )?(?:%s|inbox)|how many (?:unread |new )?%s(?: do i have)?|"
-             r"(?:anything|what'?s) new in (?:my )?(?:gmail|e-?mail|inbox)" % (MAIL, MAIL, MAIL), self.unread),
+             r"(?:read|list)(?: me)? my (?:new |unread )?(?:%s|inbox)|show(?: me)? my (?:(?:new |unread )%s|inbox)|"
+             r"how many (?:unread |new )?%s(?: do i have)?|"
+             r"(?:anything|what'?s) new in (?:my )?(?:gmail|e-?mail|inbox)" % (MAIL, MAIL, MAIL, MAIL), self.unread),
         ]
 
     # --- reading ---
@@ -169,6 +170,8 @@ class Gmail(GoogleSkill):
         said = (g[2] or "%s %s" % (g[0] or "", g[1] or "")).strip()
         if re.match(r"(?:address|id|password|signature)\b", (g[1] or "").strip(), re.I):
             return False  # "find my email address": not a search of your mail
+        if just_open(m):
+            return False  # "show me mails", "show me work emails": Gmail opens in that account's browser
         q = search_query(said)
         if not q:
             self.say("What should I look for? Say find the email from Rahul about the budget.")
@@ -412,6 +415,13 @@ IMAGES = "{filename:jpg filename:jpeg filename:png}"
 SHEETS = "{filename:xlsx filename:xls filename:csv}"
 KIND_FILES = {"pdf": "filename:pdf", "spreadsheet": SHEETS, "sheet": SHEETS, "image": IMAGES, "photo": IMAGES,
               "picture": IMAGES, "doc": "{filename:doc filename:docx}", "document": "{filename:doc filename:docx}"}
+
+
+def just_open(m):
+    """A search rule's match with nothing to look for but "work" / "personal": "show me work mails"."""
+    g = m.groups()
+    said = g[2] or "%s %s" % (g[0] or "", g[1] or "")
+    return not re.sub(r"\b(?:work|office|company|job|personal|own)\b", "", said).strip()
 
 
 def search_query(said, today=None):

@@ -26,6 +26,7 @@ from skills import dev as J_dev  # noqa: E402
 from skills import files as J_files  # noqa: E402
 from skills import documents as J_docs  # noqa: E402
 from skills import frozen as J_frozen  # noqa: E402
+from skills import gmail as J_gmail  # noqa: E402
 from skills import maths as J_maths  # noqa: E402
 from skills import videos as J_videos  # noqa: E402
 from skills import notes as J_notes  # noqa: E402
@@ -164,6 +165,8 @@ class DryJarvis:
             passes["output"] = lambda m: J_re.search(r"\b(?:echo|alexa)\b", _first(m), J_re.I) or \
                 J_re.fullmatch(J_audio.NAMED, _first(m).strip(), J_re.I) or \
                 m.group(0).lower().startswith(("switch", "change", "move", "send", "set"))
+        if obj is getattr(self.j.skills, "gmail", None):  # "show me work mails": the site, handed on
+            passes["search"] = lambda m: not J_gmail.just_open(m)
         if obj is self.j.skills.windows:
             passes["focus"] = lambda m: J.desktop.find_window(m.group(1).strip())  # read-only window list
         units = lambda a, src, dst: _convertible(a) and J_maths.convert(1, src.strip(), dst.strip()) is not None  # noqa: E731

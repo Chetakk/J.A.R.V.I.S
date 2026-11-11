@@ -339,6 +339,9 @@ class Browser:
             if thing and _KIND.match(thing) and not self._lookup(pages, thing):
                 thing = ""  # "my linkedin page", "my work github account": the site's own "my" page
             if not thing:
+                if account and not self.reg.sites[site].get("my"):  # "my work gmail": it, in the work browser
+                    return BrowserAction([self.reg.sites[site]["url"]], self._account_browser(site, account, browser),
+                                         "your %s %s" % (account, self._title(site)))
                 if not mine or not self.reg.sites[site].get("my"):
                     return None
                 thing = self.reg.sites[site]["my"]

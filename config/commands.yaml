@@ -34,7 +34,7 @@ sites:
             subscriptions: feed/subscriptions, watch later: "playlist?list=WL", liked videos: "playlist?list=LL",
             shorts: shorts, liked: "playlist?list=LL", videos i liked: "playlist?list=LL",
             subscribed: feed/subscriptions}
-  gmail:    {url: "https://mail.google.com", aliases: [google mail]}
+  gmail:    {url: "https://mail.google.com", aliases: [google mail, gmails, mail, mails, email, emails, e-mail, e-mails]}
   github:
     url: "https://github.com"
     title: GitHub
