@@ -11,6 +11,8 @@ import yaml
 
 from core import heldout, learned, outcomes, teaching
 
+pytestmark = pytest.mark.usefixtures("strict_check_agrees")  # the strict check has its own tests
+
 CFG = {"phrases": 1, "wordings": 4, "misses": 4}
 EARS = "my ears are hurting from this"
 

@@ -8,7 +8,11 @@ import json
 import os
 import re
 
+import pytest
+
 from core import learned, misslog, outcomes, teaching
+
+pytestmark = pytest.mark.usefixtures("strict_check_agrees")  # the strict check has its own tests
 
 CFG = {"phrases": 2, "wordings": 4, "misses": 4}
 

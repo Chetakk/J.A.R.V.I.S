@@ -12,6 +12,8 @@ import yaml
 from core import heldout, learned, teaching
 from core.intent import LEAVE
 
+pytestmark = pytest.mark.usefixtures("strict_check_agrees")  # the strict check has its own tests
+
 SPHERE = "what's the volume of a sphere with a radius of a metre"
 SPHERE_NEAR = "what is the volume of a sphere with a radius of one metre"
 

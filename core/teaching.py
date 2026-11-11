@@ -22,12 +22,18 @@ compares sentences, never runs a handler, so it has no effect on your desktop.
 
 Nothing with a number or a secret in it is sent to Claude or learned, and system mode's requests stay local.
 
+Strict: nothing is learned on one answer. Every wording found in a pass goes back to Claude on its own, with the
+strict check (REVIEW), and only a "yes" is learned. The same check works through what was learned before, a batch
+each pass: what you saved yourself ("remember that command") first, with what you said around then, then what
+Claude did for you. One that wasn't what you wanted is taken back, and learned for what you did mean.
+
 jarvis.py runs a pass on a timer (settings `teaching`). tools/phrases.py writes wordings into the code by hand.
 """
 import json
 import os
 import re
 import time
+from collections import Counter
 
 import numpy as np
 import yaml
@@ -111,6 +117,35 @@ nothing else; if it already makes sense, give it back as it is. That sentence is
 
 Reply with one JSON object, nothing else: {"what they said": {"sentence": "what they meant to say", "phrase":
 "the phrase it meant"}, ...}. Leave out the ones that meant none of them."""
+
+REVIEW = """You are the strict checker for JARVIS, a voice assistant that learns what people's words mean. Each line
+below is something a person says and the JARVIS phrase it would run from then on, every time those words are said.
+A wrong one makes JARVIS do the wrong thing for good, so be strict.
+
+Answer "yes" only when anyone saying exactly those words would always want exactly that phrase done: not something
+near it, not more or less than it, not the opposite, not a guess. A request that needs a name, file, app, time or
+number it doesn't say is not "yes". Neither is one that only made sense once, about what was on screen then ("close
+this"), nor a question or chat being turned into an action.
+
+Otherwise answer with the single phrase from JARVIS's list it does always mean, or "none" when no phrase fits or you
+aren't sure. Spoken words may be misheard; only answer for the meaning that is plain.
+
+Some lines show what the person said around then. Saying it was wrong, "no", repeating themselves or asking for
+something else straight after means that phrase was not what they wanted: then it is not "yes".
+
+A line ending "-> (leave it)" is one JARVIS should do nothing with itself and leave to Claude: "yes" when none of
+JARVIS's phrases fits it, otherwise the phrase it does mean.
+
+Lines:
+%s
+
+JARVIS's phrases:
+%s
+
+Reply with one JSON object, nothing else, answering every line: {"what they said": "yes", "what they said": "the
+phrase it does mean", "what they said": "none", ...}."""
+# What you saved yourself ("remember that command") is rechecked first, then what Claude did for you, then the rest
+FIRST = ("you asked me to remember it", "Claude did it for you", "you said yes")
 
 
 def fit_to_send(text):
@@ -214,6 +249,75 @@ def ask_meant(once, saids, phrases):
         if isinstance(p, str) and p.strip() in phrases:
             sentence = str(sentence or s).strip().lower().rstrip("?.!")
             out[s] = (sentence or s, p.strip())
+    return out
+
+
+def review(once, pairs, phrases, around=None):
+    """Claude's strict check of [(what's said, the phrase it would run)]: {said: "yes", the phrase it does mean, or
+    "none"}. One left out of the answer has no verdict, so isn't kept. around: {said: what you said around then}."""
+    if not pairs:
+        return {}
+    lines = "\n".join('- "%s" -> %s%s' % (s, "(leave it)" if p == LEAVE else p,
+                                          "   [around then they said: %s]" % around[s] if around and around.get(s) else "")
+                      for s, p in pairs)
+    reply = once(REVIEW % (lines, "\n".join("- %s" % p for p in sorted(phrases))), SYSTEM)
+    return {s: v.strip().strip('"').rstrip(".") for s, v in parse(reply, [s for s, _ in pairs]).items()
+            if isinstance(v, str) and v.strip()}
+
+
+def agrees(verdict, phrase):
+    v = (verdict or "").strip().lower()
+    if phrase == LEAVE:
+        return v in ("yes", "none", "leave it", "(leave it)")
+    return v in ("yes", phrase.lower())
+
+
+def _when(stamp):
+    try:
+        return time.mktime(time.strptime(stamp, "%Y-%m-%d %H:%M"))
+    except (TypeError, ValueError):
+        return None
+
+
+def to_recheck(state, cfg):
+    """Learned wordings not yet put to the strict check, [(said, phrase)], with {said: what you said around then}:
+    what you saved yourself first, then what Claude did for you, then the ones you said yes to, then the rest,
+    newest first in each."""
+    have, done = learned.load()["wordings"], set(state["reviewed"])
+    rows = {r["said"]: r for r in learned.history() if not r.get("unlearned") and r.get("said") in have}
+    todo = [s for s in have if s not in done and fit_to_send(s) and fit_to_send(str(have[s]))]
+    todo.sort(key=lambda s: rows.get(s, {}).get("time", ""), reverse=True)
+    todo.sort(key=lambda s: FIRST.index(rows[s].get("from")) if rows.get(s, {}).get("from") in FIRST else len(FIRST))
+    todo = todo[:cfg.get("review", 40)]
+    said = [(_when(r.get("time")), r.get("text") or "") for r in outcomes.read(cfg.get("days", 30)) + misslog.read()]
+    near = {}
+    for s in todo:
+        r = rows.get(s, {})
+        t = _when(r.get("time"))
+        if r.get("from") not in FIRST[:2] or t is None:
+            continue
+        lines = []
+        for at, text in said:  # (stamps are to the minute, so before and after can't be told apart)
+            text = text.strip().lower().rstrip("?.!")
+            if at is not None and abs(at - t) <= 180 and text != s and fit_to_send(text) and text not in lines:
+                lines.append(text)
+        near[s] = "; ".join(lines[-6:])
+    return [(s, have[s]) for s in todo], near
+
+
+def recheck(jarvis, verdicts, pairs):
+    """Act on the strict check of what was learned already: a wrong one is taken back and, when Claude says what it
+    does mean, learned for that instead. [(said, the phrase it meant, what it means now or None)]."""
+    have, mine, out = known(jarvis.intents), offered(jarvis), []
+    for said, phrase in pairs:
+        v = verdicts.get(said)
+        if v is None or agrees(v, phrase):
+            continue
+        target = None if v.lower() == "none" else have.get(_norm(v), v if v in mine else None)
+        unlearn(jarvis, said, phrase, "Claude rechecked it: it means %s" % (target or "none of mine"))
+        kept = teach(jarvis, [(said, target)], "Claude rechecked it")[0] if target and target != phrase else []
+        out.append((said, phrase, target if kept else None))
+        print("[teaching] rechecked %r: not %r%s" % (said, phrase, ", but %r" % target if kept else ""))
     return out
 
 
@@ -368,13 +472,13 @@ def _state():
     state = load_json(STATE, {})
     return {"last": state.get("last", 0), "placed": list(state.get("placed") or []),
             "phrases": dict(state.get("phrases") or {}), "rechecked": list(state.get("rechecked") or []),
-            "scores": list(state.get("scores") or [])}
+            "scores": list(state.get("scores") or []), "reviewed": list(state.get("reviewed") or [])}
 
 
 def _save(state):
     try:
         save_json(STATE, dict(state, placed=state["placed"][-2000:], rechecked=state["rechecked"][-2000:],
-                              scores=state["scores"][-200:]))
+                              scores=state["scores"][-200:], reviewed=state["reviewed"][-5000:]))
     except OSError as e:
         print("[teaching] can't write %s: %r" % (STATE, e))
 
@@ -500,16 +604,18 @@ def _notes(jarvis, want, rows):
 
 
 def run(jarvis, cfg=None):
-    """One teaching pass, at most two questions to Claude. What it did, as a line for the log ("" for nothing)."""
+    """One teaching pass, at most three questions to Claude: what things you said meant, new wordings, and the strict
+    check every one of those must pass before it's learned (with a batch of what was learned before, what you saved
+    yourself first). What it did, as a line for the log ("" for nothing)."""
     cfg = cfg or {}
     if not jarvis.intents:
         return ""
     state = _state()
     state["last"] = time.time()
     _save(state)
-    once = lambda prompt, system: jarvis.claude.once(prompt, system, model=cfg.get("model") or "", timeout=120)  # noqa: E731
+    once = lambda prompt, system: jarvis.claude.once(prompt, system, model=cfg.get("model") or "", timeout=180)  # noqa: E731
     rows = outcomes.read(cfg.get("days", 30))
-    done, learnt = [], []
+    done, learnt, found = [], [], []  # found: [(what kind, [(wording, phrase)])], all waiting for the strict check
     before = heldout.results(jarvis.intents)
 
     saids = to_place(jarvis, state, rows, cfg)
@@ -525,11 +631,7 @@ def run(jarvis, cfg=None):
             reached = near.get(said)
             if reached and meant.get(said) and meant[said][1] != reached:
                 unlearn(jarvis, said, reached, "Claude said it meant “%s”" % meant[said][1])
-        kept, refused = teach(jarvis, list(meant.values()), "something you said")
-        _log(kept, refused)
-        learnt += kept
-        if kept:
-            done.append("placed %d of %d things you said" % (len(kept), len(saids)))
+        found.append(("something you said", list(meant.values())))
 
     want = wanted(jarvis, state, rows, cfg)
     if want:
@@ -542,17 +644,37 @@ def run(jarvis, cfg=None):
             if p in enough:
                 entry["enough"] = True
         _save(state)
-        pairs = [(w, p) for p, words in says.items() for w in tidy(p, words, known(jarvis.intents))]
-        kept, refused = teach(jarvis, pairs, "a new way of saying it")
+        found.append(("a new way of saying it",
+                      [(w, p) for p, words in says.items() for w in tidy(p, words, known(jarvis.intents))]))
+        found.append(("near one of mine, but different", near_misses(jarvis, nots)))
+
+    # The strict check: only what Claude says yes to again, on its own, is learned. What can't be learned anyway
+    # isn't asked about, and a wording offered for two phrases is neither.
+    data = learned.load()
+    found = [(why, [(w, p) for w, p in pairs if not why_not(jarvis, w, p, data)]) for why, pairs in found]
+    twice = [w for w, n in Counter(w for _, pairs in found for w, _ in pairs).items() if n > 1]
+    found = [(why, [(w, p) for w, p in pairs if w not in twice]) for why, pairs in found]
+    old, around = to_recheck(state, cfg)
+    new = [pair for _, pairs in found for pair in pairs]
+    verdicts = review(once, new + old, offered(jarvis) | {p for _, p in new + old if p != LEAVE}, around)
+    for why, pairs in found:
+        kept, refused = teach(jarvis, [(w, p) for w, p in pairs if agrees(verdicts.get(w), p)], why)
+        refused += [(w, p, "the strict check said %s" % verdicts.get(w, "nothing")) for w, p in pairs
+                    if not agrees(verdicts.get(w), p)]
         _log(kept, refused)
         learnt += kept
-        if kept:
+        if kept and why == "something you said":
+            done.append("placed %d of %d things you said" % (len(kept), len(saids)))
+        elif kept and why == "a new way of saying it":
             done.append("%d new wordings for %d phrases" % (len(kept), len({p for _, p in kept})))
-        kept, refused = teach(jarvis, near_misses(jarvis, nots), "near one of mine, but different")
-        _log(kept, refused)
-        learnt += kept
-        if kept:
+        elif kept:
             done.append("%d near but different" % len(kept))
+    state["reviewed"] += [s for s, _ in old if s in verdicts]
+    _save(state)
+    fixed_old = recheck(jarvis, verdicts, old)
+    learnt += [(s, now) for s, _, now in fixed_old if now]
+    if old:
+        done.append("rechecked %d learned, took back %d" % (len([s for s, _ in old if s in verdicts]), len(fixed_old)))
 
     score = check(jarvis, state, before, learnt) if learnt else None
     if score:

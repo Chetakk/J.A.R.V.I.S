@@ -217,3 +217,10 @@ def jv(monkeypatch):
     world.clear()  # what JARVIS ran while starting up isn't part of the test
     yield world
     harness.current = None
+
+
+@pytest.fixture
+def strict_check_agrees(monkeypatch):
+    """Teaching's strict check (tests/test_teaching_review.py) says yes to everything: for tests of the other gates."""
+    from core import teaching
+    monkeypatch.setattr(teaching, "review", lambda once, pairs, phrases, around=None: {s: "yes" for s, _ in pairs})
