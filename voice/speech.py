@@ -20,6 +20,9 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "Hmm, ..." is spoken as "Hmm. ...": a sentence break, so Piper leaves a small, natural pause.
 _PAUSE = re.compile(r"\b(Hmm|Oh|Okay|Alright|Well|Oops),(?=\s)")
 INBOX = os.path.join(RUN_DIR, "speak.fifo")
+# Lines that only fill a wait while Claude thinks (jarvis.py _ask_claude): no apology goes in front of these.
+FILLER = re.compile(r"^(?:let me think|thinking|one moment|asking claude|still on it|almost there|just a moment"
+                    r"|this one's taking|still thinking)\b", re.I)
 SETTINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "settings.yaml")
 
 
@@ -139,9 +142,10 @@ class Speaker:
         if isinstance(text, (list, tuple)) and text and (self.quiet() or self.brief):
             text = min(text, key=len)
         text = _no_okay(pick(text))
-        if text and time.time() - self._interrupted < 30:
-            text = "Sorry about that. " + text  # You talked over JARVIS just now.
-        self._interrupted = 0.0
+        if text and not FILLER.match(text):  # "Sorry about that. Thinking." sounded odd: the apology waits for the answer
+            if time.time() - self._interrupted < 30:
+                text = "Sorry about that. " + text  # You talked over JARVIS just now.
+            self._interrupted = 0.0
         if text:
             self.last = text
             self.history.append((time.time(), text))

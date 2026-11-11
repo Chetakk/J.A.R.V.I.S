@@ -47,3 +47,27 @@ def test_a_phrase_that_matches_nothing_is_owned_up_to(jv):
     jv.do("ask claude to move my process engineer folder to projects")
     assert jv.says("couldn't actually do that")
     assert any("couldn't do" in line for line in jv.j.recent)  # Claude hears about it next time
+
+
+# --- "Sorry about that." after you talked over JARVIS ---
+
+def _speaker():
+    import collections
+    import time
+    from voice.speech import Speaker
+    s = Speaker.__new__(Speaker)
+    s.enabled, s.muted, s.brief, s.on_say, s.last = False, False, False, None, ""
+    s.quiet = lambda: False
+    s.history = collections.deque(maxlen=12)
+    s._interrupted = time.time()  # you just talked over it
+    return s
+
+
+def test_the_apology_skips_thinking_and_goes_on_the_answer():
+    s = _speaker()
+    s.say("Thinking.")
+    assert s.last == "Thinking."
+    s.say("Bios is the firmware settings screen.")
+    assert s.last == "Sorry about that. Bios is the firmware settings screen."
+    s.say("Anything else?")
+    assert s.last == "Anything else?"  # once
