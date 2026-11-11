@@ -223,3 +223,16 @@ def test_the_music_block_draws_with_and_without_art(tmp_path):
     assert hit(blocks.W - 14, 56, blocks.W) == "like this song"  # the heart, above the time left
     assert hit(10, 10, blocks.W) is None
     assert blocks._music(["title: X", "time: paused"])[2] is None  # still while paused
+
+
+def test_rows_people_and_timeline_spans_draw_and_read():
+    import cairo
+    from ui import blocks
+    text = ("```rows\nRS | Rahul Sharma {check} | [Re: budget](https://mail.google.com/1) | 9:12\n"
+            "file:pdf | Invoice | Drive | Tue\n```\n```people\nPriya Nair\nRahul Sharma\n+3\n```")
+    assert plain({"text": text}) == ("Rahul Sharma, Re: budget, 9:12. Invoice, Drive, Tue. "
+                                     "With Priya Nair, Rahul Sharma and 3 more.")
+    for lines in (["10:00-10:15 Stand-up", "free: 10:15-11:30 1 h", "9:30 Call the bank"],
+                  ["14:00-15:00 Review", "now: off"]):
+        height, draw, _every = blocks._timeline(lines)
+        draw(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, blocks.W, int(height))), blocks.W)

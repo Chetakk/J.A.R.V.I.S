@@ -4,7 +4,9 @@ or left alone for a while (ui.hide_after, counted for each card from when it ope
 
 A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "refresh" {...}}:
 - text: "# heading", "- bullet" (indent to nest), "1. step", "- [ ]"/"- [x]" checklists, "| table |" rows,
-  ``` blocks, a ```bars block ("Label: 55%" per line), [[55%]] meters, "> quote", "---", **bold**, *italic*,
+  ``` blocks, a ```bars block ("Label: 55%" per line), a ```rows block ("RS | Rahul Sharma {check} | Re: budget
+  | 9:12" per line: initials, a glyph or file:pdf, then who, what, when; without the first cell the initials are
+  made from who), a ```people block (a name per line, "+3" for the rest: initials in circles), [[55%]] meters, "> quote", "---", **bold**, *italic*,
   `code`, [links](https://...); drawn blocks (```ring, ```steps, ```weather, ```map... see ui/blocks.py) and
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
 - tick / untick: phrases a clicked checkbox says ("tick todo {n}", numbered from 1); without them a click only
@@ -25,7 +27,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
+gi.require_version("Pango", "1.0")
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango  # noqa: E402
 
 from ui import blocks  # noqa: E402
 from ui.window import GLOW, PANEL_H, PANEL_W, _clear, _make_transparent  # noqa: E402
@@ -55,6 +58,13 @@ CSS = b"""
                       border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: none; padding: 5px 12px; }
 .card button.choice:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.3); }
 .card button.choice label { color: #f2f2f2; }
+.card .avatar { background-color: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 999px; min-width: 28px; min-height: 28px; color: #f4f4f4; font-size: 8.5pt;
+                font-weight: bold; }
+.card .people .avatar { min-width: 26px; min-height: 26px; margin-right: -5px; }
+.card .who { color: #f2f2f2; font-weight: bold; }
+.card .what { color: rgba(255, 255, 255, 0.62); font-size: 9.5pt; }
+.card .when { color: rgba(255, 255, 255, 0.42); font-size: 9pt; }
 .card label link:link, .card label link:visited { color: #ffffff; }
 .card label link:hover { color: #bbbbbb; }
 """
@@ -132,7 +142,8 @@ def plain(card):
             if kind is None:
                 kind, block = line[3:].strip().lower(), []
             else:
-                said = blocks.spoken(kind, block) if kind in blocks.KINDS else \
+                said = blocks.spoken(kind, block) if kind in blocks.KINDS else _spoken_rows(block) if \
+                    kind == "rows" else _spoken_people(block) if kind == "people" else \
                     [] if kind in ("log", "git", "") else block
                 lines += [l.rstrip(".") + "." for l in said]
                 kind = None
@@ -175,6 +186,92 @@ def _table(rows):
             grid.attach(_label(_inline(cell.upper() if head and r == 0 else cell),
                                "cell-head" if head and r == 0 else "cell"), c, r, 1, 1)
     return grid
+
+
+def initials(name):
+    """"Rahul Sharma" -> "RS", "upe-stations" -> "U"."""
+    words = re.findall(r"[A-Za-z0-9]+", re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", blocks.strip(name or "")))
+    return "".join(w[0] for w in words[:2]).upper() if len(words) > 1 else (words[0][:1].upper() if words else "?")
+
+
+def _cells(line):
+    cells = [c.strip() for c in line.split("|")]
+    if len(cells) < 4:
+        cells = [""] + cells
+    return (cells + ["", "", "", ""])[:4]
+
+
+def _avatar(icon, who):
+    """Initials in a circle, a glyph ("#", "✉") in one, or a file-type badge for "file:pdf"."""
+    if icon.lower().startswith("file:"):
+        lab = Gtk.Label()
+        lab.set_markup(blocks.markup("{%s}" % icon.lower()))
+    else:
+        lab = Gtk.Label(label=icon or initials(who))
+        lab.get_style_context().add_class("avatar")
+    lab.set_valign(Gtk.Align.CENTER)
+    lab.set_halign(Gtk.Align.CENTER)
+    return lab
+
+
+def _rows(lines):
+    """A ```rows block: per line [icon |] who | what | when, as a list of people, mail, chats or files."""
+    grid = Gtk.Grid(column_spacing=10, row_spacing=7)
+    for r, line in enumerate(l for l in lines if l.strip()):
+        icon, who, what, when = _cells(line)
+        grid.attach(_avatar(icon, who), 0, r, 1, 1)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        for part, cls in ((who, "who"), (what, "what")):
+            if part:
+                lab = Gtk.Label(xalign=0)
+                lab.set_markup(_inline(part))
+                lab.set_ellipsize(Pango.EllipsizeMode.END)
+                lab.set_max_width_chars(44)
+                lab.get_style_context().add_class(cls)
+                text.pack_start(lab, False, False, 0)
+        text.set_hexpand(True)
+        text.set_valign(Gtk.Align.CENTER)
+        grid.attach(text, 1, r, 1, 1)
+        if when:
+            lab = _label(_inline(when), "when")
+            lab.set_xalign(1)
+            lab.set_valign(Gtk.Align.CENTER)
+            grid.attach(lab, 2, r, 1, 1)
+    return grid
+
+
+def _people(lines):
+    """A ```people block: a name per line (and "+3"), drawn as overlapping initials with the names as tooltips."""
+    box = Gtk.Box(spacing=0)
+    box.get_style_context().add_class("people")
+    for name in (l.strip() for l in lines if l.strip()):
+        if re.fullmatch(r"\+\d+", name):
+            more = _label(name, "when")
+            more.set_margin_start(12)
+            box.pack_start(more, False, False, 0)
+            continue
+        lab = _avatar("", name)
+        lab.set_tooltip_text(name)
+        box.pack_start(lab, False, False, 0)
+    return box
+
+
+def _spoken_rows(lines):
+    out = []
+    for line in lines:
+        _icon, who, what, when = (blocks.strip(_LINK.sub(r"\1", c)).strip() for c in _cells(line))
+        if who or what:
+            out.append(", ".join(p for p in (who, what, when) if p))
+    return out
+
+
+def _spoken_people(lines):
+    names = [l.strip() for l in lines if l.strip() and not re.fullmatch(r"\+\d+", l.strip())]
+    more = next((int(l.strip()[1:]) for l in lines if re.fullmatch(r"\+\d+", l.strip())), 0)
+    if not names:
+        return []
+    said = ", ".join(names[:-1]) + (" and " if len(names) > 1 and not more else ", " if more else "") + names[-1]
+    return ["With %s%s" % (said, " and %d more" % more if more else "")]
 
 
 def _bars(lines):
@@ -233,7 +330,8 @@ def build(text):
             while i < len(lines) and not lines[i].startswith("```"):
                 block.append(lines[i])
                 i += 1
-            chart = _bars(block) if kind == "bars" else blocks.make(kind, block)
+            chart = _bars(block) if kind == "bars" else _rows(block) if kind == "rows" else \
+                _people(block) if kind == "people" else blocks.make(kind, block)
             widgets.append(chart or _label("\n".join(block), mono=True))
         elif line.lstrip().startswith("|"):
             rows = []

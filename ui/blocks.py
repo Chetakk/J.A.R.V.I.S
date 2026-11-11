@@ -6,7 +6,7 @@
     ```stack       Disk: used 84 bad, free 28 | GB                             (one split bar per row)
     ```donut       Projects: 40  /  Downloads: 12  /  unit: GB                 (parts of a whole, with a legend)
     ```steps       done: Open VS Code | opened  /  now: Start the server  /  todo: Open it   (failed:, skipped:)
-    ```timeline    9:30 Call the bank  /  18:00 Gym                            (today's axis, a moving "now" line)
+    ```timeline    9:30 Call the bank  /  10:00-10:15 Stand-up  /  free: 10:15-11:30 1 h   (today's axis, "now" moves)
     ```heat        2026-10-31: 3.5  /  2026-11-01: 1                           (a GitHub-style grid of days)
     ```path        Computer: ok  /  Wi-Fi: ok Home  /  Router: bad no reply    (linked boxes; check pulses)
     ```screens     HDMI-0: 1920x1080 primary                                   (monitors drawn to scale)
@@ -55,7 +55,8 @@ FILES = {"pdf": "bad", "doc": "check", "docx": "check", "odt": "check", "txt": "
          "mp4": "warn", "mkv": "warn", "webm": "warn", "mov": "warn", "mp3": "warn", "wav": "warn", "flac": "warn",
          "zip": "off", "tar": "off", "gz": "off", "deb": "off", "iso": "off", "7z": "off", "xz": "off",
          "py": "check", "js": "check", "ts": "check", "json": "check", "yaml": "check", "sh": "check",
-         "xlsx": "ok", "csv": "ok", "pptx": "warn"}
+         "xlsx": "ok", "csv": "ok", "pptx": "warn", "sheet": "ok", "slides": "warn", "form": "check",
+         "gdoc": "check"}
 _WORLD = None
 _EASE = {}  # (kind, label) -> (from, to, started): rings and gauges glide to a new value
 
@@ -520,13 +521,30 @@ def _hours(s):
 
 
 def _timeline(lines):
-    events = []
-    for line in lines[:12]:
+    """"9:30 Call the bank" (a moment), "10:00-10:15 Stand-up" (a meeting, drawn as long as it runs) and
+    "free: 10:15-11:30 1 h" (a free stretch, a dashed frosted band) on today's axis, with a moving "now" line
+    ("now: off" for a day that isn't today)."""
+    events, free = [], []
+    show_now = not any(re.match(r"now:\s*off", l, re.I) for l in lines)
+    lines = [l for l in lines if not re.match(r"now:", l, re.I)]
+    for line in lines[:14]:
+        is_free = line.lower().startswith("free:")
+        line = line[5:].strip() if is_free else line
         at, end = _hours(line)
-        events.append((at, line[end:].strip(" -·")))
+        rest = line[end:]
+        until = None
+        m = re.match(r"\s*[-–]\s*(?=\d)", rest)
+        if m:
+            until, end2 = _hours(rest[m.end():])
+            rest = rest[m.end() + end2:]
+        if is_free and until is not None:
+            free.append((at, until, rest.strip(" -·")))
+        elif not is_free:
+            events.append((at, until, rest.strip(" -·")))
     now_h = lambda: (lambda t: t.tm_hour + t.tm_min / 60.0)(time.localtime())  # noqa: E731
-    lo = math.floor(min([e for e, _t in events] + [now_h()]) - 0.5)
-    hi = math.ceil(max([e for e, _t in events] + [now_h()]) + 0.5)
+    marks = [e[0] for e in events] + [e[1] for e in events if e[1] is not None] + [f[0] for f in free] + \
+        [f[1] for f in free] + ([now_h()] if show_now else [])
+    lo, hi = math.floor(min(marks) - 0.5), math.ceil(max(marks) + 0.5)
     if hi - lo < 4:
         hi = lo + 4
     lo, hi = max(0, lo), min(24, hi)
@@ -536,15 +554,20 @@ def _timeline(lines):
 
     rows = []  # label rows, so labels don't run into each other
     placed = []
-    for at, text in sorted(events):
+    for at, until, text in sorted(events, key=lambda e: e[0]):
         x = x_of(at, W)
         wl = min(150, 7 * len(text) + 40)
-        row = next((i for i, end in enumerate(rows) if end < x), None)
+        left = x - wl if W - x - 6 < min(wl, 90) else x  # near the right edge the label sits left of its line
+        row = next((i for i, end in enumerate(rows) if end < left), None)
         if row is None:
             rows.append(0)
             row = len(rows) - 1
-        rows[row] = x + wl
-        placed.append((at, text, row, wl))
+        rows[row] = left + wl
+        placed.append((at, until, text, row, wl))
+
+    def hm(h):
+        hh = int(h) % 24
+        return "%d:%02d" % ((hh - 1) % 12 + 1, round((h % 1) * 60))
 
     def draw(cr, width):
         axis = 26
@@ -562,26 +585,41 @@ def _timeline(lines):
             cr.stroke()
             _text(cr, min(max(x, 12), width - 12), 4, "%d%s" % ((h - 1) % 12 + 1, "am" if h < 12 or h == 24 else "pm"),
                   size=8, a=0.5, align="center")
-        for at, text, row, wl in placed:
+        for f0, f1, text in free:
+            x0, x1 = x_of(f0, width) + 1, x_of(f1, width) - 1
+            _rgb(cr, STATUS["ok"])  # a free stretch: thinner than a meeting, dashed, frosted
+            _round_rect(cr, x0, axis - 3, max(4, x1 - x0), 6, 3)
+            cr.fill_preserve()
+            _white(cr, 0.45)
+            cr.set_dash([3, 3])
+            cr.stroke()
+            cr.set_dash([])  # (its label, "1 h", is only read aloud: above the axis it hit the hour labels)
+        now = now_h()
+        for at, until, text, row, wl in placed:
             x = x_of(at, width)
-            _white(cr, 0.9)
-            cr.arc(x, axis, 4, 0, 2 * math.pi)
-            cr.fill()
+            if until is None:
+                _white(cr, 0.9)
+                cr.arc(x, axis, 4, 0, 2 * math.pi)
+                cr.fill()
+            else:  # a meeting: a bar as long as it runs, faded once it's over
+                _white(cr, 0.45 if until <= now else 0.9)
+                _round_rect(cr, x, axis - 6, max(4, x_of(until, width) - x), 12, 4)
+                cr.fill()
             if row >= 3:
-                continue  # crowded: a dot on the axis, no label
+                continue  # crowded: a mark on the axis, no label
             y = axis + 22 + row * 34
             _white(cr, 0.2)
-            cr.move_to(x, axis + 4)
+            cr.move_to(x, axis + 6)
             cr.line_to(x, y)
             cr.stroke()
-            hh = int(at) % 24
             room = width - x - 6
             right = room < min(wl, 90)  # too near the right edge: the label goes on the left of its line
             tx, align = (x - 4, "right") if right else (x + 4, "left")
-            _text(cr, tx, y - 2, "%d:%02d" % ((hh - 1) % 12 + 1, round((at % 1) * 60)), size=8, a=0.55, align=align)
+            when = hm(at) + (" – " + hm(until) if until is not None else "")
+            _text(cr, tx, y - 2, when, size=8, a=0.55, align=align)
             _text(cr, tx, y + 11, text, size=9, a=0.9, align=align, width=min(wl, x - 6 if right else room))
-        nx = x_of(now_h(), width)
-        if 8 <= nx <= width - 8:
+        nx = x_of(now, width)
+        if show_now and 8 <= nx <= width - 8:
             _rgb(cr, STATUS["check"], 0.9)
             cr.set_line_width(1.5)
             cr.move_to(nx, axis - 9)
