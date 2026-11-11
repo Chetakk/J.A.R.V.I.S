@@ -170,7 +170,7 @@ def eye_look(layers, r, t, beat):
     lids slanting in with a tremble, stressed small darting eyes and a sweat drop; from music, with headphones on,
     the dance and sway moves; from the computer busy squinting and scanning as if reading (straining sweats too), hot
     drooping and wobbling with a sweat drop, squeezed pressed thin and fidgety, sleepy half shut with z's; and asleep
-    (mic or voice off): closed ‿ ‿ breathing slowly."""
+    (voice off): closed ‿ ‿ breathing slowly."""
     L = dict(dx=0.0, dy=0.0, ew=1.0, eh=1.0, gap=1.0, bright=1.0, inner=0.0, outer=0.0, up=0.0, down=0.0, tilt=0.0,
              phones=0.0, drop=0.0, zz=0.0, notes=0.0)
     lift = [0.0, 0.0]

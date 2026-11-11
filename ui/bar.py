@@ -355,7 +355,7 @@ class Bar:
     def _blend(self, t, talk, around, asleep):
         """The looks the eyes show now, [(mood, strength, style)], so every change is a fade: a new dance move over
         the old one, a talk mood taking over from the music or the computer's mood and handing it back, and the eyes
-        closing when the mic or voice goes off."""
+        closing when asked to sleep."""
         dt, self._blend_t = min(0.2, t - (self._blend_t or t)), t
         self._sleep_k = min(1.0, self._sleep_k + dt / 0.5) if asleep else max(0.0, self._sleep_k - dt / 0.5)
         layers, (mood, k) = [], around
@@ -532,16 +532,16 @@ class Bar:
             self.win.queue_draw()
         state = self._state()
         idle = self.mode != "hidden" and state == "idle"
-        awake = self.music.want = idle and not self.ui._shown[2]
-        self.feeling, lively, fps = (None, 0.0), False, 0  # no feeling while the eyes are shut or busy: no old mood shows
-        if idle:  # the eyes: they blink, watch the pointer and show moods (a talk mood over the rest), or sleep
-            talk, around = self._mood_now(t) if awake else (None, 0.0), self._ambience(t)
-            self.feeling = (talk if talk[0] else around) if awake else (None, 0.0)
-            self.layers = self._blend(t, talk, around, not awake)
-            fps = self._watch(t) if awake else 0
-            if awake and self._watch_k > 0.01:  # not a mood: tells the look to hold its own darting still
+        self.music.want = idle  # a mute doesn't touch the eyes: they stay awake and animated
+        self.feeling, lively, fps = (None, 0.0), False, 0  # no feeling while the eyes are busy: no old mood shows
+        if idle:  # the eyes: they blink, watch the pointer and show moods (a talk mood over the rest)
+            talk, around = self._mood_now(t), self._ambience(t)
+            self.feeling = talk if talk[0] else around
+            self.layers = self._blend(t, talk, around, False)
+            fps = self._watch(t)
+            if self._watch_k > 0.01:  # not a mood: tells the look to hold its own darting still
                 self.layers = self.layers + [("watching", self._watch_k, None)]
-            lively = (fps or awake and (_eyes(t)[2] or bool(self.mood)) or self._ambient in MOVING
+            lively = (fps or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING
                       or 0 < self._ambient_k < 1 or 0 < self._sleep_k < 1 or t - self._style_at < 0.7)
         # Asleep or voice off, the eyes still breathe: the slow frame rate.
         every = 16 if lively and fps == 60 else 33 if busy or lively else BREATH if idle or state == "off" else None
