@@ -27,6 +27,7 @@ WAKE = os.path.join(JARVIS, "models", "wake")
 DATA = os.path.join(JARVIS, "wake-data")  # for retraining (tools/wake_train.py): never in the repo
 AFTER_NAME = 0.4  # seconds: less than this after the name is just its tail, not a command
 BEFORE_CUT = 0.1  # seconds taken back from the end of the name, so the next word keeps its start
+TWICE_WITHIN = 4.0  # seconds: "Jarvis." then "Jarvis" in the next bit of speech is the name twice too
 NAME_SECONDS = 1.2  # the bit before where the name ends that's compared with what's playing
 
 
@@ -78,6 +79,9 @@ class Ears:
         self.recorder = None
         self.show_check = bool(cfg.get("show_check", False))
         self.show = None  # ShowTap, while show_check is on
+        self.twice = bool(cfg.get("twice_while_playing", False))  # something playing: "Jarvis, Jarvis" to call
+        self.media_playing = lambda: False  # (start() sets it when twice is on)
+        self._lone_name_at = 0.0  # a name heard alone while something played: the next one within TWICE_WITHIN calls
         self.is_deaf = lambda: False  # "mute the mic": then nothing is recorded either (jarvis.py sets it)
 
     @property
@@ -105,6 +109,9 @@ class Ears:
             self.recorder = MediaRecorder(os.path.join(DATA, "media"), self.media_minutes,
                                           lambda: not self.is_deaf() and something_playing())
             self.recorder.start()
+        if self.twice:
+            from skills.media import something_playing
+            self.media_playing = something_playing
         if self.show_check and not self.show:
             from skills.media import something_playing
             self.show = ShowTap(lambda: not self.is_deaf() and something_playing())
@@ -203,6 +210,16 @@ class Ears:
         end = (8 * (hits[0] + 15) + 76) * 160 - lead - int(BEFORE_CUT * RATE)  # (mel frames are 10 ms)
         return int(min(max(end, 0), len(x)))
 
+    def _second_name(self, pcm, end):
+        """Where a second name right after the first (ending at `end`) ends, in samples; None if there's none.
+        On your clips: "Jarvis Jarvis" in one breath found 112/120, a single "Jarvis" taken for two 2/154."""
+        start = end + int(BEFORE_CUT * RATE)  # (end has BEFORE_CUT taken off: the first name's own tail)
+        rest = pcm[start * 2:]
+        if len(rest) < AFTER_NAME * RATE * 2:
+            return None
+        more = self.name_end(rest, self.cutoff)
+        return None if more is None else start + more
+
     def _hear(self, pcm, plain=False):
         """(text, confidence) from the transcriber. plain: ordinary speech to type, so Whisper gets no hint."""
         with self._lock:
@@ -239,6 +256,15 @@ class Ears:
         end = self.name_end(pcm, self.strict if command else self.cutoff)
         if end is None:
             return self._words(pcm) if command else ""
+        if not command and self.media_playing():
+            second = self._second_name(pcm, end)
+            if second is not None:
+                end = second
+            elif time.time() - self._lone_name_at > TWICE_WITHIN:
+                self._lone_name_at = time.time()
+                print("[ears] something's playing: the name once isn't a call, say it twice")
+                return ""
+            self._lone_name_at = 0.0
         if not command and self.show and self.show.is_show(pcm[max(0, end - int(NAME_SECONDS * RATE)) * 2:end * 2]):
             print("[ears] the name came from what's playing, not from you: not a call")
             return ""

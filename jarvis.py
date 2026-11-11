@@ -1680,7 +1680,8 @@ def run_loop(jarvis, has_ui):
                 if not something_playing():
                     jarvis.follow_up()  # your reply to it, without the name
                 elif jarvis.ui:
-                    jarvis.ui.hint("Music's on: say \u201cJarvis\u201d first")
+                    jarvis.ui.hint("Music's on: say \u201cJarvis, Jarvis\u201d first" if getattr(jarvis.whisper, "twice", False)
+                                   else "Music's on: say \u201cJarvis\u201d first")
             continue
         if kind == "task":  # the next step of a task (skills/tasks.py): one per turn, so a pause gets in between
             jarvis.state("thinking")
@@ -1721,7 +1722,8 @@ def run_loop(jarvis, has_ui):
             if kind in ("voice", "follow", "again"):
                 print("[wake] something is playing: say my name for the next request")
                 if jarvis.ui:  # (no follow-up window: what you say next without the name goes unheard)
-                    jarvis.ui.hint("Music's on: say \u201cJarvis\u201d first")
+                    jarvis.ui.hint("Music's on: say \u201cJarvis, Jarvis\u201d first" if getattr(jarvis.whisper, "twice", False)
+                                   else "Music's on: say \u201cJarvis\u201d first")
         elif kind in ("voice", "again") or (kind == "follow" and not jarvis.ignored):
             jarvis.follow_up()  # "what's the weather?" next, without the name
         elif kind == "follow":

@@ -63,6 +63,7 @@ ears:
   parakeet_model: ~/.local/share/jarvis/models/parakeet/ggml-parakeet-tdt-0.6b-v2-q8_0.bin
   name_check: true          # words: whisper only. Whisper listens again to what woke it: no name heard = not a call. Shows,
                             # other people and Hindi talk woke it ~3 times in 10; Whisper heard the name in none. ~0.25 s a wake-up
+  twice_while_playing: true # while a show or song plays, "Jarvis, Jarvis" calls (once is the show's word); nothing playing: once
   show_check: true          # while a show or song plays here, a wake-up that's the show's own sound coming back through
                             # the speaker isn't a call (as JARVIS knows its own voice); "[ears] show sound" lines are for tuning
   wake_cutoff: 0.98         # lower = wakes more easily, and more often when nobody called it

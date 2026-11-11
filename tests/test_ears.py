@@ -492,3 +492,34 @@ def test_a_name_the_show_said_is_dropped_before_parakeet(monkeypatch):
     e.show = type("Show", (), {"is_show": lambda self, pcm: True})()
     assert e.transcribe(LOUD) == "" and not e.parakeet_calls
     assert ears(monkeypatch, 16000).transcribe(LOUD) == "Jarvis, open youtube"  # (no show check: as before)
+
+
+def _playing(monkeypatch, ends):
+    """Ears with something playing, and the name ending at each of `ends` in turn (None: no more names)."""
+    e = ears(monkeypatch, None)
+    found = iter(ends)
+    monkeypatch.setattr(e, "name_end", lambda pcm, cutoff: next(found, None))
+    e.media_playing = lambda: True
+    return e
+
+
+def test_while_something_plays_the_name_once_is_not_a_call(monkeypatch):
+    e = _playing(monkeypatch, [16000, None])
+    assert e.transcribe(LOUD) == "" and not e.parakeet_calls
+
+
+def test_while_something_plays_the_name_twice_calls_and_the_command_follows_the_second(monkeypatch):
+    e = _playing(monkeypatch, [8000, 6400])
+    assert e.transcribe(b"\x01\x10" * 48000) == "Jarvis, open youtube"
+    assert e.parakeet_calls == [(b"\x01\x10" * 48000)[(8000 + 1600 + 6400) * 2:]]  # only what came after the second
+
+
+def test_the_name_then_the_name_again_in_the_next_breath_calls(monkeypatch):
+    e = _playing(monkeypatch, [16000, None, 16000, None, 16000, None])
+    assert e.transcribe(LOUD) == ""
+    assert e.transcribe(LOUD) == "Jarvis, open youtube"
+    assert e.transcribe(LOUD) == ""  # (that pair is used up: a new call needs two again)
+
+
+def test_nothing_playing_the_name_once_calls(monkeypatch):
+    assert ears(monkeypatch, 16000).transcribe(LOUD) == "Jarvis, open youtube"
