@@ -491,7 +491,7 @@ class Card:
         _load_css()
         w = self.win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         _make_transparent(w)
-        w.connect("draw", lambda widget, cr: _clear(cr) or False)
+        w.connect("draw", self._draw_glass)
         w.set_decorated(False)
         w.set_keep_above(True)
         w.set_skip_taskbar_hint(True)
@@ -549,6 +549,17 @@ class Card:
         inner.pack_start(self.buttons, False, False, 0)
         w.add(outer)
         w.set_size_request(CARD_W, -1)
+
+    @staticmethod
+    def _draw_glass(widget, cr):
+        """Clear the window for the glass. GTK drops the glass's top sheen when only part of the card repaints (the
+        pin or × on hover, "now" turning "1 min ago"), leaving a dark box there, so a part repaint asks for a whole one."""
+        _clear(cr)
+        x0, y0, x1, y1 = cr.clip_extents()
+        a = widget.get_allocation()
+        if x0 > 0 or y0 > 0 or x1 < a.width or y1 < a.height:
+            widget.queue_draw()
+        return False
 
     def _hit(self, widget, ev):
         """A click on a drawn block: say the phrase it has there (the music card's heart)."""
