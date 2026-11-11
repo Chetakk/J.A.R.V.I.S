@@ -71,3 +71,21 @@ def test_the_apology_skips_thinking_and_goes_on_the_answer():
     assert s.last == "Sorry about that. Bios is the firmware settings screen."
     s.say("Anything else?")
     assert s.last == "Anything else?"  # once
+
+
+# --- short answers in a follow-up ---
+
+def test_no_no_no_in_a_follow_up_is_answered(jv):
+    jv.j.handle("No no no no no.", follow_up=True)
+    assert jv.says("leave it") or jv.says("leaving it")
+    assert not jv.j.ignored
+
+
+def test_yeah_no_is_a_no(jv):
+    jv.j.handle("Yeah, no.", follow_up=True)
+    assert jv.said
+
+
+def test_mm_is_still_quiet_noise(jv):
+    jv.j.handle("Mm.", follow_up=True)
+    assert not jv.said and jv.j.ignored

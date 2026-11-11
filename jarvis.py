@@ -626,6 +626,11 @@ class Jarvis:
         # In a conversation (a follow-up, no name needed) everything you say is meant for JARVIS, so it
         # goes through like any request. Only empty noise ("uh", a cough) is dropped, quietly.
         if follow_up and not worth_asking(text, self.names):
+            if re.search(r"\b(?:no|nope|nah)\b", low):  # "No no no", "Yeah, no.": about what it just did, not noise
+                self.heard(text, "a no to what I just did")
+                self.speaker.say("Okay. Say undo that to reverse it." if self.last_undo else
+                                 ["Okay, I'll leave it.", "Alright, leaving it."])
+                return True
             self.heard(text, "ignored (just noise)")
             self.recent.append("JARVIS ignored that (just noise)")
             self.ignored = True
