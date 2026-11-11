@@ -182,7 +182,12 @@ OPEN_QUESTION = re.compile(r"^(?:who|whom|whose|why|explain|describe|define|comp
                            r"what (?:is|are|was|were|does|do) (?:a|an|the)\b|how (?:do|does|did|can|could|should|"
                            r"would|to)\b)|\b(?:in|at) (?!a\b|the\b|my\b)[a-z]+$|\b(?:yesterday|last (?:week|month|year))\b",
                            re.IGNORECASE)
-SPLIT = re.compile(r",? (?:and then|and also|and after that|after that|then|and) |, ", re.IGNORECASE)
+_SENTENCE = r"(?<!\bMr\.)(?<!\bDr\.)(?<!\bMs\.)(?<!\bSt\.)(?<!\bMrs\.)(?<=[.!?]) +"  # "Open Chrome. Play music." ("Mr. Bean" isn't two)
+SPLIT = re.compile(r",? (?:and then|and also|and after that|after that|then|and) |, |" + _SENTENCE, re.IGNORECASE)
+STRONG = re.compile(_SENTENCE)
+# "First open Chrome", "One, play music", "Also mute it": the counting isn't part of the request
+LEAD = re.compile(r"^(?:(?:first(?:ly)?|second(?:ly)?|third(?:ly)?|finally|lastly|also|then|and)\b[\s,:]*)+", re.IGNORECASE)
+COUNTING = re.compile(r"(?:^|(?<=[.!?] ))(?:number )?(?:one|two|three|four)[,:.]\s*", re.IGNORECASE)
 UNSURE = 0.10  # this far below the matcher's threshold (0.62 at 0.72), a guess is asked about (real questions lower)
 YES = re.compile(r"^\W*(y|yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|correct)\b", re.IGNORECASE)
 NO = re.compile(r"^\W*(?:no|nope|nah|not that|neither|wrong)\b", re.IGNORECASE)
@@ -1265,13 +1270,22 @@ class Jarvis:
         Only when every part is understood without Claude: "add bread and milk to my list" is one request."""
         if self._splitting or self._rewording or self.from_claude:
             return None
-        parts = [p.strip(" ,.") for p in SPLIT.split(text) if p.strip(" ,.")]
-        if not 2 <= len(parts) <= 4 or not all(self.understands(p) for p in parts):
-            return None
-        return parts
+        text = COUNTING.sub("", text)
+        parts = [LEAD.sub("", p.strip(" ,.")) for p in SPLIT.split(text) if p.strip(" ,.")]
+        if 2 <= len(parts) <= 4 and all(self.understands(p) for p in parts):
+            return parts
+        # "Open Chrome. Then what's a good name for a cat?": the parts JARVIS knows are done at once, only the rest
+        # goes to Claude. Only between sentences: "find X, then mail it" is one plan for Claude, and a bare "and"
+        # may be a list ("bread and milk").
+        parts = [LEAD.sub("", p.strip(" ,.")) for p in STRONG.split(text) if p.strip(" ,.")]
+        known = [self.understands(p, loose=False) for p in parts]  # (a close-enough meaning isn't sure enough here)
+        if 2 <= len(parts) <= 4 and any(known) and all(k or worth_asking(p, self.names) for p, k in zip(parts, known)):
+            return parts
+        return None
 
-    def understands(self, text):
-        """Would JARVIS handle `text` itself (no Claude)? Checks the same steps as handle(), running nothing."""
+    def understands(self, text, loose=True):
+        """Would JARVIS handle `text` itself (no Claude)? Checks the same steps as handle(), running nothing.
+        loose=False: not by a match of meaning ("work out a sum" is close to something, but isn't it)."""
         t = text.strip().rstrip("?.!")
         low = t.lower()
         if low in CHAT_PHRASES or low in OPEN_CLAUDE or low in OPEN_CLAUDE_VSCODE or undo.UNDO.match(t):
@@ -1287,7 +1301,7 @@ class Jarvis:
             return True
         if self.browser.parse(t):
             return True
-        return bool(self.intents and self.intents.match(t)[0])
+        return bool(loose and self.intents and self.intents.match(t)[0])
 
     def _reword(self, phrase):
         self.understood(phrase)

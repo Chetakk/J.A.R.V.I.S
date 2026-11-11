@@ -102,3 +102,30 @@ def test_a_terminal_summary_is_said_at_once(jv):
 def test_a_card_or_phrase_still_goes_to_the_main_loop(jv):
     jv.j._message({"do": "open youtube"})
     assert jv.j.inbox.get_nowait() == ("ctl", {"do": "open youtube"})
+
+
+# --- several requests in one go ---
+
+def test_sentences_and_counting_are_split(jv):
+    assert jv.j._split("Open YouTube. Turn the volume down.") == ["Open YouTube", "Turn the volume down"]
+    assert jv.j._split("First open youtube, then turn the volume down") == ["open youtube", "turn the volume down"]
+    assert jv.j._split("One, open youtube. Two, volume up.") == ["open youtube", "volume up"]
+
+
+def test_known_parts_dont_wait_for_claude(jv):
+    # One part needs Claude: the others are still done by JARVIS itself, and Claude only gets its own part.
+    assert jv.j._split("Open YouTube. Then what's a good name for a cat?") == [
+        "Open YouTube", "what's a good name for a cat?"]
+    jv.do("Open YouTube. Then what's a good name for a cat?")
+    asked = jv.claude.asked()
+    assert len(asked) == 1 and "cat" in asked[0] and "User now says: Open YouTube" not in asked[0]
+    assert jv.shell.ran("youtube")
+
+
+def test_lists_stay_whole(jv):
+    assert jv.j._split("add bread and milk to my list") is None
+    assert jv.j._split("play Mr. Bean on youtube") is None
+
+
+def test_a_then_chain_with_an_unknown_part_stays_one_plan(jv):
+    assert jv.j._split("work out a sum, then delete old.txt please") is None
