@@ -40,9 +40,14 @@ gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 W = 432  # a card's drawing width (CARD_W less its padding)
-STATUS = {"ok": (0.42, 0.80, 0.56), "warn": (0.96, 0.74, 0.33), "bad": (0.94, 0.42, 0.40),
-          "off": (0.55, 0.55, 0.55), "check": (0.55, 0.72, 0.95)}
-HEX = {k: "#%02x%02x%02x" % tuple(round(c * 255) for c in v) for k, v in STATUS.items()}
+# ok = frosted white (free / done), warn = crimson #CC0033 (needs you), bad = midnight indigo #0B0F19
+# (cancelled / overdue), check = electric cyan #00F2FE (now / new). A 4th value is the colour's own opacity.
+STATUS = {"ok": (1.0, 1.0, 1.0, 0.15), "warn": (0.80, 0.0, 0.20), "bad": (0.043, 0.059, 0.098),
+          "off": (0.55, 0.55, 0.55), "check": (0.0, 0.949, 0.996)}
+SUN = (0.96, 0.74, 0.33)  # the weather sun and lightning keep their yellow: pictures, not a status
+HEX = {k: "#%02x%02x%02x" % tuple(round(c * 255) for c in v[:3]) for k, v in STATUS.items()}
+FG = {k: 'foreground="%s"' % HEX[k] + (' fgalpha="%d%%"' % round(v[3] * 100) if len(v) > 3 else "")
+      for k, v in STATUS.items()}  # Pango markup for text in that colour
 SHADES = (0.92, 0.62, 0.42, 0.30, 0.22, 0.16)  # white at these strengths, for parts of a whole
 FAINT = ("free", "left", "other", "idle", "rest", "unused", "available", "remaining")
 FILES = {"pdf": "bad", "doc": "check", "docx": "check", "odt": "check", "txt": "off", "md": "off",
@@ -57,10 +62,17 @@ _EASE = {}  # (kind, label) -> (from, to, started): rings and gauges glide to a 
 
 def markup(s):
     """{ok} … {check} dots and {file:pdf} badges in already-escaped Pango markup."""
-    s = re.sub(r"\{(ok|warn|bad|off|check)\}", lambda m: '<span foreground="%s">●</span>' % HEX[m.group(1)], s)
-    return re.sub(r"\{file:([A-Za-z0-9]{1,5})\}", lambda m: '<span background="%s" foreground="#15171a" '
-                  'size="small" weight="bold"> %s </span>' % (HEX[FILES.get(m.group(1).lower(), "off")],
-                                                              m.group(1).upper()), s)
+    s = re.sub(r"\{(ok|warn|bad|off|check)\}", lambda m: '<span %s>●</span>' % FG[m.group(1)], s)
+    return re.sub(r"\{file:([A-Za-z0-9]{1,5})\}", lambda m: _badge(FILES.get(m.group(1).lower(), "off"), m.group(1)), s)
+
+
+def _badge(state, ext):
+    """A file-type badge: the extension on its status colour; white letters where dark ones wouldn't read."""
+    v = STATUS[state]
+    alpha = ' bgalpha="%d%%"' % round(v[3] * 100) if len(v) > 3 else ""
+    ink = "#15171a" if sum(v[:3]) / 3 > 0.5 and len(v) == 3 else "#ffffff"
+    return '<span background="%s"%s foreground="%s" size="small" weight="bold"> %s </span>' % (
+        HEX[state], alpha, ink, ext.upper())
 
 
 def strip(s):
@@ -125,7 +137,7 @@ def _coloured(kind, lines):
                      "D ": "bad", "R ": "check", "UU": "bad"}.get(code)
             if line.startswith("##"):
                 esc = '<span alpha="60%%">%s</span>' % esc
-        out.append('<span foreground="%s">%s</span>' % (HEX[state], esc) if state else esc)
+        out.append('<span %s>%s</span>' % (FG[state], esc) if state else esc)
     lab = Gtk.Label(xalign=0, selectable=True)
     lab.set_markup("\n".join(out))
     lab.get_style_context().add_class("mono")
@@ -135,7 +147,7 @@ def _coloured(kind, lines):
 # --- drawing helpers ---
 
 def _rgb(cr, rgb, a=1.0):
-    cr.set_source_rgba(rgb[0], rgb[1], rgb[2], a)
+    cr.set_source_rgba(rgb[0], rgb[1], rgb[2], a * (rgb[3] if len(rgb) > 3 else 1))
 
 
 def _white(cr, a=1.0):
@@ -755,7 +767,7 @@ def _sky(code):
 def _icon(cr, kind, cx, cy, s):
     """A sky icon s pixels wide, centred on cx, cy."""
     def sun(x, y, r, rays=True):
-        _rgb(cr, STATUS["warn"])
+        _rgb(cr, SUN)
         cr.arc(x, y, r, 0, 2 * math.pi)
         cr.fill()
         if rays:
@@ -809,7 +821,7 @@ def _icon(cr, kind, cx, cy, s):
                 cr.arc(cx - s * 0.2 + k * s * 0.2, cy + s * 0.3, s * 0.04, 0, 2 * math.pi)
                 cr.fill()
         elif kind == "storm":
-            _rgb(cr, STATUS["warn"])
+            _rgb(cr, SUN)
             cr.move_to(cx + s * 0.04, cy + s * 0.1)
             cr.line_to(cx - s * 0.08, cy + s * 0.3)
             cr.line_to(cx + s * 0.02, cy + s * 0.3)
