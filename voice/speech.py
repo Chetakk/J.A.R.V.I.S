@@ -1,7 +1,6 @@
 """Text-to-speech. Piper stays running with the voice loaded, so each reply starts instantly."""
 import collections
 import difflib
-import functools
 import json
 import os
 import random
@@ -36,36 +35,6 @@ def _like(word, said):
     ratio = lambda other: difflib.SequenceMatcher(None, word, other).ratio()
     near = max((w for w in said if not w.isdigit()), key=ratio, default=None)
     return near if near and ratio(near) >= 0.6 else word
-
-
-_espeak = None  # espeak's word -> IPA, loaded on first use; False if it can't load
-_espeak_lock = threading.Lock()
-
-
-@functools.lru_cache(maxsize=64)
-def _sounds(text):
-    """How `text` sounds: espeak's IPA word by word, stress and length marks dropped ("" without espeak)."""
-    global _espeak
-    with _espeak_lock:
-        if _espeak is None:
-            try:
-                _espeak = kokoro._espeak()
-            except (OSError, RuntimeError):
-                _espeak = False
-        return "".join(re.sub(r"[ˈˌːˑ\s_-]", "", _espeak(w)) for w in _words(text)) if _espeak else ""
-
-
-def _sounds_like(heard, said):
-    """Share of `heard`'s sounds found, in order, in one stretch of `said` about as long as it ("the new Aced2D"
-    for "the newest to-do"). One stretch: short sounds scattered over a long line made "No no no no no" match."""
-    h, s = _sounds(heard), _sounds(said)
-    if not h:
-        return 0.0
-    n, best = int(len(h) * 1.3) + 2, 0.0
-    for at in range(0, max(1, len(s) - n + 5), 4):
-        blocks = difflib.SequenceMatcher(None, h, s[at:at + n], autojunk=False).get_matching_blocks()
-        best = max(best, sum(b.size for b in blocks if b.size >= 3) / len(h))  # (single sounds match anything)
-    return best
 
 
 def pick(text):
@@ -227,8 +196,7 @@ class Speaker:
         (still) playing, and 90% of its words match, in order, one thing JARVIS just said (or a piece of it).
         Not all its words pooled together: common words like "just", "it", "that" made your own sentences match.
         While its audio is still playing, a misheard word counts too ("Clones Text Editor" for "Closing Text Editor"),
-        and 80% is enough: Whisper adds a word ("Opening the project folder and"). A longer line is also matched
-        by sound then, for words Whisper garbled past spelling."""
+        and 80% is enough: Whisper adds a word ("Opening the project folder and")."""
         if started_at > self._ends_at() + 1.0:
             return False  # began well after JARVIS finished: that's you
         words = _words(heard)
@@ -241,8 +209,6 @@ class Speaker:
             blocks = difflib.SequenceMatcher(None, heard_words, said, autojunk=False).get_matching_blocks()
             if sum(b.size for b in blocks) / len(words) >= (0.8 if playing else 0.9):
                 return True
-            if playing and len(words) >= 5 and _sounds_like(heard, text) >= 0.75:
-                return True  # misheard past its words: "Got it. The new Aced2D is work2" for "the newest to-do is Web 2"
         return False
 
     def said_lately(self):

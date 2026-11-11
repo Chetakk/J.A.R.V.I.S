@@ -197,21 +197,3 @@ def test_the_tail_of_a_long_answer_is_still_its_echo():
     s._busy_until = time.time() - 35  # finished long ago: words like it are yours
     assert not s.said_lately()
 
-
-def test_an_echo_garbled_past_its_words_is_caught_by_sound():
-    """Seen in the log: Whisper turned its own lines into words that didn't match, and they went to Claude."""
-    for heard, said in (("Got it. The new Aced2D is work2, not Jarvis. Wait2. What with the market done?",
-                         "Got it, the newest to-do is Web 2, not JARVIS wake 2. Want me to mark it done?"),
-                        ("The newest is Jarvis Web 2.", "You have 15 open todos, they're on the card. The newest is JARVIS wake 2."),
-                        ("Sorry about that. Nonvo One.", "Sorry about that. Number one.")):
-        assert _speaker(-1, said).is_echo(heard, time.time() - 0.5), heard
-
-
-def test_your_own_lines_while_it_talks_are_not_taken_by_sound():
-    """Your real lines from the log, against what JARVIS was saying: none sound like its line."""
-    for heard, said in (("Take me to the browser.", "Got it, the newest to-do is Web 2, not JARVIS wake 2. Want me to mark it done?"),
-                        ("No no no no no.", "It's Wednesday 11 November. 15 open to-dos, the newest is JARVIS wake 2."),
-                        ("Did you mean Seda? Yes.", "Did you mean save that?"),
-                        ("Show me in the card as a selection list.", "Here's your to-do list as a selection card."),
-                        ("Mark all of them done.", "Marking all 15 done would wipe your whole list, so I won't do that by voice.")):
-        assert not _speaker(-1, said).is_echo(heard, time.time() - 0.5), heard
