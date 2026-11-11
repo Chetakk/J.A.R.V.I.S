@@ -109,7 +109,7 @@ class PushToTalk:
     key down and again on key up, toggling the chat's dictation on and off.
     """
 
-    def __init__(self, cfg, on_audio, on_listen=None):
+    def __init__(self, cfg, on_audio, on_listen=None, on_mute=None):
         key_name = cfg.get("key", "right_ctrl").replace("right_", "").replace("left_", "")
         side = "_r" if cfg.get("key", "right_ctrl").startswith("right_") else "_l"
         self.key = getattr(keyboard.Key, key_name + side, None) or getattr(keyboard.Key, key_name)
@@ -117,6 +117,8 @@ class PushToTalk:
         self.pass_through_titles = [w.lower() for w in cfg.get("pass_through_titles") or []]
         self.on_audio = on_audio
         self.on_listen = on_listen or (lambda active: None)
+        self.on_mute = on_mute  # the key + M: mute / unmute JARVIS's mic
+        self._down = False
         self.recorder = Recorder()
         self._recording_since = None
         self.ended = 0.0  # when the last recording stopped
@@ -168,6 +170,7 @@ class PushToTalk:
 
     def _press(self, key):
         if key == self.key:
+            self._down = True
             if self.recording or self._dictating:
                 return
             if self.dictation_keys and self._focused_window_wants_key():
@@ -181,6 +184,12 @@ class PushToTalk:
             self.on_listen(True)
             beep()
             self.recorder.start()
+        elif self._down and self.on_mute and getattr(key, "char", None) in ("m", "M"):
+            if self.recording:  # (not a request: the bit of recording so far is dropped)
+                self.recording = False
+                self.recorder.stop()
+                self.on_listen(False)
+            self.on_mute()
         elif self.recording:
             # Another key while holding it: it's a shortcut like Ctrl+C, not push-to-talk.
             self.recording = False
@@ -219,6 +228,8 @@ class PushToTalk:
         return wrapper
 
     def _release(self, key):
+        if key == self.key:
+            self._down = False
         if key == self.key and self._dictating:
             self._dictating = False
             self.ended = time.time()

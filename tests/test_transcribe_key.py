@@ -127,3 +127,20 @@ def test_a_long_clip_gets_the_full_window_or_whisper_stalls(monkeypatch):
 
 def test_a_short_clip_keeps_the_fast_small_window(monkeypatch):
     assert b'name="audio_ctx"' not in _sent(monkeypatch, 5)
+
+
+def test_right_ctrl_and_m_mutes_and_unmutes_the_mic(monkeypatch):
+    p, got, _ = _key(monkeypatch, _settings("push_to_talk"))
+    toggles = []
+    p.on_mute = lambda: toggles.append(1)
+    m = types.SimpleNamespace(char="m")
+    p._press("ctrl_r")
+    p._press(m)
+    assert toggles == [1] and not p.recording  # (what was recorded so far is dropped, never sent)
+    p._release(m)
+    p._release("ctrl_r")
+    p._press(m)  # M alone is just typing
+    assert toggles == [1] and got == []
+    p._press("ctrl_r")
+    p._press(m)
+    assert toggles == [1, 1]

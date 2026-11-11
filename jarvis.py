@@ -1589,9 +1589,10 @@ def start_voice(jarvis, whisper):
         jarvis.state("listening" if active else jarvis.rest)
 
     ptt_cfg = jarvis.settings.get("push_to_talk") or {}
-    ptt = PushToTalk(ptt_cfg, on_audio, on_listen=on_listen)
+    ptt = PushToTalk(ptt_cfg, on_audio, on_listen=on_listen,  # Right Ctrl + M: mute / unmute the mic, as the tray does
+                     on_mute=lambda: jarvis.inbox.put(("text", "/mute mic %s" % ("off" if jarvis.deaf else "on"))))
     ptt.start()
-    print("[voice] Push-to-talk ready: hold %s and speak." % ptt_cfg.get("key", "right_ctrl"))
+    print("[voice] Push-to-talk ready: hold %s and speak (with M: mute / unmute the mic)." % ptt_cfg.get("key", "right_ctrl"))
 
     def on_transcribe(pcm):
         jarvis.state("thinking")
