@@ -20,7 +20,7 @@ import numpy as np
 import onnxruntime as ort
 
 from voice.stt import MIN_PEAK, RATE, Whisper, _clean, _peak
-from voice.wake import split_name
+from voice.wake import STOP, split_name
 
 JARVIS = os.path.expanduser("~/.local/share/jarvis")
 WAKE = os.path.join(JARVIS, "models", "wake")
@@ -155,21 +155,22 @@ class Ears:
             self._asleep = self.ready = False
 
     def _named(self, pcm):
-        """Does Whisper hear the name in what woke the wake model? Yes when there's no checker, or it isn't up yet:
-        a real call must never be lost to a checker that's loading or was unloaded while idle."""
+        """What Whisper heard in what woke the wake model, if it heard the name; None if it didn't: not a call.
+        "" when there's no checker, or it isn't up yet: a real call must never be lost to a checker that's loading
+        or was unloaded while idle."""
         if not self.checker:
-            return True
+            return ""
         if not self.checker._ping():
             threading.Thread(target=self._load, daemon=True).start()  # back for the command that follows
-            return True
+            return ""
         try:
             text = self.checker.transcribe(pcm)
         except Exception:
-            return True
+            return ""
         if split_name(text, self.names)[0]:
-            return True
+            return text
         print("[ears] the wake model heard the name, Whisper didn't (%r): not a call" % text)
-        return False
+        return None
 
     def _ping(self):
         return self._asleep or self._alive()
@@ -231,7 +232,8 @@ class Ears:
         end = self.name_end(pcm, self.strict if command else self.cutoff)
         if end is None:
             return self._words(pcm) if command else ""
-        if not command and not self._named(pcm):
+        checked = "" if command else self._named(pcm)
+        if checked is None:
             return ""
         rest = pcm[end * 2:]
         if len(rest) >= AFTER_NAME * RATE * 2:
@@ -239,6 +241,10 @@ class Ears:
         else:
             threading.Thread(target=self._load, daemon=True).start()  # so it's awake by the time the command comes
             text = "Jarvis."
+        # "Thank you, Jarvis" / "Jarvis, thanks": words before the name, or under AFTER_NAME after it, aren't kept, and
+        # "Thanks." alone is dropped as Whisper's invention, so it woke and waited. Whisper's check heard the thanks.
+        if checked and not split_name(text, self.names)[1] and STOP.match(split_name(checked, self.names)[1]):
+            text = checked
         if not command and self.keep_hits:
             self.keep_hit(pcm, text)
         return text

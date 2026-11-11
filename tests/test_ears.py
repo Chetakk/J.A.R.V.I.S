@@ -422,6 +422,20 @@ def test_a_wake_up_whisper_hears_the_name_in_goes_through(monkeypatch):
     assert checked(monkeypatch, "Jarvis, open YouTube.").transcribe(LOUD) == "Jarvis, open youtube"
 
 
+def test_thanks_around_the_name_alone_is_passed_on(monkeypatch):
+    """Seen in the log: "Thank you, Jarvis." and a quick "Jarvis, thanks" woke it as "Jarvis." and it waited."""
+    for heard in ("Thank you Jarvis.", "Jarvis thanks."):
+        e = checked(monkeypatch, heard)
+        monkeypatch.setattr(e, "name_end", lambda pcm, cutoff: 16000 * 2 - 100)  # nothing kept after the name
+        assert e.transcribe(LOUD) == heard
+    e = checked(monkeypatch, "Jarvis, thanks.")
+    monkeypatch.setattr(e, "_hear", lambda pcm, plain=False: ("", 0.0))  # "Thanks." alone: dropped as made up
+    assert e.transcribe(LOUD) == "Jarvis, thanks."
+    e = checked(monkeypatch, "Boys Jarvis.")  # anything else before the name is still just the name
+    monkeypatch.setattr(e, "name_end", lambda pcm, cutoff: 16000 * 2 - 100)
+    assert e.transcribe(LOUD) == "Jarvis."
+
+
 def test_a_checker_that_is_not_up_never_loses_a_call(monkeypatch):
     e = checked(monkeypatch, "nothing", up=False)
     loads = []
