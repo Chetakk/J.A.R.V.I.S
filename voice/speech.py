@@ -212,8 +212,13 @@ class Speaker:
         return False
 
     def said_lately(self):
-        """What JARVIS said in the last 30 s: what its echo can still come back as."""
-        return [text for when, text in self.history if when > time.time() - 30]
+        """What JARVIS said in the last 30 s: what its echo can still come back as. The latest line counts until
+        30 s after it finished playing: a long answer's tail comes back more than 30 s after it was said."""
+        now = time.time()
+        lines = [text for when, text in self.history if when > now - 30]
+        if self.history and not lines and self._ends_at() > now - 30:
+            lines.append(self.history[-1][1])
+        return lines
 
     def listen_inbox(self):
         """Speak lines other programs (e.g. the Claude terminal's hook) write to the inbox pipe."""

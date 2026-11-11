@@ -182,3 +182,12 @@ def test_a_misheard_echo_just_after_it_stopped_is_still_its_voice():
     word for word, "They" and "news" didn't match, and it went to Claude as your answer."""
     s = _speaker(0.5, "I didn't catch that, sir. Do you want me to mark the newest to-do, Web 2, done?")
     assert s.is_echo("I didn't catch that. They want you to mark the news to do.", time.time() - 0.2)
+
+
+def test_the_tail_of_a_long_answer_is_still_its_echo():
+    """A long Claude answer said 40 s ago and still playing: its tail mustn't go back to Claude as your words."""
+    s = _speaker(-2, "Here is the plan. " * 3 + "First we measure the delay, then we feed the echo canceller.")
+    s.history = collections.deque([(time.time() - 40, s.history[0][1])])
+    assert s.is_echo("then we feed the echo canceller", time.time() - 1)
+    s._busy_until = time.time() - 35  # finished long ago: words like it are yours
+    assert not s.said_lately()
