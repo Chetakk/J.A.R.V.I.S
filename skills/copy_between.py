@@ -56,8 +56,8 @@ class CopyBetween(Skill):
 
     def move(self, m):
         win, app = target(self.j, m.group("to"))
-        if not (win or app):
-            return False  # "send this to my phone": no window by that name
+        if not (win or app) or (win and "nautilus" in win.wm_class.lower()):
+            return False  # "send this to my phone": no window by that name; "copy it to documents": a file copy
         text = self._source(m, paste=m.group("verb").lower() == "paste")
         if text is not None:
             self._paste(text, win, app, m.group("verb").lower() == "send")

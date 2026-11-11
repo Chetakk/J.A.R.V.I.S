@@ -1,6 +1,7 @@
 """Files: "open my latest download", "find my resume", "what did I download today", "open the pdf I downloaded
 this morning", "open file ~/Downloads/x.pdf", "find pdfs from last week", "what files did I change today",
-"show the .py files in projects from yesterday", "open the projects folder". "Find my tax papers" with no name matching looks by meaning
+"show the .py files in projects from yesterday", "open the projects folder", "open resume.pdf", "open my resume",
+"open it", "where is the ai supervisor folder", "which folder is resume.pdf in", "how big is this file". "Find my tax papers" with no name matching looks by meaning
 (the names of the files in your own folders, never what's in them).
 
 It also reads out what's in a folder ("what folders do we have in projects", "what's in the temp folder"), and
@@ -14,6 +15,7 @@ import datetime
 import os
 import re
 import shlex
+import subprocess
 import time
 import urllib.parse
 
@@ -53,6 +55,7 @@ PLACES = dict({f.lower(): os.path.join(HOME, f) for f in FOLDERS}, home=HOME, pr
 FRESH = 10 * 60  # "it" is the file JARVIS last found or opened for this long
 last = {"paths": [], "at": 0.0}  # files JARVIS last found, for "summarise it", "rename it"
 listing = {"paths": [], "at": 0.0}  # what it last listed or opened, in order, for "the first folder"
+opened = {"path": None, "at": 0.0}  # the folder JARVIS last opened, for "make a folder here"
 
 
 class Files(Skill):
@@ -63,7 +66,8 @@ class Files(Skill):
                "open my latest download", "open the latest file in documents", "find pdfs from last week",
                "what files did I change today", "what folders are in <folder>", "what's in the <folder> folder",
                "open the first folder (one of the ones just listed)",
-               "open the second one (one of the ones just listed)")
+               "open the second one (one of the ones just listed)", "open resume.pdf", "open my resume",
+               "where is the <folder> folder", "which folder is <file> in", "how big is <file>")
     gives = "speech, a card with choices, a file opened"
     permission = "auto"
     asks = "before opening a file it found by searching"
@@ -98,10 +102,62 @@ class Files(Skill):
              % (KIND_RE, WHEN, WHEN, FOLDER_RE, WHEN, WHEN), self.by_kind),
             (r"open (?:the |my )?(?:latest|newest|last|most recent) (?:file|download)(?:ed file)?"
              r"(?: in (?:my )?(downloads|documents|desktop|pictures|videos))?", self.latest_file),
+            # "copy the last download and paste it here": the file itself, to paste in Files (or into a chat)
+            (r"copy (?:the |my )?(?:latest|newest|last|most recent) (?:file|download)(?:ed file)?"
+             r"(?: in (?:my )?(downloads|documents|desktop|pictures|videos))?( and paste it(?: in)?(?: here)?)?",
+             self.copy_latest),
+            # "open resume.pdf", "open my resume", "open it", "open ai supervisor" (just listed); not "... in vs code"
+            (r"(?:open|show me|bring up) (?:up )?(?!.* (?:in|with|using|on|for) \S)(.+)", self.open_named),
+            (r"(?:which|what) folder (?:is|are|has|holds?) (.+?)(?: in)?|where (?:is|are|'s) (.+?) (?:kept|saved|stored)",
+             self.where_in),
+            (r"(?:how big|how large|what size) (?:is|are) (.+)|(?:what'?s|what is) the size of (.+)|"
+             r"when (?:did i|was|were) (.+?) (?:made|created|changed|edited|modified|saved|downloaded)|"
+             r"when did i (?:make|create|change|edit|modify|save|download) (.+)", self.info),
             # (not "find X on github": that's a site search)
             (r"(?:find|locate|where'?s|where is|where are)(?: my| the)? (?!.+ on (?:github|maps|google maps|amazon|"
              r"youtube|wikipedia|google)$)(.+?)(?: file| files)?", self.find_file),
         ]
+
+    def _target(self, said):
+        """The file or folder `said` plainly names. False: it doesn't sound like one (hand it on); None: it does,
+        but there's no such file (said so)."""
+        said = said.strip()
+        if not names_a_file(said):
+            return False
+        paths, _ = which(self.j, said)
+        if paths:
+            return paths[0]
+        if re.fullmatch(THIS, re.sub(r"^(?:the|my) ", "", said, flags=re.IGNORECASE), re.IGNORECASE) \
+                or not re.match(r"[~/]|.+\.\w{2,5}$", said):
+            return False  # "open it" with nothing just found, "open the presentation": maybe another skill's
+        self.say("I can't find %s." % re.sub(r"^(?:my|the) ", "", said, flags=re.IGNORECASE))
+        return None
+
+    def open_named(self, m):
+        path = self._target(m.group(1))
+        if path:
+            self._open(path)
+        return path
+
+    def where_in(self, m):
+        path = self._target(next(g for g in m.groups() if g))
+        if not path:
+            return path
+        remember([path])
+        self.say("%s is in %s." % (os.path.basename(path), _spoken_dir(os.path.dirname(path))))
+
+    def info(self, m):
+        path = self._target(next(g for g in m.groups() if g))
+        if not path:
+            return path
+        remember([path])
+        size, count = size_of(path)
+        changed = _when(path)
+        if os.path.isdir(path):
+            self.say("%s has %d file%s, %s in all. Last changed %s." % (
+                os.path.basename(path), count, "" if count == 1 else "s", size_words(size), changed))
+        else:
+            self.say("%s is %s, last changed %s." % (os.path.basename(path), size_words(size), changed))
 
     def changed(self, m):
         when = m.group(1) or m.group(4) or "today"
@@ -142,16 +198,40 @@ class Files(Skill):
         self.say("%d files: %s. They're on the card." % (len(hits), and_list(names)) if len(hits) > 1
                  else "Just one: %s." % names[0])
 
-    def latest_file(self, m):
-        folder = os.path.join(HOME, (m.group(1) or "downloads").capitalize())
+    def _newest(self, folder):
+        """The newest file in that folder of yours (Downloads if None), or None (said so)."""
+        folder = os.path.join(HOME, (folder or "downloads").capitalize())
         files = [os.path.join(r, f) for r, _, fs in os.walk(folder) for f in fs if not f.startswith(".")]
         if not files:
             self.say("There's nothing in %s." % os.path.basename(folder))
-            return
+            return None
         newest = max(files, key=os.path.getmtime)
         remember([newest])
-        self.j.executor.run("xdg-open %s" % shlex.quote(newest), reply="Opening %s." % os.path.basename(newest),
-                            window=True)
+        return newest
+
+    def latest_file(self, m):
+        newest = self._newest(m.group(1))
+        if newest:
+            self.j.executor.run("xdg-open %s" % shlex.quote(newest), reply="Opening %s." % os.path.basename(newest),
+                                window=True)
+
+    def copy_latest(self, m):
+        from skills.helpers import paste_key, set_clipboard
+        newest = self._newest(m.group(1))
+        if not newest:
+            return
+        name = os.path.basename(newest)
+        try:  # as a copied file: Files pastes the file itself, like after Ctrl+C on it
+            set_clipboard("copy\n" + "file://" + urllib.parse.quote(newest), kind="x-special/gnome-copied-files")
+        except (OSError, subprocess.SubprocessError) as e:
+            self.say("I couldn't copy it: %s." % e)
+            return
+        key = m.group(2) and paste_key(self.say)
+        if key:
+            desktop.keys(key)
+            self.say("Pasted %s." % name)
+        elif not m.group(2):
+            self.say("Copied %s. Say paste it, or press control V where you want it." % name)
 
     def open_path(self, m):
         path = os.path.expanduser(m.group(1).strip())
@@ -214,6 +294,7 @@ class Files(Skill):
         remember([path])
         if os.path.isdir(path):
             remember_listing(_children(path))
+            opened["path"], opened["at"] = path, time.time()
         self.j.executor.run("xdg-open %s" % shlex.quote(path), reply="Opening %s." % spoken_place(path),
                             window=True)
 
@@ -263,8 +344,34 @@ class Files(Skill):
                      "choices": [{"label": os.path.basename(h)[:40], "do": "open file %s" % h.replace(HOME, "~")}
                                  for h in hits[:30]]})
 
+    def find_folder(self, query):
+        """"Where is the ai supervisor folder": the one just listed, else ones by that name, else a project's."""
+        name = re.sub(r"^(?:my|the) | (?:folder|directory)$", "", query.strip(), flags=re.IGNORECASE)
+        listed = in_listing(name, folder=True)
+        hits = [listed] if listed else find_dirs(name)
+        if not hits:
+            p = self.j.projects.find(name, strict=True)
+            hits = [p.path] if p else []
+        if not hits:
+            return False  # not a folder of yours: maybe Claude knows
+        remember(hits[:1])
+        remember_listing(hits)
+        if len(hits) > 1:
+            self.j.show({"title": "Folders called %s" % name,
+                         "text": "\n".join("%d. **%s** in `%s`" % (i, os.path.basename(h),
+                                                                  os.path.dirname(h).replace(HOME, "~"))
+                                           for i, h in enumerate(hits, 1)),
+                         "choices": [{"label": _spoken_dir(os.path.dirname(h))[:40],
+                                      "do": "open file %s" % h.replace(HOME, "~")} for h in hits]})
+        where = and_list(_spoken_dir(os.path.dirname(h)) for h in hits[:3])
+        if self.j.ask("%s is in %s. Want me to open it?" % (os.path.basename(hits[0]), where) if len(hits) == 1
+                      else "There are %d folders called that, in %s. Open the first?" % (len(hits), where)):
+            self._open(hits[0])
+
     def find_file(self, m):
         query = m.group(1)
+        if re.search(r" (?:folder|directory)$", query, re.IGNORECASE):
+            return self.find_folder(query)
         if not worth_searching(m) or self.j.browser.parse(m.group(0), guess=False):
             return False  # (and "find my resume in drive" is a search on Google Drive)
         hits = _find_files(query)
@@ -280,8 +387,8 @@ class Files(Skill):
                      "text": "\n".join("- %s**%s** in `%s`" % (file_badge(h), os.path.basename(h),
                                                              os.path.dirname(h).replace(HOME, "~"))
                                        for h in hits)})
-        where = os.path.relpath(os.path.dirname(best), HOME)
-        where = "your home folder" if where == "." else where.replace("/", ", ")
+        where = _spoken_dir(os.path.dirname(best))
+        remember_listing(hits)  # "open the second one" next
         if self.j.ask("%s %s%s in %s. Want me to open it?" % (
                 "No file's called that, but the closest is" if meaning else "I found", os.path.basename(best),
                 " and %d more" % (len(hits) - 1) if len(hits) > 1 else "", where)):
@@ -404,13 +511,15 @@ def recent_listing():
 def from_listing(said, folder=False):
     """"the first", "second one", "the last file" -> that one of the things JARVIS just listed or opened.
     None when `said` isn't an ordinal, nothing was listed lately, or the list is shorter than that."""
-    m = re.fullmatch(r"(?:number )?%s(?: (?:one|item|thing|folder|directory|file|document))?" % NTH, said.strip(),
+    m = re.fullmatch(r"(?:number )?%s(?: (one|item|thing|folder|directory|file|document))?" % NTH, said.strip(),
                      re.IGNORECASE)
     if not m:
         return None
     paths = recent_listing()
-    if folder:
+    if folder or (m.group(2) or "").lower() in ("folder", "directory"):  # "the third folder" counts folders only
         paths = [p for p in paths if os.path.isdir(p)]
+    elif (m.group(2) or "").lower() in ("file", "document"):
+        paths = [p for p in paths if not os.path.isdir(p)]
     word = m.group(1).lower()
     n = len(paths) if ORDINALS.get(word) == -1 else (ORDINALS.get(word) or int(word))
     return paths[n - 1] if 0 < n <= len(paths) else None
@@ -425,6 +534,89 @@ def _children(folder, kind=None):
     dirs = [p for p in paths if os.path.isdir(p)]
     files = [p for p in paths if not os.path.isdir(p)]
     return dirs if kind == "folders" else files if kind == "files" else dirs + files
+
+
+def recent_folder():
+    """The folder JARVIS last opened, while that's fresh and it's still there (else None)."""
+    path = opened["path"]
+    return path if path and time.time() - opened["at"] < FRESH and os.path.isdir(path) else None
+
+
+def _plain(name):
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def in_listing(said, folder=False):
+    """One of the things JARVIS just listed, or in the folder it just opened, called `said` ("ai supervisor" is
+    AI-Supervisor, "resume" is resume.pdf). No disk search beyond that one folder."""
+    want = _plain(re.sub(r"^(?:the|my) |(?: (?:folder|directory|file))$", "", said.strip(), flags=re.IGNORECASE))
+    if len(want) < 2:
+        return None
+    paths = recent_listing() + (_children(recent_folder()) if recent_folder() else [])
+    for p in paths:
+        name = os.path.basename(p)
+        if (not folder or os.path.isdir(p)) and want in (_plain(name), _plain(os.path.splitext(name)[0])):
+            return p
+    return None
+
+
+def names_a_file(said):
+    """Whether `said` plainly names a file or folder, by its words and what JARVIS just listed (no disk search):
+    a path, a name with its extension, "my resume", "the ai supervisor folder", "it" / "this file", "ai supervisor"
+    just after opening its folder."""
+    from skills.documents import DOC, EXTS
+    said = said.strip()
+    return bool(re.match(r"[~/]", said) or said.lower().endswith(EXTS) or re.fullmatch(THIS, said, re.IGNORECASE)
+                or re.search(r" (?:folder|directory)$", said, re.IGNORECASE)
+                or re.match(r"(?:my|the) (?:.+ )?%s$" % DOC, said, re.IGNORECASE) or in_listing(said))
+
+
+def here(j, anywhere=False):
+    """The folder "here" means: the one Files shows in front, else the one JARVIS just opened. anywhere: else
+    also a terminal's or VS Code's folder. None if none."""
+    from skills.screen import front_window
+    win = front_window()
+    if win and "nautilus" in win.wm_class.lower():
+        path = _files_location(win)
+        if path:
+            return path
+    return recent_folder() or (front_folder(j) if anywhere else None)
+
+
+def find_dirs(name, depth=4):
+    """Folders under your home folder called `name` (ignoring case, spaces and dashes), shallowest first."""
+    want, out = _plain(name), []
+    for root, dirs, _ in os.walk(HOME):
+        if root.count(os.sep) - HOME.count(os.sep) >= depth:
+            dirs[:] = []
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
+        out += [os.path.join(root, d) for d in dirs if _plain(d) == want]
+    return sorted(out, key=lambda p: p.count(os.sep))
+
+
+def size_of(path, seconds=3):
+    """(bytes, files) in a file or folder; a folder's count stops after `seconds` (then it's "at least")."""
+    if not os.path.isdir(path):
+        return os.path.getsize(path), 1
+    total = count = 0
+    deadline = time.time() + seconds
+    for root, dirs, names in os.walk(path):
+        for n in names:
+            try:
+                total += os.path.getsize(os.path.join(root, n))
+                count += 1
+            except OSError:
+                pass
+        if time.time() > deadline:
+            break
+    return total, count
+
+
+def size_words(n):
+    for unit in ("bytes", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return ("%d %s" if unit == "bytes" else "%.1f %s") % (n, unit)
+        n /= 1024.0
 
 
 def recent_file():
@@ -451,9 +643,13 @@ def which(j, said):
     if said.startswith(("~", "/")):
         path = os.path.expanduser(said)
         return ([path], "path") if os.path.exists(path) else ([], None)
-    picked = from_listing(said)
-    if picked and os.path.isfile(picked):
+    picked = from_listing(said) or in_listing(said)  # "the second one", "ai supervisor": a file or a folder
+    if picked:
         return [picked], "listing"
+    m = re.fullmatch(r"(.+?) (?:folder|directory)", said, re.IGNORECASE)
+    if m:  # "the ai supervisor folder": only folders are looked for
+        path = place(j, said, folder=True)
+        return ([path], "folder") if path and os.path.isdir(path) else ([], None)
     m = re.fullmatch(r"(?:latest|newest|last|most recent) (?:download|downloaded file)|(?:(%s|file|thing|one) )?"
                      r"(?:that )?i (?:just )?downloaded(?: (%s))?" % (KIND_RE, WHEN), said, re.IGNORECASE)
     if m:
@@ -479,7 +675,7 @@ def place(j, said, folder=False):
     if said.lower() == "project":  # "the project folder": the one in the window you're in, else ~/Projects
         p = j.projects.focused()
         return p.path if p else PROJECTS
-    picked = from_listing(said, folder)
+    picked = from_listing(said, folder) or in_listing(said, folder)
     if picked:
         return picked
     if said.startswith(("~", "/")):
@@ -497,6 +693,12 @@ def place(j, said, folder=False):
         if paths:
             return paths[0]
     return _folder_named(said)
+
+
+def _spoken_dir(path):
+    """"Documents, invoices", "your home folder"."""
+    rel = os.path.relpath(path, HOME)
+    return "your home folder" if rel == "." else rel.replace("/", ", ") if not rel.startswith("..") else path
 
 
 def spoken_place(path):
@@ -584,21 +786,31 @@ def _files_location(win):
     Else the folder its title names."""
     from skills.helpers import clipboard, set_clipboard
     desktop.focus(win)
-    time.sleep(0.2)
     old = clipboard()
-    set_clipboard("")
-    desktop.keys("ctrl+l")
-    time.sleep(0.2)
-    desktop.keys("ctrl+c")
-    time.sleep(0.2)
-    desktop.keys("Escape")
-    got = clipboard().strip()
+    for wait in (0.2, 0.6):  # a busy computer can be slow to focus Files and fill its address bar: try once slower
+        time.sleep(wait)
+        set_clipboard("")
+        desktop.keys("ctrl+l")
+        time.sleep(wait)
+        desktop.keys("ctrl+c")
+        time.sleep(wait)
+        desktop.keys("Escape")
+        got = clipboard().strip()
+        path = os.path.expanduser(urllib.parse.unquote(got[7:] if got.startswith("file://") else got))
+        if got and os.path.isdir(path):
+            set_clipboard(old)
+            return path
     set_clipboard(old)
-    path = os.path.expanduser(urllib.parse.unquote(got[7:] if got.startswith("file://") else got))
-    if os.path.isdir(path):
-        return path
     title = (win.title or "").strip()
-    return HOME if title == "Home" else _folder_named(title) if title else None
+    if not title or title == "Home":
+        return HOME if title else None
+    # The title is only the folder's name, and look-alikes exist (~/Projects/AI-Process-Engineer and
+    # ~/Downloads/AI process engineer): the one JARVIS just opened, else the only one with exactly that name.
+    recent = recent_folder()
+    if recent and os.path.basename(recent) == title:
+        return recent
+    exact = [d for d in find_dirs(title) if os.path.basename(d) == title]
+    return exact[0] if len(exact) == 1 else None
 
 
 def _files_selection(win):

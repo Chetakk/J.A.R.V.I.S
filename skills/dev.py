@@ -82,6 +82,8 @@ class Dev(Skill):
             (r"open (?:the )?(.+?) project(?: in vs ?code)?|open (?:the )?(.+?) in vs ?code|(?:the )?(.+?) project in vs ?code",
              self.open_project),
             (r"open (?:up )?(.+?%s.+?)(?: app)?" % _IN.pattern, self.open_in),
+            # "open vs code here": in the folder on your screen
+            (r"open (?:up )?(.+?) (?:right |over )?here", lambda m: self.open_in(re.match(r"(.+)", m.group(1) + " in this folder"))),
             (r"run (?:the )?tests(?: (?:in|for|of) (?:the )?(.+?)(?: project)?)?", self.run_tests),
             (r"(?:ask|tell|have) claude (?:to )?(.+?) in (?:the )?(.+?) project", self.claude_project),
         ]

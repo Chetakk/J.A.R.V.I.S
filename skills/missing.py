@@ -141,7 +141,7 @@ class Missing(Skill):
              "Sure, what should I install?", "install {0}", None),
             ("uninstall", r"(?:uninstall|remove) (?:%s|an app|a program|an application|a package|some software)" % some,
              "Sure, what should I uninstall?", "uninstall {0}", None),
-            ("folder", r"(?:make|create|add)(?: me)? (?:a )?(?:new )?folder",
+            ("folder", r"(?:make|create|add)(?: me)? (?:a )?(?:new )?folder(?: (?:in |over )?here)?",
              "Sure, what should I call it?", "make a folder called {0}", "call it|it's|its|called|name it"),
             ("rename_file", r"rename (?:this|that|the) file", "Sure, what should the new name be?",
              "rename this file to {0}", "to|call it"),

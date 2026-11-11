@@ -157,3 +157,16 @@ def test_the_second_file_found_in_the_default_app(jv):
     jv.clear()
     jv.do("open the second one in the default app")
     assert jv.shell.ran(r"^xdg-open .*report-")
+
+
+def test_create_then_open_it_in_vs_code(jv, launched):
+    """The flow asked for: "open projects", "create ai process engineer", "open it in vs code"; and a name just
+    heard works too ("open ai supervisor in vs code")."""
+    need(jv, "vs code")
+    os.makedirs(os.path.join(conftest.HOME, "Projects/AI-Supervisor"))
+    jv.do("open the projects folder")
+    jv.do("create ai process engineer")
+    jv.do("open it in vs code")
+    jv.do("open ai supervisor in vs code")
+    assert launched == [("Visual Studio Code", [os.path.join(conftest.HOME, "Projects/ai process engineer")]),
+                        ("Visual Studio Code", [os.path.join(conftest.HOME, "Projects/AI-Supervisor")])]

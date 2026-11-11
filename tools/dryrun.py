@@ -112,9 +112,19 @@ class DryJarvis:
             passes["compare"] = lambda m: J_docs.could_be(m.group(1), True) and J_docs.could_be(m.group(2), True)
             passes["with_claude"] = lambda m: J_docs.could_be(_first(m), strict=True)
         if obj is self.j.skills.organise:  # "delete the milk todo", "put this on the left": not files
-            passes["rename"] = passes["move"] = lambda m: J_docs.could_be(m.group(1))
-            passes["trash"] = lambda m: J_docs.could_be(_first(m)) and not (
+            folder = lambda said: J_re.search(r" (?:folder|directory)$", said, J_re.I) and \
+                J_files.place(self.j, said, folder=True)  # noqa: E731
+            passes["rename"] = passes["move"] = lambda m: J_docs.could_be(m.group(1)) or folder(m.group(1))
+            passes["trash"] = lambda m: folder(_first(m)) or J_docs.could_be(_first(m)) and not (
                 J_organise.OTHER_THINGS.search(_first(m)) and not J_docs.sure(_first(m)))
+            # nothing opened in a dry run, so no folder is "here": only the words decide
+            passes["create_here"] = lambda m: False
+            passes["many"] = lambda m: bool(m.group(2) or m.group(3)) and (m.group(1).lower() in (
+                "delete", "trash", "remove") or bool(m.group(7)))
+        if obj is self.j.skills.organise:  # copies and "move it here" are lambdas calling move()
+            obj.rules = [(p, (lambda m, _fn=fn: J_docs.could_be(_first(m)) and _fn(m))
+                          if fn.__name__ == "<lambda>" and "move" in fn.__code__.co_names else fn)
+                         for p, fn in obj.rules]
         if obj is self.j.skills.notes:  # "I prefer X, which should I get": a question, for Claude
             passes["casual"] = lambda m: not J_notes.ASKING.search(m.group(0))
         if obj is self.j.skills.dev:  # "open the projects folder in vs code": not a project, but a folder
@@ -129,7 +139,11 @@ class DryJarvis:
                 _folder_here(self.j, _first(m))
             passes["open_nth"] = lambda m: J_files.from_listing(m.group(1))
             # (the disk search itself isn't run; "find my resume in drive" is Google Drive's)
-            passes["find_file"] = lambda m: J_files.worth_searching(m) and not self.j.browser.parse(m.group(0), False)
+            passes["find_file"] = lambda m: J_files.worth_searching(m) and not self.j.browser.parse(m.group(0), False) \
+                or J_re.search(r" (?:folder|directory)$", m.group(1), J_re.I)
+            # "open resume.pdf", "how big is this file": only what plainly names a file or folder
+            passes["open_named"] = passes["where_in"] = passes["info"] = lambda m: J_files.names_a_file(_first(m)) \
+                and not J_re.fullmatch(J_files.THIS, _first(m), J_re.I)
         site_page = lambda m: not self.j.browser.parse(m.group(0), guess=False)  # noqa: E731
         if obj is self.j.skills.studybuddy:  # "watch bigg boss", "open my playlists": a site's page, handed on
             # Study Buddy isn't running in a dry run (no groups): only its own words are its ("resume the song" isn't)

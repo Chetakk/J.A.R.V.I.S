@@ -77,6 +77,8 @@ class Documents(Skill):
         if not sounds_like_file(said, strict):
             return False
         paths, how = files.which(self.j, said)
+        if paths and os.path.isdir(paths[0]):
+            return False  # "summarise the first one" when that's a folder: not a document
         if paths:
             return paths[0]
         if not sure(said):
@@ -245,8 +247,12 @@ def sure(said):
 def sounds_like_file(said, strict=False):
     """Could `said` be a file, by its words alone (no looking at the disk or the screen)?"""
     said = said.strip().rstrip(",")
+    if re.fullmatch(r"it|this|that", said, re.IGNORECASE) and files.recent_file():
+        return True  # "summarise it" / "put it in projects" right after JARVIS opened, found or made a file
     if NOT_FILES.search(said):
         return False
+    if files.in_listing(said):
+        return True  # "move ai supervisor to documents" right after JARVIS listed or opened its folder
     return sure(said) or (not strict and bool(re.match(r"(?:my|the) ", said, re.IGNORECASE)))
 
 

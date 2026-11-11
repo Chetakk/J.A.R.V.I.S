@@ -189,6 +189,8 @@ def jv(monkeypatch):
     monkeypatch.setattr(helpers, "typed_until", 0.0)
     from skills import files
     monkeypatch.setattr(files, "last", {"paths": [], "at": 0.0})
+    monkeypatch.setattr(files, "listing", {"paths": [], "at": 0.0})
+    monkeypatch.setattr(files, "opened", {"path": None, "at": 0.0})
     monkeypatch.setattr(files, "_names", {"key": None, "paths": [], "matrix": None})
     monkeypatch.setattr(verify, "LAUNCH_SECONDS", 1.0)
     monkeypatch.setattr(verify, "QUICK_SECONDS", 0.5)

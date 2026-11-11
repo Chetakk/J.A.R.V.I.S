@@ -147,3 +147,80 @@ def test_a_name_with_no_file_hands_on(jv):
     jv.do("find my passport scan")
     assert not opened(jv)
     assert not jv.says("I found")
+
+
+def test_copy_the_last_download_and_paste_it_here(jv):
+    H = conftest.HOME
+    """Seen in the log: "copy the last download" opened it instead (it only knew "open my latest download")."""
+    os.makedirs(os.path.join(H, "Downloads"), exist_ok=True)
+    with open(os.path.join(H, "Downloads/design notes.txt"), "w") as f:
+        f.write("x")
+    jv.desktop.add("AI-Process-Engineer", "org.gnome.Nautilus Org.gnome.Nautilus")
+    jv.do("copy the last download and paste it here")
+    copied = [t for line, t in jv.shell.inputs if "gnome-copied-files" in line]
+    assert copied == ["copy\nfile://%s/Downloads/design%%20notes.txt" % H]
+    assert jv.desktop.did("keys") == ["ctrl+v"] and not jv.shell.ran("xdg-open")
+    assert jv.says("Pasted design notes.txt")
+
+
+# --- the file manager: open, where, which, how big -----------------------------------------------------------
+
+def test_open_a_file_by_its_name(jv):
+    cv = make("Documents/Work/resume.pdf")
+    jv.do("open resume.pdf")
+    assert opened(jv) == [cv]
+    assert not jv.shell.ran("https://")  # (it once went to the browser as https://resume.pdf)
+
+
+def test_open_my_resume_opens_the_newest(jv):
+    make("Documents/resume_old.pdf", time.time() - 9000)
+    new = make("Documents/resume_2026.pdf", time.time() - 60)
+    jv.do("open my resume")
+    assert opened(jv) == [new]
+
+
+def test_open_it_after_finding(jv):
+    cv = make("Documents/Work/Chetak_Resume_2026.pdf")
+    jv.do("find my resume", "no")
+    jv.do("open it")
+    assert opened(jv) == [cv]
+
+
+def test_open_a_name_just_listed(jv):
+    make("Projects/AI-Supervisor/a.txt")
+    jv.do("open the projects folder")
+    jv.clear()
+    jv.do("open ai supervisor")
+    assert opened(jv) == [os.path.join(conftest.HOME, "Projects/AI-Supervisor")]
+
+
+def test_open_a_file_that_isnt_there(jv):
+    jv.do("open taxes2019.pdf")
+    assert jv.said == ["I can't find taxes2019.pdf."] and not opened(jv)
+
+
+def test_where_is_a_folder(jv):
+    folder = make("Projects/AI-Supervisor/a.txt").rsplit("/", 1)[0]
+    jv.do("where is the ai supervisor folder", "yes")
+    assert jv.questions == ["AI-Supervisor is in Projects. Want me to open it?"]
+    assert opened(jv) == [folder]
+
+
+def test_which_folder_is_a_file_in(jv):
+    make("Documents/Work/resume.pdf")
+    jv.do("which folder is resume.pdf in")
+    assert jv.said == ["resume.pdf is in Documents, Work."]
+
+
+def test_how_big_is_a_file_and_a_folder(jv):
+    make("Documents/report.pdf", text="x" * 2048)
+    make("Documents/Work/a.txt", text="y" * 1024)
+    jv.do("how big is report.pdf")
+    assert jv.says("report.pdf is 2.0 KB, last changed today")
+    jv.do("how big is the work folder")
+    assert jv.says("Work has 1 file, 1.0 KB in all")
+
+
+def test_how_big_is_the_sun_is_not_a_file(jv):
+    jv.do("how big is the sun")
+    assert not jv.says("KB") and jv.claude.asked("sun")

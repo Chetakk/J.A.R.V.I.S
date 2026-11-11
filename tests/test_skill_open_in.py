@@ -143,3 +143,29 @@ def test_claude_in_this_folder_is_vs_code_there(jv, launched, monkeypatch):
             time.sleep(0.05)
         assert jv.shell.ran("^code %s$" % shlex.quote(path)) and panel == ["Projects"], said
     assert not jv.claude.calls  # not JARVIS's Claude terminal
+
+
+@pytest.mark.parametrize("said", ["open vs code for this folder", "open vs code here"])
+def test_this_folder_is_never_a_look_alike(jv, launched, said):
+    """Seen 2026-11-10: Files on ~/Projects/AI-Process-Engineer, its address bar couldn't be read, and the title
+    "AI-Process-Engineer" found ~/Downloads/AI process engineer first. "open vs code here" opened VS Code's last
+    window instead."""
+    need(jv, "vs code")
+    real = os.path.join(conftest.HOME, "Projects/AI-Process-Engineer")
+    os.makedirs(real)
+    os.makedirs(os.path.join(conftest.HOME, "Downloads/AI process engineer"))
+    jv.do("open the projects folder")
+    jv.do("open the first one")
+    jv.desktop.add("AI-Process-Engineer", "org.gnome.Nautilus Org.gnome.Nautilus")  # (no address to copy)
+    launched.clear()
+    jv.do(said)
+    assert launched == [("Visual Studio Code", [real])]
+
+
+def test_a_title_shared_by_two_folders_is_not_guessed(jv, launched):
+    need(jv, "vs code")
+    for rel in ("Projects/Notes", "Documents/Notes"):
+        os.makedirs(os.path.join(conftest.HOME, rel))
+    jv.desktop.add("Notes", "org.gnome.Nautilus Org.gnome.Nautilus")
+    jv.do("open vs code in this folder")
+    assert not launched

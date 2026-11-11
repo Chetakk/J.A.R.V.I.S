@@ -186,3 +186,15 @@ def test_continue_with_nothing_being_read_is_handed_on(jv):
 def test_short_text_is_just_said(jv):
     jv.j.skills.reading.long("Just a few words here.")
     assert jv.said == ["Just a few words here."] and not jv.cards
+
+
+def test_summarise_it_right_after_opening_a_file(jv):
+    """Seen in the log: "open my latest download", then "summarise it" went to Claude, whose "summarise it"
+    then matched nothing, so nothing was summarised."""
+    from skills import files
+    path = make("Downloads/design.txt", "Target architecture: turn customer data into PFMEA documents.")
+    files.remember([path])  # what opening it does
+    jv.claude.reply(answer("It's a target architecture for making PFMEA documents."))
+    jv.do("summarise it")
+    assert "PFMEA documents" in sent(jv)
+    assert jv.says("target architecture")

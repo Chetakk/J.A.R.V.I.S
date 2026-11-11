@@ -1,5 +1,5 @@
-"""Changes to your files that can always be taken back: moving, renaming, new folders, and the Trash (never a
-permanent delete). Nothing is ever overwritten: a name that's taken gets " (2)". Each change is written to
+"""Changes to your files that can always be taken back: moving, renaming, copying, new folders, and the Trash
+(never a permanent delete). Nothing is ever overwritten: a name that's taken gets " (2)". Each change is written to
 ~/.local/share/jarvis/file_changes.log, and a batch of them can be undone in one go."""
 import glob
 import json
@@ -45,6 +45,19 @@ class Batch:
         self._log({"op": "move", "src": src, "dst": dst})
         return dst
 
+    def copy(self, src, dst):
+        """Copy a file or folder to `dst` (a free name next to it if `dst` is taken). Returns where it went."""
+        if not os.path.lexists(src):
+            raise FileError("%s isn't there any more" % os.path.basename(src))
+        dst = free_name(dst)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        if os.path.isdir(src) and not os.path.islink(src):
+            shutil.copytree(src, dst, symlinks=True)
+        else:
+            shutil.copy2(src, dst, follow_symlinks=False)
+        self._log({"op": "copy", "src": src, "dst": dst})
+        return dst
+
     def mkdir(self, path):
         if os.path.isdir(path):
             return path
@@ -71,6 +84,10 @@ class Batch:
                     if os.path.lexists(step["src"]) or not os.path.lexists(step["dst"]):
                         raise FileError("changed since")
                     shutil.move(step["dst"], step["src"])
+                elif step["op"] == "copy":  # the copy goes to the Trash: never deleted for good
+                    res = subprocess.run(["gio", "trash", step["dst"]], capture_output=True, text=True, timeout=30)
+                    if res.returncode != 0:
+                        raise FileError("couldn't trash the copy")
                 elif step["op"] == "mkdir":
                     os.rmdir(step["path"])  # only while it's empty
                 elif step["op"] == "trash":

@@ -1,5 +1,6 @@
 """Organising files: "make a folder called invoices in documents", "rename this file to final report",
-"move resume.pdf to documents", "delete old.txt" (to the Trash), "tidy my downloads", "find duplicate files in
+"move resume.pdf to documents", "copy it to documents", "duplicate this file", "move it here" (the folder Files
+shows), "create ai supervisor" (right after opening a folder), "move all pdfs in downloads to documents", "delete old.txt" (to the Trash), "tidy my downloads", "find duplicate files in
 downloads". Everything goes through system/fileops.py: nothing is overwritten or deleted for good, and "undo that"
 puts it all back. JARVIS asks first whenever it had to work out which file you meant, and before anything that
 touches more than one file or puts something in the Trash."""
@@ -7,11 +8,12 @@ import collections
 import hashlib
 import os
 import re
+import shutil
 
 from skills import files
 from skills.base import Skill
 from skills.documents import sounds_like_file, sure
-from skills.files import FOLDER_RE, HOME, KINDS, SKIP_DIRS
+from skills.files import EXT_WORDS, FOLDER_RE, HOME, KIND_RE, KIND_WORDS, KINDS, PLACES, SKIP_DIRS, WHEN, find_dirs
 from skills.helpers import and_list
 from system.fileops import Batch, FileError
 
@@ -22,13 +24,22 @@ SORT = [("Images", KINDS["image"] + (".bmp", ".tif", ".tiff")), ("Videos", KINDS
         ("Documents", KINDS["document"] + KINDS["spreadsheet"] + KINDS["presentation"] + (".epub",))]
 # "Delete the milk todo", "remove the reading layout": other skills' things, not files.
 OTHER_THINGS = re.compile(r"\b(?:reminder|to ?-?do|task|layout|alarm|timer|bookmark|tab|line|word|that|it)s?\b", re.I)
+# "create a playlist", "create a new note": other skills' things, not a folder here
+NOT_A_NEW_FOLDER = re.compile(r"^(?:here|(?:a |new )*folder)$|\b(?:note|to ?-?do|reminder|playlist|tab|window|workspace|"
+                              r"event|meeting|e?-?mail|message|file|document|doc|project|account|password|alarm|timer|"
+                              r"list|layout|summary|report|backup|branch|commit|issue|pull request|it|that|this|"
+                              r"me|you|copy|shortcut|link)s?\b", re.I)
+NOT_EXT = {"old", "new", "big", "small", "these", "those", "my", "the", "all", "temp", "other", "extra", "empty",
+           "large", "recent", "latest", "copied", "duplicate", "loose"}  # "delete the old files" isn't .old
+MAIN = {os.path.normpath(p) for p in (HOME, *PLACES.values())}  # never moved, renamed or trashed whole
 
 
 class Organise(Skill):
     group = "organising files"
-    does = "Folders, renames, moves, the Trash, tidying, duplicates; all undoable"
+    does = "Folders, renames, moves, copies, the Trash, many files at once, tidying, duplicates; all undoable"
     phrases = ("make a folder called <x> in documents", "rename <file> to <name>", "move <file> to <folder>",
-               "delete <file> (to the Trash)", "tidy my downloads", "find duplicate files in downloads")
+               "delete <file> (to the Trash)", "tidy my downloads", "find duplicate files in downloads",
+               "copy <file> to <folder>", "duplicate <file>", "move <file> here", "move all pdfs in downloads to documents")
     gives = "files changed, logged"
     permission = "confirm"
     asks = "before the Trash, several files, or a file it had to work out"
@@ -36,8 +47,27 @@ class Organise(Skill):
 
     def patterns(self):
         return [
-            (r"(?:make|create|add)(?: me)? (?:a )?(?:new )?folder (?:called |named )?[\"']?(.+?)[\"']?"
+            # "make a new folder in projects folder which is called ai supervisor"
+            (r"(?:make|create|add)(?: me)? (?:a )?(?:new )?folder (?:in|on|inside|under) %s,? (?:which is |that's |"
+             r"that is )?(?:called|named) [\"']?(.+?)[\"']?" % FOLDER_RE,
+             lambda m: self._mkdir(m.group(3), m.group(1), m.group(2))),
+            (r"(?:make|create|add)(?: me)? (?:a )?(?:new )?folder (?!(?:in |over )?here$)(?:called |named )?"
+             r"[\"']?(.+?)[\"']?"
              r"(?: (?:in|on|inside|under) %s)?" % FOLDER_RE, self.mkdir),
+            # "create ai supervisor" while looking at a folder: a new folder in it
+            (r"create (?:a )?(?:new )?(?:folder |directory )?(?:called |named )?[\"']?(.+?)[\"']?(?: (?:in )?here)?",
+             self.create_here),
+            # "move all pdfs in downloads to documents", "delete the zips from downloads", "copy all images to pictures"
+            (r"(move|copy|put|delete|trash|remove) (?:all )?(?:the |my )?(?:(%s)s?|\.?(\w{1,5}) files)(?: files)?"
+             r"(?: (?:in|from) %s)?(?: (?:from )?(%s))?(?: (?:to|into|in) (?:the )?(.+?))?" % (KIND_RE, FOLDER_RE, WHEN),
+             self.many),
+            (r"(?:copy|duplicate|make a copy of) (.+?) (?:over )?(?:in )?here|copy (.+?) (?:in|into) this folder",
+             lambda m: self.move(m, copy=True, to="here")),
+            (r"(?:copy|duplicate|make a copy of) (.+?) (?:in|into|to) (?:a )?(?!(?:the |my )?clipboard$)"
+             r"(new folder (?:called|named) .+|.+?)(?: folder)?", lambda m: self.move(m, copy=True)),
+            (r"(?:duplicate|make a copy of) (.+)", lambda m: self.move(m, copy=True, to="beside")),
+            (r"(?:move|put|bring) (.+?) (?:over )?(?:in )?here|(?:move|put) (.+?) (?:in|into) this folder",
+             lambda m: self.move(m, to="here")),
             (r"rename (.+?) (?:to|as) [\"']?(.+?)[\"']?", self.rename),
             (r"(?:move|put|throw) (.+?) (?:in|into|to) the (?:trash|bin|recycle bin|rubbish(?: bin)?)|(?:delete|trash|"
              r"remove|throw away|get rid of) (.+?)(?: (?:in|to|into) the (?:trash|bin|rubbish))?", self.trash),
@@ -65,8 +95,12 @@ class Organise(Skill):
                 return False
             self.say("I can't find %s." % re.sub(r"^(?:my|the) ", "", said))
             return None
-        exact = how == "path" or (how == "name" and os.path.basename(paths[0]).lower()
-                                  == re.sub(r"^(?:my|the) (?:file )?", "", said.lower()))
+        if os.path.normpath(paths[0]) in MAIN:
+            self.say("That's one of your main folders, so I'll leave it where it is.")
+            return None
+        # named outright, or picked from what JARVIS just read out ("the second one", "ai supervisor")
+        exact = how in ("path", "listing") or (how == "name" and os.path.basename(paths[0]).lower()
+                                              == re.sub(r"^(?:my|the) (?:file )?", "", said.lower()))
         return paths[0], exact
 
     def _done(self, batch, said):
@@ -82,11 +116,17 @@ class Organise(Skill):
                  % (failed, "it" if failed == 1 else "them"))
 
     def mkdir(self, m):
-        name, where, path = m.group(1).strip(), m.group(2), m.group(3)
+        return self._mkdir(m.group(1), m.group(2), m.group(3))
+
+    def _mkdir(self, name, where, path):
+        name = name.strip()
         if "/" in name or name in (".", ".."):
             self.say("A folder name can't have a slash in it.")
             return
-        parent = files._folder(where, path) if (where or path) else os.path.join(HOME, "Documents")
+        # No place said: the folder Files shows, or JARVIS just opened ("open projects", "make a new folder
+        # here"), else Documents
+        parent = files._folder(where, path) if (where or path) else \
+            files.here(self.j) or os.path.join(HOME, "Documents")
         target = os.path.join(parent, name)
         if os.path.isdir(target):
             self.say("There's already a %s folder in %s." % (name, _where(parent)))
@@ -94,6 +134,69 @@ class Organise(Skill):
         batch = Batch("make folder " + target)
         batch.mkdir(target)
         self._done(batch, "Made %s in %s." % (name, _where(parent)))
+
+    def create_here(self, m):
+        """"create ai supervisor" right after "open projects", or with a Files window in front: a new folder."""
+        name = m.group(1).strip()
+        if NOT_A_NEW_FOLDER.search(name) or len(name.split()) > 5:
+            return False  # a note, a playlist, a tab... (other skills'), or a whole sentence
+        parent = files.here(self.j)
+        if not parent:
+            return False  # not looking at a folder
+        return self._mkdir(name, None, parent)
+
+    def many(self, m):
+        """"move all pdfs in downloads to documents": every one of that kind in that folder (and its folders),
+        shown on a card and asked about first."""
+        verb, kind, ext, fname, fpath, when, dest = m.groups()
+        verb, ext = verb.lower(), (ext or "").lower()
+        if ext and (ext in NOT_EXT or not (ext in EXT_WORDS or re.fullmatch(r"[a-z0-9]{1,5}", ext))):
+            return False
+        if not (ext or kind.lower().endswith("s") or re.search(r"\ball\b", m.group(0), re.IGNORECASE)):
+            return False  # "move the pdf to documents": one file, the one-file rules
+        trash = verb in ("delete", "trash", "remove") or bool(dest and re.fullmatch(
+            r"(?:trash|bin|recycle bin|rubbish(?: bin)?)", dest, re.IGNORECASE))
+        if (not trash and not dest) or (verb in ("delete", "trash", "remove") and dest and not trash):
+            return False
+        exts = KINDS[KIND_WORDS[kind.lower()]] if kind else (EXT_WORDS.get(ext) or "." + ext,)
+        what = "%ss" % KIND_WORDS[kind.lower()] if kind else "%s files" % exts[0]
+        folder = files._folder(fname, fpath) if (fname or fpath) else files.here(self.j) or \
+            os.path.join(HOME, "Downloads")
+        target = None if trash else self._folder(dest, near=folder)
+        if not trash and not target:
+            return
+        hits = [h for h in files._search(folder, when or "ever", exts)
+                if not target or not (h + os.sep).startswith(target.rstrip(os.sep) + os.sep)]
+        if not hits:
+            self.say("There aren't any %s in %s%s." % (what, _where(folder), " " + when if when else ""))
+            return
+        self.j.show({"title": "%s %d %s" % ("Trash" if trash else verb.capitalize(), len(hits), what),
+                     "text": "\n".join("- %s**%s** in `%s`" % (files.file_badge(h), os.path.basename(h),
+                                                              os.path.dirname(h).replace(HOME, "~"))
+                                       for h in hits[:30]) + ("\n\n…and %d more" % (len(hits) - 30)
+                                                              if len(hits) > 30 else "")})
+        n = "%d %s" % (len(hits), what) if len(hits) > 1 else os.path.basename(hits[0])
+        copy = verb == "copy"
+        question = "Put %s from %s in the Trash?" % (n, _where(folder)) if trash else "%s %s from %s to %s?" % (
+            "Copy" if copy else "Move", n, _where(folder), _where(target))
+        if not self.j.ask(question):
+            self.say("Okay, left them.")
+            return
+        batch = Batch("%s %s in %s" % (verb, what, folder))
+        if target and not os.path.isdir(target):
+            batch.mkdir(target)
+        failed = 0
+        for h in hits:
+            try:
+                if trash:
+                    batch.trash(h)
+                else:
+                    (batch.copy if copy else batch.move)(h, os.path.join(target, os.path.basename(h)))
+            except (FileError, OSError, shutil.Error):
+                failed += 1
+        done = len(hits) - failed
+        self._done(batch, "%s %d.%s" % ("Put in the Trash:" if trash else "Copied" if copy else "Moved", done,
+                                        " %d couldn't be." % failed if failed else ""))
 
     def rename(self, m):
         got = self._file(m.group(1))
@@ -118,33 +221,62 @@ class Organise(Skill):
             return
         self._done(batch, "Renamed it to %s." % os.path.basename(dst))
 
-    def move(self, m):
-        got = self._file(m.group(1))
+    def move(self, m, copy=False, to=None):
+        """Move or copy one file or folder. to: "here" (the folder on screen), "beside" (a copy next to it), else
+        the folder in group 2."""
+        said = next(g for g in m.groups() if g)
+        if " and " in said or (copy and OTHER_THINGS.search(said) and not files.names_a_file(said)):
+            return False  # "copy the last download and paste it here", "duplicate this tab": other skills'
+        got = self._file(said)
         if not got:
             return got
         path, exact = got
-        dest = self._folder(m.group(2), near=os.path.dirname(path))
+        if to == "beside":
+            dest = os.path.dirname(path)
+        elif to == "here":
+            dest = files.here(self.j, anywhere=True)
+            if not dest:
+                self.say("I can't tell which folder you mean. Open it in Files and ask again.")
+                return
+        else:
+            dest = self._folder(m.group(2), near=os.path.dirname(path))
         if not dest:
             return
-        if os.path.dirname(path) == dest:
+        if not copy and os.path.dirname(path) == dest:
             self.say("It's already in %s." % _where(dest))
             return
-        if not exact and not self.j.ask("Move %s to %s?" % (os.path.basename(path), _where(dest))):
+        if os.path.isdir(path) and (dest + os.sep).startswith(path + os.sep):
+            self.say("I can't put a folder inside itself.")
+            return
+        verb = "Copy" if copy else "Move"
+        if not exact and not self.j.ask("%s %s to %s?" % (verb, os.path.basename(path), _where(dest))):
             self.say("Okay, left it.")
             return
-        batch = Batch("move")
+        batch = Batch(verb.lower())
         if not os.path.isdir(dest):
             batch.mkdir(dest)
         try:
-            dst = batch.move(path, os.path.join(dest, os.path.basename(path)))
-        except (FileError, OSError) as e:
+            dst = (batch.copy if copy else batch.move)(path, os.path.join(dest, os.path.basename(path)))
+        except (FileError, OSError, shutil.Error) as e:
             batch.undo()
-            self.say("I couldn't move it: %s." % e)
+            self.say("I couldn't %s it: %s." % (verb.lower(), e))
             return
-        self._done(batch, "Moved %s to %s." % (files._short(dst), _where(dest)))
+        if to == "beside":
+            self._done(batch, "Made a copy: %s." % os.path.basename(dst))
+        else:
+            self._done(batch, "%s %s to %s." % ("Copied" if copy else "Moved", files._short(dst), _where(dest)))
 
     def _folder(self, said, near):
-        """The folder `said` means: one of yours, a path, a new one, or one found by name. None: said why."""
+        """The folder `said` means: here, one just listed, one of yours, a path, a new one, one found by name, or a
+        project's. None: said why."""
+        if re.fullmatch(r"(?:over )?here|there|this folder|that folder", said.strip(), re.IGNORECASE):
+            path = files.here(self.j, anywhere=True)
+            if not path:
+                self.say("I can't tell which folder you mean. Open it in Files and ask again.")
+            return path
+        picked = files.from_listing(said, folder=True) or files.in_listing(said, folder=True)
+        if picked:
+            return picked
         said = re.sub(r"^(?:my |the )", "", said.strip(), flags=re.IGNORECASE)
         m = re.match(r"new folder (?:called|named) (.+)", said, re.IGNORECASE)
         if m:
@@ -152,7 +284,10 @@ class Organise(Skill):
         m = re.fullmatch(FOLDER_RE, said, re.IGNORECASE)
         if m:
             return files._folder(m.group(1), m.group(2))
-        found = _find_dirs(said)
+        p = self.j.projects.find(said, strict=True)
+        if p:
+            return p.path
+        found = find_dirs(said)
         if len(found) == 1:
             return found[0]
         if found:
@@ -166,8 +301,9 @@ class Organise(Skill):
 
     def trash(self, m):
         said = m.group(1) or m.group(2)
-        if OTHER_THINGS.search(said) and not sure(said):
-            return False  # other skills' things ("delete the milk todo")
+        if OTHER_THINGS.search(said) and not sure(said) and not (
+                re.fullmatch(r"it|that", said.strip(), re.IGNORECASE) and files.recent_file()):
+            return False  # other skills' things ("delete the milk todo"); "delete it" right after finding a file is it
         got = self._file(said)
         if not got:
             return got
@@ -310,24 +446,5 @@ def _hash(path, limit=None):
     return h.hexdigest()
 
 
-def _find_dirs(name, depth=4):
-    """Folders under your home folder called `name` (any case), shallowest first."""
-    want, out = name.lower(), []
-    for root, dirs, _ in os.walk(HOME):
-        if root.count(os.sep) - HOME.count(os.sep) >= depth:
-            dirs[:] = []
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
-        out += [os.path.join(root, d) for d in dirs if d.lower() == want]
-    return sorted(out, key=lambda p: p.count(os.sep))
-
-
-def _where(path):
-    rel = os.path.relpath(path, HOME)
-    return "your home folder" if rel == "." else rel.replace("/", ", ") if not rel.startswith("..") else path
-
-
-def _size(n):
-    for unit in ("bytes", "KB", "MB", "GB"):
-        if n < 1024 or unit == "GB":
-            return ("%d %s" if unit == "bytes" else "%.1f %s") % (n, unit)
-        n /= 1024.0
+_where = files._spoken_dir
+_size = files.size_words
