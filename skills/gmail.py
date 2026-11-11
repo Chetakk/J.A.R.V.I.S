@@ -49,6 +49,7 @@ class Gmail(GoogleSkill):
 
     def patterns(self):
         return [
+            (r"read (?:the )?(?:e-?mail|message) ([0-9a-f]{10,24})", self.read_id),
             (r"(?:summari[sz]e|sum up|go through|catch me up on) (?:my |the )?(?:new |unread |latest )?(?:inbox|%s)"
              r"(?: for me)?" % MAIL, self.summarise),
             (r"(?:draft|write|prepare) (?:a |an )?(?:reply|response|answer)(?: to (?:this|that|the|it|(.+?)'s)"
@@ -89,7 +90,7 @@ class Gmail(GoogleSkill):
             return
         mails = [self._meta(gm, i) for i in ids[:8]]
         total = max(len(ids), got.get("resultSizeEstimate") or 0)
-        self.j.show({"id": "gmail", "title": "New email (%d)" % total, "text": _rows(mails),
+        self.j.show({"id": "gmail", "title": "New email (%d)" % total, "text": _rows(mails), "items": _items(mails),
                      "choices": [{"label": "Read the newest", "do": "read the latest email"}]})
         if total <= 3:
             self.say("%d new email%s: %s." % (total, "" if total == 1 else "s", and_list(_about(x) for x in mails)))
@@ -108,7 +109,7 @@ class Gmail(GoogleSkill):
             return
         mails = [self._meta(gm, i) for i in ids]
         self.last = (mails[0], time.time())
-        self.j.show({"id": "gmail", "title": "From %s" % mails[0]["name"], "text": _rows(mails),
+        self.j.show({"id": "gmail", "title": "From %s" % mails[0]["name"], "text": _rows(mails), "items": _items(mails),
                      "choices": [{"label": "Read it", "do": "read the latest email from %s" % mails[0]["addr"]},
                                  {"label": "Add to my to-dos", "do": "add this to my to-dos"}]})
         self.say("Yes, %s this week. The latest, %s at %s: %s. Say read that email." % (
@@ -130,6 +131,13 @@ class Gmail(GoogleSkill):
                 self.say("No email from %s." % name if name else "Your inbox is empty.")
                 return
             msg_id = hits[0]["id"]
+        self._read(gm, msg_id)
+
+    def read_id(self, m):
+        """"read email 18c2f…": one row of a mail card ("what's the second one", skills/cards.py item)."""
+        self._read(self.api("gmail", "v1"), m.group(1))
+
+    def _read(self, gm, msg_id):
         full = google.run(gm.users().messages().get(userId="me", id=msg_id, format="full"))
         mail = _meta_of(full)
         self.last = (mail, time.time())
@@ -162,7 +170,7 @@ class Gmail(GoogleSkill):
         finally:
             self.j.state("thinking")
         self.j.show({"id": "gmail", "title": "New email (%d)" % len(mails), "text": "> %s\n\n%s" % (
-            " ".join(summary.split()), _rows(mails))})
+            " ".join(summary.split()), _rows(mails)), "items": _items(mails)})
         self.j.claude_says(summary)
 
     def search(self, m):
@@ -191,7 +199,8 @@ class Gmail(GoogleSkill):
         if files:
             choices.append({"label": "Save the attachment" if len(files) == 1 else "Save the attachments",
                             "do": "save the attachments"})
-        self.j.show({"id": "gmail", "title": "Mail: %s" % (said or q), "text": _rows(mails), "choices": choices})
+        self.j.show({"id": "gmail", "title": "Mail: %s" % (said or q), "text": _rows(mails), "items": _items(mails),
+                     "choices": choices})
         has = (" It has an attachment, %s. Say save the attachment." % files[0][0] if len(files) == 1 else
                " It has %d attachments. Say save the attachments." % len(files) if files else "")
         self.say("%s. The newest: %s, %s: %s.%s" % ("Found one" if len(ids) == 1 else "Found %s" % (
@@ -364,6 +373,11 @@ def _row(mail):
     return "%s | [%s](https://mail.google.com/mail/u/0/#all/%s) | %s" % (
         cell(mail["name"]), cell(mail["subject"]), mail["thread"],
         clock(mail["at"]) if day_word(mail["at"]) == "today" else day_word(mail["at"]))
+
+
+def _items(mails):
+    """What each row of a mail card does when you say "read the second one"."""
+    return ["read email %s" % x["id"] for x in mails]
 
 
 def _rows(mails):

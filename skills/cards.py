@@ -46,6 +46,11 @@ class Cards(Skill):
 
     def patterns(self):
         return [
+            # "what's the second one", "read the third email": a row of a list card (its "items"), not a button;
+            # a card without rows hands it on to pick below
+            (r"(?:(?:and |so |ok(?:ay)?,? )?(?:read|open|show(?: me)?|what(?:'s| is| was| about| does)(?: in)?|"
+             r"tell me (?:about|what)|and) )(?:me )?(?:the |that )?%s(?: one| email| mail| message| file| doc| "
+             r"item| chat)?(?: say| about| is| one is)?" % NTH, self.item),
             (r"(?:(?:i(?:'ll| will)? )?(?:want|pick|choose|select|go with|do|take|open|play|run|use|try)|let's go with|"
              r"give me|show(?: me)?)?\s*(?:the |option |number |no\.? )*(?:%s|(?:number|option) (to|too|for))"
              r"(?: one| option| item| thing)?(?:,? (?:please|then|for me))?" % NTH, self.pick),
@@ -98,6 +103,24 @@ class Cards(Skill):
             self.say("Picked %s." % choice[0])
             return
         return self.j.handle(choice[1])
+
+    def item(self, m):
+        card = self._card()
+        rows = (card or {}).get("items") or []
+        if not rows:
+            options = choices(card)
+            asked = re.match(r"(?:what|tell me)\b", m.group(0), re.I)
+            choice = self._nth(m, options) if asked and options else None
+            if not choice:
+                return False  # "open the second one": the second button (pick)
+            self.say("The %s one is %s." % (next(g for g in m.groups() if g), choice[0]))  # asked, not pressed
+            return
+        phrase = self._nth(m, rows)
+        if not phrase:
+            self.say("There are only %d on the card." % len(rows))
+            return
+        self.j.chat("sys", "picked: row %s" % next(g for g in m.groups() if g))
+        return self.j.handle(phrase)
 
     def open_link(self, m):
         urls = links(self._card())

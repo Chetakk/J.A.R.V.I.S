@@ -172,7 +172,8 @@ class Drive(GoogleSkill):
                 _badge(f), cell(f["name"]), f.get("webViewLink") or "", cell(" · ".join(x for x in (_kind(f), owner)
                                                                                          if x)),
                 "" if at is None else clock(at) if day_word(at) == "today" else day_word(at)))
-        self.j.show({"id": "drive", "title": title, "text": "```rows\n%s\n```" % "\n".join(rows)})
+        self.j.show({"id": "drive", "title": title, "text": "```rows\n%s\n```" % "\n".join(rows),
+                     "items": ["open link number %d" % i for i in range(1, len(rows) + 1)]})  # a link per row
 
 
 def _badge(f):

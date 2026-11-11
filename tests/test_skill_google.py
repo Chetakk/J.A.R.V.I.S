@@ -290,6 +290,30 @@ def test_reading_an_email_then_making_it_a_todo_and_a_draft_reply(g):
     assert not g.g.made("gmail.users.messages.send")
 
 
+def test_the_second_one_on_a_mail_list_reads_the_second_email_not_the_second_button(g):
+    # Seen live: a search card with Read it / Save the attachments, then "what is the second one?" saved them.
+    _mailbox(g, [_msg("18c2f0a1b2c3d4e5", "HR <hr@biztel.ai>", "Offer letter", "Welcome aboard."),
+                 _msg("18c2f0a1b2c3d4e6", "Priya <priya@biztel.ai>", "Vacating consent form", "Please sign.")])
+    g.do("find the offer letter email")
+    assert g.cards[-1]["items"] == ["read email 18c2f0a1b2c3d4e5", "read email 18c2f0a1b2c3d4e6"]
+    saved = []
+    g.j.skills.gmail.save_attachments = lambda m: saved.append(m) or True
+    g.do("what is the second one")
+    assert g.says("From Priya", "Vacating consent form") and g.says("Please sign.")
+    assert not saved
+    g.do("read the first one")
+    assert g.says("Welcome aboard.")
+
+
+def test_asking_what_a_button_is_names_it_without_pressing_it(g):
+    pressed = []
+    g.j.skills.gmail.save_attachments = lambda m: pressed.append(m) or True
+    g.j.show({"title": "Mail", "text": "Hi", "choices": [{"label": "Read it", "do": "read that email"},
+                                                          {"label": "Save the attachments", "do": "save the attachments"}]})
+    g.do("what is the second one")
+    assert g.says("The second one is Save the attachments") and not pressed
+
+
 # --- chat ---
 
 def _chat(g, spaces, messages):

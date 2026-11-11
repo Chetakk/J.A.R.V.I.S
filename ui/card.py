@@ -12,6 +12,8 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
 - tick / untick: phrases a clicked checkbox says ("tick todo {n}", numbered from 1); without them a click only
   ticks it on the card.
+- items: a phrase per row of the card's list ("read email 18c2…"), for "read / open / what's the second one":
+  a row, where a bare "the second one" is the second button.
 - choices: buttons ("Open it", or {"label", "do", "icon"}); clicking one says its phrase to JARVIS. With an
   "icon" (a GTK icon name) the button shows only that icon.
 - id: a card with the same id as one on screen updates it in place (progress, live values).
