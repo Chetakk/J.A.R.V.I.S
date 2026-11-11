@@ -161,9 +161,21 @@ def test_mute_the_sound_mutes_the_speaker(jv, pulse):
 
 def test_unmute_never_mutes(jv, pulse):
     """A toggle made "unmute" mute the speaker whenever nothing was muted."""
-    jv.do("unmute")
+    jv.do("unmute the sound")
     assert pulse.get(USB)["mute"] is False
     assert jv.says("already on")
+
+
+def test_bare_mute_and_unmute_are_jarvis_mic(jv, pulse):
+    jv.do("mute")
+    assert jv.j.deaf and pulse.get(USB)["mute"] is False
+    jv.do("unmute")
+    assert not jv.j.deaf and pulse.get(USB)["mute"] is False
+
+
+def test_no_sound_mutes_the_speaker(jv, pulse):
+    jv.do("no sound")
+    assert pulse.get(USB)["mute"] is True and not jv.j.deaf
 
 
 def test_unmute_the_sound_brings_it_back(jv, pulse):

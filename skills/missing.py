@@ -32,7 +32,7 @@ def _volume(answer, m):
     if re.search(r"\b(?:down|quieter|lower|less|softer)\b", low):
         return "volume down"
     if re.search(r"\bmute\b", low):
-        return "mute"
+        return "mute the sound"  # a volume answer: the speaker, not the bare "mute" (the mic)
     if re.search(r"\b(?:max|maximum|full)\b", low):
         return "set volume to 100"
     n = _number(answer)

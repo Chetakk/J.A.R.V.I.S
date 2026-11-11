@@ -4,8 +4,8 @@ already playing too, and "undo that" goes back. The mic is what JARVIS hears you
 it low) asks first. The Echo Dot connects by itself from the Alexa app; when it isn't there JARVIS says so.
 
 Muting, three separate things, never one toggle:
-  "mute the sound"  the speaker, so nothing on this computer is heard; "unmute" brings it back.
-  "mute the mic"    JARVIS stops listening, straight away; the system microphone stays live for other apps.
+  "mute the sound"  the speaker ("no sound" too), so nothing on this computer is heard; "unmute the sound" brings it back.
+  "mute the mic"    ("mute" alone too) JARVIS stops listening, straight away; the system microphone stays live for other apps.
                     Afterwards JARVIS can't hear you: only the tray icon (or typing) turns it back on.
   "mute yourself"   JARVIS's own voice, which is quiet mode (skills/voice_prefs.py).
 Each says which way it's going, so saying "unmute" when nothing is muted never mutes you."""
@@ -31,18 +31,18 @@ NOT_LISTENING = ["Okay, I'm not listening. Don't worry about it.",
                  "Okay, okay, ears closed.",
                  "Alright, alright, I'll stop listening."]
 # Muting the speaker and muting the microphone, each in its own direction (no toggles: "unmute" only unmutes).
-MUTE_SOUND = (r"mute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)?|"
+MUTE_SOUND = (r"mute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)|no sound|"
               r"silence (?:the )?(?:sound|audio|speakers?|everything)|"
               r"turn (?:the )?(?:sound|audio|volume|speakers?) off|"
               r"turn off (?:the )?(?:sound|audio|volume|speakers?)|(?:sound|audio|speakers?) off")
-UNMUTE_SOUND = (r"unmute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)?|"
+UNMUTE_SOUND = (r"unmute(?: the| my)?(?: sound| audio| speakers?| output| volume| everything)|"
                 r"turn (?:the )?(?:sound|audio|volume|speakers?) (?:back )?on|"
                 r"turn (?:back )?on (?:the )?(?:sound|audio|volume|speakers?)|"
                 r"(?:sound|audio|speakers?) (?:back )?on|bring (?:the )?(?:sound|audio) back")
-MUTE_MIC = (r"mute (?:the |my )?(?:mic|microphone|mike|input)|"
+MUTE_MIC = (r"mute|mute (?:the |my )?(?:mic|microphone|mike|input)|"  # bare "mute" is JARVIS's mic
             r"turn (?:the |my )?(?:mic|microphone|mike) off|turn off (?:the |my )?(?:mic|microphone|mike)|"
             r"(?:mic|microphone) off")
-UNMUTE_MIC = (r"unmute (?:the |my )?(?:mic|microphone|mike|input)|"
+UNMUTE_MIC = (r"unmute|unmute (?:the |my )?(?:mic|microphone|mike|input)|"
               r"turn (?:the |my )?(?:mic|microphone|mike) (?:back )?on|"
               r"turn (?:back )?on (?:the |my )?(?:mic|microphone|mike)|(?:mic|microphone) (?:back )?on")
 
