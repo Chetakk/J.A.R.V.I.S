@@ -238,11 +238,19 @@ def _heat(celsius):
 
 
 def _gpu_percent():
+    """How busy the whole GPU is. The load file counts against the current clock, which the power mode caps (25W:
+    408 of 918 MHz), so scale it by current clock / the chip's top clock: 85% at 408 MHz is 38% of the GPU."""
     try:
         with open("/sys/devices/gpu.0/load") as f:
-            return int(f.read()) // 10  # per mille
+            load = int(f.read()) / 10  # per mille
     except (OSError, ValueError):
         return None
+    try:
+        freq = glob.glob("/sys/devices/gpu.0/devfreq/*/")[0]
+        with open(freq + "cur_freq") as f, open(freq + "available_frequencies") as top:
+            return round(load * int(f.read()) / max(map(int, top.read().split())))
+    except (OSError, ValueError, IndexError):
+        return round(load)
 
 
 def _temps():

@@ -230,3 +230,17 @@ def test_quiet_computer_offers_nothing(jv, fast, monkeypatch):
     jv.add_process(50034, "gedit", cpu=1, rss_mb=60)
     jv.do("why is my computer so slow")
     assert jv.says("Nothing's working the CPU hard right now") and not jv.questions
+
+
+def test_gpu_percent_counts_against_the_whole_gpu_not_the_power_modes_cap(monkeypatch, tmp_path):
+    """25W mode caps the clock at 408 of 918 MHz: 85% load there is 38% of the GPU; at the top clock it stays 85%."""
+    (tmp_path / "f").mkdir()
+    (tmp_path / "f" / "available_frequencies").write_text("306000000 408000000 918000000\n")
+    files = {"/sys/devices/gpu.0/load": "850\n"}
+    real_open = open
+    monkeypatch.setattr(slow_computer.glob, "glob", lambda p: [str(tmp_path / "f") + "/"])
+    monkeypatch.setattr("builtins.open", lambda p, *a, **k: __import__("io").StringIO(files[p]) if p in files
+                        else real_open(p, *a, **k))
+    for clock, shown in (("408000000", 38), ("918000000", 85)):
+        (tmp_path / "f" / "cur_freq").write_text(clock)
+        assert slow_computer._gpu_percent() == shown
