@@ -161,3 +161,24 @@ def test_your_answer_while_it_is_still_talking_is_not_its_echo():
 
 def test_a_misheard_word_only_counts_while_it_is_talking():
     assert not _speaker(5, "Closing Text Editor.").is_echo("Clones Text Editor.", time.time() - 2)
+
+
+def test_its_own_line_with_its_name_in_it_is_still_an_echo(monkeypatch):
+    """Seen in the log: the brief said "the newest is JARVIS wake 2", came back through the mic, and the
+    name in it let it through as a command, so Claude answered JARVIS's own brief."""
+    said = "15 open to-dos, the newest is JARVIS wake 2. It's on your screen."
+    w = _waiting_wake("15 open to DOS. The newest is Jarvis. Wake 2. It's on your screen.", monkeypatch)
+    w.following, w.said_lately = True, lambda: [said]
+    w._listen(None)
+    assert w.passed == [] and w.heard == ["ignored (my own voice)"]
+    w = _waiting_wake("Jarvis, do a speed test.", monkeypatch)  # it didn't say its name: the name is yours
+    w.following, w.said_lately = True, lambda: ["Running a speed test now."]
+    w._listen(None)
+    assert w.passed == ["do a speed test"]
+
+
+def test_a_misheard_echo_just_after_it_stopped_is_still_its_voice():
+    """Seen in the log: the speaker's lag made this begin just after JARVIS's estimated end, so it was taken
+    word for word, "They" and "news" didn't match, and it went to Claude as your answer."""
+    s = _speaker(0.5, "I didn't catch that, sir. Do you want me to mark the newest to-do, Web 2, done?")
+    assert s.is_echo("I didn't catch that. They want you to mark the news to do.", time.time() - 0.2)

@@ -202,15 +202,18 @@ class Speaker:
         words = _words(heard)
         if not words:
             return False
-        playing = started_at <= self._ends_at()
-        for when, text in self.history:
-            if when > time.time() - 30:
-                said = _words(text)
-                heard_words = [_like(w, said) for w in words] if playing else words
-                blocks = difflib.SequenceMatcher(None, heard_words, said, autojunk=False).get_matching_blocks()
-                if sum(b.size for b in blocks) / len(words) >= (0.8 if playing else 0.9):
-                    return True
+        playing = started_at <= self._ends_at() + 1.0  # (+1 s: the speaker's lag varies; its tail came back as a command)
+        for text in self.said_lately():
+            said = _words(text)
+            heard_words = [_like(w, said) for w in words] if playing else words
+            blocks = difflib.SequenceMatcher(None, heard_words, said, autojunk=False).get_matching_blocks()
+            if sum(b.size for b in blocks) / len(words) >= (0.8 if playing else 0.9):
+                return True
         return False
+
+    def said_lately(self):
+        """What JARVIS said in the last 30 s: what its echo can still come back as."""
+        return [text for when, text in self.history if when > time.time() - 30]
 
     def listen_inbox(self):
         """Speak lines other programs (e.g. the Claude terminal's hook) write to the inbox pipe."""

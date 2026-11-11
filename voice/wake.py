@@ -198,10 +198,19 @@ class WhisperWake:
     """Wakes on any of `names` heard by Whisper. on_text(command, follow_up) gets what to do (follow_up:
     said without the name, after an answer); on_wake(True/False) reports listening state, like WakeWord."""
 
+    def said_lately(self):
+        """What JARVIS said in the last half minute (JARVIS passes its own in)."""
+        return []
+
+    def _called(self, text):
+        """The name in `text` is yours, not JARVIS's own line coming back ("the newest is JARVIS wake 2")."""
+        name = re.compile(r"(?<![a-z])%s" % _names_regex(self.names), re.IGNORECASE)
+        return bool(name.search(text)) and not any(name.search(line) for line in self.said_lately())
+
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
                  on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
-                 is_dictating=None, on_wait=None):
+                 is_dictating=None, on_wait=None, said_lately=None):
         self.names = names
         self.on_wait = on_wait or (lambda seconds: None)  # listening without the name for this many seconds
         self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
@@ -215,6 +224,8 @@ class WhisperWake:
         self.on_heard = on_heard or (lambda text, outcome: None)
         self.is_busy = is_busy or (lambda: False)
         self.is_echo = is_echo or (lambda text, started: False)  # (heard text, start time) -> own voice?
+        if said_lately:
+            self.said_lately = said_lately
         # Talking over JARVIS: "any" = a new request stops it (no name needed in a conversation),
         # "named" = only with the name, "off" = only "stop". is_talking: JARVIS speaking (not push-to-talk).
         self.is_talking = is_talking or self.is_busy
@@ -321,9 +332,10 @@ class WhisperWake:
                 self.on_heard("", "couldn't make out words (%.1f s, peak %d)" % (seconds, np.abs(seg).max() * 32767))
                 continue
             # JARVIS's own voice coming back from the speaker (e.g. the tail of a Bluetooth delay).
-            # Saying the name always gets through, in case you repeat its words on purpose. Right after the
-            # name alone JARVIS only beeped, so it's you ("Do a speed test" was taken for its earlier answer).
-            if (not waiting or self.following or dictating) and self.is_echo(text, started) and not split_name(text, self.names)[0]:
+            # Saying the name always gets through, in case you repeat its words on purpose (unless JARVIS said
+            # the name itself). Right after the name alone JARVIS only beeped, so it's you ("Do a speed test"
+            # was taken for its earlier answer).
+            if (not waiting or self.following or dictating) and self.is_echo(text, started) and not self._called(text):
                 self.on_heard(text, "ignored (my own voice)")
                 continue
             if waiting:
