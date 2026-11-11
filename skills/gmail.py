@@ -1,13 +1,13 @@
 """Your Gmail (the work account, system/google_account.py).
 
-Asked: "any new emails" (your main inbox: no promotions or newsletters), "read the latest email from Rahul", "did
+Asked: "any new emails" (everything in your inbox), "read the latest email from Rahul", "did
 Priya email me", "summarise my inbox" (Claude), "add this email to my to-dos", "draft a reply saying I'll send it
 tomorrow" (saved as a Gmail draft: you send it yourself), "find the invoice email from last month" (a Gmail search:
 who from or to, when, with an attachment, the words), "save the attachment" (to Downloads, never over a file there).
 
-By itself, every 2 minutes: new mail in your main inbox from someone you've written to is said ("Email from Rahul:
-design review notes"), and so is a comment or @mention of you on a Google Doc or Sheet; everything else stays
-quiet (settings google mail_alerts: false turns it off)."""
+By itself, every 2 minutes: every new email in your inbox is said ("Email from Rahul: design review notes"), and so
+is a comment or @mention of you on a Google Doc or Sheet; files shared with you are left to Drive's heads-up
+(settings google mail_alerts: "people" keeps it to people you've written to, false turns it off)."""
 import base64
 import datetime
 import html
@@ -22,7 +22,8 @@ from skills.helpers import HOME, and_list
 from system import fileops
 from system import google_account as google
 
-INBOX = "in:inbox category:primary"
+INBOX = "in:inbox"  # a work account: every email in the inbox matters, whatever its tab
+SHARES = ("drive-shares-dm-noreply@google.com", "drive-shares-noreply@google.com")  # skills/drive.py says those
 DOCS = "comments-noreply@docs.google.com"  # Docs, Sheets and Slides mail comments and @mentions from here
 MAIL = r"(?:e-?mails?|mails?)"
 FRESH = 1800  # seconds "this email" means the one last read or announced
@@ -31,8 +32,8 @@ FRESH = 1800  # seconds "this email" means the one last read or announced
 class Gmail(GoogleSkill):
     every = 120
     group = "gmail"
-    does = ("Your Gmail: new mail in the main inbox, reading an email, summaries, an email as a to-do, draft "
-            "replies; says new mail from people you write to")
+    does = ("Your Gmail: new mail, reading and finding an email, saving attachments, summaries, an email as a "
+            "to-do, draft replies; says every new email")
     phrases = ("any new emails", "read the latest email from <name>", "did <name> email me", "summarise my inbox",
                "add this email to my to-dos", "draft a reply saying <what>", "find the invoice email from last month",
                "search my email for <what>", "save the attachment (of the email just found or read)")
@@ -90,7 +91,7 @@ class Gmail(GoogleSkill):
         got = google.run(gm.users().messages().list(userId="me", q=INBOX + " is:unread newer_than:7d", maxResults=10))
         ids = [x["id"] for x in got.get("messages") or []]
         if not ids:
-            self.say("No new email in your main inbox.")
+            self.say("No new email in your inbox.")
             return
         mails = [self._meta(gm, i) for i in ids[:8]]
         total = max(len(ids), got.get("resultSizeEstimate") or 0)
@@ -308,22 +309,32 @@ class Gmail(GoogleSkill):
             return
         new = [i for i in ids if i not in self._seen]
         self._seen.update(ids)
-        for i in reversed(new[:3]):  # oldest first
+        everyone = self.cfg("mail_alerts", True) is not False and self.cfg("mail_alerts", True) != "people"
+        said = 0
+        for i in reversed(new[:6]):  # oldest first
+            if said == 3:
+                self.j.skills.proactive.tell("mail", "And %d more new email%s. Say any new emails." % (
+                    len(new) - 3, "" if len(new) == 4 else "s"), "More came in at once than I read out one by one.")
+                break
             mail = self._meta(gm, i)
+            if mail["addr"] in SHARES:
+                continue  # a file shared with you: Drive's own heads-up says it, with the file
             if mail["addr"] == DOCS:  # a comment on a Doc or Sheet: you were mentioned, or it's on your file
+                said += 1
                 self.last = (mail, time.time())
                 who = re.sub(r"\s*\(Google \w+\)$", "", mail["name"])
                 self.j.skills.proactive.tell("mail", "%s on Google Docs: %s." % (first_name(who), short(
                     mail["subject"], 14)), "Google Docs emailed you about a comment (%s). Say read that email." % (
                     short(mail["snippet"], 20)))
                 continue
-            if mail["addr"] == self.me(gm) or not self.writes_to(gm, mail["addr"]):
+            if mail["addr"] == self.me(gm) or not (everyone or self.writes_to(gm, mail["addr"])):
                 continue
+            said += 1
             self.last = (mail, time.time())
             if self.j.skills.proactive.tell(
                     "mail", "Email from %s: %s." % (first_name(mail["name"]), short(mail["subject"], 12)),
-                    "It's new in your main inbox, from %s, someone you've written to. Newsletters and people you "
-                    "haven't written to stay quiet. Say read the latest email from %s." % (
+                    "It's new in your inbox, from %s. I say every new email (google mail_alerts: people in settings "
+                    "keeps it to people you've written to). Say read the latest email from %s." % (
                         mail["addr"], first_name(mail["name"]))):
                 self.j.inbox.put(("ctl", {"show": {
                     "id": "mail-" + mail["id"], "title": "Mail from %s" % mail["name"],

@@ -258,7 +258,21 @@ def test_new_emails_are_listed(g):
     assert g.says("2 new emails", "Rahul about Design notes", "Priya about Invoice for October")
 
 
-def test_mail_is_announced_only_from_people_you_write_to(g):
+def test_every_new_email_is_announced(g):
+    _mailbox(g, [], sent_to=("rahul@biztel.ai",))
+    gm = g.j.skills.gmail
+    gm.poll()
+    _mailbox(g, [_msg("1", "Rahul <rahul@biztel.ai>", "Can you review?"),
+                 _msg("2", "Ops <ops@vendor.com>", "Server renewal"),
+                 _msg("3", "Rahul via Drive <drive-shares-dm-noreply@google.com>", "Budget shared with you")],
+             sent_to=("rahul@biztel.ai",))
+    gm.poll()
+    lines = said_by_itself(g)
+    assert sorted(lines) == ["Email from Ops: Server renewal.", "Email from Rahul: Can you review?."]
+
+
+def test_mail_alerts_can_be_kept_to_people_you_write_to(g):
+    g.j.settings["google"] = {"mail_alerts": "people"}
     _mailbox(g, [], sent_to=("rahul@biztel.ai",))
     gm = g.j.skills.gmail
     gm.poll()
