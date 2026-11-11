@@ -128,4 +128,19 @@ def points(said, phrase):
         return True
     # "read the summarised version" -> "summarise AI Process Engineer.txt": a file or path Claude filled in
     # from what was going on is right only that once.
-    return any(f not in said.lower() for f in re.findall(FILE_NAME, phrase.lower()))
+    if any(f not in said.lower() for f in re.findall(FILE_NAME, phrase.lower())):
+        return True
+    # "add to my to-do list" -> "add the PLANT INTELLIGENCE doc to my todo list", "change the timing" -> "remind me
+    # at 11:30 pm ...": a name or a time you never said came from what was going on. ("volume hundred" -> 100 is fine.)
+    words = set(re.findall(r"[a-z0-9:']+", said.lower()))
+    for tok in phrase.split()[1:]:
+        tok = tok.strip(".,!?\"()")
+        if tok.lower() in words:
+            continue
+        if any(c.isdigit() for c in tok) and not re.search(NUMBER_WORD, said.lower()) or tok[:1].isupper():
+            return True
+    return False
+
+
+NUMBER_WORD = (r"\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\w+teen|twenty|thirty|"
+               r"forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter)\b")

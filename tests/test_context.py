@@ -71,6 +71,15 @@ def test_a_wording_that_points_at_the_screen_is_not_learned_from_claude():
     assert not learned.points("summarise plan.md", "summarise plan.md")
 
 
+def test_a_name_or_time_claude_filled_in_is_not_learned():
+    # seen in the log: the doc on screen and the time from the sentence before were learned into the wording
+    assert learned.points("add to my to-do list", "add the PLANT INTELLIGENCE doc to my todo list")
+    assert learned.points("change the timing of the to-do", "remind me at 11:30 pm to read the doc")
+    assert not learned.points("bring up the projects folder", "open the Projects folder")
+    assert not learned.points("what was the last message from anish", "what did Anish say on chat")
+    assert not learned.points("volume hundred", "set volume to 100")
+
+
 @pytest.mark.parametrize("said", ["thank you too", "love you too", "and good night too", "and him too",
                                   "and all apps too", "and everything too", "and also please"])
 def test_talk_with_too_is_not_a_name_to_close(said):
