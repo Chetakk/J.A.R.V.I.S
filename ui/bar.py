@@ -916,7 +916,14 @@ class Bar:
                 cr.stroke()
             items.append((nw + 17, notes))
         if self.alerts:  # JARVIS's own unread alerts (the full bar's button opens them)
-            items.append(text("%d ●" % self.alerts))
+            aw, acount = text(str(self.alerts))
+
+            def alerts(right):  # a dot, then how many: laid out like the envelope's
+                acount(right)
+                cr.set_source_rgba(*SNOW, 0.8)
+                cr.arc(right - aw - 10.5, mid, 4.5, 0, 2 * math.pi)
+                cr.fill()
+            items.append((aw + 17, alerts))
         for kind, on in (("mic", mutes["mic"]), ("speaker", mutes["voice"] or mutes["speaker"])):
             if on:
                 items.append((16, lambda right, kind=kind: _mute_mark(cr, right - 8, mid, kind)))
