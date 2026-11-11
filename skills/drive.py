@@ -2,12 +2,16 @@
 onboarding", "what did I edit yesterday", "read the design doc" / "summarise the launch plan doc" (Google Docs,
 Sheets and Slides read as text; "summarise it" and "read the rest" carry on as for any long text).
 
-A name that isn't in Drive falls through to your own files (skills/documents.py)."""
+A name that isn't in Drive falls through to your own files (skills/documents.py).
+
+"What's been shared with me" lists files people shared with you lately; and by itself, every 2 minutes, a newly
+shared Doc, Sheet or file is said ("Rahul shared Budget 2026, a sheet, with you") with a card to open it (settings
+google share_alerts: false turns it off). Shared links pasted into Chat or mail come with those messages instead."""
 import os
 import re
 import time
 
-from skills.google_common import GoogleSkill, cell, clock, day_word, parse_time, rfc
+from skills.google_common import GoogleSkill, cell, clock, day_word, first_name, parse_time, person, rfc
 from system import google_account as google
 
 KINDS = {"document": "doc", "spreadsheet": "sheet", "presentation": "slides", "folder": "folder", "pdf": "PDF",
@@ -16,13 +20,16 @@ EXPORT = {"application/vnd.google-apps.document": "text/plain", "application/vnd
           "application/vnd.google-apps.presentation": "text/plain"}
 DOC = r"(?:doc|docs|document|sheet|spreadsheet|slides|deck|presentation|file)"
 FIELDS = "files(id,name,mimeType,webViewLink,modifiedTime,modifiedByMeTime,owners(displayName))"
+SHARED = "files(id,name,mimeType,webViewLink,modifiedTime,sharedWithMeTime,owners(displayName),sharingUser(displayName,emailAddress))"
 
 
 class Drive(GoogleSkill):
     group = "drive"
-    does = "Google Drive: finding files, what you edited lately, reading or summing up a Doc, Sheet or Slides"
+    does = ("Google Drive: finding files, what you edited lately, reading or summing up a Doc, Sheet or Slides, what "
+            "people shared with you; says newly shared files")
+    every = 120
     phrases = ("find <name> in my drive", "what did I edit yesterday", "read the <name> doc",
-               "summarise the <name> doc")
+               "summarise the <name> doc", "what's been shared with me")
     gives = "a card of files (open one with open the second link), or the text read aloud"
     permission = "auto"
     checks = "searches Drive itself; a name it can't find there goes on to your own files"
@@ -30,6 +37,7 @@ class Drive(GoogleSkill):
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.found = []  # the files on the last card
+        self._shared_since = None  # the newest sharedWithMeTime at the last poll (None until the first one)
 
     def patterns(self):
         return [
@@ -38,6 +46,10 @@ class Drive(GoogleSkill):
             (r"what (?:did|have) i (?:edit|edited|work on|worked on|change|changed|open|opened)(?: in (?:google )?drive|"
              r" in (?:my )?docs)? ?(yesterday|today|this week|lately|recently)?|(?:show |list )?(?:me )?(?:my )?"
              r"recent (?:google )?(?:docs|documents|drive files|files in drive|sheets)", self.recent),
+            (r"what(?:'s| has| have| is) (?:been |people |anyone |someone )?shared with me(?: lately| recently| today| this "
+             r"week)?|(?:show |list )?(?:me )?(?:the )?(?:files|docs|documents|sheets|things) (?:people |anyone )?shared "
+             r"with me(?: lately| recently| today| this week)?|(?:did|has) (?:anyone|anybody|someone) shared? (?:anything|"
+             r"a doc|a file|a sheet|a document)(?: with me)?(?: lately| recently| today)?", self.shared),
             (r"(read|summari[sz]e|sum up)(?: me)? (?:the |my |our )?(.+?) %s(?: (?:from|in|on) (?:my |google )?drive)?"
              % DOC, self.read),
         ]
@@ -98,6 +110,47 @@ class Drive(GoogleSkill):
         reading.text, reading.parts, reading.at = text, [], time.time()  # "read the rest" / "summarise it" next
         reading.summarise()
 
+    def shared(self, m):
+        files = self._shared_lately(time.time() - 7 * 86400)
+        if not files:
+            self.say("Nobody's shared anything with you this week.")
+            return
+        self._card(files, "Shared with you")
+        f = files[0]
+        self.say("%s this week. The latest: %s shared %s, %s." % (
+            "One file" if len(files) == 1 else "%d files" % len(files), _who(f), f["name"],
+            day_word(parse_time(f["sharedWithMeTime"]))))
+
+    def poll(self):
+        if not self.cfg("share_alerts", True):
+            return
+        files = self._shared_lately(None)
+        newest = max((f["sharedWithMeTime"] for f in files), key=parse_time, default=None)
+        if self._shared_since is None:
+            self._shared_since = newest or rfc(time.time())
+            return
+        new = [f for f in files if parse_time(f["sharedWithMeTime"]) > parse_time(self._shared_since)]
+        if not new:
+            return
+        self._shared_since = newest
+        for f in reversed(new[:3]):  # oldest first
+            line = "%s shared %s, a %s, with you." % (_who(f), f["name"], _kind(f))
+            if self.j.skills.proactive.tell("share", line, "%s shared it on Google Drive (%s). Say what's been shared "
+                                            "with me for the week's." % (_who(f), (f.get("sharingUser") or {}).get(
+                                                "emailAddress") or "someone")):
+                self.j.inbox.put(("ctl", {"show": {
+                    "id": "drive-share-" + f["id"], "title": "Shared with you",
+                    "text": "```rows\nfile:%s | [%s](%s) | %s | %s\n```" % (
+                        _badge(f), cell(f["name"]), f.get("webViewLink") or "", cell(_who(f)), _kind(f)),
+                    "choices": [{"label": "Open it", "do": "open the first link"}]}}))
+
+    def _shared_lately(self, since):
+        drive = self.api("drive", "v3")
+        files = google.run(drive.files().list(q="sharedWithMe and trashed=false", orderBy="sharedWithMeTime desc",
+                                              pageSize=20, fields=SHARED)).get("files") or []
+        return [f for f in files if f.get("sharedWithMeTime") and (since is None or
+                                                                   parse_time(f["sharedWithMeTime"]) >= since)]
+
     def search(self, name, text=True):
         """Files named like `name` (newest first), else (text=True) ones with it in their text."""
         drive = self.api("drive", "v3")
@@ -132,3 +185,8 @@ def _badge(f):
 def _kind(f):
     mime = f.get("mimeType", "")
     return next((v for k, v in KINDS.items() if k in mime), "file")
+
+
+def _who(f):
+    u = f.get("sharingUser") or {}
+    return first_name(person(u.get("displayName"), u.get("emailAddress"))) if u else "Someone"
