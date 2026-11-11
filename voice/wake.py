@@ -202,10 +202,14 @@ class WhisperWake:
         """What JARVIS said in the last half minute (JARVIS passes its own in)."""
         return []
 
-    def _called(self, text):
-        """The name in `text` is yours, not JARVIS's own line coming back ("the newest is JARVIS wake 2")."""
+    def _called(self, text, started):
+        """The name in `text` is yours, unless JARVIS just said its name and the rest is its line too ("the newest
+        is JARVIS wake 2" came back). "Jarvis, take me to Chrome" over that line is still you."""
+        named, rest = split_name(text, self.names)
+        if not named:
+            return False
         name = re.compile(r"(?<![a-z])%s" % _names_regex(self.names), re.IGNORECASE)
-        return bool(name.search(text)) and not any(name.search(line) for line in self.said_lately())
+        return not (rest and any(name.search(line) for line in self.said_lately()) and self.is_echo(rest, started))
 
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
@@ -335,7 +339,7 @@ class WhisperWake:
             # Saying the name always gets through, in case you repeat its words on purpose (unless JARVIS said
             # the name itself). Right after the name alone JARVIS only beeped, so it's you ("Do a speed test"
             # was taken for its earlier answer).
-            if (not waiting or self.following or dictating) and self.is_echo(text, started) and not self._called(text):
+            if (not waiting or self.following or dictating) and self.is_echo(text, started) and not self._called(text, started):
                 self.on_heard(text, "ignored (my own voice)")
                 continue
             if waiting:
