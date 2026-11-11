@@ -241,3 +241,10 @@ def test_a_timer_keeps_counting_behind_a_newer_card(jv, monkeypatch):
     assert jv.j.cards._showing(timer_id)  # still on screen, so it keeps updating
     jv.do("cancel the timer")
     assert [c["title"] for c in jv.ui.open] == ["Weather"]  # only the timer's card went
+
+
+def test_a_button_that_says_the_first_one_doesnt_pick_itself_forever(jv):
+    # Claude once made to-do buttons whose phrase was "the first one": a click recursed until Python gave up.
+    jv.j.show({"title": "Open to-dos", "text": "- [ ] a", "choices": [{"label": "JARVIS wake 2", "do": "the first one"}]})
+    jv.do("the first one")
+    assert jv.said == ["Picked JARVIS wake 2."]

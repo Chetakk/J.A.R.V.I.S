@@ -77,7 +77,9 @@ Reply with ONLY one JSON object (no prose, no code fences):
      when the thing has a shape (progress, parts of a whole, a sequence, a time of day, a place)",
      "image": "absolute path of an image file, or empty",
      "choices": [] or up to 6 buttons, each a phrase {name} understands or {"label": "...", "do": "phrase"};
-       {user} clicks one or says "the second one", and {name} does it,
+       {user} clicks one or says "the second one", and {name} does it. "do" is the real request ("mark buy
+       milk done"), never "the first one". {user}'s to-dos have their own card: put "what's on my todo list" in
+       "do" instead of drawing them; its ticks work by click or "mark the second one done",
      "refresh": null, or {"command": "safe read-only shell command", "every": seconds, "for": seconds} to keep
        the card live; "{output}" in "text" is replaced by the command's latest output}
   "remember": null, or when {user} mentions in passing something lasting about themselves that would help

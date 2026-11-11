@@ -93,6 +93,10 @@ class Cards(Skill):
             self.say("There are only %d options." % len(options))
             return
         self.j.chat("sys", "picked: %s" % choice[0])
+        if any(p.match(choice[1].strip().rstrip("?.!")) for p, fn in self.rules if fn == self.pick):
+            # a button whose phrase is itself "the first one" would pick itself forever
+            self.say("Picked %s." % choice[0])
+            return
         return self.j.handle(choice[1])
 
     def open_link(self, m):
