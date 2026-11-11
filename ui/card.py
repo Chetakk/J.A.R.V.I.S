@@ -981,7 +981,7 @@ class Deck:
         elif card_id:
             targets = [w for w in self.open if (w.last or {}).get("id") == card_id]
         else:
-            targets = self.open[-1:]
+            targets = [w for w in [self._newest()] if w]  # the current one: opened or used last
         for w in targets:
             w.close()
         return False

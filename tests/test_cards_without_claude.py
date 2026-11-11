@@ -100,6 +100,23 @@ def test_ways_to_ask_for_the_dashboard(jv):
         assert jv.ui.current_card()["id"] == "dashboard", said
 
 
+def test_close_the_dashboard(jv):
+    jv.do("show my dashboard")
+    for said in ("remove the dashboard", "close dashboard"):
+        jv.do(said)
+        assert not jv.ui.card_open("dashboard"), said
+    assert jv.says("dashboard isn't open") and not jv.claude.calls, "closing it twice says so instead of asking Claude"
+
+
+def test_close_a_card_by_its_name(jv):
+    jv.j.show({"id": "usage", "title": "System usage", "text": "x"})
+    jv.j.show({"id": "disk", "title": "Disk space", "text": "y"})
+    jv.do("remove the system usage card")
+    assert not jv.ui.card_open("usage") and jv.ui.card_open("disk")
+    jv.do("close the weather card")
+    assert jv.says("no weather card open") and not jv.claude.calls
+
+
 def test_timer_done(jv):
     jv.do("set a timer for 1 second")
     time.sleep(1.6)

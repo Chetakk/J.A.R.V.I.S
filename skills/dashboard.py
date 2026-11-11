@@ -56,7 +56,8 @@ class Dashboard(Skill):
              r"what tasks are running|(?:are there )?any (?:tasks|jobs) running|"
              r"(?:let me |can i |i (?:want|wanna|would like|'d like) to )?(?:see|look at|check) (?:my |the |your )?"
              r"dashboard|(?:go|take me|switch) (?:back )?to (?:my |the )?dashboard", lambda m: self.show()),
-            (r"(?:close|hide) (?:the |my )?(?:dashboard|task ?board)", lambda m: self.close()),
+            (r"(?:close|hide|remove|dismiss|get rid of|stop showing(?: me)?) (?:the |my |your )?(?:dashboard|task ?board)",
+             lambda m: self.close()),
         ]
 
     def show(self, speak=True):
@@ -70,7 +71,8 @@ class Dashboard(Skill):
     def close(self):
         ui = self.j.ui
         if not (ui and ui.card_open(CARD_ID)):
-            return False
+            self.say("The dashboard isn't open.")
+            return
         ui.close_card(CARD_ID)
 
     def _keep_fresh(self, shown):

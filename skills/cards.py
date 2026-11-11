@@ -78,6 +78,8 @@ class Cards(Skill):
              r"(?:close|hide|clear|dismiss|get rid of) (?:the|my|these|those) cards|"
              r"(?:close|hide|clear|dismiss) (?:them|these|those) all|(?:close|hide|clear) all (?:of )?(?:them|these)",
              self.close_all),
+            (r"(?:close|hide|clear|dismiss|remove|get rid of) (?:the |my |this |that )?(?P<name>[\w' -]*?) ?card",
+             self.close_named),
             # "our"/"my": Whisper often hears "set a timer" as "set our timer".
             (r"(?:set(?: up)? |start )?(?:a |an |the |my |our |one )?(?:timer|countdown) (?:for )?%s(?: for (.+))?"
              % _AMOUNT, self.timer),
@@ -224,6 +226,21 @@ class Cards(Skill):
         if not (self.j.ui and self.j.ui.card_visible()):
             return False  # no cards up: "close them all" is about windows
         self.j.ui.close_card(every=True)
+
+    def close_named(self, m):
+        """"Remove the weather card": the open card whose title (or id) has that name; "close this card": the current."""
+        name, ui = m.group("name").lower().strip(), self.j.ui
+        cards = ui.open_cards() if ui else []
+        card = next((c for c in cards if name in (c.get("title") or "").lower() or name == c.get("id")), None) \
+            if name else self._card()
+        if not card:
+            self.say("There's no %s card open." % name if name else "There's no card open.")
+            return
+        if card.get("id"):
+            ui.close_card(card["id"])
+        else:
+            ui.use_card(card)
+            ui.close_card()  # the one just used
 
     def unpin(self, m):
         if not self.j.ui:
