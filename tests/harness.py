@@ -36,7 +36,7 @@ import threading
 import time
 import urllib.error
 
-from claude.bridge import ClaudeError, _parse_answer
+from claude.bridge import ClaudeError, _early_say, _parse_answer
 from system import desktop
 from voice import speech
 
@@ -532,10 +532,12 @@ class FakeClaude:
             # All of what Claude would be sent, so a test can check nothing private is in it.
             self.calls.append(("ask", "\n".join([about or ""] + list(recent) + [text])))
             r = self._next({"say": "(claude answer)"})
-            answer = _parse_answer(json.dumps(r if isinstance(r, dict) else {"say": r}))
-            answer["spoken"] = bool(on_say and answer["say"])
-            if answer["spoken"]:
-                on_say(answer["say"])
+            raw = json.dumps(r if isinstance(r, dict) else {"say": r})  # (in the dict's order, as Claude streams it)
+            answer = _parse_answer(raw)
+            early = _early_say(raw) if on_say else None
+            answer["spoken"] = bool(early)
+            if early:
+                on_say(early)
             return answer
 
         def text_call(method):

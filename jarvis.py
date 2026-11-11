@@ -771,11 +771,6 @@ class Jarvis:
             for timer in fillers:
                 timer.cancel()
             self.state("thinking")
-        if answer["say"]:
-            if not answer["spoken"]:
-                print("  [claude] answered:")
-                self.claude_says(answer["say"])
-            self.recent.clear()  # Claude knows its own answer; what happens next (e.g. "Done.") is new to it
         if not answer["steps"] and answer["run_now"] and " && " in answer["command"]:
             # Claude chained commands anyway: run them as separate steps, so each can be checked and stopped.
             answer["steps"] = [{"command": part.strip()} for part in answer["command"].split(" && ")]
@@ -787,6 +782,13 @@ class Jarvis:
         steps = [{"do": str(d)} for d in dos] + list(plan.get("steps") or []) + list(answer["steps"] or [])
         if len(steps) > 1 or plan.get("steps"):
             dos = []
+        if answer["say"]:
+            # One "do" phrase says its own result ("You have 15 to-dos"): Claude's guess at it ("your four
+            # to-dos") would be said twice and may be wrong. A mishearing note is still said.
+            if not answer["spoken"] and not (dos and not answer["misheard"]):
+                print("  [claude] answered:")
+                self.claude_says(answer["say"])
+            self.recent.clear()  # Claude knows its own answer; what happens next (e.g. "Done.") is new to it
         for phrase in dos:
             self.chat("sys", "do: %s" % phrase)
             self.from_claude = True
@@ -795,6 +797,9 @@ class Jarvis:
                 self.handle(str(phrase))
             finally:
                 self.from_claude = False
+            if self.do_missed:  # Claude may already have said it's doing it: don't leave that standing
+                self.recent.append("JARVIS couldn't do \"%s\": none of its abilities matched it" % phrase)
+                self.speaker.say(["Sorry, I couldn't actually do that one.", "Sorry, that didn't work after all."])
         if len(dos) == 1 and not self.do_missed:
             said = teaching.fixed(text, answer["misheard"])
             back = self._claude_asked_back

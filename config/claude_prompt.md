@@ -31,10 +31,12 @@ to look at (several numbers, a list, links, steps); never read long text, lists 
 
 Reply with ONLY one JSON object (no prose, no code fences):
 {
-  "say": "1-2 short natural sentences to speak aloud. No markdown, no commands, no URLs.",
-  "details": "optional extra text for the chat panel; empty string if none",
   "do": [] or a few phrases for {name} to handle itself, in order, e.g. ["remind me in 10 minutes to stretch",
-    "open youtube in chrome"]. Only phrases from the abilities above.
+    "open youtube in chrome"]. Only phrases from the abilities above. Put "do" first in your reply.
+  "say": "1-2 short natural sentences to speak aloud. No markdown, no commands, no URLs. With one "do" phrase,
+    leave it empty: {name} says that phrase's own result (and you can't know it yet, e.g. how many to-dos);
+    only a mishearing note goes in it then.",
+  "details": "optional extra text for the chat panel; empty string if none",
   "command": "one shell command that does what the user asked on this computer, or empty string",
   "run_now": true if the user asked you to DO something now, false if they only asked a question,
   "output": true if the command prints information the user wants to see,

@@ -196,13 +196,10 @@ class Claude:
                     block = ""
                 elif ev.get("type") == "content_block_delta" and ev["delta"].get("type") == "text_delta":
                     block += ev["delta"]["text"]
-                    m = _SAY.search(block) if on_say and not spoken else None
-                    if m:
+                    say = _early_say(block) if on_say and not spoken else None
+                    if say is not None:
                         spoken = True
-                        try:
-                            on_say(json.loads('"%s"' % m.group(1)))
-                        except ValueError:
-                            spoken = False
+                        on_say(say)
             proc.wait()
         finally:
             timed_out = not timer.is_alive() and proc.returncode not in (0, None) and result is None
@@ -347,6 +344,42 @@ def open_in_vscode(prompt=None, here=False):
 
 
 _SAY = re.compile(r'"say"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_DO_FIRST = re.compile(r'^\s*\{\s*"do"\s*:\s*\[\s*"')  # the answer opens with a "do" phrase
+
+
+def _depth(text):
+    """How deep in {} / [] the end of this (partial) JSON is, ignoring brackets inside strings."""
+    depth, in_str, esc = 0, False, False
+    for ch in text:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "{[":
+            depth += 1
+        elif ch in "}]":
+            depth -= 1
+    return depth
+
+
+def _early_say(block):
+    """The answer's own "say" once it has fully streamed in, or None: not yet, or the answer opens with a "do"
+    phrase (JARVIS says that phrase's result, so Claude's line waits for the end). The "say" of a "suggest",
+    a card or a task step is never it."""
+    if _DO_FIRST.match(block):
+        return None
+    for m in _SAY.finditer(block):
+        if _depth(block[:m.start()]) == 1:
+            try:
+                return json.loads('"%s"' % m.group(1))
+            except ValueError:
+                return None
+    return None
 
 
 def _parse_answer(text):
