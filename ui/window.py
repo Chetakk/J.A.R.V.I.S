@@ -426,7 +426,10 @@ class UI:
 
     # --- orb ---
 
-    def _paint_orb(self, cr, w, h):
+    def _paint_orb(self, cr, w, h, at=None):
+        """The orb in a w x h box; at: its centre on screen when it's drawn somewhere else (the dashboard), for its
+        eyes to look at the pointer from there."""
+        self._orb_at_screen = at
         cx, cy, r = w / 2, h / 2, min(w, h) / 2 - 3
         t = time.time()
         s = self._shown[0] if self._shown else "idle"  # _shown is (state, silent, deaf)
@@ -556,7 +559,8 @@ class UI:
             # Idle: a pet's eyes that breathe, blink and now and then glance aside; moods and sleep are looks they
             # blend between (bar.layers).
             from ui.bar import _breath, _eyes  # ui.bar imports this module
-            gx, gy = self.bar.gaze
+            at = getattr(self, "_orb_at_screen", None)
+            gx, gy = self.bar.gaze_from(*at) if at else self.bar.gaze
             self._pet_eyes(cr, cx + gx * r * 0.13, cy + gy * r * 0.10, r, _eyes(t)[0], 0.78 + 0.22 * _breath(t),
                            t=t, beat=self.bar.beat, layers=self.bar.layers)
         cr.restore()

@@ -51,16 +51,21 @@ def make(rel, text="x", when=None):
 
 # --- timers, live cards, the dashboard, tasks ---
 
+def whole(card):
+    from ui.card import whole
+    return whole(card)
+
+
 def test_dashboard(jv):
     jv.do("show my dashboard")
-    assert "**Running**" in shown(jv, "Dashboard")["text"]
+    assert "**Running**" in whole(shown(jv, "Dashboard"))
 
 
 def test_dashboard_with_a_project_running(jv):
     project(jv, "study-buddy")
     running(jv, "study-buddy")
     jv.do("what are you working on")
-    assert "study" in shown(jv, "Dashboard")["text"].lower()
+    assert "study" in whole(shown(jv, "Dashboard")).lower()
 
 
 def test_dashboard_draws_what_the_ui_reads(jv):
@@ -68,14 +73,31 @@ def test_dashboard_draws_what_the_ui_reads(jv):
     jv.j.ui.extras = {"next": "9:30 standup", "unread": 2, "alerts": 1}
     jv.j.ui.bar = SimpleNamespace(body=SimpleNamespace(cpu=33, gpu=0, free=0.5, hottest=81, _cpu=(1, 1)))
     jv.do("show my dashboard")
-    text = shown(jv, "Dashboard")["text"]
+    text = whole(shown(jv, "Dashboard"))
     assert "2 | notifications" in text and "1 | alerts" in text and "9:30 | standup" in text
-    assert text.startswith("```hero") and "CPU: 35%\n" in text and "Temp: 80 / 100 °C warn" in text
+    assert "```hero" in text and "CPU: 35%\n" in text and "Temp: 80 / 100 °C warn" in text
 
 
-def test_brief_me_opens_the_dashboard_too(jv):
+def test_dashboard_project_rows_have_icon_buttons(jv):
+    from ui.card import _actions
+    project(jv, "study-buddy")
+    running(jv, "study-buddy")
+    jv.do("show my dashboard")
+    row = next(l for l in whole(shown(jv, "Dashboard")).splitlines() if "-> stop study-buddy" in l)
+    acts = _actions(row.split("|")[-1])
+    assert [a[2] for a in acts][0] == "stop study-buddy" and "vs code" in acts[1][2]
+
+
+def test_brief_me_is_only_the_briefing(jv):
     jv.do("brief me")
-    assert shown(jv, "Dashboard")
+    assert not any(c.get("id") == "dashboard" for c in jv.cards)
+
+
+def test_ways_to_ask_for_the_dashboard(jv):
+    for said in ("show dashboard", "let me see the dashboard", "go to my dashboard"):
+        jv.ui.open = []
+        jv.do(said)
+        assert jv.ui.current_card()["id"] == "dashboard", said
 
 
 def test_timer_done(jv):

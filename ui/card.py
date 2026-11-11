@@ -5,9 +5,9 @@ or left alone for a while (ui.hide_after, counted for each card from when it ope
 A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "refresh" {...}}:
 - text: "# heading", "- bullet" (indent to nest), "1. step", "- [ ]"/"- [x]" checklists, "| table |" rows,
   ``` blocks, a ```bars block ("Label: 55%" per line), a ```rows block ("RS | Rahul Sharma {check} | Re: budget
-  | 9:12" per line: initials, a glyph or file:pdf, then who, what, when; without the first cell the initials are
+  | 9:12 [| icon buttons]" per line: initials, a glyph or file:pdf, then who, what, when; without the first cell the initials are
   made from who), a ```people block (a name per line, "+3" for the rest: initials in circles), a ```stats block
-  ("9 | emails" per line: big numbers side by side), a ```hero block (the live orb beside a heading, a line and
+  ("9 | emails" per line: big numbers side by side), a ```hero block (the live orb over a heading, a line and
   stats tiles), [[55%]] meters, "> quote", "---", **bold**, *italic*,
   `code`, [links](https://...); drawn blocks (```ring, ```steps, ```weather, ```map... see ui/blocks.py) and
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
@@ -15,6 +15,10 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
   ticks it on the card.
 - items: a phrase per row of the card's list ("read email 18c2…"), for "read / open / what's the second one":
   a row, where a bare "the second one" is the second button.
+- columns: more markdown texts, side by side under "text" (the card grows a COL_W wider for each past the first).
+- place: "top" puts it at the top middle of the screen, out of the row above the bar (the dashboard: wide).
+- rail: markdown for a RAIL_W column left of the columns, set off by a line: the dashboard's orb, tiles and status
+  lines.
 - choices: buttons ("Open it", or {"label", "do", "icon"}); clicking one says its phrase to JARVIS. With an
   "icon" (a GTK icon name) the button shows only that icon.
 - id: a card with the same id as one on screen updates it in place (progress, live values).
@@ -43,7 +47,10 @@ CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel 
 HISTORY = 10
 MAX_OPEN = 10  # cards on screen at once; opening one more closes the oldest
 GAP = 10 - 2 * GLOW  # windows overlap by their glow margins, so the glass itself is 10 px apart
-HERO_ORB = 96  # the orb's size in a ```hero block
+TOP_GAP = 8  # a "place": "top" card's gap below the top of the screen (its glow margin adds to it)
+COL_W = 432 + 24  # a column of a card with "columns": a drawn block's width (blocks.W) and the gap before it
+HERO_ORB = 120  # the orb's size in a ```hero block
+RAIL_W, RAIL_GAP = 300, 20  # a card's "rail": its width, and the gap each side of the line beside it
 BUTTONS = 6  # a card shows this many choices as buttons; the rest you pick by number
 
 CSS = b"""
@@ -79,6 +86,9 @@ CSS = b"""
 .card label link:link, .card label link:visited { color: #ffffff; }
 .card label link:hover { color: #bbbbbb; }
 .card .num { color: rgba(255, 255, 255, 0.4); font-size: 8.5pt; min-width: 12px; }
+.card button.rowbtn { background: transparent; border: none; box-shadow: none; color: rgba(255, 255, 255, 0.6);
+                      padding: 3px; min-height: 0; min-width: 0; border-radius: 7px; }
+.card button.rowbtn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.12); }
 .card .pickrow { border-radius: 9px; padding: 2px 4px; }
 .card .pickrow.hover { background-color: rgba(255, 255, 255, 0.08); }
 .card .source { color: rgba(255, 255, 255, 0.55); }
@@ -183,9 +193,22 @@ def _inline(text):
     return blocks.markup(_LINK.sub(r'<a href="\2">\1</a>', s))
 
 
+def whole(card):
+    """The card's markdown with its rail and columns after it: what it says, top to bottom then left to right."""
+    card = card or {}
+    return "\n\n".join([card.get("text") or "", card.get("rail") or ""] + list(card.get("columns") or []))
+
+
+def width(card):
+    """How wide the card is: CARD_W, a COL_W more for each column past the first, and its rail."""
+    card = card or {}
+    return CARD_W + COL_W * max(0, len(card.get("columns") or []) - 1) + (
+        RAIL_W + 2 * RAIL_GAP + 1 if card.get("rail") else 0)
+
+
 def links(card):
     """The card's links in order, for "open the second link"."""
-    return [url for _text, url in _LINK.findall((card or {}).get("text") or "")]
+    return [url for _text, url in _LINK.findall(whole(card))]
 
 
 def choices(card):
@@ -203,7 +226,7 @@ def choices(card):
 def plain(card):
     """The card as plain sentences, to read aloud."""
     lines, kind, block = [], None, []
-    for line in ((card or {}).get("text") or "").splitlines():
+    for line in whole(card).splitlines():
         line = line.strip()
         if line.startswith("```"):
             if kind is None:
@@ -265,10 +288,22 @@ def initials(name):
 
 
 def _cells(line):
+    """(icon, who, what, when, actions) of a ```rows line."""
     cells = [c.strip() for c in line.split("|")]
     if len(cells) < 4:
         cells = [""] + cells
-    return (cells + ["", "", "", ""])[:4]
+    return (cells + ["", "", "", "", ""])[:5]
+
+
+def _actions(cell):
+    """"media-playback-start-symbolic Run it -> run jarvis; ..." -> [(icon name, label, phrase)]."""
+    out = []
+    for part in cell.split(";"):
+        head, _, phrase = part.partition("->")
+        icon, _, label = head.strip().partition(" ")
+        if icon and phrase.strip():
+            out.append((icon, label.strip() or phrase.strip(), phrase.strip()))
+    return out
 
 
 def _avatar(icon, who):
@@ -285,13 +320,15 @@ def _avatar(icon, who):
 
 
 def _rows(lines, first=None):
-    """A ```rows block: per line [icon |] who | what | when, as a list of people, mail, chats or files.
+    """A ```rows block: per line [icon |] who | what | when [| actions], as a list of people, mail, chats or files.
+    actions: small icon buttons before "when", "icon-name Label -> phrase" each, split by ";" (the dashboard's
+    ▶ run / ■ stop / editor / browser on a project); a click says the phrase (Card._hook).
     first: the number of its first row on a card whose rows can be picked ("items"): each row then shows its number
     and is an EventBox with .row (counted from 0 across the card) for Card.show to make clickable."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-    box.rows = []
+    box.rows, box.actions = [], []
     for r, line in enumerate(l for l in lines if l.strip()):
-        icon, who, what, when = _cells(line)
+        icon, who, what, when, acts = _cells(line)
         row = Gtk.Box(spacing=10)
         if first is not None:
             num = Gtk.Label(label=str(first + r + 1))
@@ -317,6 +354,14 @@ def _rows(lines, first=None):
             lab.set_xalign(1)
             lab.set_valign(Gtk.Align.CENTER)
             row.pack_end(lab, False, False, 0)
+        for icon_name, label, phrase in reversed(_actions(acts)):
+            button = Gtk.Button.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+            button.get_style_context().add_class("rowbtn")
+            button.set_relief(Gtk.ReliefStyle.NONE)
+            button.set_tooltip_text(label)
+            button.set_valign(Gtk.Align.CENTER)
+            row.pack_end(button, False, False, 0)
+            box.actions.append((button, phrase))
         if first is not None:
             hit = Gtk.EventBox()
             hit.get_style_context().add_class("pickrow")
@@ -361,33 +406,38 @@ def _stats(lines):
 
 
 def _hero(lines):
-    """A ```hero block: the bar's live orb (blocks.ORB) with, beside it, a heading and a line (the lines without
-    "|") over ```stats tiles (the "9 | running" lines)."""
-    box = Gtk.Box(spacing=14)
+    """A ```hero block, made for a card's rail: the bar's live orb (blocks.ORB) on top, a heading and a line under it
+    (the lines without "|"), then ```stats tiles two by two (the "9 | running" lines)."""
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
     orb = Gtk.DrawingArea()
     orb.set_size_request(HERO_ORB, HERO_ORB)
-    orb.set_valign(Gtk.Align.CENTER)
+    orb.set_halign(Gtk.Align.CENTER)
 
     def draw(_w, cr):
         # its own surface: a frame that fails half-way can't leave the card's context in a pushed group
         own = cairo.ImageSurface(cairo.FORMAT_ARGB32, HERO_ORB, HERO_ORB)
         try:
-            blocks.ORB(cairo.Context(own), HERO_ORB, HERO_ORB)
+            win, box = _w.get_window(), _w.get_allocation()  # where it is on screen, for its eyes to look from
+            x, y = win.get_origin()[1:]
+            blocks.ORB(cairo.Context(own), HERO_ORB, HERO_ORB, at=(x + box.x + HERO_ORB / 2, y + box.y + HERO_ORB / 2))
         except Exception:  # no orb (no bar) or a bad frame: an empty corner rather than a broken card
             return False
         cr.set_source_surface(own, 0, 0)
         cr.paint()
         return False
     orb.connect("draw", draw)
-    box.pack_start(orb, False, False, 0)
-    side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-    side.set_valign(Gtk.Align.CENTER)
+    box.pack_start(orb, False, False, 4)
     for n, line in enumerate(l for l in lines if l.strip() and "|" not in l):
         lab = _label(_inline(line.strip()), "heading1" if n == 0 else "what")
         lab.set_selectable(False)  # a selectable first label opens selected
-        side.pack_start(lab, False, False, 0)
-    side.pack_start(_stats([l for l in lines if "|" in l]), False, False, 0)
-    box.pack_start(side, True, True, 0)
+        lab.set_xalign(0.5)
+        box.pack_start(lab, False, False, 0)
+    stats = [l for l in lines if "|" in l]
+    for pair in (stats[:2], stats[2:4]):
+        if pair:
+            tiles = _stats(pair)
+            tiles.set_margin_top(4)
+            box.pack_start(tiles, False, False, 0)
     if blocks.ORB:
         box.every = 0.05
         box.queue_draw = orb.queue_draw  # Card._tick redraws "the block": only the orb moves, not the tiles
@@ -397,7 +447,7 @@ def _hero(lines):
 def _spoken_rows(lines):
     out = []
     for line in lines:
-        _icon, who, what, when = (blocks.strip(_LINK.sub(r"\1", c)).strip() for c in _cells(line))
+        _icon, who, what, when, _acts = (blocks.strip(_LINK.sub(r"\1", c)).strip() for c in _cells(line))
         if who or what:
             out.append(", ".join(p for p in (who, what, when) if p))
     return out
@@ -654,18 +704,23 @@ class Card:
         self._moving = []
         for widget in build(card.get("text"), numbered=bool(items)):
             self.body.pack_start(widget, False, False, 0)
-            for hit in getattr(widget, "rows", []):
-                if hit.row < len(items):
-                    self._clickable(hit, items[hit.row])
-            if getattr(widget, "hit", None):
-                widget.connect("button-press-event", self._hit)
-            if hasattr(widget, "box"):
-                widget.connect("button-press-event", lambda w, ev: ev.button == 1 and self._box(w.box, w.ticked))
-                widget.connect("realize", lambda w: w.get_window().set_cursor(
-                    Gdk.Cursor.new_from_name(w.get_display(), "pointer")))
-            if getattr(widget, "every", None):
-                widget.due = 0.0
-                self._moving.append(widget)
+            self._hook(widget, items)
+        if card.get("columns") or card.get("rail"):
+            row = Gtk.Box(spacing=COL_W - blocks.W, homogeneous=True)
+            for text in card.get("columns") or []:
+                row.pack_start(self._column(text, 8), True, True, 0)
+            if card.get("rail"):
+                cols, row = row, Gtk.Box(spacing=RAIL_GAP)
+                side = self._column(card["rail"], 12)
+                side.set_size_request(RAIL_W, -1)
+                row.pack_start(side, False, False, 0)
+                row.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+                row.pack_start(cols, True, True, 0)
+            self.body.pack_start(row, False, False, 0)
+        wide = min(BUTTONS, len(choices(card))) if card.get("columns") or card.get("rail") else 0  # a wide card: buttons in one row,
+        self.buttons.set_halign(Gtk.Align.START if wide else Gtk.Align.FILL)  # each as long as it says
+        self.buttons.set_min_children_per_line(max(1, wide))
+        self.buttons.set_max_children_per_line(max(3, wide))
         icons = {c["label"]: c["icon"] for c in card.get("choices") or [] if isinstance(c, dict) and c.get("icon")}
         for n, (label, phrase) in enumerate(choices(card), 1):
             button = Gtk.Button()
@@ -685,15 +740,41 @@ class Card:
         self._fold_widgets()
         # Wrapped labels don't pass their height up through a ScrolledWindow, so measure it: grow to fit,
         # scroll beyond CARD_MAX_H.
-        _, natural = self.body.get_preferred_height_for_width(CARD_W - 34)
+        _, natural = self.body.get_preferred_height_for_width(width(card) - 34)
         self.scroll.set_min_content_height(min(natural, CARD_MAX_H))
-        self.win.resize(FOLD_W if self.folded else CARD_W, 1)  # shrink to fit the new content
+        self.win.resize(FOLD_W if self.folded else width(card), 1)  # shrink to fit the new content
         self.visible = True
         self._place()
         if self._moving and not self._ticking:
             self._ticking = True
             GLib.timeout_add(50, self._tick)
         return False
+
+    def _column(self, text, spacing):
+        """A column of a card's "columns" or its "rail": `text` built, its widgets working."""
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing)
+        for widget in build(text):
+            col.pack_start(widget, False, False, 0)
+            self._hook(widget, [])
+        return col
+
+    def _hook(self, widget, items):
+        """Make a built widget work: clickable rows and their icon buttons, a drawn block's hit spots, checkboxes,
+        animation."""
+        for button, phrase in getattr(widget, "actions", []):
+            button.connect("clicked", lambda _b, p=phrase: self.on_choice(p))
+        for hit in getattr(widget, "rows", []):
+            if hit.row < len(items):
+                self._clickable(hit, items[hit.row])
+        if getattr(widget, "hit", None):
+            widget.connect("button-press-event", self._hit)
+        if hasattr(widget, "box"):
+            widget.connect("button-press-event", lambda w, ev: ev.button == 1 and self._box(w.box, w.ticked))
+            widget.connect("realize", lambda w: w.get_window().set_cursor(
+                Gdk.Cursor.new_from_name(w.get_display(), "pointer")))
+        if getattr(widget, "every", None):
+            widget.due = 0.0
+            self._moving.append(widget)
 
     def _clickable(self, hit, phrase):
         """A row of the card's list: a click says its phrase ("read email 18c2…"), as "read the second one" would."""
@@ -708,7 +789,7 @@ class Card:
         self.buttons.set_visible(not self.folded and bool(choices(self.last)))
         self.pin_button.set_visible(not self.folded and not self.pinned)
         self.title.set_tooltip_text("Click to open it" if self.folded else (self.last or {}).get("title") or None)
-        self.win.set_size_request(FOLD_W if self.folded else CARD_W, -1)
+        self.win.set_size_request(FOLD_W if self.folded else width(self.last), -1)
 
     def fold(self, on):
         """Shrink to a title-only tab (no room for it on screen), or open it back up."""
@@ -716,7 +797,7 @@ class Card:
             return
         self.folded = on
         self._fold_widgets()
-        self.win.resize(FOLD_W if on else CARD_W, 1)
+        self.win.resize(FOLD_W if on else width(self.last), 1)
 
     def _sized(self, win, alloc):
         """Remember its real size, open or folded, for Deck._place to fit the row with."""
@@ -960,6 +1041,10 @@ class Deck:
         self._placing = True
         try:
             auto = [w for w in reversed(self.open) if not w.user_xy and not w._dragging and w.win.get_visible()]
+            top = [w for w in auto if (w.last or {}).get("place") == "top"]
+            auto = [w for w in auto if w not in top]
+            for w in top:
+                w.fold(False)  # it has the top to itself: never a tab
             for w in self.open:
                 if w.user_xy and not w._dragging:
                     w.fold(False)  # one you moved yourself is never folded
@@ -981,7 +1066,8 @@ class Deck:
             if not spot:
                 self._glide.pop("chat", None)
             self._chat_spot = spot
-            for w, (x, y) in zip(auto, spots):
+            spots += [(geo.x + (geo.width - w.full_size[0]) // 2, geo.y + TOP_GAP) for w in top]
+            for w, (x, y) in zip(auto + top, spots):
                 if w in self._glide or w.win.get_position() != (x, y):
                     self._slide(w, w.win.get_position() if getattr(w, "placed", False) else None, (x, y))
                 w.placed = True

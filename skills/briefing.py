@@ -1,9 +1,8 @@
 """The daily briefing: "brief me", "what's my day look like", "what do I have today", "morning briefing".
 
-One card (with the dashboard beside it, skills/dashboard.py) and a short spoken line, from what the Day Tracker
-already keeps: today's reminders, open to-dos, yesterday's time (and the projects it went on), today's goals and the
-week's. It also comes by itself once a day, the first time you're around in the morning (settings briefing; "turn
-off the daily briefing").
+One card and a short spoken line, from what the Day Tracker already keeps: today's reminders, open to-dos,
+yesterday's time (and the projects it went on), today's goals and the week's. It also comes by itself once a day,
+the first time you're around in the morning (settings briefing; "turn off the daily briefing").
 Today's Google Calendar meetings lead it once Google is connected (skills/google_calendar.py).
 
 Also drawn from the same data: "how did I spend my day" (a donut of today's time and the goals as rings), "show my
@@ -67,7 +66,6 @@ class Briefing(Skill):
         card, line = self.build()
         self.j.memory.set_pref("briefed", time.strftime("%Y-%m-%d"))
         self.j.show(card)
-        self.j.skills.dashboard.show(speak=False)  # beside it: your projects, what's running, today, mail
         self.say(line)
 
     def set_auto(self, m):
@@ -92,7 +90,6 @@ class Briefing(Skill):
         card, line = self.build()
         if tell.tell("briefing", line, WHY, hold=False):
             self.j.inbox.put(("ctl", {"show": card}))
-            self.j.skills.dashboard.show(speak=False)
 
     def build(self):
         """(the card, the spoken line)."""

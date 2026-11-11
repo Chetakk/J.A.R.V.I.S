@@ -1119,7 +1119,7 @@ class Jarvis:
                 if isinstance(one, dict):
                     self.show(one)
             return
-        if not (card.get("text") or card.get("image") or card.get("choices")):
+        if not (card.get("text") or card.get("image") or card.get("choices") or card.get("rail") or card.get("columns")):
             return
         if self.ui:
             if card.get("refresh"):
@@ -1840,6 +1840,9 @@ def main():
         jarvis.skills.proactive.note(key, line, why)
     jarvis.speaker.say(persona.greeting(jarvis.settings, jarvis.memory, [line for _, line, _ in ups]))
     jarvis.memory.seen()
+    if jarvis.ui:  # the dashboard comes up with JARVIS (quietly: the greeting is the spoken part)
+        threading.Thread(target=jarvis.skills.dashboard.show, kwargs={"speak": False}, name="dashboard",
+                         daemon=True).start()
     threading.Thread(target=watch, args=(jarvis,), daemon=True).start()
     threading.Thread(target=teach, args=(jarvis,), daemon=True).start()
     print("Type /help for commands.")

@@ -1,16 +1,15 @@
 """The dashboard: one card with what JARVIS is doing for you and what you're on, kept up to date while it's open.
-"show my dashboard", "what are you working on", "show running tasks", "close the dashboard"; "brief me" opens it
-beside the briefing.
+It comes up by itself when JARVIS starts; "show my dashboard" (or "let me see the dashboard", "go to my dashboard"),
+"what are you working on", "show running tasks", "close the dashboard".
 
-Top to bottom: the live orb with a greeting and tiles (running, notifications, alerts, next reminder), the question
-waiting for your answer (Yes / No), the task under way with its steps, your projects (the one you touched last and
-any open in VS Code or running under biztel run: what it is, its last commit, uncommitted changes, its links, buttons),
-what else is running (terminal commands, Claude tasks, JARVIS's browser, timers), the computer as rings, today's
-timeline, unread mail, the modes that are on, the last action and a phrase to try. Everything is read from what
-JARVIS already keeps; nothing is stored for it. The slow parts (projects' git, Gmail, the calendar) are fetched at
-most once a SLOW in the background, the rest every EVERY seconds."""
+A rail on the left: the live orb with a greeting and tiles (running, notifications, alerts, next reminder), the modes
+that are on, the last action and a phrase to try. Then two columns: the computer as rings, the question waiting for
+your answer (Yes / No) and your projects (the one you touched last and any open in VS Code or running under biztel
+run, each with run / stop, VS Code and browser icons and its links); today's timeline, unread mail (not GitHub's) and
+what else is running (terminal commands, Claude tasks, JARVIS's browser, timers). A task under way keeps its own card.
+Everything is read from what JARVIS already keeps; nothing is stored for it. The slow parts (when each project was
+touched, Gmail, the calendar) are fetched at most once a SLOW, Gmail and the calendar in the background."""
 import os
-import subprocess
 import threading
 import time
 
@@ -23,11 +22,12 @@ from system import google_account as google
 
 CARD_ID = "dashboard"
 EVERY = 2  # seconds between updates
-SLOW = 60  # seconds between fetching projects' git, mail and the calendar
+SLOW = 60  # seconds between looking at the projects, mail and the calendar
 FOR = 30 * 60  # it stops updating itself after this long
-TASK_MINUTES = 30  # a finished task stays on the dashboard this long
+TASK_MINUTES = 30  # a finished task still counts in the spoken line this long
 PROJECTS = 4  # projects on the card at most
 MAILS = 3
+TIP_EVERY = 30  # seconds each "Try saying" phrase stays
 MOODS = {"hot": "running hot", "straining": "working hard", "busy": "busy", "squeezed": "low on memory",
          "sleepy": "sleepy"}
 
@@ -43,7 +43,7 @@ class Dashboard(Skill):
 
     def __init__(self, jarvis):
         super().__init__(jarvis)
-        self._local = {"at": 0.0}  # projects: the last touched, git per path
+        self._local = {"at": 0.0}  # projects: the one touched last, when each was
         self._remote = {"at": 0.0, "mail": [], "today": []}  # Gmail and the calendar, fetched off the card's thread
         self._fetching = threading.Lock()
 
@@ -53,17 +53,19 @@ class Dashboard(Skill):
              r"activity board)|what are you (?:working on|busy with)(?: (?:right )?now| right| for me)?|"
              r"what(?:'s| is| are) (?:still )?(?:in progress|running in the background)|"
              r"(?:show|list) (?:me )?(?:the |my |your )?(?:running|active|background) (?:tasks|jobs)|"
-             r"what tasks are running|(?:are there )?any (?:tasks|jobs) running", lambda m: self.show()),
+             r"what tasks are running|(?:are there )?any (?:tasks|jobs) running|"
+             r"(?:let me |can i |i (?:want|wanna|would like|'d like) to )?(?:see|look at|check) (?:my |the |your )?"
+             r"dashboard|(?:go|take me|switch) (?:back )?to (?:my |the )?dashboard", lambda m: self.show()),
             (r"(?:close|hide) (?:the |my )?(?:dashboard|task ?board)", lambda m: self.close()),
         ]
 
     def show(self, speak=True):
-        parts, text, choices = self.build()
-        self.j.show({"id": CARD_ID, "title": "Dashboard", "text": text, "choices": choices})
+        parts, card = self.build()
+        self.j.show(card)
         if speak:
             self.say(_spoken(parts))
         if self.j.ui:
-            threading.Thread(target=self._keep_fresh, args=(text,), daemon=True).start()
+            threading.Thread(target=self._keep_fresh, args=(card,), daemon=True).start()
 
     def close(self):
         ui = self.j.ui
@@ -79,45 +81,41 @@ class Dashboard(Skill):
             ui = self.j.ui
             if not (ui and ui.card_open(CARD_ID)):
                 return
-            _, text, choices = self.build()
-            if text != shown:
-                shown = text
-                ui.show_card({"id": CARD_ID, "title": "Dashboard", "text": text, "choices": choices})
+            _, card = self.build()
+            if card != shown:
+                shown = card
+                ui.show_card(card)
 
     def build(self):
-        """(counts for the spoken line, the card's markdown, its choices)."""
+        """(counts for the spoken line, the card): a rail of the orb, tiles and status lines, then two columns: the
+        computer, a question waiting and your projects; today, unread mail and what's running."""
         j, now = self.j, time.time()
-        lines, choices, parts = [], [], {}
+        rail, mine, day, choices, parts = [], [], [], [], {}
         extras, timers, body = _from_ui(j)
         self._fetch(now)
 
-        if j.asking:
-            parts["question"] = 1
-            lines += ["**Waiting for your answer**", "> %s" % j.asking, ""]
-            choices += [{"label": "Yes", "do": "yes"}, {"label": "No", "do": "no"}]
-
-        task = j.skills.tasks.task or (tasks.past() or [None])[-1]
+        task = j.skills.tasks.task or (tasks.past() or [None])[-1]  # not drawn (it has its own card), only said
         if task and (task["state"] in tasks.OPEN_STATES or now - task["at"] < TASK_MINUTES * 60):
             parts["task"] = task["state"]
-            done, total = tasks.counts(task)
-            lines += ["**%s** · %s, %d of %d done" % (task["title"][:60], task["state"], done, total),
-                      tasks.steps(task), ""]
-            if task["state"] in ("running", "paused"):
-                choices.append({"label": "Pause the task", "do": "pause the task"} if task["state"] == "running"
-                               else {"label": "Continue the task", "do": "continue the task"})
 
+        if body:
+            mine += ["**Computer**", "```ring\nCPU: %d%%%s\nGPU: %d%%\nMemory: %d%%%s\nTemp: %d / 100 °C%s\n```" % (
+                _five(body.cpu), " warn" if body.cpu >= 85 else "", _five(body.gpu), _five(100 * (1 - body.free)),
+                " warn" if body.free < 0.10 else "", _five(body.hottest), " warn" if body.hottest >= 75 else ""), ""]
+        if j.asking:
+            parts["question"] = 1
+            mine += ["**Waiting for your answer**", "> %s" % j.asking, ""]
+            choices += [{"label": "Yes", "do": "yes"}, {"label": "No", "do": "no"}]
+        if self._remote["mail"]:
+            from skills.gmail import _rows
+            mine += ["**Unread mail**", _rows(self._remote["mail"]), ""]
+
+        day += ["**Today**"] + (self._remote["today"] or ["{ok} Nothing on today's calendar"]) + [""]
         up = j.projects.running()
         parts["projects"] = len(up)
         shown = self._projects(up)
-        if shown:
-            lines.append("**Projects**")
-            for n, p in enumerate(shown):
-                lines += _project(p, up.get(p.name), self._local["git"].get(p.path), self._local["touched"].get(p.path),
-                                  now)
-                if n == 0:
-                    choices += _project_buttons(p, up.get(p.name))
-            lines.append("")
-
+        day += ["**Projects**"] + [line for p in shown for line in _project(
+            p, up.get(p.name), self._local["touched"].get(p.path), now)] + [""] if shown else []
         running = []  # ```rows lines: glyph | what | detail | how long
         watched = {id(w) for w in getattr(getattr(j.skills, "proactive", None), "waiting", None) or []}
         jobs = _jobs()
@@ -143,39 +141,8 @@ class Dashboard(Skill):
             if not ends:  # the UI didn't say when they end
                 running.append("⏱ | %d timer%s | |" % (len(j.cards.timers), "" if len(j.cards.timers) == 1 else "s"))
             parts["timers"] = len(j.cards.timers)
-        lines += ["**Running**"] + (["```rows\n%s\n```" % "\n".join(running)] if running
-                                    else ["{ok} Nothing else running right now"]) + [""]
-
-        if body:
-            lines += ["**Computer**", "```ring\nCPU: %d%%%s\nGPU: %d%%\nMemory: %d%%%s\nTemp: %d / 100 °C%s\n```" % (
-                _five(body.cpu), " warn" if body.cpu >= 85 else "", _five(body.gpu), _five(100 * (1 - body.free)),
-                " warn" if body.free < 0.10 else "", _five(body.hottest), " warn" if body.hottest >= 75 else ""), ""]
-
-        if self._remote["today"]:
-            lines += ["**Today**"] + self._remote["today"] + [""]
-        if self._remote["mail"]:
-            from skills.gmail import _rows
-            lines += ["**Unread mail**", _rows(self._remote["mail"]), ""]
-
-        modes = []
-        focus = j.skills.focus_mode
-        if focus.focusing():
-            modes.append("{check} focus, %d min left" % max(1, round((focus.focus_until - now) / 60)))
-        if j.speaker.muted:
-            modes.append("{check} quiet (answers in the chat)")
-        if j.speaker.sink:
-            modes.append("{check} private (headphones only)")
-        if modes:
-            lines += ["**On** " + "  ·  ".join(modes), ""]
-
-        last = verify.last
-        if last and now - last.at < 3600:
-            mark = {True: "{ok}", False: "{bad}"}.get(last.ok, "{off}")
-            lines += ["**Last action** %s %s: %s · %s" % (mark, last.action, last.what, _ago(now - last.at)), ""]
-
-        tips = extras.get("tips") or []
-        if tips:  # a new one each minute
-            lines.append("**Try saying** “%s”" % tips[int(now // 60) % len(tips)])
+        mine += ["**Running**"] + (["```rows\n%s\n```" % "\n".join(running)] if running
+                                   else ["{ok} Nothing else running right now"])
 
         stats = ["%d | running" % (len(up) + len(running)), "%d | notifications" % (extras.get("unread") or 0),
                  "%d | alerts" % (extras.get("alerts") or 0)]
@@ -183,9 +150,23 @@ class Dashboard(Skill):
         if soon:  # "9:30 standup" / "27° · clear": the value, then what it is
             value, _, label = soon.partition(" ")
             stats.append("%s | %s" % (value, label.strip(" ·") or "next"))
-        mood = MOODS.get(getattr(body, "mood", None), "all calm")
-        hero = ["```hero", _greeting(now), mood] + stats + ["```", ""]
-        return parts, "\n".join(hero + lines).strip(), choices
+        rail += ["```hero", _greeting(now), MOODS.get(getattr(body, "mood", None), "all calm")] + stats + ["```", ""]
+        focus = j.skills.focus_mode
+        modes = (["{check} focus, %d min left" % max(1, round((focus.focus_until - now) / 60))] if focus.focusing()
+                 else []) + (["{check} quiet"] if j.speaker.muted else []) + (["{check} private"] if j.speaker.sink else [])
+        if modes:
+            rail.append("**On** " + "  ·  ".join(modes))
+        last = verify.last
+        if last and now - last.at < 3600:
+            mark = {True: "{ok}", False: "{bad}"}.get(last.ok, "{off}")
+            rail.append("**Last action** %s %s: %s · %s" % (mark, last.action, last.what, _ago(now - last.at)))
+        tips = extras.get("tips") or []
+        if tips:  # a new one every TIP_EVERY seconds
+            rail.append("**Try saying** “%s”" % tips[int(now // TIP_EVERY) % len(tips)])
+
+        return parts, {"id": CARD_ID, "title": "Dashboard", "place": "top", "rail": "\n".join(rail).strip(),
+                       "columns": ["\n".join(c).strip() or "{ok} Nothing to show" for c in (mine, day)],
+                       "choices": choices}
 
     def _projects(self, up):
         """The projects worth showing: the one touched last, then ones running or open in VS Code; newest first."""
@@ -195,9 +176,6 @@ class Dashboard(Skill):
         last = local.get("last")
         if last and last not in found:
             found.append(last)
-        for p in found:  # one that just opened: its git now, not in a minute
-            if p.path not in local["git"]:
-                local["git"][p.path] = _git(p.path)
         return sorted(found, key=lambda p: -local["touched"].get(p.path, 0))[:PROJECTS]
 
     def _fetch(self, now):
@@ -206,8 +184,7 @@ class Dashboard(Skill):
             reg = self.j.projects
             touched = {p.path: p.touched() for p in reg.items}
             last = max(reg.items, key=lambda p: touched[p.path], default=None)
-            paths = set(self._local.get("git", {})) | ({last.path} if last else set())
-            self._local = {"at": now, "last": last, "touched": touched, "git": {p: _git(p) for p in paths}}
+            self._local = {"at": now, "last": last, "touched": touched}
         if now - self._remote["at"] < SLOW:
             return
         if not google.connected():
@@ -223,9 +200,10 @@ class Dashboard(Skill):
             try:
                 from skills.gmail import INBOX
                 gm = s.gmail.api("gmail", "v1")
-                got = google.run(gm.users().messages().list(userId="me", q=INBOX + " is:unread newer_than:7d",
-                                                            maxResults=MAILS))
-                mail = [s.gmail._meta(gm, x["id"]) for x in got.get("messages") or []]
+                got = google.run(gm.users().messages().list(  # not GitHub's notifications: pushes, CI, reviews
+                    userId="me", q=INBOX + " is:unread newer_than:7d -from:github.com", maxResults=MAILS))
+                mail = [m for m in (s.gmail._meta(gm, x["id"]) for x in got.get("messages") or [])
+                        if not m["addr"].endswith("github.com")]
             except Exception:  # offline, signed out or a Google error: no mail rows this time
                 pass
             try:
@@ -247,39 +225,21 @@ class Dashboard(Skill):
         return _timeline(events, (), cal._reminders(start, start + 86400))
 
 
-def _project(p, run, git, touched, now):
-    """A project's lines: a ```rows line (name, what it is, when) and one of its last commit, changes and links."""
-    commit, changed = git or ("", 0)
-    head = "```rows\n%s%s | %s | %s\n```" % (_cell(p.spoken), " {check}" if run else "", _cell(p.summary or p.path),
-                                              _ago(now - touched) if touched else "")
-    links = " · ".join("[%s](%s)" % (l["url"].split("//")[-1], l["url"]) for l in (run or {}).get("links") or [])
-    more = ["▶ running" + (": " + links if links else "")] if run else []
-    more += ["last commit “%s”" % commit] if commit else []
-    more += ["%d file%s not committed" % (changed, "" if changed == 1 else "s")] if changed else []
-    return [head] + (["> " + "  ·  ".join(more)] if more else [])  # a quote: dimmer, under its row
-
-
-def _project_buttons(p, run):
+def _project(p, run, touched, now):
+    """A project's lines: a ```rows line (name, what it is, ▶ / ■, editor and browser buttons, when), then its links
+    while biztel run has it up."""
     name = p.spoken
-    out = [{"label": "Stop %s" % name, "do": "stop %s" % p.name} if run else
-           {"label": "Run %s" % name, "do": "run %s" % name},
-           {"label": "Open in VS Code", "do": "open the %s project in vs code" % name}]
-    if run and run.get("links"):
-        out.append({"label": "Open in browser", "do": "open %s in the browser" % name})
-    return out
-
-
-def _git(path):
-    """(the last commit's subject, files changed and not committed), or ("", 0) for a folder without git."""
-    if not os.path.isdir(os.path.join(path, ".git")):
-        return "", 0
-    try:
-        log = subprocess.run(["git", "-C", path, "log", "-1", "--format=%s"], capture_output=True, text=True, timeout=5)
-        status = subprocess.run(["git", "-C", path, "status", "--porcelain"], capture_output=True, text=True,
-                                timeout=5)
-    except (OSError, subprocess.SubprocessError):
-        return "", 0
-    return log.stdout.strip()[:90], len(status.stdout.splitlines())
+    acts = ["media-playback-stop-symbolic Stop %s -> stop %s" % (name, p.name) if run else
+            "media-playback-start-symbolic Run %s -> run %s" % (name, name),
+            "text-editor-symbolic Open in VS Code -> open the %s project in vs code" % name]
+    links = (run or {}).get("links") or []
+    if links:
+        acts.append("web-browser-symbolic Open in the browser -> open %s in the browser" % name)
+    head = "```rows\n | %s%s | %s | %s | %s\n```" % (  # no icon cell: the name's initials
+        _cell(name), " {check}" if run else "", _cell(p.summary or p.path), _ago(now - touched) if touched else "",
+        "; ".join(acts))
+    shown = " · ".join("[%s](%s)" % (l["url"].split("//")[-1], l["url"]) for l in links)
+    return [head] + (["> ▶ running: " + shown] if shown else ["> ▶ running"] if run else [])
 
 
 def _greeting(now):

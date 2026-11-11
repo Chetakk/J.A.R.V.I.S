@@ -246,6 +246,7 @@ class Bar:
         self._timer = None
         self.gaze = [0.0, 0.0]  # where the idle eyes look: -1..1 across and down
         self._pointer = self._last_pointer = None
+        self._far = {"spot": None, "moved": 0.0, "t": 0.0, "pos": [0.0, 0.0], "vel": [0.0, 0.0]}  # gaze_from's eyes
         self._pointer_at = self._gaze_t = 0.0
         self._gaze_v = [0.0, 0.0]  # the eyes' speed, for the spring
         self._watch_k = 0.0  # 0..1, eased: how much the eyes are on the pointer (a mood's own darting gives way)
@@ -371,6 +372,27 @@ class Bar:
         if self._sleep_k > 0:
             layers.append(("asleep", _smooth(self._sleep_k), None))
         return layers
+
+    def gaze_from(self, ox, oy):
+        """The idle eyes' gaze for an orb drawn at (ox, oy) on screen (the dashboard's): towards the pointer while it
+        moves and a moment after, as the bar's eyes do but from there, else the bar's own glances. Drowsy moods
+        follow slowly and part of the way, as on the bar."""
+        t, g = time.time(), self._far
+        try:
+            self._pointer = self._pointer or Gdk.Display.get_default().get_default_seat().get_pointer()
+            spot = tuple(self._pointer.get_position()[1:])
+        except (AttributeError, TypeError):
+            spot = None
+        if spot != g["spot"]:
+            g["moved"], g["spot"] = (t if g["spot"] is not None else g["moved"]), spot
+        watching = spot is not None and t - g["moved"] < FOLLOW and self._ambient not in ("dance", "sway")
+        lazy = self.feeling[1] if self.feeling[0] in LAZY else 0.0
+        reach = 1 - (1 - LAZY_REACH) * lazy
+        aim = [a * reach for a in look_at(*spot, ox, oy)] if watching else list(self.gaze)
+        g["pos"], g["vel"] = spring(g["pos"], g["vel"], aim, min(0.25, t - (g["t"] or t)),
+                                    GAZE_W + (LAZY_W - GAZE_W) * lazy)
+        g["t"] = t
+        return g["pos"]
 
     def _watch(self, t):
         """Turn the idle eyes towards the pointer while it moves and a moment after, else ahead with the odd

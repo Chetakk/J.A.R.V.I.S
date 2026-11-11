@@ -15,7 +15,7 @@ import time
 from skills.base import Skill
 from skills.helpers import NTH, ORDINALS
 from system.browser import open_command
-from ui.card import BUTTONS, choices, links, plain
+from ui.card import BUTTONS, choices, links, plain, whole
 from claude.bridge import WORKSPACE
 from core.safety import AUTO
 
@@ -192,7 +192,7 @@ class Cards(Skill):
         card = self._card()
         if not card:
             return False
-        subprocess.run(["xclip", "-selection", "clipboard"], input=card.get("text") or "", text=True, timeout=5)
+        subprocess.run(["xclip", "-selection", "clipboard"], input=whole(card), text=True, timeout=5)
         self.say(["Copied.", "It's on your clipboard."])
 
     def save(self, m):
@@ -203,7 +203,7 @@ class Cards(Skill):
         name = re.sub(r"\W+", "-", (card.get("title") or "card").lower()).strip("-")[:40] or "card"
         path = os.path.join(CARDS_DIR, "%s-%s.md" % (time.strftime("%Y-%m-%d-%H%M"), name))
         with open(path, "w") as f:
-            f.write("# %s\n\n%s\n" % (card.get("title") or "Card", card.get("text") or ""))
+            f.write("# %s\n\n%s\n" % (card.get("title") or "Card", whole(card)))
             if card.get("image"):
                 f.write("\n![](%s)\n" % card["image"])
         self.j.chat("sys", "saved card: %s" % path)
