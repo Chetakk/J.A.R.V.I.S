@@ -64,6 +64,11 @@ def test_a_wording_that_points_at_the_screen_is_not_learned_from_claude():
     assert learned.points("open the folder on my screen in vs code", "open 1440-biztel-app in vs code")
     assert not learned.points("crank the music", "volume up")
     assert not learned.points("close this", "close this window")
+    # seen in the log: learned as the one file it was about then
+    assert learned.points("ask claude to read the summarized version",
+                          "summarise AI Process Engineer \u2014 Target Architecture & Design Decisions.txt")
+    assert learned.points("open my notes", "open ~/Documents/notes")
+    assert not learned.points("summarise plan.md", "summarise plan.md")
 
 
 @pytest.mark.parametrize("said", ["thank you too", "love you too", "and good night too", "and him too",

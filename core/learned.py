@@ -113,8 +113,16 @@ def worth_learning(said, phrase, data, longest=10):
             and s not in data["wordings"] and s not in data["declined"] and phrase not in data["wrong"].get(s, ()))
 
 
+# A path, or a name with a file's extension (not a website's: "open youtube.com" is fine to learn).
+FILE_NAME = r"[~/]\S+|\S+\.(?:txt|md|pdf|docx?|xlsx?|pptx?|odt|csv|json|ya?ml|py|sh|log|html?|png|jpe?g|mp[34]|zip)\b"
+
+
 def points(said, phrase):
     """ "open claude in this" -> "open day-tracker project in vs code": "this" was the project on screen then.
     A wording that points at what's on screen only meant that phrase once."""
     here = r"\b(?:this|that|it|here|there|these|those|on (?:my|the) screen|(?:i'm|i am) (?:on|in|looking at))\b"
-    return bool(re.search(here, said.lower())) and not re.search(here, phrase.lower())
+    if re.search(here, said.lower()) and not re.search(here, phrase.lower()):
+        return True
+    # "read the summarised version" -> "summarise AI Process Engineer.txt": a file or path Claude filled in
+    # from what was going on is right only that once.
+    return any(f not in said.lower() for f in re.findall(FILE_NAME, phrase.lower()))
