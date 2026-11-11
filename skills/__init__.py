@@ -62,7 +62,7 @@ from skills.windows import Windows
 
 ORDER = [
     ("cards", Cards), ("missing", Missing), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
-    ("maths", Maths), ("weather", Weather), ("focus_mode", FocusMode), ("proactive", Proactive), ("notifications", Notifications),
+    ("focus_mode", FocusMode), ("maths", Maths), ("weather", Weather), ("proactive", Proactive), ("notifications", Notifications),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),

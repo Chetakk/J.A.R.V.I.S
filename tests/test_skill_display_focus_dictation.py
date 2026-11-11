@@ -153,6 +153,38 @@ def test_stop_focusing_turns_notifications_back_on(jv):
     assert not jv.j.skills.focusing() and not os.path.exists(focus_mode.FOCUS_FILE)
 
 
+def test_focus_for_an_hour_and_a_half(jv):
+    jv.do("focus for an hour and a half")
+    assert jv.said == ["Focus mode for 90 minutes. I'll keep quiet and hold notifications."]
+    assert abs(jv.j.skills.focus_mode.focus_until - (time.time() + 5400)) < 5
+
+
+def test_pause_resume_and_extend_focus(jv):
+    jv.do("focus for 30 minutes")
+    jv.do("pause focus")
+    assert not jv.j.skills.focusing() and banners(jv) == ["false", "true"]
+    assert jv.says("Focus paused with 30 minutes left.")
+    jv.do("resume focus")
+    assert jv.j.skills.focusing() and jv.says("Back to focus, 30 minutes left.")
+    jv.do("add 10 minutes to my focus")
+    assert jv.says("Okay, 10 minutes more. 40 minutes left.")
+
+
+def test_add_minutes_without_focus_isnt_focus(jv):
+    jv.do("add 10 minutes to my focus")
+    assert not jv.j.skills.focusing()
+    assert jv.said == ["You're not in focus mode. Say focus for 10 minutes to start."]
+
+
+def test_pomodoro_is_25_minutes_then_a_break(jv):
+    jv.do("start a pomodoro")
+    assert jv.said == ["Pomodoro for 25 minutes. I'll keep quiet and hold notifications."]
+    fm = jv.j.skills.focus_mode
+    fm.focus_until = time.time() - 1
+    fm._focus_over()
+    assert jv.j.inbox.get_nowait() == ("say", "Pomodoro done. Take a 5 minute break.")
+
+
 def test_focus_carries_on_after_a_restart(jv):
     with open(focus_mode.FOCUS_FILE, "w") as f:
         json.dump({"until": time.time() + 600}, f)

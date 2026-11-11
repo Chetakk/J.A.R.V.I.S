@@ -168,7 +168,7 @@
 "set a timer for 10 minutes": card:timer
 "start a 5 minute timer": card:timer
 "countdown 3 minutes": card:timer
-"wake me in 20 minutes": card:timer
+"wake me in 20 minutes": skill:remind_later  # an alarm: rings until "stop"
 "cancel the timer": card:cancel_timers
 "stop the countdown": card:cancel_timers
 "start tracking work": skill:start
@@ -213,8 +213,8 @@
 "cross buy milk off my list": skill:done
 "tick off buy milk": skill:done
 "i finished buy milk": skill:done
-"remove buy milk from my todo list": skill:done
-"delete the milk todo": skill:done
+"remove buy milk from my todo list": skill:delete
+"delete the milk todo": skill:delete
 "start up avtec hs": skill:run_project
 "fire up the jarvis project": skill:run_project
 "stop the jarvis project": skill:stop_project
@@ -1859,3 +1859,23 @@
 "show numbers": skill:label
 "watch tiger 3 trailer on youtube": skill:youtube
 "search youtube for rust lifetimes": browser
+# to-dos, alarms, repeating reminders, focus (2026-11-11)
+"show me the todos": skill:read
+"todos": skill:read
+"delete buy milk from my todo list": skill:delete
+"remove buy milk from my list": skill:delete
+"mark the second one done": skill:done
+"clear my todo list": skill:clear
+"uncheck buy milk": skill:undone
+"stop the alarm": skill:stop_alarm
+"snooze": skill:snooze
+"snooze for 5 minutes": skill:snooze
+"what alarms do i have": skill:reminders
+"move the stretch reminder to 6 pm": skill:move
+"focus for an hour and a half": skill:focus
+"pause focus": skill:pause
+"resume focus": skill:resume
+"add 10 minutes to my focus": skill:extend
+"what did i miss during focus": skill:missed
+"start a pomodoro": skill:focus_for
+"what did i miss": skill:recent
