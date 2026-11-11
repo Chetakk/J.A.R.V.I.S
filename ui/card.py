@@ -74,7 +74,43 @@ CSS = b"""
 .card .when { color: rgba(255, 255, 255, 0.42); font-size: 9pt; }
 .card label link:link, .card label link:visited { color: #ffffff; }
 .card label link:hover { color: #bbbbbb; }
+.card .num { color: rgba(255, 255, 255, 0.4); font-size: 8.5pt; min-width: 12px; }
+.card .pickrow { border-radius: 9px; padding: 2px 4px; }
+.card .pickrow.hover { background-color: rgba(255, 255, 255, 0.08); }
+.card .source { color: rgba(255, 255, 255, 0.55); }
+.card .age { color: rgba(255, 255, 255, 0.4); font-size: 9pt; }
+.card button.pin { padding: 0 5px; }
+.card button.pin image { color: rgba(255, 255, 255, 0.5); }
+.card button.pin:hover image { color: #ffffff; }
 """
+# Where a card comes from, by the start of its id ("gmail", "drive-share-3"): the icon in its header, and the title
+# when it has none.
+SOURCES = {"gmail": ("mail-unread-symbolic", "Gmail"), "mail": ("mail-unread-symbolic", "Gmail"),
+           "drive": ("folder-remote-symbolic", "Drive"), "calendar": ("x-office-calendar-symbolic", "Calendar"),
+           "cal": ("x-office-calendar-symbolic", "Calendar"), "meeting": ("x-office-calendar-symbolic", "Calendar"),
+           "day": ("x-office-calendar-symbolic", "Your day"), "week": ("x-office-calendar-symbolic", "Your week"),
+           "chat": ("chat-symbolic", "Chat"), "people": ("system-users-symbolic", "People"),
+           "playing": ("audio-x-generic-symbolic", "Music"), "spotify": ("audio-x-generic-symbolic", "Spotify"),
+           "weather": ("weather-few-clouds-symbolic", "Weather"), "timer": ("alarm-symbolic", "Timer"),
+           "alarm": ("alarm-symbolic", "Alarm"), "clock": ("alarm-symbolic", "Clock"),
+           "wifi": ("network-wireless-symbolic", "Wi-Fi"), "speed": ("network-wireless-symbolic", "Speed test"),
+           "disk": ("drive-harddisk-symbolic", "Disk"), "usage": ("utilities-system-monitor-symbolic", "System"),
+           "sensors": ("utilities-system-monitor-symbolic", "System"),
+           "memory": ("utilities-system-monitor-symbolic", "System"), "secret": ("dialog-password-symbolic", "Secret"),
+           "project": ("emblem-documents-symbolic", "Project"), "task": ("emblem-documents-symbolic", "Task")}
+FOLD_W = 260  # a card that doesn't fit shrinks to a title-only tab this wide (glow included)
+
+
+def source(card):
+    """(icon name, name) for where the card comes from, or (None, None)."""
+    return SOURCES.get(re.split(r"[-_]", str((card or {}).get("id") or ""))[0], (None, None))
+
+
+def ago(seconds):
+    """How long ago a card came up, for its header: "now", "4 min ago", "2 h ago"."""
+    if seconds < 60:
+        return "now"
+    return "%d min ago" % (seconds // 60) if seconds < 3600 else "%d h ago" % (seconds // 3600)
 
 _BOX = re.compile(r"^(\s*[-*] )\[[ xX]\]", re.M)  # - [ ] / - [x] checklist boxes
 _LINK = re.compile(r"\[([^\]]+)\]\(((?:https?|file)://[^)\s]+)\)")
@@ -86,6 +122,32 @@ def arrange(sizes, left, width, bottom, top, right=False):
     middle, two either side of it, three left, middle and right. sizes[0] goes at the right of the bottom row. Rows
     that no longer fit overlap instead, a little apart. `right`: the rows sit at the screen's right edge instead,
     above the compact bar."""
+    spots = _stack(sizes, left, width, bottom, right)
+    full = 0
+    for i, (w, h) in enumerate(sizes):
+        if spots[i][1] < top:
+            full += 1
+            x = left + width - w - 28 * full if right else left + (width - w) // 2 + 28 * full
+            spots[i] = (x, max(top, bottom - h - 28 * full))
+    return spots
+
+
+def fits(sizes, left, width, bottom, top, right=False):
+    """Do all these windows find a place in arrange's rows, none of them overlapping?"""
+    return all(y >= top for _x, y in _stack(sizes, left, width, bottom, right))
+
+
+def keep_open(chat, full, folded, left, width, bottom, top, right=False):
+    """How many of the cards (newest first, `full` open and `folded` as tabs) stay open beside the chat: the oldest
+    fold to tabs until everything fits without covering another."""
+    keep = len(full)
+    while keep and not fits(chat + full[:keep] + folded[keep:], left, width, bottom, top, right):
+        keep -= 1
+    return keep
+
+
+def _stack(sizes, left, width, bottom, right):
+    """arrange's rows, as many as it takes, however high they go."""
     spots, start, row_bottom = [None] * len(sizes), 0, bottom
     while start < len(sizes):
         end, used = start + 1, sizes[start][0]
@@ -98,12 +160,6 @@ def arrange(sizes, left, width, bottom, top, right=False):
             x += sizes[i][0] + GAP
         row_bottom -= max(h for _w, h in sizes[start:end]) + GAP
         start = end
-    full = 0
-    for i, (w, h) in enumerate(sizes):
-        if spots[i][1] < top:
-            full += 1
-            x = left + width - w - 28 * full if right else left + (width - w) // 2 + 28 * full
-            spots[i] = (x, max(top, bottom - h - 28 * full))
     return spots
 
 
@@ -223,12 +279,21 @@ def _avatar(icon, who):
     return lab
 
 
-def _rows(lines):
-    """A ```rows block: per line [icon |] who | what | when, as a list of people, mail, chats or files."""
-    grid = Gtk.Grid(column_spacing=10, row_spacing=7)
+def _rows(lines, first=None):
+    """A ```rows block: per line [icon |] who | what | when, as a list of people, mail, chats or files.
+    first: the number of its first row on a card whose rows can be picked ("items"): each row then shows its number
+    and is an EventBox with .row (counted from 0 across the card) for Card.show to make clickable."""
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+    box.rows = []
     for r, line in enumerate(l for l in lines if l.strip()):
         icon, who, what, when = _cells(line)
-        grid.attach(_avatar(icon, who), 0, r, 1, 1)
+        row = Gtk.Box(spacing=10)
+        if first is not None:
+            num = Gtk.Label(label=str(first + r + 1))
+            num.get_style_context().add_class("num")
+            num.set_valign(Gtk.Align.CENTER)
+            row.pack_start(num, False, False, 0)
+        row.pack_start(_avatar(icon, who), False, False, 0)
         text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         for part, cls in ((who, "who"), (what, "what")):
             if part:
@@ -238,15 +303,23 @@ def _rows(lines):
                 lab.set_max_width_chars(44)
                 lab.get_style_context().add_class(cls)
                 text.pack_start(lab, False, False, 0)
-        text.set_hexpand(True)
         text.set_valign(Gtk.Align.CENTER)
-        grid.attach(text, 1, r, 1, 1)
+        row.pack_start(text, True, True, 0)
         if when:
             lab = _label(_inline(when), "when")
+            lab.set_selectable(first is None)  # a selectable label would eat the row's click
             lab.set_xalign(1)
             lab.set_valign(Gtk.Align.CENTER)
-            grid.attach(lab, 2, r, 1, 1)
-    return grid
+            row.pack_end(lab, False, False, 0)
+        if first is not None:
+            hit = Gtk.EventBox()
+            hit.get_style_context().add_class("pickrow")
+            hit.add(row)
+            hit.row = first + r
+            box.rows.append(hit)
+            row = hit
+        box.pack_start(row, False, False, 0)
+    return box
 
 
 def _people(lines):
@@ -345,9 +418,10 @@ def _bars(lines):
     return area
 
 
-def build(text):
-    """Turn the card's markdown into a list of widgets."""
-    widgets, lines, i, boxes = [], (text or "").splitlines(), 0, 0
+def build(text, numbered=False):
+    """Turn the card's markdown into a list of widgets. numbered: the card has "items", so its ```rows rows are
+    numbered and can be clicked."""
+    widgets, lines, i, boxes, rows = [], (text or "").splitlines(), 0, 0, 0
     while i < len(lines):
         line = lines[i].rstrip()
         if line.startswith("```"):
@@ -355,7 +429,11 @@ def build(text):
             while i < len(lines) and not lines[i].startswith("```"):
                 block.append(lines[i])
                 i += 1
-            chart = _bars(block) if kind == "bars" else _rows(block) if kind == "rows" else \
+            if kind == "rows":
+                chart = _rows(block, rows if numbered else None)
+                rows += len([l for l in block if l.strip()])
+            else:
+                chart = _bars(block) if kind == "bars" else \
                 _people(block) if kind == "people" else _stats(block) if kind == "stats" else blocks.make(kind, block)
             widgets.append(chart or _label("\n".join(block), mono=True))
         elif line.lstrip().startswith("|"):
@@ -407,6 +485,9 @@ class Card:
         self._dragging = False
         self._moving = []  # drawn blocks that animate, redrawn by _tick while this card is up
         self._ticking = False
+        self.folded = False  # shrunk to a title-only tab: there was no room for it (Deck._place)
+        self.shown_at = time.time()  # when it opened or last changed, for "4 min ago"
+        self.full_size, self.fold_size = (CARD_W, CARD_MAX_H), (FOLD_W, 90)  # last measured, open and folded
         _load_css()
         w = self.win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         _make_transparent(w)
@@ -417,7 +498,7 @@ class Card:
         w.set_skip_pager_hint(True)
         w.set_type_hint(Gdk.WindowTypeHint.DOCK)
         w.stick()
-        w.connect("size-allocate", lambda *_: self._place())
+        w.connect("size-allocate", self._sized)
         w.connect("configure-event", self._moved)
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         outer.get_style_context().add_class("panel")
@@ -428,17 +509,33 @@ class Card:
 
         head = Gtk.Box(spacing=6)
         head.get_style_context().add_class("header")
-        grip = Gtk.EventBox()  # drag the title to move the card
+        grip = Gtk.EventBox()  # drag the title to move the card; click a folded card's title to open it again
         grip.connect("button-press-event", self._press)
+        line = Gtk.Box(spacing=7)
+        self.icon = Gtk.Image()
+        self.icon.get_style_context().add_class("source")
+        line.pack_start(self.icon, False, False, 0)
         self.title = Gtk.Label(xalign=0, ellipsize=3)
         self.title.get_style_context().add_class("title")
-        grip.add(self.title)
+        line.pack_start(self.title, True, True, 0)
+        self.age = Gtk.Label()
+        self.age.get_style_context().add_class("age")
+        line.pack_end(self.age, False, False, 0)
+        grip.add(line)
         head.pack_start(grip, True, True, 0)
         close = Gtk.Button(label="×")
         close.get_style_context().add_class("close")
         close.set_relief(Gtk.ReliefStyle.NONE)
+        close.set_tooltip_text("Close")
         close.connect("clicked", lambda _b: self.close())
         head.pack_end(close, False, False, 0)
+        self.pin_button = Gtk.Button.new_from_icon_name("view-pin-symbolic", Gtk.IconSize.MENU)
+        for cls in ("close", "pin"):
+            self.pin_button.get_style_context().add_class(cls)
+        self.pin_button.set_relief(Gtk.ReliefStyle.NONE)
+        self.pin_button.set_tooltip_text("Pin: keep it on screen")
+        self.pin_button.connect("clicked", lambda _b: self.deck and self.deck.pin(self))
+        head.pack_end(self.pin_button, False, False, 0)
         inner.pack_start(head, False, False, 0)
 
         self.body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -480,9 +577,15 @@ class Card:
         """Put `card` in this window (replacing what it showed)."""
         self.last = card
         self.quiet = 0.0
+        self.shown_at = time.time()
         for child in self.body.get_children() + self.buttons.get_children():
             child.destroy()
-        self.title.set_text(card.get("title") or "Here you go")
+        icon, name = source(card)
+        self.icon.set_from_icon_name(icon, Gtk.IconSize.MENU) if icon else self.icon.clear()
+        self.title.set_text(card.get("title") or name or "JARVIS")
+        self.title.set_tooltip_text(card.get("title") or None)  # the whole title, when it's cut short
+        self.age.set_text(ago(0))
+        items = card.get("items") or []
         image = card.get("image")
         if image:
             try:
@@ -491,8 +594,11 @@ class Card:
             except GLib.Error:
                 pass
         self._moving = []
-        for widget in build(card.get("text")):
+        for widget in build(card.get("text"), numbered=bool(items)):
             self.body.pack_start(widget, False, False, 0)
+            for hit in getattr(widget, "rows", []):
+                if hit.row < len(items):
+                    self._clickable(hit, items[hit.row])
             if getattr(widget, "hit", None):
                 widget.connect("button-press-event", self._hit)
             if hasattr(widget, "box"):
@@ -516,18 +622,54 @@ class Card:
             button.connect("clicked", lambda _b, p=phrase: self.on_choice(p))
             self.buttons.add(button)
         self.win.show_all()
-        self.buttons.set_visible(bool(choices(card)))
+        self.icon.set_visible(bool(icon))
+        self.pin_button.set_visible(not self.pinned)
+        self._fold_widgets()
         # Wrapped labels don't pass their height up through a ScrolledWindow, so measure it: grow to fit,
         # scroll beyond CARD_MAX_H.
         _, natural = self.body.get_preferred_height_for_width(CARD_W - 34)
         self.scroll.set_min_content_height(min(natural, CARD_MAX_H))
-        self.win.resize(CARD_W, 1)  # shrink to fit the new content
+        self.win.resize(FOLD_W if self.folded else CARD_W, 1)  # shrink to fit the new content
         self.visible = True
         self._place()
         if self._moving and not self._ticking:
             self._ticking = True
             GLib.timeout_add(50, self._tick)
         return False
+
+    def _clickable(self, hit, phrase):
+        """A row of the card's list: a click says its phrase ("read email 18c2…"), as "read the second one" would."""
+        hit.connect("button-press-event", lambda _w, ev: ev.button == 1 and (self.on_choice(phrase) or True))
+        hit.connect("enter-notify-event", lambda w, _ev: w.get_style_context().add_class("hover"))
+        hit.connect("leave-notify-event", lambda w, _ev: w.get_style_context().remove_class("hover"))
+        hit.connect("realize", lambda w: w.get_window().set_cursor(Gdk.Cursor.new_from_name(w.get_display(), "pointer")))
+
+    def _fold_widgets(self):
+        """Show the body, buttons and pin, or only the title line of a folded card."""
+        self.scroll.set_visible(not self.folded)
+        self.buttons.set_visible(not self.folded and bool(choices(self.last)))
+        self.pin_button.set_visible(not self.folded and not self.pinned)
+        self.title.set_tooltip_text("Click to open it" if self.folded else (self.last or {}).get("title") or None)
+        self.win.set_size_request(FOLD_W if self.folded else CARD_W, -1)
+
+    def fold(self, on):
+        """Shrink to a title-only tab (no room for it on screen), or open it back up."""
+        if self.folded == on:
+            return
+        self.folded = on
+        self._fold_widgets()
+        self.win.resize(FOLD_W if on else CARD_W, 1)
+
+    def _sized(self, win, alloc):
+        """Remember its real size, open or folded, for Deck._place to fit the row with."""
+        if self.folded:
+            self.fold_size = (alloc.width, alloc.height)
+        else:
+            self.full_size = (alloc.width, alloc.height)
+        self._place()
+
+    def refresh_age(self):
+        self.age.set_text(ago(time.time() - self.shown_at))
 
     def _tick(self):
         """Redraw the animated blocks that are due; stops once the card is hidden or has none."""
@@ -552,7 +694,9 @@ class Card:
         return False
 
     def _press(self, widget, ev):
-        if ev.button == 1:
+        if ev.button == 1 and self.folded and self.deck:
+            self.deck.unfold(self)
+        elif ev.button == 1:
             self._dragging = True
             self.win.begin_move_drag(1, int(ev.x_root), int(ev.y_root), ev.time)
         return True
@@ -599,6 +743,12 @@ class Deck:
         self._placing = False
         self._chat_spot = None
         self._glide = {}  # what's sliding to its spot: a Card or "chat" -> [x, y, aim x, aim y]
+        GLib.timeout_add_seconds(20, self._ages)
+
+    def _ages(self):
+        for w in self.open + self.pins:
+            w.refresh_age()
+        return True
 
     @property
     def visible(self):
@@ -636,6 +786,7 @@ class Deck:
             return False  # already up
         win = self.spare.pop() if self.spare else Card(self.on_choice, deck=self)
         win.user_xy = None
+        win.fold(False)
         self.open.append(win)
         while len(self.open) > MAX_OPEN:
             self.open[0].close()
@@ -682,11 +833,22 @@ class Deck:
                 w.close()
         return False
 
-    def pin(self):
-        """Keep a copy of the newest card on screen; it stays when the others are closed or hidden."""
+    def unfold(self, win):
+        """Open a folded card back up, as the newest: the oldest open one folds if there's no room."""
+        if win in self.open:
+            self.open.remove(win)
+            self.open.append(win)
+            self.last = win.last
+        win.quiet = 0.0
+        win.fold(False)
+        self._place()
+        return False
+
+    def pin(self, win=None):
+        """Keep a copy of the newest card (or this one) on screen; it stays when the others are closed or hidden."""
         if not self.open:
             return False
-        win = self.open[-1]
+        win = win if win in self.open else self.open[-1]
         copy = Card(self.on_choice, pinned=True)
         x, y = win.win.get_position()
         offset = 24 * (len(self.pins) + 1)
@@ -718,13 +880,19 @@ class Deck:
             auto = [w for w in reversed(self.open) if not w.user_xy and not w._dragging and w.win.get_visible()]
             for w in self.open:
                 if w.user_xy and not w._dragging:
+                    w.fold(False)  # one you moved yourself is never folded
                     Card._place(w)
             geo = Gdk.Display.get_default().get_monitor(0).get_workarea()
             chat = [(PANEL_W, PANEL_H)] if self.chat_visible() else []
+            room = (geo.x, geo.width, self.bottom() + GLOW, geo.y, self.compact())
+
             # Real widths: a card with a drawn block comes out a few pixels wider, and the gaps must still be equal.
-            spots = arrange(chat + [(max(CARD_W, w.win.get_allocated_width()), w.win.get_allocated_height()) for w in auto],
-                            geo.x, geo.width,
-                            self.bottom() + GLOW, geo.y, self.compact())
+            full = [(max(CARD_W, w.full_size[0]), w.full_size[1]) for w in auto]
+            folded = [w.fold_size for w in auto]
+            keep = keep_open(chat, full, folded, *room)
+            for i, w in enumerate(auto):
+                w.fold(i >= keep)
+            spots = arrange(chat + full[:keep] + folded[keep:], *room)
             spot = spots.pop(0) if chat else None
             if spot and spot != self._chat_spot:
                 self._slide("chat", self._chat_spot, spot)
