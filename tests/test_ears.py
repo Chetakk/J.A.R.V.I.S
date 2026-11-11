@@ -467,3 +467,28 @@ def test_a_new_request_over_jarvis_keeps_claude_going(monkeypatch):
             args.append(time.time())
         assert w._barge_in(*args) and calls == called
     assert w.passed == [] and wake_with("x", monkeypatch).on_cut is None
+
+
+def _tap_with(played):
+    """A ShowTap that caught `played` (floats) going to the speaker, ending just now."""
+    tap = E.ShowTap(lambda: False)
+    raw, now, step = played.astype(np.int16).tobytes(), time.time(), E.RATE // 5 * 2
+    pieces = [raw[i:i + step] for i in range(0, len(raw), step)]
+    for k, piece in enumerate(pieces):
+        tap.chunks.append((now - (len(pieces) - 1 - k) * 0.2, piece))
+    return tap
+
+
+def test_the_show_coming_back_through_the_speaker_is_not_a_call():
+    from test_echo_sound import ECHO, PLAYED, YOU
+    tap = _tap_with(PLAYED)
+    assert tap.is_show(ECHO[-int(1.2 * E.RATE):].astype(np.int16).tobytes())
+    assert not tap.is_show((ECHO[-int(1.2 * E.RATE):] + YOU[:int(1.2 * E.RATE)] * 1.5).astype(np.int16).tobytes())
+    assert not E.ShowTap(lambda: False).is_show(ECHO.astype(np.int16).tobytes())  # nothing playing: nothing to compare
+
+
+def test_a_name_the_show_said_is_dropped_before_parakeet(monkeypatch):
+    e = ears(monkeypatch, 16000)
+    e.show = type("Show", (), {"is_show": lambda self, pcm: True})()
+    assert e.transcribe(LOUD) == "" and not e.parakeet_calls
+    assert ears(monkeypatch, 16000).transcribe(LOUD) == "Jarvis, open youtube"  # (no show check: as before)

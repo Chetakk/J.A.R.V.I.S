@@ -27,6 +27,7 @@ WAKE = os.path.join(JARVIS, "models", "wake")
 DATA = os.path.join(JARVIS, "wake-data")  # for retraining (tools/wake_train.py): never in the repo
 AFTER_NAME = 0.4  # seconds: less than this after the name is just its tail, not a command
 BEFORE_CUT = 0.1  # seconds taken back from the end of the name, so the next word keeps its start
+NAME_SECONDS = 1.2  # the bit before where the name ends that's compared with what's playing
 
 
 class Embedder:
@@ -75,6 +76,8 @@ class Ears:
         self.keep_hits = int(cfg.get("keep_wake_hits", 200))  # audio of each wake-up, to tell real ones from false later
         self.media_minutes = float(cfg.get("collect_media_minutes", 0))  # mic audio while something plays: not the name
         self.recorder = None
+        self.show_check = bool(cfg.get("show_check", False))
+        self.show = None  # ShowTap, while show_check is on
         self.is_deaf = lambda: False  # "mute the mic": then nothing is recorded either (jarvis.py sets it)
 
     @property
@@ -102,6 +105,10 @@ class Ears:
             self.recorder = MediaRecorder(os.path.join(DATA, "media"), self.media_minutes,
                                           lambda: not self.is_deaf() and something_playing())
             self.recorder.start()
+        if self.show_check and not self.show:
+            from skills.media import something_playing
+            self.show = ShowTap(lambda: not self.is_deaf() and something_playing())
+            self.show.start()
         if self.idle and not self._sleeper:
             self._sleeper = threading.Thread(target=self._watch_idle, daemon=True)
             self._sleeper.start()
@@ -232,6 +239,9 @@ class Ears:
         end = self.name_end(pcm, self.strict if command else self.cutoff)
         if end is None:
             return self._words(pcm) if command else ""
+        if not command and self.show and self.show.is_show(pcm[max(0, end - int(NAME_SECONDS * RATE)) * 2:end * 2]):
+            print("[ears] the name came from what's playing, not from you: not a call")
+            return ""
         checked = "" if command else self._named(pcm)
         if checked is None:
             return ""
@@ -305,6 +315,69 @@ def write_wav(path, pcm):
         w.setsampwidth(2)
         w.setframerate(RATE)
         w.writeframes(pcm)
+
+
+class ShowTap(threading.Thread):
+    """While a show or song plays here, keeps the last seconds of what goes to the speaker (its monitor), so a wake-up
+    that's only the show coming back through the mic is told by its sound, as JARVIS tells its own voice
+    (voice/speech.py echo_match). You calling over the show leaves sound the show can't explain: still a call.
+    shortcut: a TV or people in the room aren't played here, so this can't catch them; retraining the wake model can."""
+
+    KEEP = 15  # seconds kept
+    BEFORE = 3.0  # seconds of the speaker's sound before the mic bit that are searched: the Echo Dot is ~0.5 s late
+
+    def __init__(self, playing, poll=2.0):
+        super().__init__(daemon=True)
+        self.playing, self.poll = playing, poll
+        self.chunks = collections.deque()  # (time read, int16 bytes)
+        self.lock = threading.Lock()
+
+    def run(self):
+        while True:
+            try:
+                if not self.playing():
+                    time.sleep(self.poll)
+                    continue
+                proc = subprocess.Popen(["parec", "-d", "@DEFAULT_MONITOR@", "--rate=%d" % RATE, "--channels=1",
+                                         "--format=s16le", "--latency-msec=100"],
+                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                checked = time.time()
+                while True:
+                    data = proc.stdout.read(RATE // 5 * 2)  # 0.2 s
+                    if not data:
+                        break
+                    now = time.time()
+                    with self.lock:
+                        self.chunks.append((now, data))
+                        while self.chunks[0][0] < now - self.KEEP:
+                            self.chunks.popleft()
+                    if now - checked > self.poll:
+                        checked = now
+                        if not self.playing():
+                            break
+                proc.terminate()
+                proc.wait()
+            except Exception as e:  # never worth breaking JARVIS for: without it, the wake model alone decides
+                print("[ears] listening to what's playing: %r" % e)
+                time.sleep(30)
+
+    def audio(self, since, until):
+        """What went to the speaker between these times (floats in 16-bit scale); None if not most of it was caught."""
+        with self.lock:
+            parts = [d for t, d in self.chunks if since < t and t - len(d) / (2 * RATE) < until]
+        x = np.frombuffer(b"".join(parts), np.int16).astype(np.float32)
+        return x if len(x) >= 0.8 * (until - since) * RATE else None
+
+    def is_show(self, pcm):
+        """True if this bit of the mic (16-bit PCM that just ended) is what's playing, coming back through the speaker."""
+        from voice.speech import Speaker, echo_match
+        now = time.time()
+        played = self.audio(now - len(pcm) / (2 * RATE) - self.BEFORE, now)
+        if played is None:
+            return False
+        score, extra = echo_match(np.frombuffer(pcm, np.int16).astype(np.float32), played)
+        print("[ears] show sound %.2f, %d/1000 not the show" % (score, extra))  # (to tune)
+        return score >= Speaker.SOUND_ECHO and extra < Speaker.SOUND_EXTRA
 
 
 class MediaRecorder(threading.Thread):
