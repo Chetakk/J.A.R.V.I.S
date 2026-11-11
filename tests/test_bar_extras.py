@@ -57,10 +57,10 @@ def test_the_feed_hands_the_bar_weather_reminder_tips_and_notifications(monkeypa
     monkeypatch.setattr(extras, "tray_count", lambda bus: 2)
     skills = SimpleNamespace(all=[SimpleNamespace(phrases=("brief me",))],
                              weather=SimpleNamespace(home=lambda: "Bengaluru", find=lambda p: {"lat": 1, "lon": 2}),
-                             todos=SimpleNamespace(_list=lambda key: []))
+                             todos=SimpleNamespace(_list=lambda key: []), proactive=SimpleNamespace(unread=lambda: 3))
     jarvis = SimpleNamespace(skills=skills, ui=SimpleNamespace(set_extras=got.append))
     try:
         extras.feed(jarvis)
     except Stop:
         pass
-    assert got == [{"tips": ["brief me"], "weather": "24° · cloudy", "next": "", "unread": 2}]
+    assert got == [{"tips": ["brief me"], "weather": "24° · cloudy", "next": "", "unread": 2, "alerts": 3}]

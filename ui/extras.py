@@ -64,5 +64,6 @@ def feed(jarvis):
             except Exception:  # the day tracker isn't running (HubDown) or answered oddly: no reminder line
                 extras["next"] = ""
         extras["unread"] = tray_count(bus)
+        extras["alerts"] = s.proactive.unread()  # JARVIS's own, unread: the full bar's button for "show my alerts"
         jarvis.ui.set_extras(dict(extras))
         time.sleep(TICK)

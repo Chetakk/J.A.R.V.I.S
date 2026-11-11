@@ -1,6 +1,8 @@
 """What JARVIS brings up by itself, and why.
 
-Every heads-up goes through tell(): it keeps the reason ("why did you say that", "show my recent alerts"),
+Every heads-up goes through tell(): it keeps the reason ("why did you say that") and the card shown with it in
+~/.local/share/jarvis/alerts.json, listed by "show my alerts" (or the bar's alert count) with each one's card a click
+away and unread ones marked; it
 drops the kinds you muted ("don't warn me about that again") and, during focus mode and quiet hours, holds
 events until they're over ("While you were focusing: ..."). Checks that repeat (disk, CPU) are simply skipped
 then and come up at the next check after.
@@ -9,10 +11,12 @@ Also here: resource alerts (CPU, memory, temperature; thresholds in settings hea
 under biztel run (its log says "exited (1)"; one you stop says "stopped"), "tell me when this finishes" for a
 command in a terminal, and quiet hours by voice ("quiet hours from 10 pm to 6 am")."""
 import glob
+import json
 import os
 import re
 import threading
 import time
+import uuid
 from collections import deque
 
 from core import persona
@@ -37,6 +41,9 @@ HOUR = r"(\d{1,2}|%s)(?:[:.]00)? ?(?:o'?clock )?([ap])?\.? ?m?\.?" % "|".join(HO
 ALERTS = r"(?:alerts?|heads[- ]?ups?|warnings?)"  # not "notifications": "mute notifications" is a command
 POPUP = r"(?:alerts?|heads[- ]?ups?|warnings?|notifications?|messages?|pop-?ups?)"
 SOME = r"(?:the |my |your |these |those |this |that |all )?"
+ALERTS_FILE = os.path.expanduser("~/.local/share/jarvis/alerts.json")
+KEEP, LISTED = 200, 12  # alerts kept on disk; rows on the "show my alerts" card
+GLYPH = {"mail": "✉", "calendar": "◷", "meeting": "◷", "share": "⇪", "chat": "#", "crash": "!", "job": "✓"}
 GENERIC = {"it", "this", "that", "this one", "that one", "the command", "this command", "my command", "the job",
            "this job", "my job", "the terminal", "my terminal", "this terminal", "whatever's running", "everything"}
 
@@ -44,16 +51,16 @@ GENERIC = {"it", "this", "that", "this one", "that one", "the command", "this co
 class Proactive(Skill):
     group = "alerts"
     does = "Heads-ups JARVIS brings up by itself, why it did, muting them, quiet hours"
-    phrases = ("why did you say that (why a heads-up came up)", "show my recent alerts", "don't warn me about that again",
+    phrases = ("why did you say that (why a heads-up came up)", "show my alerts", "mark my alerts read", "don't warn me about that again",
                "turn the cpu alerts back on", "tell me when this finishes (a command in a terminal)", "quiet hours from 10 pm to 6 am",
                "turn off quiet hours", "what are my quiet hours")
-    gives = "speech, a card of recent alerts"
+    gives = "speech, a card of your alerts (click one to see its card again)"
     permission = "auto"
     checks = "each heads-up keeps its reason; the ones that matter (the mic, things you asked for) can't be muted"
 
     def __init__(self, jarvis):
         super().__init__(jarvis)
-        self.log = deque(maxlen=30)  # {"at", "kind", "line", "why"}: what JARVIS brought up and why
+        self.log = deque(_load(), maxlen=KEEP)  # {"id", "at", "kind", "line", "why", "card", "read"}, oldest first
         self.held = []  # (when, line, why, during) events kept back during focus mode / quiet hours
         self._cpu = None  # (total, idle, when) from /proc/stat at the last check
         self._logs = None  # biztel run log -> (inode, bytes read); None until the first look
@@ -71,6 +78,9 @@ class Proactive(Skill):
              r"from today|i missed))?|what did (?:you tell me|i miss)(?: (?:today|earlier|while i was (?:away|out|"
              r"focusing|busy)))?|what (?:alerts|heads[- ]?ups|warnings) did (?:i miss|you give me)" % ALERTS,
              lambda m: self.recent()),
+            (r"show alert ([0-9a-f]{8})", self.open_alert),  # a row of the alerts card (its "items")
+            (r"mark (?:all )?(?:my |the )?(?:%s|notifications) (?:as )?read|mark (?:them|all|everything) (?:as )?read"
+             % ALERTS, lambda m: self.mark_read()),
             (r"(?:don'?t|do not|never) (?:warn|tell|remind|bother) me about (%s) (?:again|any ?more)|"
              r"stop (?:warning|telling|reminding|bothering) me about (%s)|(?:stop|mute|turn off|disable|silence|"
              r"no more) %s(cpu|processor|memory|ram|temperature|temp|heat|overheating|disk(?: space)?|storage|"
@@ -109,23 +119,44 @@ class Proactive(Skill):
         off = self.j.memory.pref("muted_alerts") or []
         return kind in off or kind.split(":")[0] in off
 
-    def note(self, kind, line, why):
-        """Remember something JARVIS said by itself, and why (it's said elsewhere)."""
+    def note(self, kind, line, why, card=None):
+        """Remember something JARVIS said by itself, why, and its card (it's said and shown elsewhere), on disk."""
+        entry = {"id": uuid.uuid4().hex[:8], "at": time.time(), "kind": kind, "line": line, "why": why,
+                 "card": card, "read": False}
         with self.lock:
-            self.log.append({"at": time.time(), "kind": kind, "line": line, "why": why})
+            self.log.append(entry)
+            self._save()
+        return entry
 
-    def tell(self, kind, line, why, hold=True):
-        """Say a heads-up from a background thread. During focus / quiet hours it's kept for later (hold=False:
-        you asked for it, so it's said anyway). False if it wasn't said now."""
+    def _save(self):
+        """Under self.lock. A failed write loses only the list, never a heads-up."""
+        try:
+            os.makedirs(os.path.dirname(ALERTS_FILE), exist_ok=True)
+            with open(ALERTS_FILE + ".tmp", "w") as f:
+                json.dump(list(self.log), f, default=str)
+            os.replace(ALERTS_FILE + ".tmp", ALERTS_FILE)
+        except OSError as e:
+            print("[proactive] couldn't save alerts: %r" % e)
+
+    def unread(self):
+        with self.lock:
+            return sum(not e.get("read") for e in self.log)
+
+    def tell(self, kind, line, why, hold=True, card=None):
+        """Say a heads-up from a background thread, and show its card. During focus / quiet hours it's kept for
+        later (hold=False: you asked for it, so it's said anyway), its card only in the alerts list. False if it
+        wasn't said now."""
         if self.muted(kind):
             return False
-        self.note(kind, line, why)
+        self.note(kind, line, why, card)
         if hold and self.holding():
             with self.lock:
                 self.held.append((time.time(), line, why, "focus" if self.j.skills.focusing() else "quiet"))
             print("[proactive] held: %s" % line)
             return False
         self.j.inbox.put(("say", line))
+        if card:
+            self.j.inbox.put(("ctl", {"show": card}))
         return True
 
     def watch(self):
@@ -163,18 +194,45 @@ class Proactive(Skill):
         self.say(last["why"])
 
     def recent(self):
+        """The alerts card: the newest first, unread ones marked; clicking a row (or "the second one") shows its
+        card again."""
         with self.lock:
-            today = [e for e in self.log if time.time() - e["at"] < 86400]
-            held = list(self.held)
-        if not today:
-            self.say("I haven't brought anything up today.")
+            shown = list(self.log)[::-1][:LISTED]
+            unread = sum(not e.get("read") for e in self.log)
+            held = len(self.held)
+        if not shown:
+            self.say("I haven't brought anything up yet.")
             return
-        rows = ["- **%s** %s  \n  _%s_" % (time.strftime("%H:%M", time.localtime(e["at"])), e["line"], e["why"])
-                for e in reversed(today)]
-        self.j.show({"title": "What I brought up today", "text": "\n".join(rows)})
-        self.say("%d thing%s today%s. The latest: %s" % (
-            len(today), "" if len(today) == 1 else "s", ", %d held for later" % len(held) if held else "",
-            today[-1]["line"]))
+        rows = ["%s | %s%s | %s | %s" % (GLYPH.get(e["kind"].split(":")[0], "•"), "" if e.get("read") else "● ",
+                                         _cell((e.get("card") or {}).get("title") or e["kind"].split(":")[0].capitalize()),
+                                         _cell(e["line"]), _when(e["at"])) for e in shown]
+        self.j.show({"id": "alerts", "title": "Alerts" + (" · %d unread" % unread if unread else ""),
+                     "text": "```rows\n%s\n```" % "\n".join(rows),
+                     "items": ["show alert %s" % e["id"] for e in shown],
+                     "choices": [{"label": "Mark all read", "do": "mark my alerts read"}] if unread else []})
+        self.say("%s%s. The latest: %s" % ("%d unread" % unread if unread else "Nothing unread",
+                                           ", %d held for later" % held if held else "", shown[0]["line"]))
+
+    def open_alert(self, m):
+        """A row of the alerts card: its own card again (or one made from what was said), now read."""
+        with self.lock:
+            e = next((e for e in self.log if e.get("id") == m.group(1)), None)
+            if e:
+                e["read"] = True
+                self._save()
+        if not e:
+            self.say("That alert is gone from my list.")
+            return
+        self.j.show(e.get("card") or {"title": e["kind"].split(":")[0].capitalize(),
+                                      "text": "**%s**\n\n_%s_" % (e["line"], e["why"])})
+        self.say(e["line"])
+
+    def mark_read(self):
+        with self.lock:
+            for e in self.log:
+                e["read"] = True
+            self._save()
+        self.say("All your alerts are marked read.")
 
     # --- muting kinds of heads-up ---
 
@@ -389,6 +447,28 @@ class Proactive(Skill):
         self.j.settings["quiet_hours"] = q
         saved = self.j.memory.pref("quiet_hours")
         self.j.memory.set_pref("quiet_hours", dict(saved if isinstance(saved, dict) else {}, **change))
+
+
+def _load():
+    """The alerts saved last time; none if the file is missing or damaged."""
+    try:
+        with open(ALERTS_FILE) as f:
+            saved = json.load(f)
+        return [e for e in saved if isinstance(e, dict) and e.get("id") and e.get("line")][-KEEP:]
+    except (OSError, ValueError):
+        return []
+
+
+def _cell(text):
+    return re.sub(r"\s+", " ", str(text).replace("|", "/")).strip()
+
+
+def _when(at):
+    """"10:21" today, "Mon 10:21" this week, "3 Nov" before that."""
+    days = time.time() - at
+    if time.strftime("%x", time.localtime(at)) == time.strftime("%x"):
+        return time.strftime("%H:%M", time.localtime(at))
+    return time.strftime("%a %H:%M" if days < 6 * 86400 else "%-d %b", time.localtime(at))
 
 
 def temperature():

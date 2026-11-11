@@ -70,7 +70,35 @@ def test_recent_alerts(jv, p):
     p.tell("cpu", "Heads up, CPU busy.", "CPU over 90.")
     p.tell("disk", "Heads up, disk full.", "Disk over 95.")
     jv.do("show my recent alerts")
-    assert jv.says("2 things today", "The latest: Heads up, disk full.") and "CPU over 90." in jv.card_text()
+    assert jv.says("2 unread", "The latest: Heads up, disk full.") and "Heads up, CPU busy." in jv.card_text()
+
+
+def test_an_alert_keeps_its_card_and_a_row_opens_it_again(jv, p):
+    card = {"id": "mail-1", "title": "Mail from Rahul", "text": "**Budget**",
+            "choices": [{"label": "Read it", "do": "read email 18c2f00aa1"}]}
+    assert p.tell("mail", "Email from Rahul: Budget.", "New in your inbox.", card=card)
+    assert ("ctl", {"show": card}) in [jv.j.inbox.get_nowait() for _ in range(jv.j.inbox.qsize())]
+    p.tell("cpu", "Heads up, CPU busy.", "CPU over 90.")  # no card of its own
+    jv.do("show my alerts")
+    listed = jv.cards[-1]
+    assert listed["title"] == "Alerts · 2 unread" and "● Mail from Rahul" in listed["text"]
+    assert listed["text"].index("CPU busy") < listed["text"].index("Budget")  # newest first
+    jv.clear()
+    jv.do(listed["items"][1])  # clicking the mail's row
+    assert jv.cards[-1] == card and p.unread() == 1
+    jv.clear()
+    jv.do(listed["items"][0])
+    assert "CPU over 90." in jv.card_text() and p.unread() == 0
+
+
+def test_alerts_are_kept_after_a_restart_and_held_ones_listed(jv, p):
+    from skills.proactive import Proactive
+    jv.do("focus for 25 minutes")
+    assert not p.tell("calendar", "Rahul moved Standup.", "Moved on Google Calendar.", card={"title": "Meeting moved"})
+    again = Proactive(jv.j)
+    assert [e["line"] for e in again.log] == ["Rahul moved Standup."] and again.log[0]["card"]["title"] == "Meeting moved"
+    jv.do("mark all my alerts as read")
+    assert jv.says("All your alerts are marked read.") and Proactive(jv.j).unread() == 0
 
 
 def test_quiet_hours_by_voice(jv, p):
@@ -90,7 +118,14 @@ def test_why_with_nothing_brought_up(jv, p):
 
 def test_recent_with_none(jv, p):
     jv.do("show my recent alerts")
-    assert jv.said == ["I haven't brought anything up today."]
+    assert jv.said == ["I haven't brought anything up yet."]
+
+
+def test_a_damaged_alerts_file_is_an_empty_list(jv, p):
+    from skills import proactive
+    with open(proactive.ALERTS_FILE, "w") as f:
+        f.write("{not json")
+    assert proactive._load() == []
 
 
 def test_quiet_hours_that_dont_make_sense(jv, p):

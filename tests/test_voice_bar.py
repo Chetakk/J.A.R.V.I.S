@@ -181,6 +181,9 @@ def test_only_the_full_bar_has_buttons_and_the_ignored_count_shows_when_there_is
     assert set(bar._zones(560)) == {"chat"}  # nothing said yet: no → to show what was understood
     bar.words = "open youtube"
     assert set(bar._zones(560)) == {"chat", "understood"}
+    bar.alerts = 4  # JARVIS's unread alerts: a button for "show my alerts"
+    assert set(bar._zones(560)) == {"chat", "understood", "alerts"}
+    bar.alerts = 0
     bar.ignored = 2
     zones = bar._zones(560)
     assert set(zones) == {"chat", "ignored", "understood"}

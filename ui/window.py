@@ -317,6 +317,7 @@ class UI:
     def set_extras(self, extras):
         """From ui/extras.py's thread: one dict swapped in whole, so the bar never sees it half done."""
         self.extras = extras
+        self.bar.alerts = extras.get("alerts", 0)
 
     def add_chat(self, who, text, private=False):
         """A line in the chat. private: shown, but not saved for after a restart (a secret, a private note)."""

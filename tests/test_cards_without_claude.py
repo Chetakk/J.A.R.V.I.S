@@ -112,7 +112,7 @@ def test_recent_alerts(jv):
     jv.j.settings["quiet_hours"] = {"enabled": False}
     jv.j.skills.proactive.tell("cpu", "Heads up, CPU busy.", "CPU over 90.")
     jv.do("show my recent alerts")
-    assert shown(jv, "What I brought up today")
+    assert shown(jv, "Alerts · 1 unread")
 
 
 # --- notes and memory ---

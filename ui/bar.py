@@ -59,7 +59,7 @@ RIGHT_SECS, SLIDE = 5.0, 0.6  # each thing at the compact bar's right end stays 
 WORDS_HOLD = 1.2  # seconds your words stay up before the reply replaces them
 SNOW = (1, 1, 1)
 WALLPAPER = "org.gnome.desktop.background"
-TIPS = {"ignored": "Speech JARVIS ignored. Click to see it in the chat", "bar": "Click to open the chat. Right-click for options"}
+TIPS = {"ignored": "Speech JARVIS ignored. Click to see it in the chat", "alerts": "Unread alerts. Click to see them", "bar": "Click to open the chat. Right-click for options"}
 DOCK = "imports.ui.main.uiGroup.get_children().filter(a=>a.name=='dashtodockContainer').forEach(a=>{%s})"
 EASE = "duration:160,mode:imports.gi.Clutter.AnimationMode.EASE_OUT_QUAD"
 # The shell's input area is switched too: it can make the dock visible again while faded, and then the dock's
@@ -230,6 +230,7 @@ class Bar:
     """GTK-thread only; ui.UI wraps it with thread-safe calls."""
 
     hint, _hint_end = "", 0.0  # why it can't hear you now ("say Jarvis first"), for a few seconds
+    alerts = 0  # JARVIS's own unread alerts (ui/extras.py, via set_extras): a button on the full bar
 
     def __init__(self, ui, show_understood):
         self.ui = ui
@@ -570,6 +571,8 @@ class Bar:
         out["chat"], x = (x - 26, x), x - 28
         if self.ignored:
             out["ignored"], x = (x - 42, x), x - 44
+        if self.alerts:
+            out["alerts"], x = (x - 42, x), x - 44
         if self.words or self.understood:  # nothing to show yet: no button for it
             out["understood"] = (x - 28, x)
         return out
@@ -583,6 +586,8 @@ class Bar:
         elif ev.button == 1:
             if self._zone(ev.x) == "understood":
                 self.ui._set_understood(None)
+            elif self._zone(ev.x) == "alerts":
+                self.ui.on_command("show my alerts")
             else:
                 self.ui._set_chat(None)
         return True
@@ -910,6 +915,8 @@ class Bar:
                 cr.line_to(x + 13, mid - 4.5)
                 cr.stroke()
             items.append((nw + 17, notes))
+        if self.alerts:  # JARVIS's own unread alerts (the full bar's button opens them)
+            items.append(text("%d ●" % self.alerts))
         for kind, on in (("mic", mutes["mic"]), ("speaker", mutes["voice"] or mutes["speaker"])):
             if on:
                 items.append((16, lambda right, kind=kind: _mute_mark(cr, right - 8, mid, kind)))
@@ -995,7 +1002,8 @@ class Bar:
                 cr.line_to(centre + 6, mid + up * 3)
                 cr.stroke()
                 continue
-            text = "%d ⊘" % self.ignored if name == "ignored" else "→"
-            alpha = 0.8 if name == "ignored" or self.show_understood else 0.28
+            text = "%d ⊘" % self.ignored if name == "ignored" else "%d ●" % self.alerts \
+                if name == "alerts" else "→"
+            alpha = 0.8 if name in ("ignored", "alerts") or self.show_understood else 0.28
             layout = _layout(cr, text, 9.5, bold=name == "understood")
             _show(cr, layout, centre - layout.get_pixel_size()[0] / 2, mid, alpha)

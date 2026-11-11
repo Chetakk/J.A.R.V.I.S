@@ -180,14 +180,13 @@ class Drive(GoogleSkill):
         self._shared_since = newest
         for f in reversed(new[:3]):  # oldest first
             line = "%s shared %s, a %s, with you." % (_who(f), f["name"], _kind(f))
-            if self.j.skills.proactive.tell("share", line, "%s shared it on Google Drive (%s). Say what's been shared "
-                                            "with me for the week's." % (_who(f), (f.get("sharingUser") or {}).get(
-                                                "emailAddress") or "someone")):
-                self.j.inbox.put(("ctl", {"show": {
-                    "id": "drive-share-" + f["id"], "title": "Shared with you",
-                    "text": "```rows\nfile:%s | [%s](%s) | %s | %s\n```" % (
-                        _badge(f), cell(f["name"]), f.get("webViewLink") or "", cell(_who(f)), _kind(f)),
-                    "choices": [{"label": "Open it", "do": "open the first link"}]}}))
+            self.j.skills.proactive.tell("share", line, "%s shared it on Google Drive (%s). Say what's been shared "
+                                         "with me for the week's." % (_who(f), (f.get("sharingUser") or {}).get(
+                                             "emailAddress") or "someone"), card={
+                "id": "drive-share-" + f["id"], "title": "Shared with you",
+                "text": "```rows\nfile:%s | [%s](%s) | %s | %s\n```" % (
+                    _badge(f), cell(f["name"]), f.get("webViewLink") or "", cell(_who(f)), _kind(f)),
+                "choices": [{"label": "Open it", "do": "open the first link"}]})
 
     def _shared_lately(self, since):
         drive = self.api("drive", "v3")

@@ -331,16 +331,15 @@ class Gmail(GoogleSkill):
                 continue
             said += 1
             self.last = (mail, time.time())
-            if self.j.skills.proactive.tell(
-                    "mail", "Email from %s: %s." % (first_name(mail["name"]), short(mail["subject"], 12)),
-                    "It's new in your inbox, from %s. I say every new email (google mail_alerts: people in settings "
-                    "keeps it to people you've written to). Say read the latest email from %s." % (
-                        mail["addr"], first_name(mail["name"]))):
-                self.j.inbox.put(("ctl", {"show": {
+            self.j.skills.proactive.tell(
+                "mail", "Email from %s: %s." % (first_name(mail["name"]), short(mail["subject"], 12)),
+                "It's new in your inbox, from %s. I say every new email (google mail_alerts: people in settings "
+                "keeps it to people you've written to). Say read the latest email from %s." % (
+                    mail["addr"], first_name(mail["name"])), card={
                     "id": "mail-" + mail["id"], "title": "Mail from %s" % mail["name"],
                     "text": "{check} **%s**\n%s" % (cell(mail["subject"]), short(mail["snippet"], 30)),
-                    "choices": [{"label": "Read it", "do": "read the latest email from %s" % mail["addr"]},
-                                {"label": "Add to my to-dos", "do": "add this to my to-dos"}]}}))
+                    "choices": [{"label": "Read it", "do": "read email %s" % mail["id"]},  # this one, even days later
+                                {"label": "Add to my to-dos", "do": "add this to my to-dos"}]})
 
     def writes_to(self, gm, addr):
         """True if you've ever sent mail to `addr` (asked once per address)."""

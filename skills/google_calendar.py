@@ -341,31 +341,29 @@ class Calendar(GoogleSkill):
             was = old.get(e["id"])
             if e["cancelled"]:
                 if was and not was["cancelled"] and not was["mine"] and attending(was) and (was["start"] or 0) > now:
-                    if tell.tell("calendar", "%s, %s, was cancelled." % (was["title"], when(was["start"])),
-                                 "%s cancelled it on Google Calendar." % was["organizer"]):
-                        self.j.inbox.put(("ctl", {"show": {"id": "cal-" + e["id"], "title": "Meeting cancelled",
-                                                           "text": "{bad} **%s**\n%s · cancelled by %s" % (
-                                                               was["title"], when(was["start"]), was["organizer"])}}))
+                    tell.tell("calendar", "%s, %s, was cancelled." % (was["title"], when(was["start"])),
+                              "%s cancelled it on Google Calendar." % was["organizer"], card={
+                                  "id": "cal-" + e["id"], "title": "Meeting cancelled",
+                                  "text": "{bad} **%s**\n%s · cancelled by %s" % (
+                                      was["title"], when(was["start"]), was["organizer"])})
                 continue
             if e["mine"] or not e["start"] or e["start"] < now or e["kind"] in NOT_MEETINGS:
                 continue
             if not was and e["response"] == "needsAction" and (e["created"] or 0) >= self._since - 300:
                 self.last_invite = (e, now)
                 line = "%s invited you to %s, %s." % (e["organizer"], e["title"], when(e["start"]))
-                if tell.tell("calendar", line, "A new invite on your Google Calendar. Say accept the invite or "
-                                               "decline it."):
-                    card = self.prep_card(e, heading="Invite")
-                    card["choices"] = [{"label": "Accept", "do": "accept the invite"},
-                                       {"label": "Decline", "do": "decline the invite"}]
-                    self.j.inbox.put(("ctl", {"show": card}))
+                card = self.prep_card(e, heading="Invite")
+                card["choices"] = [{"label": "Accept", "do": "accept the invite"},
+                                   {"label": "Decline", "do": "decline the invite"}]
+                tell.tell("calendar", line, "A new invite on your Google Calendar. Say accept the invite or "
+                                            "decline it.", card=card)
             elif was and not was["cancelled"] and was["start"] != e["start"] and not e["declined"]:
-                if tell.tell("calendar", "%s moved %s to %s." % (e["organizer"], e["title"], when(e["start"])),
-                             "It was %s; %s moved it on Google Calendar." % (when(was["start"]), e["organizer"])):
-                    self.j.inbox.put(("ctl", {"show": {
-                        "id": "cal-" + e["id"], "title": "Meeting moved", "text": "{warn} **%s**\nNow **%s**, was %s"
-                        " · by %s" % (e["title"], when(e["start"]), when(was["start"]), e["organizer"]),
-                        "choices": [{"label": "Show my day", "do": "what's on my calendar %s" % day_word(
-                            e["start"])}]}}))
+                tell.tell("calendar", "%s moved %s to %s." % (e["organizer"], e["title"], when(e["start"])),
+                          "It was %s; %s moved it on Google Calendar." % (when(was["start"]), e["organizer"]), card={
+                              "id": "cal-" + e["id"], "title": "Meeting moved", "text": "{warn} **%s**\nNow **%s**, "
+                              "was %s · by %s" % (e["title"], when(e["start"]), when(was["start"]), e["organizer"]),
+                              "choices": [{"label": "Show my day", "do": "what's on my calendar %s" % day_word(
+                                  e["start"])}]})
 
     def _heads_up(self, events, now):
         lead = self.cfg("heads_up_minutes", 5) * 60
@@ -378,10 +376,10 @@ class Calendar(GoogleSkill):
             line = "%s in %d minute%s%s.%s" % (e["title"], minutes, "" if minutes == 1 else "s",
                                                ", with %s" % _people(e) if e["with"] else "",
                                                " Say join my meeting to join." if e["link"] else "")
-            if self.j.skills.proactive.tell("meeting", line, "It starts at %s on your Google Calendar, and I give a "
-                                            "heads-up %d minutes before (google heads_up_minutes in settings)." % (
-                                                clock(e["start"]), lead // 60), hold=False):
-                self.j.inbox.put(("ctl", {"show": self.prep_card(e, heading="In %d min" % minutes)}))
+            self.j.skills.proactive.tell("meeting", line, "It starts at %s on your Google Calendar, and I give a "
+                                         "heads-up %d minutes before (google heads_up_minutes in settings)." % (
+                                             clock(e["start"]), lead // 60), hold=False,
+                                         card=self.prep_card(e, heading="In %d min" % minutes))
 
     def _meeting_mode(self, events, now):
         call = next((e for e in events if is_call(e) and e["start"] <= now < e["end"] - 60), None)
