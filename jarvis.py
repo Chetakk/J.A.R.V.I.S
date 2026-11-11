@@ -1462,7 +1462,8 @@ class Jarvis:
             self.speaker.say("%s runs inside the browser, so I'd close the whole browser. Switch to it and say "
                              "close this window instead." % app["name"])
             return True
-        self.executor.run("pkill -x %s" % shlex.quote(app["process"]),
+        # Firefox's (and Thunderbird's) launcher execs "<name>-bin", so `pkill -x firefox` alone matches nothing.
+        self.executor.run("pkill -x %s" % shlex.quote(app["process"] + "(-bin)?"),
                           reply=["Okay, closed %s." % app["name"], "Done, %s is closed." % app["name"]],
                           question="Close %s? Anything unsaved will be lost." % app["name"], declared="confirm")
         if self.executor.ok:
