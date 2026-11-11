@@ -28,3 +28,10 @@ def test_another_chrome_opens_a_new_window(jv, need_chrome, said):
 def test_open_chrome_with_none_open_starts_it(jv, need_chrome):
     jv.do("open chrome")
     assert jv.shell.ran(r"^google-chrome$")
+
+
+def test_open_chrome_skips_a_site_app_window(jv, need_chrome):
+    jv.j.apps.apps.append({"name": "Spotify", "window": "open.spotify.com", "process": "", "path": "spotify-web.desktop"})
+    jv.desktop.add("Spotify", "open.spotify.com google-chrome", front=False)
+    jv.do("Open Chrome.")
+    assert jv.desktop.did("focus") == [] and jv.shell.ran(r"^google-chrome$")

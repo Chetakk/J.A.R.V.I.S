@@ -1433,8 +1433,11 @@ class Jarvis:
         if not app:
             return False
         names = {n for n in (app["window"], app["process"], os.path.basename(app["path"])[:-8].lower()) if n}
+        # a site's app window (Spotify: "open.spotify.com google-chrome") is that app's, not Chrome's
+        others = {a["window"].lower() for a in self.apps.apps if a["window"] and a is not app}
         win = next((w for w in reversed(desktop.windows())
-                    if names & set(w.wm_class.split()) and "jarvis" not in w.wm_class), None)
+                    if names & set(w.wm_class.split()) and w.wm_class.split()[0] not in others
+                    and "jarvis" not in w.wm_class), None)
         if not win:
             return False
         self.understood("open %s" % app["name"])
