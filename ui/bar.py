@@ -229,6 +229,8 @@ def _show(cr, layout, x, mid, alpha):
 class Bar:
     """GTK-thread only; ui.UI wraps it with thread-safe calls."""
 
+    hint, _hint_end = "", 0.0  # why it can't hear you now ("say Jarvis first"), for a few seconds
+
     def __init__(self, ui, show_understood):
         self.ui = ui
         self.show_understood = show_understood
@@ -400,6 +402,10 @@ class Bar:
     def set_understood(self, text):
         self.understood = text
         self._changed()
+
+    def show_hint(self, text, seconds):
+        self.hint, self._hint_end = text, time.time() + seconds
+        self.poke()
 
     def add_ignored(self):
         self.ignored += 1
@@ -795,6 +801,8 @@ class Bar:
         """The words in the bar before you've said anything."""
         if state == "listening":
             return "Listening…"
+        if state == "idle" and time.time() < self._hint_end:
+            return self.hint
         if state in ("idle", "off"):
             return "Mic off" if self.ui.mutes["mic"] else "Voice off" if state == "off" else "Say “Jarvis”"
         return ""
@@ -813,6 +821,8 @@ class Bar:
         spent = int(self.ui.long_claude())
         if spent:
             return "Claude is working  %d:%02d" % (spent // 60, spent % 60), 1.0
+        if state == "idle" and t < self._hint_end:
+            return self.hint, 1.0
         if state == "idle":
             mood, k = self.feeling
             if mood in ("dance", "sway") and self._song_on_card():

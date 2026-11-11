@@ -78,3 +78,9 @@ def test_the_song_playing_is_read_from_the_player(monkeypatch):
         return type("Done", (), {"stdout": out})()
     monkeypatch.setattr(media.subprocess, "run", bus)
     assert media.track("org.mpris.MediaPlayer2.chromium") == "Don't Stop · Queen"
+
+
+def test_the_bar_says_why_it_wont_hear_you(jv, monkeypatch):
+    """No follow-up window while music plays: the bar says to use the name, instead of silently not hearing."""
+    run(jv, monkeypatch, True, ("voice", "what time is it"))
+    assert any(c[0] == "hint" and "Jarvis" in c[1][0] for c in jv.ui.calls)

@@ -289,6 +289,20 @@ def test_idle_the_bar_says_how_to_wake_jarvis_or_why_it_cant_hear_and_breathes()
     assert _breath(0) == 0 and abs(_breath(2) - 1) < 1e-9 and abs(_breath(4)) < 1e-9  # one breath every 4 s
 
 
+
+def test_the_idle_bar_says_why_it_wont_hear_you_for_a_few_seconds(monkeypatch):
+    from types import SimpleNamespace
+    from ui import bar as B
+
+    bar = B.Bar.__new__(B.Bar)
+    bar.ui = SimpleNamespace(mutes={"mic": False})
+    bar.poke = lambda: None
+    bar.show_hint("Music's on: say \u201cJarvis\u201d first", 8)
+    assert bar._waiting("idle") == "Music's on: say \u201cJarvis\u201d first"
+    now = B.time.time()
+    monkeypatch.setattr(B.time, "time", lambda: now + 9)
+    assert bar._waiting("idle") == "Say \u201cJarvis\u201d"  # gone after its few seconds
+
 def test_the_idle_eyes_blink_double_blink_and_glance_and_say_when_they_need_fast_frames():
     from ui.bar import BLINK, _eyes
 

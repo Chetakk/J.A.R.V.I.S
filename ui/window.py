@@ -287,6 +287,10 @@ class UI:
         """Show or hide that on the bar (None flips it); remembered across restarts."""
         GLib.idle_add(self._set_understood, on)
 
+    def hint(self, text, seconds=8):
+        """Why JARVIS won't hear you right now ("Music's on: say Jarvis first"), on the idle bar for a few seconds."""
+        GLib.idle_add(self.bar.show_hint, text, seconds)
+
     def count_ignored(self):
         GLib.idle_add(self.bar.add_ignored)
 
