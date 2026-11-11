@@ -63,14 +63,17 @@ CSS = b"""
 .heard { color: rgba(255, 255, 255, 0.4); font-style: italic; font-size: 9pt; }
 .sys { color: rgba(255, 255, 255, 0.45); font-size: 9pt; }
 """
-# ui.look in settings.yaml: "glass" (the default above, glowing glass like the bar) or "solid" (dark and opaque).
-SOLID_CSS = b"""
+# ui.look in settings.yaml: "glass" (the default above, glowing glass like the bar), "smoke" (the same glass with a
+# dark tint under it, so white text stays readable over a bright page) or "solid" (dark and opaque).
+LOOK_CSS = {"smoke": b".panel { background-color: rgba(16, 17, 20, 0.40); }",
+            "solid": b"""
 .panel { background-color: rgba(30, 31, 34, 0.985); border-color: rgba(255, 255, 255, 0.12); }
 .you { background-color: rgba(255, 255, 255, 0.16); }
 .jarvis { background-color: rgba(255, 255, 255, 0.05); }
-"""
+"""}
 # The orb's glass for each look: centre and edge colours, sheen, rim when idle / active.
 ORB_LOOK = {"glass": ((1, 1, 1, 0.08), (1, 1, 1, 0.02), 0.09, (0.26, 0.42)),  # clear glass, no tint
+            "smoke": ((1, 1, 1, 0.08), (1, 1, 1, 0.02), 0.09, (0.26, 0.42)),  # the orb stays clear glass
             "solid": ((0.34, 0.34, 0.36, 0.95), (0.11, 0.11, 0.12, 0.90), 0.09, (0.22, 0.45))}
 
 # Tray icons: white/grey rings, one per state, plus the two that say what's muted. A slash through the ring
@@ -228,7 +231,7 @@ class UI:
 
         provider = Gtk.CssProvider()
         self.look = cfg.get("look") if cfg.get("look") in ORB_LOOK else "glass"
-        provider.load_from_data(CSS + (SOLID_CSS if self.look == "solid" else b""))
+        provider.load_from_data(CSS + LOOK_CSS.get(self.look, b""))
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self._prefs = self._load_prefs()
