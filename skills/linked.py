@@ -116,7 +116,7 @@ def gather(j, topic, p):
             state = json.load(r)
     except (OSError, ValueError):
         state = {}
-    out["todos"] = [t for t in state.get("todos") or [] if not t.get("done") and match(t.get("text", ""))]
+    out["todos"] = [t for t in j.skills.todos.open_todos() if match(t.get("text", ""))]
     if p:
         out["today"], out["week"] = _time_on(p, state.get("autoEntries") or [])
         out["running"] = j.projects.running().get(p.name)

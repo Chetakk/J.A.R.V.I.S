@@ -1498,7 +1498,8 @@ def start_voice(jarvis, whisper):
             put_voice("follow" if follow_up else "voice", text)
         wake = WhisperWake(jarvis.names, whisper, on_text, on_wake=on_listen, is_busy=busy, is_echo=jarvis.speaker.is_echo, on_heard=jarvis.heard,
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
-                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.claude.cancel(), jarvis.state(jarvis.rest)),
+                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.claude.cancel(), jarvis.skills.todos.stop_alarm(),
+                                            jarvis.state(jarvis.rest)),
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
                            is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating,
                            on_wait=lambda seconds: jarvis.ui and jarvis.ui.follow_timer(seconds))

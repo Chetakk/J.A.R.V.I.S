@@ -46,6 +46,7 @@ class Status(Skill):
 
     def stop(self, m=None):
         self.j.speaker.stop()
+        self.j.skills.todos.stop_alarm()  # a ringing alarm too ("Alarm off.")
         return True
 
     def status(self, m=None):

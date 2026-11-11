@@ -7,6 +7,8 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
   ``` blocks, a ```bars block ("Label: 55%" per line), [[55%]] meters, "> quote", "---", **bold**, *italic*,
   `code`, [links](https://...); drawn blocks (```ring, ```steps, ```weather, ```map... see ui/blocks.py) and
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
+- tick / untick: phrases a clicked checkbox says ("tick todo {n}", numbered from 1); without them a click only
+  ticks it on the card.
 - choices: buttons ("Open it", or {"label", "do", "icon"}); clicking one says its phrase to JARVIS. With an
   "icon" (a GTK icon name) the button shows only that icon.
 - id: a card with the same id as one on screen updates it in place (progress, live values).
@@ -57,6 +59,7 @@ CSS = b"""
 .card label link:hover { color: #bbbbbb; }
 """
 
+_BOX = re.compile(r"^(\s*[-*] )\[[ xX]\]", re.M)  # - [ ] / - [x] checklist boxes
 _LINK = re.compile(r"\[([^\]]+)\]\(((?:https?|file)://[^)\s]+)\)")
 _METER = re.compile(r"\[\[(\d{1,3})%\]\]")
 
@@ -222,7 +225,7 @@ def _bars(lines):
 
 def build(text):
     """Turn the card's markdown into a list of widgets."""
-    widgets, lines, i = [], (text or "").splitlines(), 0
+    widgets, lines, i, boxes = [], (text or "").splitlines(), 0, 0
     while i < len(lines):
         line = lines[i].rstrip()
         if line.startswith("```"):
@@ -252,7 +255,14 @@ def build(text):
             item = re.sub(r"^\s*[-*] ", "", line)
             box = re.match(r"\[([ xX])\]\s*", item)  # - [ ] / - [x] checklists
             mark = ("☑" if box.group(1).strip() else "☐") if box else "•"
-            widgets.append(_label(indent + mark + "  " + _inline(item[box.end():] if box else item)))
+            label = _label(indent + mark + "  " + _inline(item[box.end():] if box else item))
+            if box:  # a click ticks it (Card._box)
+                label.set_selectable(False)
+                row = Gtk.EventBox()
+                row.add(label)
+                row.box, row.ticked, boxes = boxes, bool(box.group(1).strip()), boxes + 1
+                label = row
+            widgets.append(label)
         elif line.strip():
             widgets.append(_label(_inline(line)))
         i += 1
@@ -327,6 +337,22 @@ class Card:
             self.on_choice(phrase)
         return bool(phrase)
 
+    def _box(self, n, ticked):
+        """Tick (or untick) the card's n-th checkbox; a card with "tick"/"untick" phrases ("tick todo {n}") also
+        says it to JARVIS, numbered from 1."""
+        card = self.last or {}
+        seen = [0]
+
+        def flip(m):
+            seen[0] += 1
+            return m.group(1) + ("[ ]" if ticked else "[x]") if seen[0] - 1 == n else m.group(0)
+
+        self.show(dict(card, text=_BOX.sub(flip, card.get("text") or "")))
+        phrase = card.get("untick" if ticked else "tick")
+        if phrase:
+            self.on_choice(phrase.format(n=n + 1))
+        return True
+
     def show(self, card):
         """Put `card` in this window (replacing what it showed)."""
         self.last = card
@@ -346,6 +372,10 @@ class Card:
             self.body.pack_start(widget, False, False, 0)
             if getattr(widget, "hit", None):
                 widget.connect("button-press-event", self._hit)
+            if hasattr(widget, "box"):
+                widget.connect("button-press-event", lambda w, ev: ev.button == 1 and self._box(w.box, w.ticked))
+                widget.connect("realize", lambda w: w.get_window().set_cursor(
+                    Gdk.Cursor.new_from_name(w.get_display(), "pointer")))
             if getattr(widget, "every", None):
                 widget.due = 0.0
                 self._moving.append(widget)

@@ -14,6 +14,7 @@ import time
 from skills.base import Skill
 from skills.daytracker import NAMES, DayTracker, HubDown, spoken, totals
 from skills.helpers import and_list
+from skills.todos import _short
 
 SHOW = 8  # to-dos on the card
 APP = "VS Code · "  # Day Tracker labels: "VS Code · J.A.R.V.I.S"
@@ -103,7 +104,7 @@ class Briefing(Skill):
                     "It's %s. The day tracker isn't running, so I can't see your to-dos or reminders." % date)
         reminders = sorted((r for r in state.get("reminders") or []
                             if now * 1000 <= r["at"] < (midnight + 86400) * 1000), key=lambda r: r["at"])
-        todos = sorted((t for t in state.get("todos") or [] if not t.get("done")), key=lambda t: -t.get("created", 0))
+        todos = self.j.skills.todos.open_todos()  # ProducTVT's when it's set up, else the tracker's; newest first
         yday = totals(state, now=midnight - 1)
         today = totals(state, now=now)
         monday = midnight - time.localtime(now).tm_wday * 86400  # the tracker's weeks start on Monday
@@ -121,7 +122,7 @@ class Briefing(Skill):
             if len(todos) > SHOW:
                 lines.append("- and %d more" % (len(todos) - SHOW))
             said.append("%s, the newest is %s." % ("One open to-do" if len(todos) == 1 else
-                                                    "%d open to-dos" % len(todos), todos[0]["text"]))
+                                                    "%d open to-dos" % len(todos), _short(todos[0]["text"])))
         else:
             lines += ["", "**To-dos**", "- None open"]
         goals = _goals(state.get("goals") or {}, today)

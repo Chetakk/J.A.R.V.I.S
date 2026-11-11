@@ -107,21 +107,32 @@ class Todos:
                         (new_id(), uid, title, cur.fetchone()[0]))
         self._run(q)
 
-    def set_done(self, tid):
+    def set_done(self, tid, done=True):
+        """Tick (or untick) a todo; its project task and weekly-plan rows follow, as in the tray."""
         def q(cur):
             uid = self._user(cur)
-            cur.execute('UPDATE "Todo" SET done = true WHERE id = %s AND "ownerId" = %s RETURNING "sourceTaskId"',
-                        (tid, uid))
+            cur.execute('UPDATE "Todo" SET done = %s WHERE id = %s AND "ownerId" = %s RETURNING "sourceTaskId"',
+                        (done, tid, uid))
             row = cur.fetchone()
             if not row:
                 return
             if row[0]:  # the project task it mirrors
-                cur.execute("UPDATE \"ProjectTask\" SET status = 'DONE' WHERE id = %s", (row[0],))
-            cur.execute('SELECT id FROM "PlanStatus" WHERE "ownerId" = %s AND name = \'Done\'', (uid,))
+                cur.execute('UPDATE "ProjectTask" SET status = %s WHERE id = %s', ("DONE" if done else "TODO", row[0]))
+            if done:
+                cur.execute('SELECT id FROM "PlanStatus" WHERE "ownerId" = %s AND name = \'Done\'', (uid,))
+            else:
+                cur.execute('SELECT id FROM "PlanStatus" WHERE "ownerId" = %s ORDER BY "isDefault" DESC, "order" LIMIT 1',
+                            (uid,))
             status = cur.fetchone()
             if status:
                 for col, src in (('"sourceTodoId"', tid), ('"sourceTaskId"', row[0])):
                     if src:
                         cur.execute('UPDATE "PlanItem" SET "statusId" = %s, "updatedAt" = now() WHERE ' + col +
                                     ' = %s AND "statusId" IS DISTINCT FROM %s', (status[0], src, status[0]))
+        self._run(q)
+
+    def delete(self, tid):
+        """As the tray's ✕: the todo goes; a plan row made from it stays, unlinked."""
+        def q(cur):
+            cur.execute('DELETE FROM "Todo" WHERE id = %s AND "ownerId" = %s', (tid, self._user(cur)))
         self._run(q)
