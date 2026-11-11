@@ -1956,3 +1956,4 @@
 "any new shared files": skill:shared
 "anything shared with me today": skill:shared
 "who shared files with me": skill:shared
+"anything on my calendar tomorrow": skill:day

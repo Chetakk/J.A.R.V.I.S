@@ -86,7 +86,7 @@ class Calendar(GoogleSkill):
              r"(?:day|calendar|schedule)(.*)|when can i fit (?:something|a meeting|it|this) in(.*)", self.free_time),
             (r"(?:do|have) (?:we|i) (?:have|got) (?:any )?%s(?: (?:on|for))?(?: %s)?|(?:any|how many|what|which) "
              r"%s(?: (?:do|have) (?:i|we)(?: (?:got|have))?)?(?: (?:on|for))?(?: %s)?|(?:my |the )?%s %s|"
-             r"what(?:'s| is) on (?:my |the )?(?:google )?calendar(?: (?:on|for))?(?: %s)?|(?:show|check|read)(?: me)? "
+             r"(?:what(?:'s| is)|(?:is there )?anything) on (?:my |the )?(?:google )?calendar(?: (?:on|for))?(?: %s)?|(?:show|check|read)(?: me)? "
              r"(?:my |the )?(?:google )?calendar(?: (?:on|for))?(?: %s)?|what does (?:my )?%s look like"
              % (MEETINGS, DAY, MEETINGS, DAY, MEETINGS, DAY, DAY, DAY, DAY), self.day),
         ]
