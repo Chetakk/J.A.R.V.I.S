@@ -49,6 +49,10 @@ def test_show_me_the_spaces(g):
     card = g.cards[-1]
     assert "Design Team" in card["text"] and "Ops" in card["text"] and "Anish" not in card["text"]
     assert card["choices"][0]["do"] == "summarise the Design Team space"
+    assert "# | Design Team | space | " in card["text"]  # four cells: a "#" glyph, not a "?" avatar named "#"
+    assert g.says("You're in 2 spaces")
+    g.clear()
+    g.do("show me the species")  # how Whisper writes it
     assert g.says("You're in 2 spaces")
 
 

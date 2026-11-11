@@ -1966,3 +1966,4 @@
 "summarise my chat with anish": skill:summarise_dm
 "open what rahul shared": skill:open_shared
 "read what priya shared": skill:read_shared
+"show me the species": skill:spaces

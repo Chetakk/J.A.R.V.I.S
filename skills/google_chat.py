@@ -21,6 +21,7 @@ from system import desktop
 from system import google_account as google
 
 CHAT = r"(?:google )?chats?"  # "read my chats" too
+SPACES = r"(?:spaces|species|spices)"  # how Whisper often writes "spaces"
 TALKERS = ("DIRECT_MESSAGE", "GROUP_CHAT")  # every message in these is for you
 NOT_PEOPLE = {"you", "he", "she", "they", "it", "that", "this", "jarvis", "claude", "the doctor", "everyone", "i"}
 
@@ -52,9 +53,9 @@ class GoogleChat(GoogleSkill):
             (r"open chat space (spaces/\S+)", self.open_space_id),  # a row of a chats card ("open the second one")
             (r"open (?:my |the )?(?:chat|conversation|dm|messages) with (.+)|open (?:the |my )?(.+?) (space|group|room)"
              r"(?: on %s)?" % CHAT, self.open_chat),
-            (r"(?:show|list|give|read)(?: me)? (?:all )?(?:the |my )?(?:chat |google chat )?(?:spaces|groups|rooms)(?: i'?m "
-             r"in| on chat| i have)?|what (?:chat )?(?:spaces|groups|rooms) (?:am i in|do i have|are there)|which (?:chat )?"
-             r"(?:spaces|groups) am i in", self.spaces),
+            (r"(?:show|list|give|read)(?: me)? (?:all )?(?:the |my )?(?:chat |google chat )?(?:%s|groups|rooms)(?: i'?m "
+             r"in| on chat| i have)?|what (?:chat )?(?:%s|groups|rooms) (?:am i in|do i have|are there)|which (?:chat )?"
+             r"(?:%s|groups) am i in" % (SPACES, SPACES, SPACES), self.spaces),
             (r"(?:show|list|give)(?: me)? (?:my )?(?:last |latest |recent )?(?:few )?(?:google )?(?:chats|conversations)"
              r"(?: list)?|(?:my )?(?:last |latest )?recent chats|what chats do i have|who (?:have i been|was i) chatting "
              r"with(?: lately| today)?", self.recent),
@@ -240,7 +241,7 @@ class GoogleChat(GoogleSkill):
                 (last.get("sender") or {}).get("displayName")))
             at = parse_time(last.get("createTime")) or parse_time(s["lastActiveTime"])
             rows.append("%s | %s: %s | %s" % (cell(label), cell(who), cell(short(last.get("text") or "(a file)", 14)),
-                                             clock(at) if day_word(at) == "today" else day_word(at)))
+                                             _when(at)))
             items.append("open chat space %s" % s["name"])
             names.append(label)
             latest = latest or (label, who, last.get("text") or "a file")
@@ -261,13 +262,13 @@ class GoogleChat(GoogleSkill):
         if not named:
             self.say("You're not in any spaces, only direct messages.")
             return
-        rows = ["# | %s | %s" % (cell(s["displayName"]), "active " + (
-            clock(parse_time(s["lastActiveTime"])) if day_word(parse_time(s["lastActiveTime"])) == "today" else
-            day_word(parse_time(s["lastActiveTime"]))) if s.get("lastActiveTime") else "quiet") for s in named[:20]]
+        rows = ["# | %s | %s | %s" % (cell(s["displayName"]), "group" if s.get("spaceType") == "GROUP_CHAT" else "space",
+                                      _when(parse_time(s["lastActiveTime"])) if s.get("lastActiveTime") else "quiet")
+                for s in named[:20]]
         self.j.show({"id": "chat-spaces", "title": "Your spaces (%d)" % len(named),
                      "text": "```rows\n%s\n```" % "\n".join(rows), "items": ["open chat space %s" % s["name"]
                                                                               for s in named[:20]],
-                     "choices": [{"label": "Sum up %s" % s["displayName"][:22],
+                     "choices": [{"label": "Sum up %s" % _short_name(s["displayName"]),
                                   "do": "summarise the %s space" % s["displayName"]} for s in named[:3]]})
         self.say("You're in %d space%s. The most active: %s. Say summarise the, and its name, space." % (
             len(named), "" if len(named) == 1 else "s", and_list(s["displayName"] for s in named[:3])))
@@ -495,3 +496,22 @@ def _looking_at_chat():
     except Exception:
         return False
     return bool(w and re.search(r"google chat|chat\.google|^chat\b", w.title or "", re.I))
+
+
+def _when(ts):
+    """For a row: "3:40 pm" today, "Tue" this week, else "4 Nov"."""
+    day = day_word(ts)
+    if day == "today":
+        return clock(ts)
+    if time.time() - ts < 6 * 86400:
+        return time.strftime("%a", time.localtime(ts))
+    return time.strftime("%-d %b", time.localtime(ts))
+
+
+def _short_name(name, most=22):
+    """A space's name for a button, cut at a word: "Vision Platform - UI layouts" -> "Vision Platform…"."""
+    name = " ".join(name.split()).strip(" ,-")
+    if len(name) <= most:
+        return name
+    cut = re.match(r"(.*[^\s,(-])[\s,(-]", name[:most + 1])  # up to the last space, comma, dash or bracket
+    return (cut.group(1) if cut else name[:most]).rstrip(" ,-(") + "…"
