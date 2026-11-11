@@ -55,8 +55,12 @@ wake_word:
 
 # Ears (wake_word.engine: ears). Cutoffs from tools/wake_train.py and tools/speechtest.py score-ears, on your own recordings.
 ears:
-  words: whisper            # who writes down what you say after the name: parakeet or whisper (restart to change).
+  words: parakeet           # who writes down what you say after the name: parakeet or whisper (restart to change).
                             # Parakeet got more commands right (39/50 vs 34/50) but can't check the name; only one is loaded
+  # v2 knows only English (v3's 25 languages made Spanish of Hindi and of mumbles); on your 50 commands v2 got 40 right
+  # with 16% word errors, v3 39 with 21%, at ~0.3 s a clip. Made with whisper.cpp's models/convert-parakeet-to-ggml.py
+  # from nvidia/parakeet-tdt-0.6b-v2 and parakeet-quantize q8_0.
+  parakeet_model: ~/.local/share/jarvis/models/parakeet/ggml-parakeet-tdt-0.6b-v2-q8_0.bin
   name_check: true          # words: whisper only. Whisper listens again to what woke it: no name heard = not a call. Shows,
                             # other people and Hindi talk woke it ~3 times in 10; Whisper heard the name in none. ~0.25 s a wake-up
   wake_cutoff: 0.98         # lower = wakes more easily, and more often when nobody called it
