@@ -140,7 +140,13 @@ async function spotify(msg) {
     }
     return null;
   };
-  const like = () => q('[data-testid="add-button"]', q('[data-testid="now-playing-widget"]') || bar());
+  // The heart by its test id, else by its label: "Add to Liked Songs", "Add to playlist" once liked.
+  const like = () => {
+    const root = q('[data-testid="now-playing-widget"]') || bar();
+    return q('[data-testid="add-button"]', root) ||
+      [...root.querySelectorAll("button[aria-label]")].find((b) => /liked songs|add to playlist/i.test(b.getAttribute("aria-label")));
+  };
+  const liked = (l) => l.hasAttribute("aria-checked") ? l.getAttribute("aria-checked") === "true" : /playlist/i.test(l.getAttribute("aria-label"));
   const range = () => q('[data-testid="volume-bar"] input[type="range"]');
   const state = () => {
     const sh = q('[data-testid="control-button-shuffle"]'), rp = q('[data-testid="control-button-repeat"]');
@@ -148,7 +154,7 @@ async function spotify(msg) {
     return {path: location.pathname,
             shuffle: sh ? sh.getAttribute("aria-checked") === "true" : null,
             repeat: rp ? {"true": true, "mixed": "one"}[rp.getAttribute("aria-checked")] || false : null,
-            liked: l ? l.getAttribute("aria-checked") === "true" : null,
+            liked: l ? liked(l) : null,
             volume: v ? Number(v.value) / Number(v.max || 1) : null};
   };
   if (msg.do === "library") {
@@ -207,7 +213,7 @@ async function spotify(msg) {
   if (msg.do === "like") {
     const l = like();
     if (!l) return {error: "no like button"};
-    if (l.getAttribute("aria-checked") !== "true") {  // liked already: a click opens "add to playlist" instead
+    if (!liked(l)) {  // liked already: a click opens "add to playlist" instead
       l.click();
       await sleep(400);
     }
