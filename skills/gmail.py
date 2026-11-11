@@ -13,7 +13,7 @@ import time
 from email.message import EmailMessage
 
 from claude.bridge import ClaudeError
-from skills.google_common import GoogleSkill, day_word, clock, first_name, header, sender, short
+from skills.google_common import GoogleSkill, cell, day_word, clock, first_name, header, sender, short
 from skills.helpers import and_list
 from system import google_account as google
 
@@ -75,7 +75,7 @@ class Gmail(GoogleSkill):
             return
         mails = [self._meta(gm, i) for i in ids[:8]]
         total = max(len(ids), got.get("resultSizeEstimate") or 0)
-        self.j.show({"id": "gmail", "title": "New email (%d)" % total, "text": "\n".join(_row(x) for x in mails),
+        self.j.show({"id": "gmail", "title": "New email (%d)" % total, "text": _rows(mails),
                      "choices": [{"label": "Read the newest", "do": "read the latest email"}]})
         if total <= 3:
             self.say("%d new email%s: %s." % (total, "" if total == 1 else "s", and_list(_about(x) for x in mails)))
@@ -94,8 +94,9 @@ class Gmail(GoogleSkill):
             return
         mails = [self._meta(gm, i) for i in ids]
         self.last = (mails[0], time.time())
-        self.j.show({"id": "gmail", "title": "From %s" % mails[0]["name"], "text": "\n".join(_row(x) for x in mails),
-                     "choices": [{"label": "Read it", "do": "read the latest email from %s" % mails[0]["addr"]}]})
+        self.j.show({"id": "gmail", "title": "From %s" % mails[0]["name"], "text": _rows(mails),
+                     "choices": [{"label": "Read it", "do": "read the latest email from %s" % mails[0]["addr"]},
+                                 {"label": "Add to my to-dos", "do": "add this to my to-dos"}]})
         self.say("Yes, %s this week. The latest, %s at %s: %s. Say read that email." % (
             "one email" if len(mails) == 1 else "%d emails" % len(mails), day_word(mails[0]["at"]),
             clock(mails[0]["at"]), short(mails[0]["subject"], 12)))
@@ -143,7 +144,8 @@ class Gmail(GoogleSkill):
             return
         finally:
             self.j.state("thinking")
-        self.j.show({"id": "gmail", "title": "New email (%d)" % len(mails), "text": "\n".join(_row(x) for x in mails)})
+        self.j.show({"id": "gmail", "title": "New email (%d)" % len(mails), "text": "> %s\n\n%s" % (
+            " ".join(summary.split()), _rows(mails))})
         self.j.claude_says(summary)
 
     # --- from an email ---
@@ -218,10 +220,16 @@ class Gmail(GoogleSkill):
             if mail["addr"] == self.me(gm) or not self.writes_to(gm, mail["addr"]):
                 continue
             self.last = (mail, time.time())
-            self.j.skills.proactive.tell(
-                "mail", "Email from %s: %s." % (first_name(mail["name"]), short(mail["subject"], 12)),
-                "It's new in your main inbox, from %s, someone you've written to. Newsletters and people you haven't "
-                "written to stay quiet. Say read the latest email from %s." % (mail["addr"], first_name(mail["name"])))
+            if self.j.skills.proactive.tell(
+                    "mail", "Email from %s: %s." % (first_name(mail["name"]), short(mail["subject"], 12)),
+                    "It's new in your main inbox, from %s, someone you've written to. Newsletters and people you "
+                    "haven't written to stay quiet. Say read the latest email from %s." % (
+                        mail["addr"], first_name(mail["name"]))):
+                self.j.inbox.put(("ctl", {"show": {
+                    "id": "mail-" + mail["id"], "title": "Mail from %s" % mail["name"],
+                    "text": "{check} **%s**\n%s" % (cell(mail["subject"]), short(mail["snippet"], 30)),
+                    "choices": [{"label": "Read it", "do": "read the latest email from %s" % mail["addr"]},
+                                {"label": "Add to my to-dos", "do": "add this to my to-dos"}]}}))
 
     def writes_to(self, gm, addr):
         """True if you've ever sent mail to `addr` (asked once per address)."""
@@ -266,8 +274,14 @@ def _meta_of(msg):
 
 
 def _row(mail):
-    return "- **%s** [%s](https://mail.google.com/mail/u/0/#all/%s) · %s %s" % (
-        mail["name"], mail["subject"].replace("]", ")"), mail["thread"], day_word(mail["at"]), clock(mail["at"]))
+    """A ```rows line: the sender (their initials drawn), the subject linking to the thread, when."""
+    return "%s | [%s](https://mail.google.com/mail/u/0/#all/%s) | %s" % (
+        cell(mail["name"]), cell(mail["subject"]), mail["thread"],
+        clock(mail["at"]) if day_word(mail["at"]) == "today" else day_word(mail["at"]))
+
+
+def _rows(mails):
+    return "```rows\n%s\n```" % "\n".join(_row(x) for x in mails)
 
 
 def _about(mail):

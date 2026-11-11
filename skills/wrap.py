@@ -28,7 +28,8 @@ class Wrap(GoogleSkill):
             try:
                 mail = self.j.skills.gmail.waiting_on_you()
                 if mail:
-                    lines += ["**Emails waiting on you**"] + ["- **%s**: %s" % (n, s) for n, s in mail] + [""]
+                    lines += ["{warn} **Emails waiting on you** %d" % len(mail)] + ["- [ ] **%s** · %s" % (n, s)
+                                                                                for n, s in mail] + [""]
                     said.append("%s waiting on you, from %s." % (
                         "One email" if len(mail) == 1 else "%d emails" % len(mail),
                         and_list(sorted({first_name(n) for n, _ in mail}))))
@@ -37,7 +38,8 @@ class Wrap(GoogleSkill):
             try:
                 chats = self.j.skills.google_chat.waiting_on_you()
                 if chats:
-                    lines += ["**Chats waiting on you**"] + ["- **%s**: %s" % (n, short(t, 30)) for n, t in chats] + [""]
+                    lines += ["{warn} **Chats waiting on you** %d" % len(chats)] + [
+                        "- [ ] **%s** · %s" % (n, short(t, 30)) for n, t in chats] + [""]
                     names = and_list(first_name(n) for n, _ in chats)
                     said.append("%s %s waiting on Chat." % (names, "is" if len(chats) == 1 else "are"))
             except google.GoogleError:

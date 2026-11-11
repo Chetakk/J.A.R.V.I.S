@@ -128,6 +128,11 @@ def sender(header):
     return person("", addr), addr.lower()
 
 
+def cell(text):
+    """Text safe inside a ```rows cell or a [link](...) label: no "|" (the cell divider), "]" or line breaks."""
+    return " ".join((text or "").replace("|", "/").replace("]", ")").split())
+
+
 def short(text, words=18):
     """The start of a message, to be said aloud."""
     text = " ".join((text or "").split())

@@ -117,6 +117,7 @@ def test_meetings_tomorrow_are_said_and_shown(g):
     assert g.says("2 meetings tomorrow", "Stand-up at 10 am", "Design review at 3 pm")
     assert "Skipped thing" not in g.card_text()
     assert "[Join](https://meet.google.com/abc)" in g.card_text()
+    assert "```timeline" in g.card_text() and "now: off" in g.card_text()  # tomorrow's: no "now" line
 
 
 def test_next_meeting_says_when_and_with_whom(g):

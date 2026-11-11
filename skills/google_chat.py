@@ -11,7 +11,8 @@ import re
 import time
 
 from claude.bridge import ClaudeError
-from skills.google_common import GoogleSkill, clock, day_word, find_email, first_name, parse_time, person, rfc, short
+from skills.google_common import (GoogleSkill, cell, clock, day_word, find_email, first_name, parse_time,
+                                  person, rfc, short)
 from skills.helpers import and_list
 from system import desktop
 from system import google_account as google
@@ -139,6 +140,8 @@ class GoogleChat(GoogleSkill):
             return
         finally:
             self.j.state("thinking")
+        self.j.show({"id": "chat", "title": "%s, today" % hit.get("displayName"), "text": "> %s\n\n%d messages" % (
+            " ".join(summary.split()), len(msgs)), "choices": [{"label": "Open Chat", "do": "open google chat"}]})
         self.j.claude_says(summary)
 
     def send(self, m):
@@ -257,8 +260,22 @@ class GoogleChat(GoogleSkill):
         return sorted(out, key=lambda it: it["at"])
 
     def _card(self, items, title, show=True):
-        rows = ["- **%s** %s%s: %s" % (it["who"], "" if it["kind"] == "DIRECT_MESSAGE" else "in %s " % it["where"],
-                                       clock(it["at"]), short(it["text"], 60)) for it in items[-12:]]
+        """Messages for you (direct, or an @mention) a row each; busy spaces one row each, with how many."""
+        items = items[-30:]
+        mine = [it for it in items if it["kind"] in TALKERS or it["mention"]]
+        rows = []
+        if mine:
+            rows += ["**Waiting on you** %d" % len(mine), "```rows"] + ["%s | %s%s | %s" % (
+                cell(it["who"]), "" if it["kind"] in TALKERS else "@you in %s: " % cell(it["where"]),
+                cell(short(it["text"], 20)), clock(it["at"])) for it in mine[-8:]] + ["```"]
+        spaces = {}
+        for it in items:
+            if it not in mine:
+                spaces.setdefault(it["where"], []).append(it)
+        if spaces:
+            rows += ["**Spaces**", "```rows"] + ["# | %s | %s: %s | %d new" % (
+                cell(where), cell(first_name(got[-1]["who"])), cell(short(got[-1]["text"], 12)), len(got))
+                for where, got in sorted(spaces.items(), key=lambda kv: -kv[1][-1]["at"])[:6]] + ["```"]
         uri = next((it["uri"] for it in reversed(items) if it["uri"]), None)
         card = {"id": "chat", "title": title, "text": "\n".join(rows) + ("\n\n[Open in Chat](%s)" % uri if uri else ""),
                 "choices": [{"label": "Open Chat", "do": "open google chat"}]}

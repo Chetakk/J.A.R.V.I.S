@@ -16,7 +16,7 @@ import threading
 import time
 import uuid
 
-from skills.google_common import (DAYS, GoogleSkill, clock, day_word, find_email, first_name, header, parse_time,
+from skills.google_common import (DAYS, GoogleSkill, cell, clock, day_word, find_email, first_name, header, parse_time,
                                   person, rfc, sender, short, when)
 from skills.helpers import and_list
 from skills.todos import tidy
@@ -111,7 +111,10 @@ class Calendar(GoogleSkill):
         lines = []
         if single:
             reminders = self._reminders(start, end)
-            lines = _rows(events, now)
+            lo, hi = self.cfg("workday", [9, 18])
+            busy = [(e["start"], e["end"]) for e in timed if not e["free"]]
+            lines = _timeline(timed, _gaps(busy, max(start + lo * 3600, now), start + hi * 3600), reminders) + \
+                _rows(events, now)
             if reminders:
                 lines += ["", "**Reminders**"] + ["- %s %s" % (clock(t), text) for t, text in reminders]
         else:
@@ -164,11 +167,21 @@ class Calendar(GoogleSkill):
             ts = _on_day(day, ts)
         events = [e for e in self.meetings(ts - 86400, ts + 86400) if not e["all_day"] and not e["free"]]
         clash = [e for e in events if e["start"] <= ts < e["end"]]
+        day0 = time.mktime(time.localtime(ts)[:3] + (0, 0, 0, 0, 0, -1))
+        lo, hi = self.cfg("workday", [9, 18])
+        today = [e for e in events if day0 <= e["start"] < day0 + 86400]
+        picture = _timeline(today, _gaps([(e["start"], e["end"]) for e in today], day0 + min(lo, time.localtime(
+            ts).tm_hour) * 3600, day0 + max(hi, time.localtime(ts).tm_hour + 1) * 3600))
         if clash:
             e = clash[0]
+            self.j.show({"id": "calendar", "title": "Free %s?" % when(ts), "text": "\n".join(
+                ["{warn} **No: %s, %s to %s.**" % (e["title"], clock(e["start"]), clock(e["end"]))] + picture)})
             self.say("No, %s you have %s, from %s to %s." % (when(ts), e["title"], clock(e["start"]), clock(e["end"])))
             return
         after = [e for e in events if ts < e["start"] <= ts + 3 * 3600]
+        self.j.show({"id": "calendar", "title": "Free %s?" % when(ts), "text": "\n".join(
+            ["{ok} **Yes, you're free at %s.**%s" % (clock(ts), " Next: %s at %s." % (
+                after[0]["title"], clock(after[0]["start"])) if after else "")] + picture)})
         self.say("%s, you're free %s.%s" % ("No" if busy_word == "busy" else "Yes", when(ts), (
             " Next after that is %s at %s." % (after[0]["title"], clock(after[0]["start"]))) if after else ""))
 
@@ -184,15 +197,11 @@ class Calendar(GoogleSkill):
             self.say("That's already over.")
             return
         start = max(start, now - now % 900 + 900)  # from the next quarter hour
-        busy = sorted((e["start"], e["end"]) for e in self.meetings(start, end) if not e["all_day"] and not e["free"])
-        gaps, at = [], start
-        for b0, b1 in busy:
-            if b0 - at >= 1800:
-                gaps.append((at, b0))
-            at = max(at, b1)
-        if end - at >= 1800:
-            gaps.append((at, end))
+        booked = [e for e in self.meetings(start, end) if not e["all_day"] and not e["free"]]
+        gaps = _gaps([(e["start"], e["end"]) for e in booked], start, end)
         where = "%s%s" % (label, " " + part.group(0) if part else "")
+        self.j.show({"id": "calendar", "title": "Free %s" % where, "text": "\n".join(_timeline(booked, gaps) + [
+            "- {ok} %s – %s · %s" % (clock(a), clock(b), _length(b - a)) for a, b in gaps])})
         if not gaps:
             self.say("You're booked solid %s." % where)
         elif gaps == [(start, end)]:
@@ -231,20 +240,27 @@ class Calendar(GoogleSkill):
 
     def prep_card(self, e, heading=None):
         """A meeting's card: time, people, Join, its docs, the last email and chat from the people in it."""
-        rows = ["**%s – %s** %s" % (clock(e["start"]), clock(e["end"]), day_word(e["start"]))]
+        rows = []
+        left = e["start"] - time.time()
+        if 0 < left <= 900:  # about to start: a ring that empties until it does
+            rows += ["```countdown", "end: %d" % e["start"], "total: %d" % max(60, left), "label: until it starts",
+                     "```"]
+        rows.append("**%s – %s** %s" % (clock(e["start"]), clock(e["end"]), day_word(e["start"])))
         if e["with"]:
-            rows.append("With %s" % ", ".join(e["with"][:8]) + (" and %d more" % (len(e["with"]) - 8)
-                                                              if len(e["with"]) > 8 else ""))
+            rows += ["```people"] + e["with"][:8] + (["+%d" % (len(e["with"]) - 8)] if len(e["with"]) > 8 else []) + \
+                ["```"]
         if e["link"]:
             rows.append("[Join the call](%s)" % e["link"])
         if e["docs"]:
-            rows += ["", "**Attached**"] + ["- [%s](%s)" % d for d in e["docs"][:5]]
+            rows += ["", "**Attached**", "```rows"] + ["file:%s | [%s](%s)" % (_doc_kind(url), cell(t), url)
+                                                       for t, url in e["docs"][:5]] + ["```"]
         mail = self._last_mail(e["emails"])
         if mail:
-            rows += ["", "**Last email from them**", "- [%s](%s), from %s, %s" % mail]
+            rows += ["", "**Last email from them**", "```rows", "%s | [%s](%s) | %s" % (cell(mail[2]), cell(mail[0]),
+                                                                                     mail[1], mail[3]), "```"]
         chat = self._last_chat(e["emails"]) if len(e["emails"]) == 1 else None
         if chat:
-            rows += ["", "**Last chat**", "- %s: %s" % chat]
+            rows += ["", "**Last chat**", "```rows", "%s | %s" % tuple(cell(c) for c in chat), "```"]
         if e["notes"]:
             rows += ["", "**Notes**", e["notes"][:600]]
         card = {"id": "meeting", "title": ("%s: " % heading if heading else "") + e["title"], "text": "\n".join(rows)}
@@ -307,8 +323,11 @@ class Calendar(GoogleSkill):
             was = old.get(e["id"])
             if e["cancelled"]:
                 if was and not was["cancelled"] and not was["mine"] and attending(was) and (was["start"] or 0) > now:
-                    tell.tell("calendar", "%s, %s, was cancelled." % (was["title"], when(was["start"])),
-                              "%s cancelled it on Google Calendar." % was["organizer"])
+                    if tell.tell("calendar", "%s, %s, was cancelled." % (was["title"], when(was["start"])),
+                                 "%s cancelled it on Google Calendar." % was["organizer"]):
+                        self.j.inbox.put(("ctl", {"show": {"id": "cal-" + e["id"], "title": "Meeting cancelled",
+                                                           "text": "{bad} **%s**\n%s · cancelled by %s" % (
+                                                               was["title"], when(was["start"]), was["organizer"])}}))
                 continue
             if e["mine"] or not e["start"] or e["start"] < now or e["kind"] in NOT_MEETINGS:
                 continue
@@ -322,8 +341,13 @@ class Calendar(GoogleSkill):
                                        {"label": "Decline", "do": "decline the invite"}]
                     self.j.inbox.put(("ctl", {"show": card}))
             elif was and not was["cancelled"] and was["start"] != e["start"] and not e["declined"]:
-                tell.tell("calendar", "%s moved %s to %s." % (e["organizer"], e["title"], when(e["start"])),
-                          "It was %s; %s moved it on Google Calendar." % (when(was["start"]), e["organizer"]))
+                if tell.tell("calendar", "%s moved %s to %s." % (e["organizer"], e["title"], when(e["start"])),
+                             "It was %s; %s moved it on Google Calendar." % (when(was["start"]), e["organizer"])):
+                    self.j.inbox.put(("ctl", {"show": {
+                        "id": "cal-" + e["id"], "title": "Meeting moved", "text": "{warn} **%s**\nNow **%s**, was %s"
+                        " · by %s" % (e["title"], when(e["start"]), when(was["start"]), e["organizer"]),
+                        "choices": [{"label": "Show my day", "do": "what's on my calendar %s" % day_word(
+                            e["start"])}]}}))
 
     def _heads_up(self, events, now):
         lead = self.cfg("heads_up_minutes", 5) * 60
@@ -357,6 +381,11 @@ class Calendar(GoogleSkill):
         fm.since = time.time()
         fm._start_focus(e["end"])
         _pause_music()
+        self.j.inbox.put(("ctl", {"show": {
+            "id": "meeting", "title": "In %s" % e["title"], "text": "```progress\nMeeting: %d/%d playing\n```\n"
+            "{check} Quiet until %s · music paused" % (max(0, time.time() - e["start"]), e["end"] - e["start"],
+                                                        clock(e["end"])),
+            "choices": [{"label": "Rejoin", "do": "join my meeting"}, {"label": "I'm out", "do": "stop focusing"}]}}))
         self.j.skills.proactive.note("meeting", "Meeting mode for %s." % e["title"],
                                      "%s is on until %s, so I hold heads-ups and banners and paused the music. Say "
                                      "turn off meeting mode to stop that." % (e["title"], clock(e["end"])))
@@ -474,8 +503,9 @@ class Calendar(GoogleSkill):
             return ["**Meetings**", "- %s" % e], ""
         if not events:
             return ["**Meetings %s**" % label, "- None"], "No meetings %s." % label
-        lines = ["**Meetings %s**" % label] + ["- %s %s%s" % (clock(e["start"]), e["title"], " · with %s" % ", ".join(
-            e["with"][:3]) if e["with"] else "") for e in events]
+        lines = ["**Meetings %s**" % label] + (_timeline(events) if not day_offset else []) + [
+            "- %s %s%s" % (clock(e["start"]), e["title"], " · with %s" % ", ".join(e["with"][:3]) if e["with"] else "")
+            for e in events]
         first = events[0]
         said = "%s, %s at %s." % ("One meeting %s" % label if len(events) == 1 else "%d meetings %s, first" % (
             len(events), label), first["title"], clock(first["start"]))
@@ -550,6 +580,48 @@ def _on_day(day, ts):
     start = span(day.replace("on ", ""))[0]
     t = time.localtime(ts)
     return start + t.tm_hour * 3600 + t.tm_min * 60
+
+
+def _gaps(busy, start, end, least=1800):
+    """The free stretches of at least `least` seconds in [start, end), around the busy (start, end) spans."""
+    gaps, at = [], start
+    for b0, b1 in sorted(busy):
+        if b0 - at >= least:
+            gaps.append((at, min(b0, end)))
+        at = max(at, b1)
+    if end - at >= least:
+        gaps.append((at, end))
+    return [(a, b) for a, b in gaps if b - a >= least]
+
+
+def _hm(ts):
+    t = time.localtime(ts)
+    return "%d:%02d" % (t.tm_hour, t.tm_min)
+
+
+def _timeline(events, gaps=(), reminders=()):
+    """A ```timeline block (ui/blocks.py): each timed meeting as long as it runs, the free stretches dashed, and
+    reminders as dots; no "now" line on another day's. [] when there's nothing to draw."""
+    timed = [e for e in events if not e["all_day"] and e["start"] and e["end"]]
+    lines = ["%s-%s %s" % (_hm(e["start"]), _hm(e["end"]), e["title"]) for e in timed]
+    marks = [e["start"] for e in timed] + [a for a, _b in gaps] + [at for at, _t in reminders]
+    if marks and day_word(marks[0]) != "today":
+        lines.append("now: off")
+    lines += ["%s %s" % (_hm(at), text) for at, text in reminders]
+    lines += ["free: %s-%s %s" % (_hm(a), _hm(b), _length(b - a)) for a, b in gaps]
+    return ["```timeline"] + lines[:14] + ["```"] if lines else []
+
+
+def _length(seconds):
+    """"30 min", "1 h", "1 h 30"."""
+    h, m = divmod(round(seconds / 60), 60)
+    return "%d min" % m if not h else "%d h" % h + (" %d" % m if m else "")
+
+
+def _doc_kind(url):
+    """The badge for an attached file's link: doc, sheet, slides, pdf or file."""
+    return next((k for w, k in (("document", "doc"), ("spreadsheets", "sheet"), ("presentation", "slides"),
+                                (".pdf", "pdf"), ("forms", "form")) if w in url), "file")
 
 
 def _rows(events, now):

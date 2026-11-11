@@ -3,10 +3,11 @@ onboarding", "what did I edit yesterday", "read the design doc" / "summarise the
 Sheets and Slides read as text; "summarise it" and "read the rest" carry on as for any long text).
 
 A name that isn't in Drive falls through to your own files (skills/documents.py)."""
+import os
 import re
 import time
 
-from skills.google_common import GoogleSkill, clock, day_word, parse_time, rfc
+from skills.google_common import GoogleSkill, cell, clock, day_word, parse_time, rfc
 from system import google_account as google
 
 KINDS = {"document": "doc", "spreadsheet": "sheet", "presentation": "slides", "folder": "folder", "pdf": "PDF",
@@ -110,10 +111,22 @@ class Drive(GoogleSkill):
 
     def _card(self, files, title):
         self.found = files
-        self.j.show({"id": "drive", "title": title, "text": "\n".join(
-            "%d. [%s](%s) · %s%s" % (i, f["name"].replace("]", ")"), f.get("webViewLink") or "", _kind(f), (
-                " · %s %s" % (day_word(parse_time(f["modifiedTime"])), clock(parse_time(f["modifiedTime"])))
-                if f.get("modifiedTime") else "")) for i, f in enumerate(files[:10], 1))})
+        rows = []
+        for f in files[:10]:
+            at = parse_time(f["modifiedTime"]) if f.get("modifiedTime") else None
+            owner = ((f.get("owners") or [{}])[0]).get("displayName")
+            rows.append("file:%s | [%s](%s) | %s | %s" % (
+                _badge(f), cell(f["name"]), f.get("webViewLink") or "", cell(" · ".join(x for x in (_kind(f), owner)
+                                                                                         if x)),
+                "" if at is None else clock(at) if day_word(at) == "today" else day_word(at)))
+        self.j.show({"id": "drive", "title": title, "text": "```rows\n%s\n```" % "\n".join(rows)})
+
+
+def _badge(f):
+    """The file-type badge: doc, sheet, slides, pdf, folder, else the name's own extension."""
+    kind = _kind(f).lower()
+    ext = os.path.splitext(f.get("name", ""))[1][1:].lower()
+    return kind if kind != "file" else ext if ext.isalnum() and len(ext) <= 5 else "file"
 
 
 def _kind(f):
