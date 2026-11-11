@@ -1730,7 +1730,7 @@ def run_loop(jarvis, has_ui):
 def teach(jarvis):
     """Background: teaches itself other ways of saying things (core/teaching.py), without asking.
 
-    Held in focus mode and quiet hours, and while JARVIS is talking; skipped in system mode (no Claude) and with
+    Held in focus mode and while JARVIS is talking (not in quiet hours: it's silent); skipped in system mode (no Claude) and with
     learn: off. The time of the last pass is kept, so restarting JARVIS doesn't mean asking Claude again."""
     cfg = jarvis.settings.get("teaching") or {}
     if not cfg.get("enabled", True):
@@ -1739,7 +1739,7 @@ def teach(jarvis):
     while True:
         wait = teaching.due_in(cfg)
         if wait or jarvis.settings.get("learn", "ask") == "off" or jarvis.mode == "sys" \
-                or jarvis.speaker.busy() or jarvis.skills.proactive.holding():
+                or jarvis.speaker.busy() or jarvis.skills.focusing():
             time.sleep(min(wait or 600, 600))
             continue
         try:

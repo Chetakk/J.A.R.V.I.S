@@ -198,7 +198,7 @@ learn: quiet
 # only just placed, really meant; and it writes other ways of saying the phrases you use, then all the others, until
 # it says a phrase has enough. Each wording is checked before it's kept (nothing a skill already takes, nothing that
 # already means something else), then saved to ~/.local/share/jarvis/learned.yaml and used at once.
-# "Did you learn anything new?" tells you what it picked up. Held in focus mode and quiet hours; `learn: off` above
+# "Did you learn anything new?" tells you what it picked up. Held in focus mode (not quiet hours); `learn: off` above
 # turns this off too.
 teaching:
   enabled: true
