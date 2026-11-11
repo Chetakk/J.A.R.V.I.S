@@ -337,6 +337,8 @@ class Jarvis:
         """The request being handled is private (a secret, a private note): it and what JARVIS says about it
         are left out of the lines Claude sees next time, and out of "where was I"."""
         self._private = True
+        if self.ui:
+            self.ui.forget_request()  # nor saved with the chat for after a restart
         for log in (self.recent, self.talk, self.transcript):
             lines = list(log)
             last = max((i for i, line in enumerate(lines) if line.startswith("User: ")), default=None)
@@ -346,7 +348,7 @@ class Jarvis:
 
     def chat(self, who, text):
         if self.ui:
-            self.ui.add_chat(who, text)
+            self.ui.add_chat(who, text, private=self._private)
 
     def load(self):
         """(Re)load the YAML files. Speech settings need a restart."""

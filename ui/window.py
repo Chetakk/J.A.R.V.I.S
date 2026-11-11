@@ -3,9 +3,11 @@
 GTK 3 is already part of the system, so this adds no downloads. The orb only animates while
 JARVIS is busy; when idle nothing is redrawn.
 """
+import collections
 import json
 import math
 import os
+import re
 import time
 
 import gi
@@ -29,6 +31,9 @@ CLAUDE_RGB = (0.85, 0.47, 0.34)  # Claude's warm orange, as in the chat bubbles
 PANEL_W, PANEL_H = 390, 640
 GLOW = 12  # the .panel margin: transparent room round the chat and cards for their glow, like the bar's
 CHAT_KEEP = 200  # messages kept in the panel
+HISTORY_FILE = os.path.expanduser("~/.local/share/jarvis/chat.json")
+HISTORY_KEEP = 50  # messages saved for after a restart (not the "heard" lines)
+TIME_GAP = 600  # a quiet gap this long (seconds) puts the time in the chat
 
 CSS = b"""
 .panel { background-color: rgba(255, 255, 255, 0.05); border-radius: 16px; margin: 12px;
@@ -62,6 +67,12 @@ CSS = b"""
 .sender { color: #e08a6d; font-size: 8.5pt; font-weight: bold; }
 .heard { color: rgba(255, 255, 255, 0.4); font-style: italic; font-size: 9pt; }
 .sys { color: rgba(255, 255, 255, 0.45); font-size: 9pt; }
+.time { color: rgba(255, 255, 255, 0.38); font-size: 8.5pt; }
+.typing label { color: rgba(255, 255, 255, 0.75); }
+.panel expander arrow { color: rgba(255, 255, 255, 0.4); min-width: 12px; min-height: 12px; }
+.panel button.jump { background: rgba(36, 38, 44, 0.92); background-image: none; color: #f2f2f2; border-radius: 12px;
+                     border: 1px solid rgba(255, 255, 255, 0.22); box-shadow: none; padding: 2px 12px; min-height: 0; }
+.panel button.jump label { font-size: 9.5pt; }
 """
 # ui.look in settings.yaml: "glass" (the default above, glowing glass like the bar), "smoke" (the same glass with a
 # dark tint under it, so white text stays readable over a bright page) or "solid" (dark and opaque).
@@ -101,6 +112,34 @@ def bar_mode(claude_for, active, chat, lingering, cards, compact, stay=False):
     if active or chat or lingering:
         return "full"
     return "compact" if cards or stay else "hidden"
+
+
+def stamp(at, now=None):
+    """The time put in the chat after a quiet gap: "14:32", "Yesterday 14:32", "Mon 9 Nov 14:32"."""
+    day = lambda t: time.localtime(t)[:3]  # noqa: E731
+    now = time.time() if now is None else now
+    clock = time.strftime("%H:%M", time.localtime(at))
+    if day(at) == day(now):
+        return clock
+    return ("Yesterday " if day(at) == day(now - 86400) else time.strftime("%a %-d %b ", time.localtime(at))) + clock
+
+
+def _markup(text):
+    """A chat line as markup by the card's formatter (**bold**, `code`, [links](...)), or None if it won't parse."""
+    from ui.card import _inline  # ui.card imports this module
+    markup = _inline(text)
+    try:
+        Pango.parse_markup(re.sub(r"</?a\b[^>]*>", "", markup), -1, "\0")  # <a href> is the label's, not Pango's
+    except GLib.Error:
+        return None  # "**a *b** c*" and the like: shown as it was typed
+    return markup
+
+
+def _selection(label):
+    """(start, end) of what's selected in a label, or None. GTK gives (selected?, start, end): Ctrl+C read it as
+    (start, end), so it copied the wrong part of a message, or nothing."""
+    ok, start, end = label.get_selection_bounds()
+    return (min(start, end), max(start, end)) if ok and start != end else None
 
 
 def _icon_name(state, silent, deaf):
@@ -278,9 +317,14 @@ class UI:
         """From ui/extras.py's thread: one dict swapped in whole, so the bar never sees it half done."""
         self.extras = extras
 
-    def add_chat(self, who, text):
-        GLib.idle_add(self._add_chat, who, text)
+    def add_chat(self, who, text, private=False):
+        """A line in the chat. private: shown, but not saved for after a restart (a secret, a private note)."""
+        GLib.idle_add(self._add_chat, who, text, None, not private)
         GLib.idle_add(self.bar.said, who, text)
+
+    def forget_request(self):
+        """The request being handled turned out private: unsave its lines, back to your words that asked it."""
+        GLib.idle_add(self._forget_request)
 
     def show_understood(self, text):
         """What JARVIS took your words to mean, on the voice bar."""
@@ -361,6 +405,8 @@ class UI:
 
     def run(self):
         Gtk.main()
+        if self._saving:
+            self._save_history()
         self.bar.show_dock(wait=True)
 
     def quit(self):
@@ -642,11 +688,23 @@ class UI:
         scroll.add(self.msgs)
         adj = self._adj = scroll.get_vadjustment()
         self._at_bottom = True  # follow new messages unless scrolled up to read
-        self._last_kind = None
-        adj.connect("value-changed", lambda a: setattr(
-            self, "_at_bottom", a.get_value() >= a.get_upper() - a.get_page_size() - 40))
+        self._last_kind = self._last_at = None
+        self._heard_run = []  # the "heard" lines in a row at the bottom, folded into one line once there are two
+        self._typing_row = self._typing_timer = self._selected_label = self._saving = None
+        self._history = collections.deque(maxlen=HISTORY_KEEP)  # [who, text, time] saved to HISTORY_FILE
+        adj.connect("value-changed", self._scrolled)
         adj.connect("changed", lambda a: self._at_bottom and a.set_value(a.get_upper() - a.get_page_size()))
-        inner.pack_start(scroll, True, True, 0)
+        over = Gtk.Overlay()
+        over.add(scroll)
+        self.jump = Gtk.Button(label="↓ New")  # scrolled up and something new came: back to the bottom
+        self.jump.get_style_context().add_class("jump")
+        self.jump.set_halign(Gtk.Align.CENTER)
+        self.jump.set_valign(Gtk.Align.END)
+        self.jump.set_margin_bottom(6)
+        self.jump.set_no_show_all(True)
+        self.jump.connect("clicked", lambda _b: self._to_bottom())
+        over.add_overlay(self.jump)
+        inner.pack_start(over, True, True, 0)
 
         self.entry = Gtk.Entry(placeholder_text="Type to JARVIS...")
         self.entry.connect("activate", self._entry_send)
@@ -654,9 +712,14 @@ class UI:
         inner.pack_start(self.entry, False, False, 0)
         w.add(box)
         w.connect("key-press-event", self._panel_key)
-        w.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
-        w.connect("button-press-event", self._take_focus)
+        # Any click in the panel asks for the keyboard first, before the box or a message takes the click: a
+        # "button-press-event" on the window only came when nothing inside handled the click, so clicking the box
+        # (or selecting text for Ctrl+C) after using another window left the keys going there.
+        self._clicks = Gtk.GestureMultiPress.new(w)
+        self._clicks.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        self._clicks.connect("pressed", lambda *_: self._take_focus())
         w.connect("map-event", lambda *_: GLib.idle_add(self._take_focus))
+        self._load_history()
 
     def _panel_key(self, _w, ev):
         if ev.keyval == Gdk.KEY_Escape:
@@ -667,8 +730,7 @@ class UI:
         if ctrl and ev.keyval in (Gdk.KEY_c, Gdk.KEY_C) and not self.entry.get_selection_bounds():
             # The entry keeps the focus, so Ctrl+C would copy nothing: copy what's selected in the chat,
             # or with Shift (or nothing selected) the whole chat.
-            picked = [lbl.get_text()[min(b):max(b)] for lbl in self._chat_labels()
-                      for b in [lbl.get_selection_bounds()] if b and b[0] != b[1]]
+            picked = [lbl.get_text()[b[0]:b[1]] for lbl in self._chat_labels() for b in [_selection(lbl)] if b]
             text = "\n".join(picked) if picked and not ev.state & Gdk.ModifierType.SHIFT_MASK else self._chat_text()
             Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
             return True
@@ -715,12 +777,12 @@ class UI:
         menu.append(item)
         menu.show_all()
 
-    def _take_focus(self, _w=None, event=None):
+    def _take_focus(self, *_):
         """A dock window never gets keyboard focus from the window manager by itself: after you've clicked
         another window, clicking the chat (or opening it) has to ask for it, or typing and editing do nothing."""
         win = self.panel.get_window()
         if win:
-            win.focus(event.time if event else Gdk.CURRENT_TIME)
+            win.focus(Gtk.get_current_event_time())  # the click's time; none (CURRENT_TIME) when it opens
         if not self.entry.has_focus():
             self.entry.grab_focus_without_selecting()
         return False
@@ -812,12 +874,27 @@ class UI:
             self._sent = [t for t in getattr(self, "_sent", []) if t != text][-49:] + [text]
             self.on_text(text)
 
-    def _add_chat(self, who, text):
+    def _add_chat(self, who, text, at=None, save=True):
         kind = who if who in ("you", "jarvis", "claude", "heard") else "sys"
-        label = Gtk.Label(label=text, xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR,
-                          selectable=True, can_focus=False)
+        at = at or time.time()
+        if save and kind != "heard":
+            self._history.append([kind, text, at])
+            self._save_history_soon()
+        if kind == "you":  # Up / Down in the box bring back what you said as well as what you typed
+            self._sent = [t for t in getattr(self, "_sent", []) if t != text][-49:] + [text]
+        if self._last_at is None or at - self._last_at > TIME_GAP:
+            mark = Gtk.Label(label=stamp(at))
+            mark.get_style_context().add_class("time")
+            self._pack(mark)
+            self._heard_run = []
+        self._last_at = at
+        label = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, selectable=True, can_focus=False)
+        markup = _markup(text) if kind in ("jarvis", "claude") else None  # **bold**, `code`, [links](...)
+        label.set_markup(markup) if markup else label.set_text(text)
+        label.set_tooltip_text(time.strftime("%H:%M", time.localtime(at)))
         label.chat_who = kind
         label.connect("populate-popup", self._label_menu)
+        label.connect("notify::selection-bound", self._selecting)
         if kind in ("heard", "sys"):
             label.set_max_width_chars(60)
             label.get_style_context().add_class(kind)
@@ -826,6 +903,8 @@ class UI:
                 label.set_halign(Gtk.Align.END)
             label.set_margin_start(4)
             label.set_margin_end(4)
+            if kind == "heard":
+                return self._add_heard(label)
             row = label
         else:
             label.set_max_width_chars(32)
@@ -844,13 +923,133 @@ class UI:
                 row.pack_start(bubble, False, False, 0)
         if kind == "you":
             self._at_bottom = True
-        if kind != "heard":
-            self._last_kind = kind
+        self._last_kind, self._heard_run = kind, []
+        self._pack(row)
+        if not self._at_bottom:
+            self.jump.show()
+        return False
+
+    def _pack(self, row):
+        """Put a row at the bottom of the chat (above the typing dots), dropping the oldest past CHAT_KEEP."""
         self.msgs.pack_start(row, False, False, 0)
         row.show_all()
+        if self._typing_row and row is not self._typing_row:
+            self.msgs.reorder_child(self._typing_row, -1)
         old = self.msgs.get_children()
         for child in old[:max(0, len(old) - CHAT_KEEP)]:
             child.destroy()
+
+    def _add_heard(self, label):
+        """Heard lines in a row fold into one line ("3 heard · the latest"), opened with a click."""
+        run = self._heard_run
+        run.append(label)
+        if len(run) == 1:
+            self._pack(label)
+            return False
+        if len(run) == 2:
+            first = run[0]
+            kids = self.msgs.get_children()
+            spot = kids.index(first) if first in kids else len(kids)
+            if first in kids:
+                self.msgs.remove(first)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            box.pack_start(first, False, False, 0)
+            head = Gtk.Label(xalign=1)
+            head.set_ellipsize(Pango.EllipsizeMode.END)
+            head.set_max_width_chars(40)
+            head.get_style_context().add_class("heard")
+            fold = Gtk.Expander()
+            fold.set_label_widget(head)
+            fold.set_halign(Gtk.Align.END)
+            fold.add(box)
+            self._pack(fold)
+            self.msgs.reorder_child(fold, spot)
+            self._heard_fold = (fold, box, head)
+        fold, box, head = self._heard_fold
+        box.pack_start(label, False, False, 0)
+        label.show()
+        head.set_text("%d heard · %s" % (len(run), label.get_text()))
+        return False
+
+    def _set_typing(self, state):
+        """"…" in the chat while JARVIS is thinking or Claude is working (in Claude's colours then)."""
+        row = self._typing_row
+        if state not in ("thinking", "claude"):
+            if row:
+                row.destroy()
+                GLib.source_remove(self._typing_timer)
+                self._typing_row = self._typing_timer = None
+            return
+        if not row:
+            row = self._typing_row = Gtk.Box()
+            row.dots = Gtk.Label(label="•")
+            row.pack_start(row.dots, False, False, 0)
+            row.set_halign(Gtk.Align.START)
+            for cls in ("bubble", "typing"):
+                row.get_style_context().add_class(cls)
+            self._pack(row)
+            self._typing_timer = GLib.timeout_add(350, self._typing_step)
+        ctx = row.get_style_context()
+        ctx.remove_class("claude" if state != "claude" else "jarvis")
+        ctx.add_class("claude" if state == "claude" else "jarvis")
+
+    def _typing_step(self):
+        dots = self._typing_row.dots
+        dots.set_text("•" * (len(dots.get_text()) % 3 + 1))
+        return True
+
+    def _scrolled(self, adj):
+        self._at_bottom = adj.get_value() >= adj.get_upper() - adj.get_page_size() - 40
+        if self._at_bottom:
+            self.jump.hide()
+
+    def _to_bottom(self):
+        self._at_bottom = True
+        self._adj.set_value(self._adj.get_upper() - self._adj.get_page_size())
+        self.jump.hide()
+
+    def _selecting(self, label, _prop):
+        """One selection at a time: selecting in one message clears the last, so Ctrl+C copies only what you picked."""
+        if _selection(label):
+            old, self._selected_label = self._selected_label, label
+            if old is not None and old is not label:
+                old.select_region(0, 0)
+
+    def _load_history(self):
+        try:
+            with open(HISTORY_FILE) as f:
+                saved = json.load(f)
+        except (OSError, ValueError):
+            return
+        for item in saved[-HISTORY_KEEP:] if isinstance(saved, list) else []:
+            try:
+                who, text, at = str(item[0]), str(item[1]), float(item[2])
+            except (TypeError, ValueError, IndexError):
+                continue
+            self._history.append([who, text, at])
+            self._add_chat(who, text, at, save=False)
+
+    def _save_history_soon(self):
+        if not self._saving:
+            self._saving = GLib.timeout_add_seconds(2, self._save_history)
+
+    def _save_history(self):
+        """Write the last HISTORY_KEEP messages, readable by you only (they can hold mail and calendar details)."""
+        self._saving = None
+        tmp = HISTORY_FILE + ".tmp"
+        try:
+            with os.fdopen(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+                json.dump(list(self._history), f)
+            os.replace(tmp, HISTORY_FILE)
+        except OSError:
+            pass
+        return False
+
+    def _forget_request(self):
+        while self._history:
+            if self._history.pop()[0] == "you":
+                break
+        self._save_history_soon()
         return False
 
     # --- tray icon ---
@@ -962,6 +1161,7 @@ class UI:
     def _set_state(self, state):
         self.state = state
         self._claude_since = (self._claude_since or time.time()) if state == "claude" else None
+        self._set_typing(state)
         self._refresh()
         return False
 
