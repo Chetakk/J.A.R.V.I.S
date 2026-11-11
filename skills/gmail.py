@@ -53,15 +53,19 @@ class Gmail(GoogleSkill):
             (r"(?:summari[sz]e|sum up|go through|catch me up on) (?:my |the )?(?:new |unread |latest )?(?:inbox|%s)"
              r"(?: for me)?" % MAIL, self.summarise),
             (r"(?:draft|write|prepare) (?:a |an )?(?:reply|response|answer)(?: to (?:this|that|the|it|(.+?)'s)"
-             r"(?: %s)?)?(?:,? (?:saying|that says|that|to say|telling (?:him|her|them)) (.+))?" % MAIL, self.draft),
+             r"(?: %s)?)?(?:,? (?:saying|that says|that|to say|telling (?:him|her|them)) (.+))?|reply to (.+?)'s %s "
+             r"(?:saying|with|that says) (.+)" % (MAIL, MAIL), self.draft),
             (r"(?:add|put|make|turn) (?:this|that|it|the)(?: %s)? (?:in|into|to|on|as) (?:a )?(?:my )?(?:to-?dos?|"
              r"to do(?: list)?|todo list|tasks?)|remind me to (?:reply|answer|respond)(?: to (?:this|that|it|the %s))?"
              % (MAIL, MAIL), self.todo),
             (r"(?:any |did i get (?:an |any )?|have i got (?:an |any )?)(?:new )?%s from (.+?)(?: today| this week)?|"
-             r"did (.+?) (?:e-?mail|mail|write to|reply to|get back to) me(?: back)?(?: today| this week)?" % MAIL,
+             r"did (.+?) (?:e-?mail|mail|write to|reply to|get back to) me(?: back)?(?: today| this week)?|(?:has|have) "
+             r"(.+?) (?:e-?mailed|mailed|written to|replied(?: to)?|got back to|gotten back to)(?: me)?(?: back| yet)?|"
+             r"anything from (.+?) in my (?:inbox|e-?mail|mail)" % MAIL,
              self.from_person),
             (r"(?:read|open|show|what(?:'s| is| was) in)(?: me)? (?:the |my )?(?:latest|last|newest|most recent|new) "
-             r"(?:e-?mail|mail)(?: from (.+?))?|what did (.+?)(?:'s)? (?:e-?mail|mail) say|(?:read|show|open)"
+             r"(?:e-?mail|mail)(?: from (.+?))?|what did (.+?)(?:'s)? (?:e-?mail|mail) say|what (?:was|is) (.+?)'s (?:last|"
+             r"latest|newest) (?:e-?mail|mail)(?: about)?|(?:read|show|open)"
              r"(?: me)? (.+?)'s (?:latest |last |new )?(?:e-?mail|mail)|read (?:that|the|this) (?:e-?mail|mail)",
              self.read_latest),
             (r"(?:save|download|get|keep) (?:its |the |that |this |those |these |all the )?(?:attachments?|attached "
@@ -244,7 +248,8 @@ class Gmail(GoogleSkill):
         self.j.skills.todos.add(re.match(r"(.+)", "Reply to %s: %s" % (first_name(mail["name"]), mail["subject"])))
 
     def draft(self, m):
-        who, what = m.group(1), m.group(2)
+        g = m.groups()
+        who, what = g[0] or g[2], g[1] or g[3]  # "reply to Rahul's email saying..." too
         mail = self.last[0] if self._fresh() and not who else None
         gm = self.api("gmail", "v1", "gmail.compose")
         if not mail and who:

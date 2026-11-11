@@ -47,3 +47,16 @@ def test_did_someone_message_me_on_chat(g):
 def test_what_is_it_saying_is_not_a_person_on_chat(g):
     g.do("what is it saying")
     assert not g.g.made("chat.spaces.findDirectMessage")
+
+
+def test_other_ways_to_ask_about_someones_email(g):
+    from test_skill_google import _mailbox, _msg
+    _mailbox(g, [_msg("1", "Rahul <rahul@biztel.ai>", "Budget", "Numbers attached.")])
+    g.do("has rahul emailed me")
+    assert g.says("Yes, one email this week", "Budget")
+    g.clear()
+    g.do("what was rahul's last email about")
+    assert g.says("From Rahul", "Budget")
+    g.claude.reply("Yes, sounds good.")
+    g.do("reply to rahul's email saying yes")
+    assert g.g.made("gmail.users.drafts.create") and g.says("draft reply to Rahul")
