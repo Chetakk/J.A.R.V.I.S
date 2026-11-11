@@ -17,7 +17,7 @@ from skills.helpers import and_list
 from system import desktop
 from system import google_account as google
 
-CHAT = r"(?:google )?chat"
+CHAT = r"(?:google )?chats?"  # "read my chats" too
 TALKERS = ("DIRECT_MESSAGE", "GROUP_CHAT")  # every message in these is for you
 NOT_PEOPLE = {"you", "he", "she", "they", "it", "that", "this", "jarvis", "claude", "the doctor", "everyone", "i"}
 

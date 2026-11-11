@@ -295,7 +295,7 @@
 "stop talking": persona
 "be quiet": persona
 "never mind": persona
-"open my email": "app:open Thunderbird Mail"
+"open my email": "browser"  # Gmail, not Thunderbird ("open thunderbird" is the app)
 "start the remote desktop app": "app:open RustDesk"
 "open word": "app:open LibreOffice Writer"
 "open the pdf viewer": "app:open Document Viewer"
@@ -1900,5 +1900,14 @@
 "add milk to my todos": skill:add
 "find the invoice email from last month": skill:search
 "search my email for contract": skill:search
+"show me mails": browser  # Gmail in the default (personal) browser
+"show me my mails": browser
+"show me work mails": browser  # Gmail in the work browser
+"show me work emails": browser
+"open work gmail": browser
+"open my personal gmail": browser
+"show my new emails": skill:unread
 "save the attachment": skill:save_attachments
 "what's been shared with me": skill:shared
+"read my chats": skill:catch_up
+"any new chats": skill:catch_up
