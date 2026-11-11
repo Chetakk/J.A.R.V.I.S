@@ -1898,3 +1898,7 @@
 "wrap up my day": skill:wrap
 "show my schedule": skill:calendar_card
 "add milk to my todos": skill:add
+"find the invoice email from last month": skill:search
+"search my email for contract": skill:search
+"save the attachment": skill:save_attachments
+"what's been shared with me": skill:shared
