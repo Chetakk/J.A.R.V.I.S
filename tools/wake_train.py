@@ -33,6 +33,7 @@ MEDIA = os.path.join(JARVIS, "wake-data", "media")  # voice/ears.py MediaRecorde
 MINE_HITS = os.path.join(JARVIS, "wake-data", "hits")
 FALSE = os.path.join(JARVIS, "wake-data", "false")  # wake-ups you called false ("Jarvis, false wake": voice/ears.py)
 PLACES = ("close", "arm", "side", "across", "away", "far", "seat")  # tests/wake_session.yaml parts with the name alone
+NAME_CHECK_SINCE = 1794323250  # ears.name_check went on (c1cd4ff): every wake-up kept after it, Whisper heard the name too
 OUT = "jarvis_wake.next"
 FILES = {"mel": "melspectrogram.onnx", "embed": "embedding_model.onnx", "noise": "validation_set_features.npy"}
 RATE, LENGTH = 16000, 33600  # 2.1 s: just over what 16 embeddings need
@@ -55,6 +56,32 @@ def read(path):
 
 def resample(x, ratio):
     return np.interp(np.linspace(0, len(x) - 1, int(len(x) * ratio)), np.arange(len(x)), x).astype(np.float32)
+
+
+def real_calls():
+    """Your real wake-ups (wake-data/hits) since the name check went on, cut just after the name (where the current
+    model puts its end). Copies of the test recordings that tools/speechtest.py scoring leaves there are skipped:
+    they'd be tested on clips the model trained on."""
+    from voice.ears import Ears
+    ears = Ears({})
+    with np.load(os.path.join(WAKE, "jarvis_wake.npz")) as saved:
+        ears.layers = [(saved["w%d" % i], saved["b%d" % i]) for i in range(3)]
+    ears.embedder = embeddings
+    try:
+        with open(os.path.join(MINE_HITS, "hits.jsonl")) as f:
+            since = {d["clip"] for d in map(json.loads, filter(str.strip, f)) if d["time"] >= NAME_CHECK_SINCE}
+    except OSError:
+        return []
+    known = {read(p).tobytes() for p in glob.glob(os.path.join(CLIPS, "*.wav")) + glob.glob(os.path.join(MINE, "*.wav"))}
+    out = []
+    for path in sorted(glob.glob(os.path.join(MINE_HITS, "*.wav"))):
+        x = read(path)
+        if os.path.basename(path)[:-4] not in since or x.tobytes() in known:
+            continue
+        end = ears.name_end(x.astype(np.int16).tobytes(), 0.5)
+        if end:
+            out.append(x[:end + int(0.1 * RATE)])  # (name_end takes 0.1 s back off the name)
+    return out
 
 
 def speak(lines, scales):
@@ -184,6 +211,7 @@ def main():
     # Your "Jarvis" from around the room (tools/speechtest.py record-wake), and what must not wake it
     wake.update({(part, i): read(mine(part, i)) for part in PLACES for i in range(1, len(session.get(part) or []) + 1)
                  if os.path.exists(mine(part, i))})
+    wake.update({("real", i): c for i, c in enumerate(real_calls(), 1)})
     other = dict([(("commands", i), clip("commands", i)) for i in bare] + [(("noise", i), clip("noise", i)) for i in range(1, len(lines["noise"]) + 1)])
     other.update({(part, i): read(mine(part, i)) for part in ("near", "talk") for i in range(1, len(session.get(part) or []) + 1)
                   if os.path.exists(mine(part, i))})
@@ -207,7 +235,7 @@ def main():
         y.extend([label] * len(views_))
         source.extend([src] * len(views_))
     for k, c in wake.items():
-        add(views(c, room, True, 120 if k[0] == "wake" else 60), 1, k)
+        add(views(c, room, True, {"wake": 120, "real": 30}.get(k[0], 60)), 1, k)
     for k, c in other.items():
         add(views(c, room, False, 40), 0, k)
     for c in tts_pos:
@@ -247,22 +275,22 @@ def main():
     hit = lambda kinds, t: (sum(max(v) >= t for k, v in scores.items() if k[0] in kinds),  # noqa: E731
                             sum(k[0] in kinds for k in scores))
     print("\nOn clips each model never trained on. Name: should wake. Others: should not.")
-    print("%6s  %-9s %-11s %-10s %-11s %-9s %-7s %-11s %-10s %s" % ("cutoff", "old name", "room name", "one-breath",
-          "sound-alike", "commands", "noise", "false wake", "outside/h", "show/h"))
+    print("%6s  %-9s %-11s %-10s %-10s %-11s %-9s %-7s %-11s %-10s %s" % ("cutoff", "old name", "room name", "real calls",
+          "one-breath", "sound-alike", "commands", "noise", "false wake", "outside/h", "show/h"))
     table = []
     for t in THRESHOLDS:
-        row = {"cutoff": t, "old": hit(("wake",), t), "room": hit(PLACES, t), "breath": hit(("named", "breath"), t),
+        row = {"cutoff": t, "old": hit(("wake",), t), "room": hit(PLACES, t), "real": hit(("real",), t), "breath": hit(("named", "breath"), t),
                "near": hit(("near", "talk"), t), "commands": hit(("commands",), t), "noise": hit(("noise",), t), "false": hit(("false",), t),
                "per_hour": float(np.mean([alarms(s, t) for s in outside_scores])) / hours,
                "show_per_hour": (float(np.mean([sum(alarms(r, t, 1) for r in runs) for runs in show_scores])) / show_hours
                                  if show_hours else None)}
         table.append(row)
         f = lambda p: "%d/%d" % p  # noqa: E731
-        print("%6.3f  %-9s %-11s %-10s %-11s %-9s %-7s %-11s %-10.2f %s" % (t, f(row["old"]), f(row["room"]), f(row["breath"]),
+        print("%6.3f  %-9s %-11s %-10s %-10s %-11s %-9s %-7s %-11s %-10.2f %s" % (t, f(row["old"]), f(row["room"]), f(row["real"]), f(row["breath"]),
               f(row["near"]), f(row["commands"]), f(row["noise"]), f(row["false"]), row["per_hour"],
               "%.1f" % row["show_per_hour"] if show_hours else "-"))
-    print("\nby place, at 0.98:", ", ".join("%s %d/%d" % ((p,) + hit((p,), 0.98)) for p in ("wake",) + PLACES))
-    missed = sorted("%s-%02d %.2f" % (k[0], k[1], max(v)) for k, v in scores.items() if k[0] in PLACES + ("wake",) and max(v) < 0.98)
+    print("\nby place, at 0.98:", ", ".join("%s %d/%d" % ((p,) + hit((p,), 0.98)) for p in ("wake", "real") + PLACES))
+    missed = sorted("%s-%02d %.2f" % (k[0], k[1], max(v)) for k, v in scores.items() if k[0] in PLACES + ("wake", "real") and max(v) < 0.98)
     print("name clips under 0.98:", ", ".join(missed) or "none")
 
     final = fit(torch.tensor(np.concatenate([X, used]), device=device),
