@@ -30,6 +30,7 @@ import os
 import re
 import time
 
+import cairo
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -48,6 +49,13 @@ SUN = (0.96, 0.74, 0.33)  # the weather sun and lightning keep their yellow: pic
 HEX = {k: "#%02x%02x%02x" % tuple(round(c * 255) for c in v[:3]) for k, v in STATUS.items()}
 FG = {k: 'foreground="%s"' % HEX[k] + (' fgalpha="%d%%"' % round(v[3] * 100) if len(v) > 3 else "")
       for k, v in STATUS.items()}  # Pango markup for text in that colour
+# in text, the two colours that vanish on dark glass: a white ring for free / done, a ringed dot on an indigo chip for
+# cancelled / overdue, and log lines in them white (an error one bold, with a wavy underline)
+DOTS = {k: '<span %s>●</span>' % FG[k] for k in STATUS}
+DOTS.update(ok='<span foreground="#ffffff" fgalpha="80%">○</span>',
+            bad='<span foreground="#ffffff" fgalpha="70%" background="#0b0f19">◉</span>')
+LINE = dict(FG, ok='foreground="#ffffff" weight="bold"',
+            bad='foreground="#ffffff" weight="bold" underline="error" underline_color="#ffffff"')
 SHADES = (0.92, 0.62, 0.42, 0.30, 0.22, 0.16)  # white at these strengths, for parts of a whole
 FAINT = ("free", "left", "other", "idle", "rest", "unused", "available", "remaining")
 FILES = {"pdf": "bad", "doc": "check", "docx": "check", "odt": "check", "txt": "off", "md": "off",
@@ -63,7 +71,7 @@ _EASE = {}  # (kind, label) -> (from, to, started): rings and gauges glide to a 
 
 def markup(s):
     """{ok} … {check} dots and {file:pdf} badges in already-escaped Pango markup."""
-    s = re.sub(r"\{(ok|warn|bad|off|check)\}", lambda m: '<span %s>●</span>' % FG[m.group(1)], s)
+    s = re.sub(r"\{(ok|warn|bad|off|check)\}", lambda m: DOTS[m.group(1)], s)
     return re.sub(r"\{file:([A-Za-z0-9]{1,5})\}", lambda m: _badge(FILES.get(m.group(1).lower(), "off"), m.group(1)), s)
 
 
@@ -138,7 +146,7 @@ def _coloured(kind, lines):
                      "D ": "bad", "R ": "check", "UU": "bad"}.get(code)
             if line.startswith("##"):
                 esc = '<span alpha="60%%">%s</span>' % esc
-        out.append('<span %s>%s</span>' % (FG[state], esc) if state else esc)
+        out.append('<span %s>%s</span>' % (LINE[state], esc) if state else esc)
     lab = Gtk.Label(xalign=0, selectable=True)
     lab.set_markup("\n".join(out))
     lab.get_style_context().add_class("mono")
@@ -149,6 +157,37 @@ def _coloured(kind, lines):
 
 def _rgb(cr, rgb, a=1.0):
     cr.set_source_rgba(rgb[0], rgb[1], rgb[2], a * (rgb[3] if len(rgb) > 3 else 1))
+
+
+def _edged(rgb):
+    """Frosted white and midnight indigo all but vanish on dark glass: their marks get a thin white edge."""
+    return rgb is not None and (tuple(rgb) == tuple(STATUS["ok"]) or tuple(rgb) == tuple(STATUS["bad"]))
+
+
+def _mark(cr, rgb, a=1.0, fill=False):
+    """Stroke (or fill) the current path in a status colour, or white (rgb None) at `a`. Frosted white and indigo
+    marks get a white edge just outside them: drawn in a group with the mark's own shape cleared, so the edge
+    doesn't show through the see-through frost."""
+    if not _edged(rgb):
+        _rgb(cr, rgb, a) if rgb else _white(cr, a)
+        cr.fill() if fill else cr.stroke()
+        return
+    path, lw = cr.copy_path(), cr.get_line_width()
+    cr.push_group()
+    cr.append_path(path)
+    _white(cr, 0.6)
+    cr.set_line_width(lw + 2.4 if not fill else 2.4)
+    cr.stroke_preserve()
+    cr.set_operator(cairo.OPERATOR_CLEAR)
+    cr.set_line_width(lw)
+    cr.fill_preserve() if fill else cr.stroke_preserve()
+    cr.new_path()
+    cr.pop_group_to_source()
+    cr.paint()
+    cr.append_path(path)
+    cr.set_line_width(lw)
+    _rgb(cr, rgb, a)
+    cr.fill() if fill else cr.stroke()
 
 
 def _white(cr, a=1.0):
@@ -169,7 +208,7 @@ def _text(cr, x, y, s, size=9.5, a=0.9, bold=False, align="left", width=None, rg
         x -= w / 2
     elif align == "right":
         x -= w
-    if rgb:
+    if rgb and not _edged(rgb):
         _rgb(cr, rgb, a)
     else:
         _white(cr, a)
@@ -272,9 +311,8 @@ def _ring(lines):
             cr.arc(cx, cy, r, 0, 2 * math.pi)
             cr.stroke()
             if f > 0.003:
-                _rgb(cr, STATUS[state]) if state else _white(cr, 0.9)
                 cr.arc(cx, cy, r, -math.pi / 2, -math.pi / 2 + 2 * math.pi * f)
-                cr.stroke()
+                _mark(cr, STATUS[state] if state else None, 1 if state else 0.9)
             _text(cr, cx, cy - 10, shown, size=11 if len(shown) < 6 else 9, bold=True, align="center")
             _text(cr, cx, cy + d / 2 + 4, label, size=9, a=0.6, align="center", width=cell - 6)
     return rows * (d + 30), draw, 0.05
@@ -295,9 +333,8 @@ def _countdown(lines):
         cr.arc(cx, cy, r, 0, 2 * math.pi)
         cr.stroke()
         if left <= 0:
-            _rgb(cr, STATUS["ok"])
             cr.arc(cx, cy, r, 0, 2 * math.pi)
-            cr.stroke()
+            _mark(cr, STATUS["ok"])
             _text(cr, cx, cy - 16, "Done ✓", size=18, bold=True, align="center", rgb=STATUS["ok"])
         else:
             frac = left / total
@@ -393,17 +430,15 @@ def _stack(lines):
             for j, (name, v, state) in enumerate(parts):
                 w = width * v / total
                 rgb, a = _shade(j, name, state)
-                _rgb(cr, rgb, a)
                 cr.rectangle(x, bar_y, w, 12)
-                cr.fill()
+                _mark(cr, rgb, a, fill=True)
                 x += w
             cr.restore()
             lx = 0
             for j, (name, v, state) in enumerate(parts):
                 rgb, a = _shade(j, name, state)
-                _rgb(cr, rgb, max(a, 0.3))
                 cr.rectangle(lx, bar_y + 22, 8, 8)
-                cr.fill()
+                _mark(cr, rgb, a if _edged(rgb) else max(a, 0.3), fill=True)
                 w, _h = _text(cr, lx + 12, bar_y + 18, "%s %s" % (name, _fmt(v)), size=8.5, a=0.7)
                 lx += w + 26
     return 58 * len(rows), draw, None
@@ -428,18 +463,16 @@ def _donut(lines):
         for j, (label, v, state) in enumerate(parts):
             a1 = a0 + 2 * math.pi * v / total
             rgb, a = _shade(j, label, state)
-            _rgb(cr, rgb, a)
             cr.arc(cx, cy, r - 10, a0, max(a0, a1 - 0.02))
-            cr.stroke()
+            _mark(cr, rgb, a)
             a0 = a1
         _text(cr, cx, cy - 16, _fmt(total), size=13, bold=True, align="center")
         _text(cr, cx, cy + 2, unit, size=8.5, a=0.6, align="center")
         for j, (label, v, state) in enumerate(parts):
             y = 6 + j * 19
             rgb, a = _shade(j, label, state)
-            _rgb(cr, rgb, max(a, 0.3))
             cr.rectangle(140, y + 4, 9, 9)
-            cr.fill()
+            _mark(cr, rgb, a if _edged(rgb) else max(a, 0.3), fill=True)
             _text(cr, 156, y, label, size=9.5, a=0.85, width=width - 156 - 92)
             _text(cr, width, y, "%s %s · %d%%" % (_fmt(v), unit, round(100 * v / total)), size=9, a=0.6,
                   align="right")
@@ -470,10 +503,9 @@ def _steps(lines):
         y = 0
         for (state, text, detail), h, c in zip(steps, heights, centres):
             if state == "done":
-                _rgb(cr, STATUS["ok"])
                 cr.arc(9, c, 6, 0, 2 * math.pi)
-                cr.fill()
-                cr.set_source_rgba(0.08, 0.09, 0.1, 1)
+                _mark(cr, STATUS["ok"], fill=True)
+                _white(cr, 0.95) if _edged(STATUS["ok"]) else cr.set_source_rgba(0.08, 0.09, 0.1, 1)
                 cr.set_line_width(1.8)
                 cr.move_to(6, c)
                 cr.line_to(8.4, c + 2.6)
@@ -488,10 +520,9 @@ def _steps(lines):
                 cr.arc(9, c, 5, 0, 2 * math.pi)
                 cr.fill()
             elif state in ("failed", "bad"):
-                _rgb(cr, STATUS["bad"])
                 cr.arc(9, c, 6, 0, 2 * math.pi)
-                cr.fill()
-                cr.set_source_rgba(0.08, 0.09, 0.1, 1)
+                _mark(cr, STATUS["bad"], fill=True)
+                _white(cr, 0.95) if _edged(STATUS["bad"]) else cr.set_source_rgba(0.08, 0.09, 0.1, 1)
                 cr.set_line_width(1.8)
                 for dx in (-1, 1):
                     cr.move_to(9 - 2.6, c - 2.6 * dx)
@@ -680,24 +711,21 @@ def _path(lines):
             x = i * (bw + gap)
             if i:
                 ok = nodes[i - 1][1] == "ok" and state == "ok"
-                _rgb(cr, STATUS["ok"], 0.6) if ok else _white(cr, 0.15)
                 cr.set_line_width(2)
                 cr.move_to(x - gap + 2, 26)
                 cr.line_to(x - 2, 26)
-                cr.stroke()
+                _mark(cr, STATUS["ok"], 0.6) if ok else _mark(cr, None, 0.15)
             _white(cr, 0.06)
             _round_rect(cr, x, 4, bw, 44, 9)
             cr.fill()
             a = 0.5 + 0.5 * abs(math.sin(time.time() * 3)) if state == "check" else 1
             if state == "bad":
-                _rgb(cr, STATUS["bad"], 0.6)
                 cr.set_line_width(1.2)
                 _round_rect(cr, x, 4, bw, 44, 9)
-                cr.stroke()
-            _rgb(cr, STATUS[state], a)
+                _mark(cr, STATUS["bad"])
             cr.new_path()
             cr.arc(x + 9, 16, 3.5, 0, 2 * math.pi)
-            cr.fill()
+            _mark(cr, STATUS[state], a, fill=True)
             _text(cr, x + 16, 8, label, size=8 if bw < 90 else 8.5, bold=True, a=0.9, width=bw - 18)
             _text(cr, x + 8, 27, detail or {"ok": "fine", "bad": "problem", "warn": "slow", "check": "checking…",
                                             "off": "—"}[state], size=8, a=0.6, width=bw - 12)
@@ -983,9 +1011,8 @@ def _map(lines):
             _rgb(cr, STATUS["bad"], 0.25)
             cr.arc(x, y, 9, 0, 2 * math.pi)
             cr.fill()
-            _rgb(cr, STATUS["bad"])
             cr.arc(x, y, 4.5, 0, 2 * math.pi)
-            cr.fill()
+            _mark(cr, STATUS["bad"], fill=True)
             if label:
                 layout_w = min(160, 7 * len(label) + 12)
                 lx = x + 10 if x + 10 + layout_w < width else x - 10 - layout_w
@@ -1039,11 +1066,10 @@ def _clock_faces(lines):
             for value, length, lw, rgb in ((hours / 12, r * 0.5, 3.2, None), (mins / 60, r * 0.75, 2.2, None),
                                            (sec / 60, r * 0.82, 1.0, STATUS["bad"])):
                 a = value * 2 * math.pi
-                _rgb(cr, rgb) if rgb else _white(cr, 0.92)
                 cr.set_line_width(lw)
                 cr.move_to(cx, cy)
                 cr.line_to(cx + math.sin(a) * length, cy - math.cos(a) * length)
-                cr.stroke()
+                _mark(cr, rgb, 1 if rgb else 0.92)
             _white(cr, 0.9)
             cr.arc(cx, cy, 2.5, 0, 2 * math.pi)
             cr.fill()
@@ -1080,9 +1106,8 @@ def _gauge(lines):
             _white(cr, 0.10)
             cr.arc(cx, cy, r, math.pi, 2 * math.pi)
             cr.stroke()
-            _rgb(cr, STATUS[state]) if state else _white(cr, 0.85)
             cr.arc(cx, cy, r, math.pi, math.pi + math.pi * frac)
-            cr.stroke()
+            _mark(cr, STATUS[state] if state else None, 1 if state else 0.85)
             for k in range(11):
                 a = math.pi + k * math.pi / 10
                 _white(cr, 0.3)
