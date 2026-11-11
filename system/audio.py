@@ -121,25 +121,47 @@ def set_volume(device, percent):
 
 OWN = {"pacat", "aplay", "paplay"}  # JARVIS's voice, its beeps and the Echo's keep-alive: never turned down
 DUCK_TO = 0.3  # what's playing drops to this share of its volume while JARVIS listens
-_ducked = {}  # stream -> the volume (%) it had
+_ducked = {}  # stream -> (its app, the volume (%) it had)
+_seen = set()  # every stream there was while ducked
 _duck_lock = threading.Lock()
 
 
+def _streams():
+    """(stream, app, binary, volume %, paused) for each sound being played; app is what PulseAudio keeps its volume under."""
+    found = []
+    for block in _pactl("list", "sink-inputs")[1].split("\n\n"):
+        stream = re.search(r"^Sink Input #(\d+)", block)
+        percent = [int(p) for p in re.findall(r"(\d+)%", (re.search(r"^\s*Volume: (.*)$", block, re.M) or
+                                                           [None, ""])[1])]
+        if stream and percent:
+            prop = lambda name: (re.search(r'%s = "([^"]*)"' % re.escape(name), block) or [None, None])[1]  # noqa: E731
+            binary = prop("application.process.binary")
+            found.append((stream.group(1), prop("module-stream-restore.id") or binary, binary, max(percent),
+                          "Corked: yes" in block))
+    return found
+
+
 def duck(on):
-    """on: turn every other app's sound (music, videos) down while JARVIS listens; off: put it back as it was."""
+    """on: turn every other app's sound (music, videos) down while JARVIS listens; off: put it back as it was.
+    PulseAudio remembers the lowered volume for the app, so a new stream it starts meanwhile ("play the music":
+    Spotify starts, the video stops) comes up lowered too: that one is put back along with the others."""
     with _duck_lock:
         if not on:
-            for stream, percent in _ducked.items():
-                _pactl("set-sink-input-volume", stream, "%d%%" % percent)  # (fails quietly if it has ended)
+            if _ducked:
+                apps = {app: percent for app, percent in _ducked.values()}
+                # shortcut: an app with no stream left now keeps the lowered volume for its next one; fix if seen.
+                for stream, app, _, _, _ in _streams():
+                    if stream in _ducked or (stream not in _seen and app in apps):
+                        _pactl("set-sink-input-volume", stream,
+                               "%d%%" % (_ducked[stream][1] if stream in _ducked else apps[app]))
             _ducked.clear()
+            _seen.clear()
             return
-        for block in _pactl("list", "sink-inputs")[1].split("\n\n"):
-            stream = re.search(r"^Sink Input #(\d+)", block)
-            binary = re.search(r'application\.process\.binary = "([^"]*)"', block)
-            percent = [int(p) for p in re.findall(r"(\d+)%", (re.search(r"^\s*Volume: (.*)$", block, re.M) or
-                                                               [None, ""])[1])]
-            if (not stream or stream.group(1) in _ducked or not percent or "Corked: yes" in block
-                    or (binary and binary.group(1) in OWN)):
+        apps = {app for app, _ in _ducked.values()}
+        for stream, app, binary, percent, paused in _streams():
+            if stream in _seen or app in apps:  # (a new one from a ducked app is already lowered)
                 continue
-            _ducked[stream.group(1)] = max(percent)
-            _pactl("set-sink-input-volume", stream.group(1), "%d%%" % (max(percent) * DUCK_TO))
+            _seen.add(stream)
+            if not paused and binary not in OWN:
+                _ducked[stream] = (app, percent)
+                _pactl("set-sink-input-volume", stream, "%d%%" % (percent * DUCK_TO))

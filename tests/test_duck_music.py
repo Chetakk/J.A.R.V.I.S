@@ -30,3 +30,15 @@ def test_music_ducks_while_listening_and_comes_back(jv):
     assert jv.shell.ran(r"set-sink-input-volume")[-1] == "pactl set-sink-input-volume 62 80%"
     jv.j.state("idle")  # nothing ducked: nothing to put back
     assert len(jv.shell.ran(r"set-sink-input-volume")) == 2
+
+
+def test_a_stream_started_while_ducked_comes_back_too(jv):
+    """"Play the music" while a video plays: PulseAudio starts Spotify's new stream at the lowered volume it
+    remembers for Chrome, so it's put back to the video's volume along with it."""
+    jv.shell.on(r"^pactl list sink-inputs$", out=STREAMS)
+    jv.j.state("listening")
+    jv.shell.on(r"^pactl list sink-inputs$", out=STREAMS.replace("#62", "#80").replace("80%", "24%"))
+    jv.j.state("listening")  # the new one isn't lowered again
+    jv.j.state(jv.j.rest)
+    assert jv.shell.ran(r"set-sink-input-volume") == ["pactl set-sink-input-volume 62 24%",
+                                                      "pactl set-sink-input-volume 80 80%"]
