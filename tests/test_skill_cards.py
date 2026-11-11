@@ -248,3 +248,43 @@ def test_a_button_that_says_the_first_one_doesnt_pick_itself_forever(jv):
     jv.j.show({"title": "Open to-dos", "text": "- [ ] a", "choices": [{"label": "JARVIS wake 2", "do": "the first one"}]})
     jv.do("the first one")
     assert jv.said == ["Picked JARVIS wake 2."]
+
+
+DRIVE = {"id": "drive-share-1", "title": "Shared with you", "text": "[PLANT INTELLIGENCE](https://docs.google.com/d/1)",
+         "choices": [{"label": "Open it", "do": "open the first link"}]}
+MAIL = {"id": "mail-1", "title": "Mail from Docker", "text": "Still exploring Docker MCP?",
+        "choices": [{"label": "Read it", "do": "remember that I like reading"},
+                    {"label": "Add to my to-dos", "do": "remember that I like docker"}]}
+
+
+@pytest.mark.parametrize("said", ["open it", "Open it.", "can you open it"])
+def test_open_it_presses_an_older_cards_open_button_and_opens_its_link(jv, said):
+    jv.ui.show_card(DRIVE)
+    jv.ui.show_card(MAIL)  # newer, and has no link: "open the first link" must be about the Drive card
+    jv.do(said)
+    assert jv.questions == [] and jv.shell.ran(r"docs\.google\.com/d/1")
+
+
+@pytest.mark.parametrize("said, value", [("add to my to-dos", "I like docker"), ("Add to my todos.", "I like docker"),
+                                         ("read it", "I like reading")])
+def test_say_what_a_button_shows(jv, said, value):
+    jv.ui.show_card(DRIVE)
+    jv.ui.show_card(MAIL)
+    jv.do(said)
+    assert jv.j.memory.preferences()[0]["value"] == value
+
+
+def test_open_that_with_no_open_button_reads_or_opens_the_link(jv):
+    jv.ui.show_card(MAIL)
+    jv.do("open that")
+    assert jv.j.memory.preferences()[0]["value"] == "I like reading"
+    jv.ui.close_card(every=True)
+    jv.ui.show_card({"title": "Docs", "text": "[a doc](https://example.com/a)"})
+    jv.do("open it")
+    assert jv.shell.ran(r"example\.com/a")
+
+
+def test_a_label_that_is_its_own_phrase_is_not_pressed_forever(jv, card):
+    card(choices=["remember that I like tea"])
+    jv.do("remember that I like tea")
+    assert jv.j.memory.preferences()[0]["value"] == "I like tea"

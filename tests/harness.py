@@ -591,6 +591,12 @@ class FakeUI:
     def current_card(self):
         return self.open[-1] if self.open else None
 
+    def open_cards(self):
+        return self.open[::-1]
+
+    def use_card(self, card):
+        self.open = [c for c in self.open if c is not card] + [card]
+
     def card_visible(self, *a):
         return bool(self.open)
 

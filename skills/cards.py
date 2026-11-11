@@ -15,7 +15,7 @@ import time
 from skills.base import Skill
 from skills.helpers import NTH, ORDINALS
 from system.browser import open_command
-from ui.card import choices, links, plain
+from ui.card import BUTTONS, choices, links, plain
 from claude.bridge import WORKSPACE
 from core.safety import AUTO
 
@@ -27,6 +27,11 @@ SOUNDS_LIKE = {"to": 2, "too": 2, "for": 4}  # Whisper's "number to": only after
 LEVEL_SECONDS = 3  # the volume / brightness ring stays this long after the last change
 UNITS = {"second": 1, "sec": 1, "minute": 60, "min": 60, "hour": 3600}
 _AMOUNT = r"(\d+(?:\.\d+)?|half an|a couple of|a few|[a-z]+(?:-[a-z]+)?)\s*(seconds?|secs?|minutes?|mins?|hours?)"
+
+
+def _words(text):
+    """Only the letters and digits: "Add to my to-dos." is "addtomytodos", as Whisper's "add to my todos" is."""
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
 
 
 class Cards(Skill):
@@ -47,6 +52,10 @@ class Cards(Skill):
 
     def patterns(self):
         return [
+            # a button by what it says ("add to my to-dos", "open it"), on any card on screen
+            (r".+", self.button),
+            (r"(?:(?:can|could|would) you |please )?open (?:it|that|this)(?: one)?(?: up)?(?: for me)?(?: please)?",
+             self.open_it),
             # "what's the second one", "read the third email": a row of a list card (its "items"), not a button;
             # a card without rows hands it on to pick below
             (r"(?:(?:and |so |ok(?:ay)?,? )?(?:read|open|show(?: me)?|what(?:'s| is| was| about| does)(?: in)?|"
@@ -81,6 +90,35 @@ class Cards(Skill):
     def _card(self):
         ui = self.j.ui
         return ui.current_card() if ui and ui.card_visible() else None
+
+    def _press(self, card, label, phrase):
+        """Run a button of `card` (any card on screen), with that card as the one its phrase is about."""
+        self.j.ui.use_card(card)
+        self.j.chat("sys", "picked: %s" % label)
+        return self.j.handle(phrase)
+
+    def _open_cards(self):
+        ui = self.j.ui
+        return ui.open_cards() if ui and ui.card_visible() else []
+
+    def button(self, m):
+        said = _words(m.group(0))
+        for card in self._open_cards():
+            for label, phrase in choices(card)[:BUTTONS]:
+                if _words(label) == said and _words(phrase) != said:  # a label that is its own phrase: said as is
+                    return self._press(card, label, phrase)
+        return False
+
+    def open_it(self, m):
+        """"Open it" with no button saying so: the card's Open (else Read, Play, Join) button, else its first link."""
+        for card in self._open_cards():
+            for verb in ("open", "read", "play", "join"):
+                button = next(((l, p) for l, p in choices(card)[:BUTTONS] if _words(l).startswith(verb)), None)
+                if button:
+                    return self._press(card, *button)
+            if links(card):
+                return self._press(card, "its link", "open the first link")
+        return False
 
     @staticmethod
     def _nth(m, items):

@@ -478,7 +478,12 @@ class Card:
     to read from any thread."""
 
     def __init__(self, on_choice, pinned=False, deck=None):
-        self.on_choice = on_choice  # callback(phrase) when a choice button is clicked
+        self.touched = 0.0  # when it opened or was last used: the card touched last is the one "it" is about
+
+        def say(phrase):  # a button, row or tick clicked: its phrase ("open the first link") is about this card
+            self.touched = time.monotonic()
+            on_choice(phrase)
+        self.on_choice = say
         self.pinned = pinned  # a pinned copy: closing it destroys it; it never moves on its own
         self.deck = deck  # the Deck that places it (None for a pinned copy)
         self.last = None
@@ -775,9 +780,25 @@ class Deck:
     def visible(self):
         return bool(self.open)
 
+    def _newest(self):
+        """The window opened or used last (a click, or a button named by voice), or None."""
+        return max(list(self.open), key=lambda w: w.touched, default=None)
+
     def current(self):
-        """The newest card on screen, else the last one shown."""
-        return self.open[-1].last if self.open else self.last
+        """The card opened or used last, else the last one shown."""
+        w = self._newest()
+        return w.last if w else self.last
+
+    def cards(self):
+        """The cards on screen, the current one first."""
+        return [w.last for w in sorted(list(self.open), key=lambda w: -w.touched)]
+
+    def use(self, card):
+        """`card` is the one being acted on (a button named by voice): what its phrase says about "the card" is
+        about it. Any thread."""
+        for w in list(self.open):
+            if w.last is card:
+                w.touched = time.monotonic()
 
     def ids(self):
         return [(w.last or {}).get("id") for w in list(self.open)]
@@ -807,6 +828,7 @@ class Deck:
             return False  # already up
         win = self.spare.pop() if self.spare else Card(self.on_choice, deck=self)
         win.user_xy = None
+        win.touched = time.monotonic()
         win.fold(False)
         self.open.append(win)
         while len(self.open) > MAX_OPEN:
@@ -828,7 +850,7 @@ class Deck:
         card = self.history[self.pos]
         if self.open:
             self.last = card
-            self.open[-1].show(card)
+            self._newest().show(card)
         else:
             self.show(card, record=False)
         return False
@@ -860,6 +882,7 @@ class Deck:
             self.open.remove(win)
             self.open.append(win)
             self.last = win.last
+        win.touched = time.monotonic()
         win.quiet = 0.0
         win.fold(False)
         self._place()

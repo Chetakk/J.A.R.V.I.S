@@ -391,8 +391,16 @@ class UI:
         return card_id in self.card.ids()
 
     def current_card(self):
-        """The newest card on screen (or the last shown), or None."""
+        """The card on screen opened or used last (or the last shown), or None."""
         return self.card.current()
+
+    def open_cards(self):
+        """Every card on screen, the current one first."""
+        return self.card.cards()
+
+    def use_card(self, card):
+        """Make `card` (one of open_cards) the current one, before running one of its buttons."""
+        self.card.use(card)
 
     def card_step(self, delta):
         """-1: the previous card from the history, +1: the next one."""
