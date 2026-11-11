@@ -233,3 +233,12 @@ def test_the_tail_of_a_long_answer_is_still_its_echo():
     s._busy_until = time.time() - 35  # finished long ago: words like it are yours
     assert not s.said_lately()
 
+
+
+def test_the_name_and_thanks_in_one_breath_ends_it(monkeypatch):
+    """Seen in the log: "Jarvis, Tanks." went to Claude ("Thinking.") instead of ending."""
+    w = _waiting_wake("Jarvis, Tanks.", monkeypatch)
+    w.waiting_until, w.following = 0.0, False  # not listening for a command: the name wakes it
+    w.is_echo = lambda text, started: False
+    w._listen(None)
+    assert w.passed == [] and w.heard == ["done; back to waiting for the name"]

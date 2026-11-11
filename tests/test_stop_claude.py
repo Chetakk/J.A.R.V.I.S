@@ -9,7 +9,8 @@ from claude.bridge import Claude, Stopped
 from voice.wake import STOP
 
 
-@pytest.mark.parametrize("said", ["Tanks.", "Thanks.", "thank you", "Okay, thanks.", "Thank you so much.", "Stop."])
+@pytest.mark.parametrize("said", ["Tanks.", "Thanks.", "thank you", "Okay, thanks.", "Thank you so much.", "Stop.",
+                                  "Thanks. Thank you.", "I will thank you.", "Alright, thank you.", "All right, tanks."])
 def test_ends_follow_up(said):
     assert STOP.match(said)
 

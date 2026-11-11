@@ -194,9 +194,11 @@ def split_name(text, names):
     return True, ("%s %s" % (before.strip(" ,.!?-"), after)).strip(" ,.!?-")
 
 
-# Ends a follow-up early: "thanks", "okay, thank you", "that's all", "stop", "never mind".
-# ("Tanks." is how Whisper hears both "thanks" and "thank you".)
-STOP = re.compile(r"^\W*(?:ok(?:ay)?\W+)?(th?anks?(?: you)?(?: (?:so|very) much)?|thank you|that'?s all|that'?s it|stop|never ?mind|nothing|no thanks?)\W*$",
+# Ends a follow-up early: "thanks", "okay, thank you", "alright, thanks. Thank you.", "that's all", "stop", "never mind".
+# ("Tanks." is how Whisper hears both "thanks" and "thank you"; "I will thank you." is its "alright, thank you".)
+_THANKS = r"(?:th?anks?(?: you)?(?: (?:so|very) much)?|thank you)"
+STOP = re.compile(r"^\W*(?:(?:ok(?:ay)?|alright|all right|right|great|cool|perfect|i will)\W+)?"
+                  r"(%s(?:\W+%s)*|that'?s all|that'?s it|stop|never ?mind|nothing|no thanks?)\W*$" % (_THANKS, _THANKS),
                   re.IGNORECASE)
 
 
@@ -402,6 +404,9 @@ class WhisperWake:
                 continue
             if not called_by_name(text, self.names):
                 self.on_heard(text, "ignored (a short name only wakes me at the start)")
+                continue
+            if STOP.match(command) and not INTERRUPT.match(command):  # "Jarvis, thanks": nothing to do ("Jarvis, stop" still stops it)
+                self.on_heard(text, "done; back to waiting for the name")
                 continue
             if command:
                 command = self._command_again(pcm, command)
