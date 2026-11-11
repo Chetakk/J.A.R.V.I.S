@@ -34,6 +34,7 @@ class FocusMode(Skill):
         self.paused = 0.0  # seconds that were left when focus was paused
         self.since = 0.0  # when the session started (its notifications are counted at the end)
         self.pomodoro = False
+        self.ending = None  # what to say when it ends, for a session started for you (meeting mode)
         self._restore_focus()
 
     def patterns(self):
@@ -65,7 +66,7 @@ class FocusMode(Skill):
         self.focus_for(minutes)
 
     def focus_for(self, minutes, pomodoro=False):
-        self.pomodoro, self.paused, self.since = pomodoro, 0.0, time.time()
+        self.pomodoro, self.paused, self.since, self.ending = pomodoro, 0.0, time.time(), None
         held = self._start_focus(time.time() + minutes * 60)
         self.say("%s for %s. I'll keep quiet%s." % ("Pomodoro" if pomodoro else "Focus mode", _length(minutes),
             " and hold notifications" if held else ", but I couldn't hold your notification banners"))
@@ -124,8 +125,10 @@ class FocusMode(Skill):
 
     def _focus_over(self):
         if self.focus_until and time.time() >= self.focus_until - 1:
+            ending = self.ending
             self._clear_focus()
-            line = "Pomodoro done. Take a %d minute break." % BREAK if self.pomodoro else "Focus time's over. Nice work."
+            line = ending or ("Pomodoro done. Take a %d minute break." % BREAK if self.pomodoro else
+                              "Focus time's over. Nice work.")
             self.j.skills.proactive.note("focus", line, "The focus session you started ended at %s."
                                          % time.strftime("%H:%M"))
             n = self._came_in()
@@ -154,7 +157,7 @@ class FocusMode(Skill):
         self.say("Focus mode off.")
 
     def _clear_focus(self):
-        self.focus_until = 0.0
+        self.focus_until, self.ending = 0.0, None
         if self._focus_timer:
             self._focus_timer.cancel()
             self._focus_timer = None

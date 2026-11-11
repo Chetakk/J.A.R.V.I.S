@@ -3,7 +3,7 @@
 One card and a short spoken line, from what the Day Tracker already keeps: today's reminders, open to-dos,
 yesterday's time (and the projects it went on), today's goals and the week's. It also comes by itself once a
 day, the first time you're around in the morning (settings briefing; "turn off the daily briefing").
-A calendar joins it once one is connected.
+Today's Google Calendar meetings lead it once Google is connected (skills/google_calendar.py).
 
 Also drawn from the same data: "how did I spend my day" (a donut of today's time and the goals as rings), "show my
 week" (a grid of each day's hours over four weeks) and "show my schedule" (today's reminders on a timeline; "show my
@@ -27,7 +27,7 @@ class Briefing(Skill):
     does = "The day's briefing from the Day Tracker: reminders, to-dos, yesterday, goals; your day, week and calendar"
     phrases = ("brief me", "what's my day look like", "turn off the daily briefing",
                "how did I spend my day (a donut of today's time, goals as rings)",
-               "show my week (a grid of hours a day over four weeks)", "what's on my calendar today (today's reminders on a timeline)")
+               "show my week (a grid of hours a day over four weeks)", "show my schedule (today's reminders on a timeline; \"what's on my calendar\" is Google's once connected)")
     gives = "a card and a short spoken line"
     permission = "auto"
     checks = "says when the Day Tracker isn't running rather than an empty day"
@@ -112,6 +112,12 @@ class Briefing(Skill):
         worked_on = _projects(state.get("autoEntries") or [], midnight - 86400, midnight)
 
         lines, said = [], ["It's %s." % date]
+        calendar = getattr(self.j.skills, "calendar", None)
+        meet_lines, meet_said = calendar.for_briefing() if calendar else ([], "")  # Google Calendar, when connected
+        if meet_lines:
+            lines += meet_lines + [""]
+        if meet_said:
+            said.append(meet_said)
         if reminders:
             lines += ["**Reminders today**", _timeline(reminders)]
             first = reminders[0]
