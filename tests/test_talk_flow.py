@@ -89,3 +89,16 @@ def test_yeah_no_is_a_no(jv):
 def test_mm_is_still_quiet_noise(jv):
     jv.j.handle("Mm.", follow_up=True)
     assert not jv.said and jv.j.ignored
+
+
+# --- Claude Code's summaries come in on time ---
+
+def test_a_terminal_summary_is_said_at_once(jv):
+    jv.j._message({"say": "All done. The tests pass.", "why": "Claude Code finished a reply."})
+    assert jv.says("The tests pass")
+    assert jv.j.inbox.empty()  # not waiting behind the request being handled
+
+
+def test_a_card_or_phrase_still_goes_to_the_main_loop(jv):
+    jv.j._message({"do": "open youtube"})
+    assert jv.j.inbox.get_nowait() == ("ctl", {"do": "open youtube"})

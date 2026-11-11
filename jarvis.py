@@ -236,7 +236,7 @@ class Jarvis:
         self.muted_on_purpose = set()  # of those, the ones you asked for; system/health.py doesn't warn about those
         self.speaker = Speaker(self.settings.get("speech") or {})
         self.speaker.on_say = self._said
-        self.speaker.on_message = lambda msg: self.inbox.put(("ctl", msg))  # handled on the main loop
+        self.speaker.on_message = self._message
         self.speaker.quiet = lambda: persona.quiet_hours(self.settings)
         self.speaker.quiet_volume = (self.settings.get("quiet_hours") or {}).get("volume", 40)
         self.executor = Executor(self.safety, self.speaker, self.settings, self.ask)
@@ -430,7 +430,7 @@ class Jarvis:
                     kind, answer = self.inbox.get(timeout=min(left, 0.5))
                 except queue.Empty:
                     continue
-                if kind not in ("say", "offer", "task"):  # (a task's next step waits for the answer too)
+                if kind not in ("say", "offer", "task", "ctl"):  # (a task's next step waits for the answer too)
                     break
                 deferred.append((kind, answer))
         except queue.Empty:
@@ -991,6 +991,15 @@ class Jarvis:
                 self.muted_on_purpose.add(key)
         if self.ui:
             self.ui.set_mutes(**self.mutes)
+
+    def _message(self, msg):
+        """A message from tools/jarvis, on the pipe's thread. A line to say (Claude Code finished a reply) is said
+        now, after whatever is being said: on the main loop it waited behind the request being handled and came
+        late. A card or a phrase to do goes to the main loop."""
+        if msg.get("say") and not msg.get("show") and not msg.get("do"):
+            self.control(msg)  # (safe here: a locked note, then queued speech)
+        else:
+            self.inbox.put(("ctl", msg))
 
     def control(self, msg):
         """A message from tools/jarvis (the Claude terminal, a fix task, VS Code): show a card or do a phrase."""
