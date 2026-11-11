@@ -365,3 +365,55 @@ def test_the_wrap_collects_what_waits_on_you(g):
     g.do("wrap up my day")
     assert g.says("Before you go", "One email waiting on you, from Rahul", "Priya is waiting on Chat",
                   "One meeting tomorrow, Stand-up at 10 am", "One to-do still open")
+
+
+# --- people and projects ---
+
+def _who(name, email, title=""):
+    return {"names": [{"displayName": name}], "emailAddresses": [{"value": email}],
+            "organizations": [{"title": title, "name": "BiztelAI"}] if title else []}
+
+
+def _mail_meta(args):
+    return {"id": args.get("id"), "threadId": "t1", "internalDate": str(int(time.time() * 1000)),
+            "payload": {"headers": [{"name": "From", "value": "Rahul Sharma <rahul@biztel.ai>"},
+                                    {"name": "Subject", "value": "UPE camera mount"}]}, "snippet": "New bracket"}
+
+
+def test_who_is_a_contact_shows_what_is_going_on_with_them(g):
+    g.g.on("people.people.searchDirectoryPeople", {"people": [_who("Rahul Sharma", "rahul@biztel.ai",
+                                                                   "Vision engineer")]})
+    g.g.on("gmail.users.messages.list", {"messages": [{"id": "m1"}]}).on("gmail.users.messages.get", _mail_meta)
+    g.g.on("calendar.events.list", events(ev("a", "Stand-up", at(1, 10), people=["rahul@biztel.ai"],
+                                             link="https://meet.google.com/abc")))
+    g.g.on("drive.files.list", {"files": [{"id": "f1", "name": "Q4 tracker", "webViewLink": "https://docs.google.com/f1",
+                                           "mimeType": "application/vnd.google-apps.spreadsheet",
+                                           "modifiedTime": iso(time.time() - 86400)}]})
+    g.do("who is rahul")
+    card = g.cards[-1]
+    assert card["title"] == "Rahul Sharma"
+    assert "Last email" in card["text"] and "UPE camera mount" in card["text"]
+    assert "Next meeting together | Stand-up" in card["text"] and "file:sheet | [Q4 tracker]" in card["text"]
+    assert "Rahul Sharma, vision engineer." in g.said[-1] and "Stand-up, tomorrow at 10 am" in g.said[-1]
+    assert not g.claude.calls
+
+
+def test_two_namesakes_ask_which_and_the_pick_is_remembered(g):
+    from skills import google_common
+    g.g.on("people.people.searchDirectoryPeople", {"people": [_who("Rahul Sharma", "rahul@biztel.ai"),
+                                                              _who("Rahul Menon", "menon@biztel.ai")]})
+    g.do("what's going on with rahul")
+    pick = g.cards[-1]
+    assert pick["title"] == "Which Rahul?" and [c["label"] for c in pick["choices"]] == ["Rahul Sharma", "Rahul Menon"]
+    assert "Which Rahul: Rahul Sharma or Rahul Menon?" in g.said[-1]
+    g.do(pick["choices"][1]["do"])
+    assert g.cards[-1]["title"] == "Rahul Menon"
+    assert google_common.ALIASES["rahul"] == "menon@biztel.ai" == g.j.memory.pref("people_aliases")["rahul"]
+    assert google_common.find_email(None, "Rahul") == "menon@biztel.ai"  # and so everywhere else
+
+
+def test_someone_not_in_your_contacts_is_not_ours(g):
+    assert g.j.skills.people.lookup("elon musk") == []  # (goes on to Wikipedia)
+    from skills.people import looks_like_name
+    assert not looks_like_name("the president of india") and not looks_like_name("my computer")
+

@@ -12,6 +12,7 @@ from skills.base import Skill
 from system import google_account as google
 from system.google_account import GoogleError
 
+ALIASES = {}  # "rahul" -> the address you picked for that name (skills/people.py keeps it in a pref)
 DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 
@@ -143,7 +144,7 @@ def short(text, words=18):
 def find_email(api_for, name):
     """The address of `name` ("Rahul"): Workspace directory, your contacts, then the From of mail they sent you.
     api_for(service, version) gives a client; None if nobody matches."""
-    name = name.strip()
+    name = ALIASES.get(name.strip().lower(), name.strip())
     if "@" in name:
         return name
     try:

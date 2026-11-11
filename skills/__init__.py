@@ -47,6 +47,7 @@ from skills.network import Network
 from skills.nano import Nano
 from skills.notes import Notes
 from skills.notifications import Notifications
+from skills.people import People
 from skills.organise import Organise
 from skills.proactive import Proactive
 from skills.projects import Projects
@@ -69,7 +70,7 @@ from skills.wrap import Wrap
 ORDER = [
     ("cards", Cards), ("missing", Missing), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
     ("focus_mode", FocusMode), ("maths", Maths), ("weather", Weather), ("proactive", Proactive), ("notifications", Notifications),
-    ("calendar", Calendar), ("gmail", Gmail), ("google_chat", GoogleChat), ("drive", Drive), ("wrap", Wrap),
+    ("calendar", Calendar), ("gmail", Gmail), ("google_chat", GoogleChat), ("drive", Drive), ("people", People), ("wrap", Wrap),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
