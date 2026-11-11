@@ -602,6 +602,6 @@ commands:
 
   - name: gpu_usage
     say: [what is my gpu usage, gpu usage, gpu load]
-    run: cat /sys/devices/gpu.0/load
+    run: echo $(( $(cat /sys/devices/gpu.0/load) / 10 ))  # the Jetson gives per mille
     reply: The GPU is at {output} percent.
     output: true
