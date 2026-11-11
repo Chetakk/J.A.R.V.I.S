@@ -4,12 +4,12 @@ jarvis.watch."""
 import datetime
 import functools
 import re
-import shlex
 import threading
 import time
 
 from skills.base import Skill
 from system import google_account as google
+from system.browser import open_command
 from system.google_account import GoogleError
 
 ALIASES = {}  # "rahul" -> the address you picked for that name (skills/people.py keeps it in a pref)
@@ -65,7 +65,7 @@ class GoogleSkill(Skill):
         pass
 
     def open_url(self, url, reply="Opening it."):
-        self.j.executor.run("xdg-open %s" % shlex.quote(url), reply=reply, window=True)
+        self.j.executor.run(open_command(url, work=True), reply=reply, window=True)  # a Zoom link too: work
 
 
 def parse_time(stamp):

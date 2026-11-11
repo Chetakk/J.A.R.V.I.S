@@ -65,9 +65,9 @@ def test_last_message_from_someone_found_by_name(g):
 def test_open_a_chat_or_a_space(g):
     _world(g)
     g.do("open my chat with anish")
-    assert g.shell.ran(r"xdg-open https://chat\.google\.com/dm/dm1")
+    assert g.shell.ran(r"firefox --new-tab https://chat\.google\.com/dm/dm1")
     g.do("open the design space")
-    assert g.shell.ran(r"xdg-open https://chat\.google\.com/room/design")
+    assert g.shell.ran(r"firefox --new-tab https://chat\.google\.com/room/design")
 
 
 def test_search_chat(g):
@@ -94,9 +94,9 @@ def test_open_and_read_what_was_shared(g):
                                           _shared("1", "Budget", "Rahul Kumar", mime="application/pdf")]})
     g.g.on("drive.files.export", b"Launch on Monday. Owners: Priya.")
     g.do("open the latest shared file")
-    assert g.shell.ran(r"xdg-open https://docs\.google\.com/2")
+    assert g.shell.ran(r"firefox --new-tab https://docs\.google\.com/2")
     g.do("open what rahul shared")
-    assert g.shell.ran(r"xdg-open https://docs\.google\.com/1")
+    assert g.shell.ran(r"firefox --new-tab https://docs\.google\.com/1")
     g.do("read what priya shared")
     assert g.says("Launch on Monday")
     g.do("read what rahul shared")

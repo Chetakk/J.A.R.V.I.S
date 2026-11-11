@@ -33,6 +33,7 @@ gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Pango", "1.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango  # noqa: E402
 
+from system.browser import on_link  # noqa: E402
 from ui import blocks  # noqa: E402
 from ui.window import GLOW, PANEL_H, PANEL_W, _clear, _make_transparent  # noqa: E402
 
@@ -238,6 +239,7 @@ def _label(markup, cls=None, mono=False):
         lab.get_style_context().add_class("mono")
     else:
         lab.set_markup(markup)
+        lab.connect("activate-link", on_link)
     if cls:
         lab.get_style_context().add_class(cls)
     return lab
@@ -299,6 +301,7 @@ def _rows(lines, first=None):
             if part:
                 lab = Gtk.Label(xalign=0)
                 lab.set_markup(_inline(part))
+                lab.connect("activate-link", on_link)
                 lab.set_ellipsize(Pango.EllipsizeMode.END)
                 lab.set_max_width_chars(44)
                 lab.get_style_context().add_class(cls)

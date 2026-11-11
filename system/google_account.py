@@ -108,7 +108,7 @@ def sign_in():
     from google_auth_oauthlib.flow import InstalledAppFlow
     try:
         c = InstalledAppFlow.from_client_secrets_file(CLIENT, SCOPES).run_local_server(
-            port=0, prompt="consent", timeout_seconds=300)
+            port=0, prompt="consent", timeout_seconds=300, browser="firefox")  # the work account's browser
     except AttributeError:  # (what the library raises when nobody finished signing in within the timeout)
         raise GoogleError("the sign-in timed out")
     if not keyring.store(TOKEN, _saved(c, c.granted_scopes or SCOPES)):

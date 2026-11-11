@@ -82,6 +82,26 @@ class BrowserAction:
         return " ; ".join("xdg-open %s" % shlex.quote(u) for u in self.urls)
 
 
+_GOOGLE = re.compile(r"^https?://(?:[\w-]+\.)*google\.com(?:[/:?#]|$)", re.IGNORECASE)
+WORK_BROWSER = "firefox"  # where the work Google account (system/google_account.py) is signed in
+
+
+def open_command(url, work=False):
+    """The command that opens `url`: Google's pages (and work=True ones) in Firefox, the rest in the default
+    browser, which is signed in to the personal Google account."""
+    if work or _GOOGLE.match(url):
+        return "%s --new-tab %s" % (WORK_BROWSER, shlex.quote(url))
+    return "xdg-open %s" % shlex.quote(url)
+
+
+def on_link(_label, url):
+    """A label's activate-link: a clicked Google link opens in Firefox; others go to GTK's default handler."""
+    if not _GOOGLE.match(url):
+        return False
+    subprocess.Popen([WORK_BROWSER, "--new-tab", url], start_new_session=True)
+    return True
+
+
 def default_browser(browsers):
     """The key in `browsers` for the system's default browser (its `desktop` file), else None."""
     try:

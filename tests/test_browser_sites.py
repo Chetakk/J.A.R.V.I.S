@@ -275,3 +275,11 @@ def test_work_and_personal_browser(jv, said, cmd):
     jv.j.registry.reload()
     jv.do(said)
     assert opened(jv) == [cmd]
+
+
+def test_google_links_open_in_the_work_browser():
+    from system.browser import open_command
+    assert open_command("https://mail.google.com/mail/u/0/#all/abc") == "firefox --new-tab 'https://mail.google.com/mail/u/0/#all/abc'"
+    assert open_command("https://meet.google.com/x") == "firefox --new-tab https://meet.google.com/x"
+    assert open_command("https://zoom.us/j/1", work=True) == "firefox --new-tab https://zoom.us/j/1"
+    assert open_command("https://notgoogle.com.evil.io/") == "xdg-open https://notgoogle.com.evil.io/"

@@ -146,7 +146,7 @@ def test_join_opens_the_call_and_goes_into_meeting_mode(g):
     g.g.on("calendar.events.list", events(ev("a", "Stand-up", time.time() - 120, people=["p@biztel.ai"],
                                              link="https://meet.google.com/xyz")))
     g.do("join my meeting")
-    assert g.shell.ran(r"xdg-open https://meet\.google\.com/xyz")
+    assert g.shell.ran(r"firefox --new-tab https://meet\.google\.com/xyz")
     fm = g.j.skills.focus_mode
     assert fm.focusing() and "Stand-up is over" in fm.ending
 

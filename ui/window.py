@@ -17,6 +17,7 @@ gi.require_version("AppIndicator3", "0.1")
 from gi.repository import AppIndicator3, Gdk, GLib, Gtk, Pango  # noqa: E402
 import cairo  # noqa: E402
 
+from system.browser import on_link  # noqa: E402
 from system.terminal import RUN_DIR  # noqa: E402
 from voice.level import level as mic_level  # noqa: E402
 
@@ -891,6 +892,7 @@ class UI:
         label = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, selectable=True, can_focus=False)
         markup = _markup(text) if kind in ("jarvis", "claude") else None  # **bold**, `code`, [links](...)
         label.set_markup(markup) if markup else label.set_text(text)
+        label.connect("activate-link", on_link)
         label.set_tooltip_text(time.strftime("%H:%M", time.localtime(at)))
         label.chat_who = kind
         label.connect("populate-popup", self._label_menu)

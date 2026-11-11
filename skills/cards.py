@@ -14,6 +14,7 @@ import time
 
 from skills.base import Skill
 from skills.helpers import NTH, ORDINALS
+from system.browser import open_command
 from ui.card import choices, links, plain
 from claude.bridge import WORKSPACE
 from core.safety import AUTO
@@ -130,7 +131,7 @@ class Cards(Skill):
         if not url:
             self.say("There are only %d links on the card." % len(urls))
             return
-        self.j.executor.run("xdg-open %s" % url, reply="Opening it.", window=True)
+        self.j.executor.run(open_command(url), reply="Opening it.", window=True)
 
     def read(self, m):
         card = self._card()
