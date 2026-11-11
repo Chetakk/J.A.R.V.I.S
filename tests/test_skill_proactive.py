@@ -118,7 +118,7 @@ def test_why_with_nothing_brought_up(jv, p):
 
 def test_recent_with_none(jv, p):
     jv.do("show my recent alerts")
-    assert jv.said == ["I haven't brought anything up yet."]
+    assert jv.said == ["No alerts saved yet. New mail, meeting changes and other heads-ups will be listed here as they come in."]
 
 
 def test_a_damaged_alerts_file_is_an_empty_list(jv, p):

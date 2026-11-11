@@ -201,7 +201,7 @@ class Proactive(Skill):
             unread = sum(not e.get("read") for e in self.log)
             held = len(self.held)
         if not shown:
-            self.say("I haven't brought anything up yet.")
+            self.say("No alerts saved yet. New mail, meeting changes and other heads-ups will be listed here as they come in.")
             return
         rows = ["%s | %s%s | %s | %s" % (GLYPH.get(e["kind"].split(":")[0], "•"), "" if e.get("read") else "● ",
                                          _cell((e.get("card") or {}).get("title") or e["kind"].split(":")[0].capitalize()),
