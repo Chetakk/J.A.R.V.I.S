@@ -131,7 +131,7 @@ class WakeWord:
                 if self.on_wake:
                     self.on_wake(False)
             else:
-                beep(660)
+                beep("end")
                 threading.Thread(target=self.on_audio, args=(b"".join(recent) + pcm,), daemon=True).start()
             recent.clear()
             stream = self.kws.create_stream()
@@ -342,7 +342,7 @@ class WhisperWake:
                         self.on_stop()
                     self.on_wake(False)
                     continue
-                beep(660)
+                beep("end")
                 print("[wake] command: %r" % command)
                 self.on_heard(text, "follow-up" if self.following and not named else "command")
                 self.last_request = time.time()
@@ -361,7 +361,7 @@ class WhisperWake:
             self.on_wake(True)
             if command:
                 self.on_heard(text, "woke, command: %s" % command)
-                beep(660)
+                beep("end")
                 self.last_request = time.time()
                 self.on_text(command, False)
             else:
@@ -422,7 +422,7 @@ class WhisperWake:
 
     def _pass_on(self, heard, command, follow_up, outcome):
         self.waiting_until = 0.0
-        beep(660)
+        beep("end")
         print("[wake] command: %r" % command)
         self.on_heard(heard, outcome)
         self.last_request = time.time()

@@ -39,13 +39,35 @@ def active_window_title():
         return ""
 
 
-def beep(freq=880, seconds=0.08):
-    """A short tone so you know JARVIS is listening. Never blocks and never raises."""
+SOUND_VOLUME = 0.16  # peak of the wake / end sounds (1.0 = full scale): well under JARVIS's voice
+
+
+def _marimba(notes, volume):
+    """Soft wooden marimba knocks: [(start s, Hz)] -> 16-bit PCM at 22050 Hz."""
+    rate, out = 22050, [0.0] * int(22050 * (max(start for start, _ in notes) + 0.25))
+    for start, hz in notes:
+        first = int(rate * start)
+        for i in range(int(rate * 0.25)):
+            t = i / rate
+            knock = (math.sin(2 * math.pi * hz * t) + 0.25 * math.sin(2 * math.pi * hz * 4 * t)) * min(1, t / 0.005)
+            out[first + i] += knock * math.exp(-21 * t)
+    top = max(abs(x) for x in out) or 1
+    out[-220:] = [x * (1 - k / 220) for k, x in enumerate(out[-220:])]  # no click at the end
+    return b"".join(struct.pack("<h", int(32767 * volume * x / top)) for x in out)
+
+
+_SOUNDS = {}
+
+
+def beep(kind="wake"):
+    """The marimba sound: "wake" (two knocks going up: JARVIS is listening) or "end" (one low knock: it stopped).
+    Never blocks and never raises."""
     def play():
-        n = int(22050 * seconds)
-        pcm = b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * freq * i / 22050))) for i in range(n))
+        if kind not in _SOUNDS:
+            _SOUNDS[kind] = _marimba([(0, 523.0)] if kind == "end" else [(0, 784.0), (0.08, 1047.0)],
+                                     SOUND_VOLUME * (0.9 if kind == "end" else 1))
         try:
-            subprocess.run(["aplay", "-q", "-r", "22050", "-f", "S16_LE", "-t", "raw", "-"], input=pcm,
+            subprocess.run(["aplay", "-q", "-r", "22050", "-f", "S16_LE", "-t", "raw", "-"], input=_SOUNDS[kind],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
         except (OSError, subprocess.SubprocessError):
             pass
@@ -205,7 +227,7 @@ class PushToTalk:
             self.recording = False
             pcm = self.recorder.stop()
             if len(pcm) >= RATE * 2 * MIN_SECONDS:
-                beep(660)
+                beep("end")
                 threading.Thread(target=self.on_audio, args=(pcm,), daemon=True).start()
             else:
                 print("[ptt] too short (%.1f s); hold the key while you speak" % (len(pcm) / (RATE * 2)))
