@@ -48,7 +48,9 @@ class GoogleChat(GoogleSkill):
              r"(space|room|group|chat)(?: on %s)?" % CHAT, self.summarise),
             (r"what (?:did|has) (.+?) (?:say|said|send|sent|write|written)(?: me)?(?: (?:on|in) %s| lately| today)?|"
              r"(?:read|show)(?: me)? (?:my )?(?:chats?|messages?) (?:from|with) (.+?)(?: (?:on|in) %s)?|any (?:chat )?"
-             r"messages from (.+?)(?: (?:on|in) %s)?" % (CHAT, CHAT, CHAT), self.from_person),
+             r"messages from (.+?)(?: (?:on|in) %s)?|did (.+?) (?:message|ping|text|dm|chat with) me(?: (?:on|in) %s)?"
+             r"(?: today| yet)?|what(?:'s| is) (.+?) saying(?: (?:on|in) %s)?" % (CHAT, CHAT, CHAT, CHAT, CHAT),
+             self.from_person),
             (r"(?:any |do i have (?:any )?|have i got (?:any )?)(?:new |unread )?(?:messages (?:on|in) %s|%s(?: "
              r"messages?)?)|(?:read|show|check)(?: me)? (?:my )?(?:new |unread )?(?:%s(?: messages)?|messages (?:on|in) "
              r"%s)|what did i miss (?:on|in) %s" % (CHAT, CHAT, CHAT, CHAT, CHAT), self.catch_up),

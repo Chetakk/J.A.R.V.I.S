@@ -29,6 +29,7 @@ LINK = re.compile(r"https://(?:[\w-]+\.)*(?:zoom\.us|teams\.microsoft\.com|teams
 DAY = r"(today|tonight|tomorrow|this week|next week|(?:on |next |this )?(?:%s))" % "|".join(DAYS)
 MEETINGS = r"(?:meetings?|calls?|events?|appointments?)"
 PARTS = {"morning": (9, 12), "afternoon": (12, 17), "evening": (17, 21)}
+CLOCK = r"\d{1,2}(?:[:.]\d\d)?(?: ?[ap]\.? ?m\.?| o'?clock)?"
 
 
 class Calendar(GoogleSkill):
@@ -59,7 +60,9 @@ class Calendar(GoogleSkill):
             (r"(?:connect|link|reconnect|sign (?:in|into)|log ?in(?: to)?) (?:to )?(?:my )?(?:google|gmail|google "
              r"calendar)(?: account)?(?: again)?", self.connect),
             (r"(?:schedule|set up|book|arrange|organi[sz]e) (?:a |an )?(?:new )?(?:quick |short )?"
-             r"(?:meeting|call|sync|catch[- ]?up|one on one|1:1)(?: .*)?", self.schedule),
+             r"(?:meeting|call|sync|catch[- ]?up|one on one|1:1)(?: .*)?|(?:create|set|put|add) (?:a |an )(?:new )?"
+             r"(?:quick |short )?(?:meeting|call|sync|catch[- ]?up|one on one)(?: .*)?|book (?:some )?time with .+",
+             self.schedule),
             (r"(accept|decline|reject|say yes to|say no to|tentatively accept|maybe) (?:(?:the |that |this |my )?"
              r"(?:last |latest |new )?(?:invite|invitation|meeting(?: invite)?)(?: from (.+))?|it|that(?: one)?)",
              self.respond),
@@ -73,8 +76,14 @@ class Calendar(GoogleSkill):
              r"i got) (?:a |any )?%s (?:now|right now|soon|next|coming up)|(?:what|which) %s (?:am i in|is on) (?:right )?"
              r"now|what'?s my next %s" % (MEETINGS, MEETINGS, MEETINGS, MEETINGS, MEETINGS), self.next_meeting),
             (r"am i (free|busy|available) (?:at|around|by) (.+?)(?: (today|tomorrow|on \w+day))?", self.free_at),
+            (r"(?:do i have|have i got|is there) anything (?:on )?(?:at|around) (.+?)(?: (today|tomorrow|on \w+day))?|"
+             r"is (?:my calendar |my schedule )?(?:free|open|clear) (?:at|around) (.+?)(?: (today|tomorrow|on \w+day))?|"
+             r"is (%s)(?: (today|tomorrow|on \w+day))? (?:free|open|ok)|can i do (%s)(?: (today|tomorrow|on \w+day))?"
+             % (CLOCK, CLOCK), self.free_at_other),
             (r"when am i (?:free|available)(.*)|(?:find|do i have|is there|have i got|any) (?:some |any )?(?:free "
-             r"time|time free|free slots?|gaps?)(.*)", self.free_time),
+             r"time|time free|free slots?|gaps?)(.*)|find me (?:some )?(?:free )?time(.*)|when (?:do|will|would) i have "
+             r"(?:some )?(?:free )?time(.*)|when(?:'s| is) my next free (?:slot|time|gap)(.*)|where are the gaps in my "
+             r"(?:day|calendar|schedule)(.*)|when can i fit (?:something|a meeting|it|this) in(.*)", self.free_time),
             (r"(?:do|have) (?:we|i) (?:have|got) (?:any )?%s(?: (?:on|for))?(?: %s)?|(?:any|how many|what|which) "
              r"%s(?: (?:do|have) (?:i|we)(?: (?:got|have))?)?(?: (?:on|for))?(?: %s)?|(?:my |the )?%s %s|"
              r"what(?:'s| is) on (?:my |the )?(?:google )?calendar(?: (?:on|for))?(?: %s)?|(?:show|check|read)(?: me)? "
@@ -156,7 +165,16 @@ class Calendar(GoogleSkill):
             self.j.show(self.prep_card(upcoming[0]))  # (after speaking: its email and chat take a moment)
 
     def free_at(self, m):
-        busy_word, at, day = m.group(1).lower(), m.group(2), m.group(3)
+        return self._free(m.group(1).lower(), m.group(2), m.group(3))
+
+    def free_at_other(self, m):
+        """"do I have anything at 3", "is 3 o'clock free", "can I do 3 pm tomorrow", "is my calendar free at 4"."""
+        g = m.groups()
+        at, day = next((g[i], g[i + 1]) for i in range(0, len(g), 2) if g[i])
+        return self._free("free", at, day)
+
+    def _free(self, busy_word, at, day):
+        at = re.sub(r"\s*o'?clock", "", at, flags=re.I)
         from skills.todos import parse_when
         ts = parse_when(("%s at %s" % (day, at)) if day in ("today", "tomorrow") else "at " + at)
         if ts is None:
@@ -693,7 +711,7 @@ def parse_meeting(text):
     """"schedule a meeting with Rahul and Priya tomorrow at 3 about the launch for 45 minutes" ->
     (start, minutes, ["Rahul", "Priya"], "the launch"), or None without a clock time."""
     t = " %s " % text.lower()
-    stop = r"(?= about | to discuss | regarding | on (?:%s)| today| tonight| tomorrow| next | at | for |\s*$)" % \
+    stop = r"(?= about | to discuss | regarding | (?:in|to|on|into) my | on (?:%s)| today| tonight| tomorrow| next | at | for |\s*$)" % \
         "|".join(DAYS)
     who = re.search(r" with (.+?)%s" % stop, t)
     topic = re.search(r" (?:about|to discuss|regarding) (.+?)(?= with | on (?:%s)| today| tomorrow| at | for "
