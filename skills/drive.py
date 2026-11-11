@@ -4,7 +4,8 @@ Sheets and Slides read as text; "summarise it" and "read the rest" carry on as f
 
 A name that isn't in Drive falls through to your own files (skills/documents.py).
 
-"What's been shared with me" lists files people shared with you lately; and by itself, every 2 minutes, a newly
+"What's been shared with me" lists files people shared with you lately, "open what Rahul shared" / "open the
+latest shared file" opens one, and "read" / "summarise what Priya shared" reads a shared Doc, Sheet or Slides; and by itself, every 2 minutes, a newly
 shared Doc, Sheet or file is said ("Rahul shared Budget 2026, a sheet, with you") with a card to open it (settings
 google share_alerts: false turns it off). Shared links pasted into Chat or mail come with those messages instead."""
 import os
@@ -29,7 +30,8 @@ class Drive(GoogleSkill):
             "people shared with you; says newly shared files")
     every = 120
     phrases = ("find <name> in my drive", "what did I edit yesterday", "read the <name> doc",
-               "summarise the <name> doc", "what's been shared with me")
+               "summarise the <name> doc", "what's been shared with me", "open what <name> shared",
+               "open the latest shared file", "summarise what <name> shared")
     gives = "a card of files (open one with open the second link), or the text read aloud"
     permission = "auto"
     checks = "searches Drive itself; a name it can't find there goes on to your own files"
@@ -52,6 +54,14 @@ class Drive(GoogleSkill):
              r"week)?|(?:show |list )?(?:me )?(?:the )?(?:files|docs|documents|sheets|things) (?:people |anyone )?shared "
              r"with me(?: lately| recently| today| this week)?|(?:did|has) (?:anyone|anybody|someone) shared? (?:anything|"
              r"a doc|a file|a sheet|a document)(?: with me)?(?: lately| recently| today)?", self.shared),
+            (r"open (?:what|whatever|the (?:doc|file|sheet|document|thing|one)(?: that)?) (.+?) (?:just )?shared(?: with "
+             r"me)?|open (?:the )?(?:last |latest |newest |most recent |new )?(?:doc |file |sheet |document |thing |one )?"
+             r"(?:that was |that's been |that got |i got |was |just )?shared with me(?: by (.+))?|open (?:the )?(?:last|"
+             r"latest|newest|most recent|new) shared (?:doc|file|sheet|document|spreadsheet|thing|one)(?: from (.+))?",
+             self.open_shared),
+            (r"(read|summari[sz]e|sum up)(?: me)? (?:what|whatever|the (?:doc|file|sheet|document|thing|one)(?: that)?) "
+             r"(.+?) (?:just )?shared(?: with me)?|(read|summari[sz]e|sum up)(?: me)? (?:the )?(?:last |latest |newest )?"
+             r"(?:shared )?(?:doc|file|sheet|document|thing) (?:that was |that's been )?shared with me", self.read_shared),
             (r"(read|summari[sz]e|sum up)(?: me)? (?:the |my |our )?(.+?) %s(?: (?:from|in|on) (?:my |google )?drive)?"
              % DOC, self.read),
         ]
@@ -98,7 +108,9 @@ class Drive(GoogleSkill):
         files = [f for f in self.search(name, text=False) if f["mimeType"] in EXPORT]
         if not files:
             return False  # not in Drive: your own documents (skills/documents.py)
-        f = files[0]
+        self._read_file(verb, files[0])
+
+    def _read_file(self, verb, f):
         drive = self.api("drive", "v3")
         data = google.run(drive.files().export(fileId=f["id"], mimeType=EXPORT[f["mimeType"]]))
         text = (data.decode("utf-8", "replace") if isinstance(data, bytes) else str(data or "")).strip()
@@ -111,6 +123,37 @@ class Drive(GoogleSkill):
             return
         reading.text, reading.parts, reading.at = text, [], time.time()  # "read the rest" / "summarise it" next
         reading.summarise()
+
+    def open_shared(self, m):
+        name = next((g for g in m.groups() if g), None)
+        f = self._shared_pick(name)
+        if not f:
+            self.say("Nothing's been shared with you%s this month." % (" by %s" % name if name else ""))
+            return
+        self.open_url(f.get("webViewLink") or "https://drive.google.com/drive/shared-with-me",
+                      reply="Opening %s, from %s." % (f["name"], _who(f)))
+
+    def read_shared(self, m):
+        g = m.groups()
+        verb, name = (g[0] or g[2]).lower(), g[1]
+        f = self._shared_pick(name)
+        if not f:
+            self.say("Nothing's been shared with you%s this month." % (" by %s" % name if name else ""))
+            return
+        if f["mimeType"] not in EXPORT:
+            self.say("%s is a %s, and I can only read Docs, Sheets and Slides. Say open what %s shared." % (
+                f["name"], _kind(f), _who(f)))
+            return
+        self._read_file(verb, f)
+
+    def _shared_pick(self, name=None):
+        """The newest file shared with you in the last month, by `name` ("Rahul") when given."""
+        files = self._shared_lately(time.time() - 30 * 86400)
+        if name:
+            want = name.lower().strip()
+            files = [f for f in files if want in ("%s %s" % ((f.get("sharingUser") or {}).get("displayName") or "", (
+                f.get("sharingUser") or {}).get("emailAddress") or "")).lower()]
+        return files[0] if files else None
 
     def shared(self, m):
         files = self._shared_lately(time.time() - 7 * 86400)
