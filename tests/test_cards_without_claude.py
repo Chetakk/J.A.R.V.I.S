@@ -63,6 +63,21 @@ def test_dashboard_with_a_project_running(jv):
     assert "study" in shown(jv, "Dashboard")["text"].lower()
 
 
+def test_dashboard_draws_what_the_ui_reads(jv):
+    from types import SimpleNamespace
+    jv.j.ui.extras = {"next": "9:30 standup", "unread": 2, "alerts": 1}
+    jv.j.ui.bar = SimpleNamespace(body=SimpleNamespace(cpu=33, gpu=0, free=0.5, hottest=81, _cpu=(1, 1)))
+    jv.do("show my dashboard")
+    text = shown(jv, "Dashboard")["text"]
+    assert "2 | notifications" in text and "1 | alerts" in text and "9:30 | standup" in text
+    assert text.startswith("```hero") and "CPU: 35%\n" in text and "Temp: 80 / 100 °C warn" in text
+
+
+def test_brief_me_opens_the_dashboard_too(jv):
+    jv.do("brief me")
+    assert shown(jv, "Dashboard")
+
+
 def test_timer_done(jv):
     jv.do("set a timer for 1 second")
     time.sleep(1.6)

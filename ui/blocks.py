@@ -40,6 +40,7 @@ gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
+ORB = None  # the bar's orb painter (cr, w, h), set by ui/window.py: a card's ```hero draws the same live orb
 W = 432  # a card's drawing width (CARD_W less its padding)
 # ok = frosted white (free / done), warn = crimson #CC0033 (needs you), bad = midnight indigo #0B0F19
 # (cancelled / overdue), check = electric cyan #00F2FE (now / new). A 4th value is the colour's own opacity.

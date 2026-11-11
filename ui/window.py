@@ -288,6 +288,8 @@ class UI:
         self.extras = {}  # what the idle compact bar may add after "Ready" (ui/extras.py keeps it fresh)
         from ui.bar import Bar  # needs the names above, so imported here
         self.bar = Bar(self, bool(self._prefs.get("understood", True)))
+        from ui import blocks
+        blocks.ORB = self._paint_orb  # the dashboard's ```hero shows the same orb, mood and eye
         self._build_panel()
         from ui.card import Deck
         self._chat_on = False

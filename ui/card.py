@@ -7,7 +7,8 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
   ``` blocks, a ```bars block ("Label: 55%" per line), a ```rows block ("RS | Rahul Sharma {check} | Re: budget
   | 9:12" per line: initials, a glyph or file:pdf, then who, what, when; without the first cell the initials are
   made from who), a ```people block (a name per line, "+3" for the rest: initials in circles), a ```stats block
-  ("9 | emails" per line: big numbers side by side), [[55%]] meters, "> quote", "---", **bold**, *italic*,
+  ("9 | emails" per line: big numbers side by side), a ```hero block (the live orb beside a heading, a line and
+  stats tiles), [[55%]] meters, "> quote", "---", **bold**, *italic*,
   `code`, [links](https://...); drawn blocks (```ring, ```steps, ```weather, ```map... see ui/blocks.py) and
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
 - tick / untick: phrases a clicked checkbox says ("tick todo {n}", numbered from 1); without them a click only
@@ -25,6 +26,7 @@ import math
 import re
 import time
 
+import cairo
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -41,6 +43,7 @@ CARD_W, CARD_MAX_H = 460, 530  # a full card is about as tall as the chat panel 
 HISTORY = 10
 MAX_OPEN = 10  # cards on screen at once; opening one more closes the oldest
 GAP = 10 - 2 * GLOW  # windows overlap by their glow margins, so the glass itself is 10 px apart
+HERO_ORB = 96  # the orb's size in a ```hero block
 BUTTONS = 6  # a card shows this many choices as buttons; the rest you pick by number
 
 CSS = b"""
@@ -209,7 +212,7 @@ def plain(card):
                 said = blocks.spoken(kind, block) if kind in blocks.KINDS else _spoken_rows(block) if \
                     kind == "rows" else _spoken_people(block) if kind == "people" else \
                     [", ".join(" ".join(c.strip() for c in l.split("|")) for l in block if l.strip())] if \
-                    kind == "stats" else \
+                    kind in ("stats", "hero") else \
                     [] if kind in ("log", "git", "") else block
                 lines += [l.rstrip(".") + "." for l in said]
                 kind = None
@@ -357,6 +360,40 @@ def _stats(lines):
     return box
 
 
+def _hero(lines):
+    """A ```hero block: the bar's live orb (blocks.ORB) with, beside it, a heading and a line (the lines without
+    "|") over ```stats tiles (the "9 | running" lines)."""
+    box = Gtk.Box(spacing=14)
+    orb = Gtk.DrawingArea()
+    orb.set_size_request(HERO_ORB, HERO_ORB)
+    orb.set_valign(Gtk.Align.CENTER)
+
+    def draw(_w, cr):
+        # its own surface: a frame that fails half-way can't leave the card's context in a pushed group
+        own = cairo.ImageSurface(cairo.FORMAT_ARGB32, HERO_ORB, HERO_ORB)
+        try:
+            blocks.ORB(cairo.Context(own), HERO_ORB, HERO_ORB)
+        except Exception:  # no orb (no bar) or a bad frame: an empty corner rather than a broken card
+            return False
+        cr.set_source_surface(own, 0, 0)
+        cr.paint()
+        return False
+    orb.connect("draw", draw)
+    box.pack_start(orb, False, False, 0)
+    side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    side.set_valign(Gtk.Align.CENTER)
+    for n, line in enumerate(l for l in lines if l.strip() and "|" not in l):
+        lab = _label(_inline(line.strip()), "heading1" if n == 0 else "what")
+        lab.set_selectable(False)  # a selectable first label opens selected
+        side.pack_start(lab, False, False, 0)
+    side.pack_start(_stats([l for l in lines if "|" in l]), False, False, 0)
+    box.pack_start(side, True, True, 0)
+    if blocks.ORB:
+        box.every = 0.05
+        box.queue_draw = orb.queue_draw  # Card._tick redraws "the block": only the orb moves, not the tiles
+    return box
+
+
 def _spoken_rows(lines):
     out = []
     for line in lines:
@@ -437,7 +474,8 @@ def build(text, numbered=False):
                 rows += len([l for l in block if l.strip()])
             else:
                 chart = _bars(block) if kind == "bars" else \
-                _people(block) if kind == "people" else _stats(block) if kind == "stats" else blocks.make(kind, block)
+                _people(block) if kind == "people" else _stats(block) if kind == "stats" else \
+                _hero(block) if kind == "hero" else blocks.make(kind, block)
             widgets.append(chart or _label("\n".join(block), mono=True))
         elif line.lstrip().startswith("|"):
             rows = []
