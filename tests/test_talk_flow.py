@@ -46,6 +46,17 @@ def test_a_phrase_that_matches_nothing_is_owned_up_to(jv):
     jv.claude.reply({"say": "Moving it into Projects.", "do": ["frobnicate the zorblax into projects"]})
     jv.do("ask claude to move my process engineer folder to projects")
     assert jv.says("couldn't actually do that")
+
+
+def test_a_phrase_with_its_blank_left_in_is_never_run_or_learned(jv):
+    # "find the offer letter mail" -> Claude sent the pattern "did <name> email me": JARVIS looked for mail from
+    # "<name>", said "Nothing from <name> this week", and learned that wording.
+    from core import learned
+    jv.claude.reply({"do": ["did <name> email me"]})
+    jv.do("ask claude to fetch the offer letter mail")
+    assert jv.says("couldn't actually do that") and not jv.says("<name>")
+    assert "did <name> email me" not in learned.load()["wordings"].values()
+    assert not learned.worth_learning("find the offer letter mail", "did <name> email me", learned.load())
     assert any("couldn't do" in line for line in jv.j.recent)  # Claude hears about it next time
 
 

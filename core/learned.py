@@ -20,6 +20,7 @@ from core.store import keep_damaged
 PATH = os.path.expanduser("~/.local/share/jarvis/learned.yaml")
 TAUGHT = os.path.expanduser("~/.local/share/jarvis/taught.jsonl")
 _lock = threading.Lock()  # a request and the background teacher can both be saving
+BLANK = re.compile(r"<[^<>]{1,30}>")  # a phrase's blank to fill in: <name>, <app>, <project>
 
 
 def load(path=None):
@@ -107,9 +108,11 @@ def _note(said, phrase, why, unlearned=False):
 
 
 def worth_learning(said, phrase, data, longest=10):
-    """A short, value-free wording, new, different from the phrase it maps to, and not found wrong for it."""
+    """A short, value-free wording, new, different from the phrase it maps to, and not found wrong for it. Never a
+    phrase with a blank left in it ("did <name> email me": Claude copied the pattern instead of filling it in)."""
     s = said.lower().strip(" .!?")
     return (s != phrase.lower().strip(" .!?") and not re.search(r"\d", s) and 1 < len(s.split()) <= longest
+            and not BLANK.search(phrase)
             and s not in data["wordings"] and s not in data["declined"] and phrase not in data["wrong"].get(s, ()))
 
 

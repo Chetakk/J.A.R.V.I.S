@@ -845,6 +845,10 @@ class Jarvis:
             answer["steps"] = [{"command": part.strip()} for part in answer["command"].split(" && ")]
             answer["command"] = ""
         dos = (answer["do"] if isinstance(answer["do"], list) else [])[:5]
+        # "did <name> email me": Claude copied a pattern with its blank instead of filling it in. Never run (it
+        # searched for "<name>"), never learned (core/learned.py); owned up to below when it was all Claude sent.
+        blank = [d for d in dos if learned.BLANK.search(str(d))]
+        dos = [d for d in dos if d not in blank]
         # Several actions: one task, each step checked and the whole thing on a card (skills/tasks.py).
         plan = answer["task"] if isinstance(answer["task"], dict) else {"steps": answer["task"]} if isinstance(
             answer["task"], list) else {}
@@ -861,6 +865,10 @@ class Jarvis:
         for line in [l for l in self.recent if l.startswith("JARVIS said: ") and (
                 WAIT_LINE.match(l[13:]) or answer["say"] and l.endswith(str(answer["say"])))]:
             self.recent.remove(line)
+        if blank and not steps:
+            self.recent.append("JARVIS couldn't do \"%s\": <...> is a blank to fill in, not something it can do" %
+                               blank[0])
+            self.speaker.say(["Sorry, I couldn't actually do that one.", "Sorry, that didn't work after all."])
         for phrase in dos:
             self.chat("sys", "do: %s" % phrase)
             self.from_claude = True
