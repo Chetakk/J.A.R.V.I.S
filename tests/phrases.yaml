@@ -1911,3 +1911,48 @@
 "what's been shared with me": skill:shared
 "read my chats": skill:catch_up
 "any new chats": skill:catch_up
+
+# --- added 2026-11-11 by tools/phrases.py (from google-wordings.json)
+"am i in any meetings today": skill:day
+"is my calendar busy today": skill:day
+"what's on my schedule tomorrow": skill:day
+"how busy am i tomorrow": skill:day
+"what meeting is next": skill:next_meeting
+"what am i in right now": skill:next_meeting
+"what meeting is on now": skill:next_meeting
+"how long until my next meeting": skill:next_meeting
+"when do i have to be in my next meeting": skill:next_meeting
+"find me some free time tomorrow": skill:free_time
+"when do i have time tomorrow morning": skill:free_time
+"when's my next free slot": skill:free_time
+"where are the gaps in my day": skill:free_time
+"when can i fit something in today": skill:free_time
+"get me into my meeting": skill:join
+"take me to my meeting": skill:join
+"start my meeting": skill:join
+"jump into my call": skill:join
+"connect me to the meeting": skill:join
+"get me ready for my next meeting": skill:prep
+"what do i need for my next meeting": skill:prep
+"say yes to the invite": skill:respond
+"yes accept the meeting invite": skill:respond
+"i'll go to that meeting": skill:respond
+"rsvp yes": skill:respond
+"say no to the invite": skill:respond
+"i can't make that meeting": skill:respond
+"rsvp no": skill:respond
+"turn down the invite": skill:respond
+"disable meeting mode": skill:meeting_mode
+"what emails did i get today": skill:unread
+"any new messages in my inbox": skill:unread
+"give me a summary of my email": skill:summarise
+"what's important in my inbox": skill:summarise
+"anything new on chat": skill:catch_up
+"did anyone message me on chat": skill:catch_up
+"what did i work on yesterday in drive": skill:recent
+"what docs did i open recently": skill:recent
+"what files have been shared with me": skill:shared
+"what did people share with me": skill:shared
+"any new shared files": skill:shared
+"anything shared with me today": skill:shared
+"who shared files with me": skill:shared
