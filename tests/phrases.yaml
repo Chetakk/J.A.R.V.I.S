@@ -1573,7 +1573,7 @@
 "open youtube for me": "browser"
 "I wanna check youtube": "browser"
 "let me check gmail": "browser"
-"check my gmail": "browser"
+"check my gmail": skill:unread  # read out once Google is connected (else the site opens)
 "open google mail": "browser"
 "open my calendar": "browser"
 "show my calendar": "browser"
@@ -1679,9 +1679,9 @@
 "search tweets about elon": "browser"
 "search twitter for elon": "browser"
 "search instagram for cats": "browser"
-"search my drive for my resume": "browser"
-"find my resume in drive": "browser"
-"find resume in google drive": "browser"
+"search my drive for my resume": skill:find  # a card of Drive files once Google is connected (else the site)
+"find my resume in drive": skill:find  # a card of Drive files once Google is connected (else the site)
+"find resume in google drive": skill:find  # a card of Drive files once Google is connected (else the site)
 "search bigg boss in hotstar": "browser"
 "find bigg boss show on hotstar": "browser"
 "look for bigg boss on hotstar": "browser"
@@ -1879,3 +1879,22 @@
 "what did i miss during focus": skill:missed
 "start a pomodoro": skill:focus_for
 "what did i miss": skill:recent
+# Google (skills/google_calendar.py, gmail.py, google_chat.py, drive.py, wrap.py)
+"do we have meetings today": skill:day
+"what's on my calendar tomorrow": skill:day
+"when's my next meeting": skill:next_meeting
+"am i free at 3 tomorrow": skill:free_at
+"when am i free tomorrow afternoon": skill:free_time
+"join my meeting": skill:join
+"schedule a meeting with rahul tomorrow at 3": skill:schedule
+"accept the invite": skill:respond
+"connect google": skill:connect
+"any new emails": skill:unread
+"read the latest email from rahul": skill:read_latest
+"draft a reply saying i'll send it tomorrow": skill:draft
+"any new chat messages": skill:catch_up
+"tell rahul on chat i'm running late": skill:send
+"find the budget sheet in my drive": skill:find
+"wrap up my day": skill:wrap
+"show my schedule": skill:calendar_card
+"add milk to my todos": skill:add

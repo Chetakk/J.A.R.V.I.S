@@ -1751,6 +1751,8 @@ def watch(jarvis):
                 jarvis.inbox.put(("say", line))
             tell.watch()
             jarvis.skills.briefing.watch()
+            for google in (jarvis.skills.calendar, jarvis.skills.gmail, jarvis.skills.google_chat):
+                google.watch()  # (each polls Google on a thread of its own, once a minute or two)
             if tick % 12 or tell.holding():  # focus mode, quiet hours: no heads-ups or habit offers
                 continue
             for key, line, why in persona.heads_ups(jarvis.settings) + tell.resources():

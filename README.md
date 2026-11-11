@@ -39,3 +39,20 @@ tools/run_jarvis.sh
 
 
 Edit `config/settings.yaml` to set paths for the Piper voice, whisper.cpp model and your own names.
+
+## Google (Calendar, Gmail, Chat, Drive)
+
+Optional. With a Google account connected, JARVIS answers "do we have meetings today", "any new emails", "what did
+Rahul say on chat", "find the budget sheet in my drive", gives a heads-up before meetings, says new direct messages
+and important mail, and can schedule meetings, answer invites and send a Chat message (each asked about first) or
+save a Gmail draft (never sent). Skills: `skills/google_calendar.py`, `gmail.py`, `google_chat.py`, `drive.py`, `wrap.py`.
+
+1. In a Google Cloud project (Internal, under your Workspace organisation), turn on the Calendar, Gmail, Drive,
+   Chat and People APIs, configure the Chat app (name, avatar, interactive features off) and create a
+   **Desktop app** OAuth client.
+2. Save its JSON as `~/.config/jarvis/google_client.json` (`chmod 600`; never in this repo).
+3. `pip install --user google-api-python-client google-auth-oauthlib`, then say "connect Google" (or run
+   `python3 -m system.google_account`) and allow it. The sign-in is kept in the GNOME Keyring.
+
+Settings (`google:` in `config/settings.yaml`, all optional): `heads_up_minutes` (5), `meeting_mode` (true),
+`mail_alerts` (true), `chat_alerts` (true), `workday` ([9, 18]).

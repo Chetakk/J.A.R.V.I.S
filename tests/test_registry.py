@@ -16,7 +16,7 @@ SAMPLES = {"x": "stretch", "y": "rust", "n": "2", "app": "chrome", "file": "plan
            "topic": "camera calibration", "text": "hello there", "name": "jira", "url": "example.com/file.zip",
            "details": "my name", "task": "find the pricing", "device": "usb", "package": "requests",
            "button": "save", "item": "zoom in", "menu": "view", "folder": "documents", "command": "uptime",
-           "folder, file or project": "~/Downloads"}
+           "folder, file or project": "~/Downloads", "what": "i'll send it tomorrow", "message": "i'm running late"}
 # Phrases that only mean the skill with something already going on (a text being read, dictation on):
 # routed elsewhere otherwise, by design.
 NEEDS_CONTEXT = {"read the rest", "read all of it", "summarise it", "stop dictation",

@@ -9,7 +9,8 @@ and the screen, quick lookups right after it ("research X" is the agent's) ("wha
 clipboard ("summarise my clipboard and put it in Slack"); reading files before the browser agent ("summarise
 resume.pdf" isn't a website); the network check before troubleshooting ("what's wrong with my
 wifi" isn't a project); the briefing before "everything about X" ("what do I have on today"); "everything
-about X" before projects and notes
+about X" before projects and notes; Google (calendar, Gmail, Chat, Drive, the wrap) before the briefing ("what's on my
+calendar" is Google's once connected), the to-dos ("add this email to my to-dos") and your own documents
 (their "tell me about" / "what do you remember about" would take it); clicking in a window and window focus go last.
 """
 from skills.browser_tabs import BrowserTabs
@@ -24,12 +25,16 @@ from skills.copy_between import CopyBetween
 from skills.daytracker import DayTracker
 from skills.dashboard import Dashboard
 from skills.dev import Dev
+from skills.drive import Drive
 from skills.dictation import Dictation
 from skills.display import Display
 from skills.documents import Documents
 from skills.files import Files
 from skills.focus_mode import FocusMode
 from skills.frozen import Frozen
+from skills.gmail import Gmail
+from skills.google_calendar import Calendar
+from skills.google_chat import GoogleChat
 from skills.install import Install
 from skills.layouts import Layouts
 from skills.learning import Learning
@@ -59,10 +64,12 @@ from skills.weather import Weather
 from skills.web import Web
 from skills.where_was_i import WhereWasI
 from skills.windows import Windows
+from skills.wrap import Wrap
 
 ORDER = [
     ("cards", Cards), ("missing", Missing), ("reading", Reading), ("dictation", Dictation), ("voice_prefs", VoicePrefs),
     ("focus_mode", FocusMode), ("maths", Maths), ("weather", Weather), ("proactive", Proactive), ("notifications", Notifications),
+    ("calendar", Calendar), ("gmail", Gmail), ("google_chat", GoogleChat), ("drive", Drive), ("wrap", Wrap),
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
