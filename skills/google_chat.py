@@ -1,8 +1,11 @@
 """Google Chat (the work account, system/google_account.py).
 
-Asked: "any new chat messages" / "read my chats" (what came in since you last asked, up to a day back), "what did
-Rahul say on chat", "summarise the design space" (Claude), "tell Rahul on chat I'm running late" and "reply saying
-on my way" (both asked about first).
+Asked: "any new chat messages" / "read my chats" (what came in since you last asked, up to a day back), "show my
+chats" (your last few conversations and who said what last), "show me the spaces" (every space and group by name, to
+pick one to sum up), "what did Rahul say on chat" / "what was the last message from Anish", "open my chat with
+Anish" / "open the design space" / "open chats", "search chat for deploy" (the last week), "summarise the design
+space" / "summarise my chat with Anish" (Claude), "tell Rahul on chat I'm running late" and "reply saying on my way"
+(both asked about first).
 
 By itself, once a minute: a direct message, a group chat message or an @mention of you is said, with a card to open
 it, unless Google Chat is the window in front (then you're looking at it). Chat only shows its own banners while it's
@@ -26,8 +29,11 @@ class GoogleChat(GoogleSkill):
     group = "chat"
     does = ("Google Chat: new messages, what someone said, a space summed up, sending a message; says direct "
             "messages and @mentions while Chat is closed")
-    phrases = ("any new chat messages", "what did <name> say on chat", "summarise the <name> space",
-               "tell <name> on chat <message>", "reply saying <message>")
+    phrases = ("any new chat messages", "show my chats (your last few conversations)",
+               "show me the spaces (every space and group you're in)", "what did <name> say on chat",
+               "what was the last message from <name>", "open my chat with <name>", "open the <name> space",
+               "open chats (Google Chat)", "search chat for <what>", "summarise the <name> space",
+               "summarise my chat with <name>", "tell <name> on chat <message>", "reply saying <message>")
     gives = "speech and a card; a message sent only after you say yes"
     permission = "confirm"
     asks = "before sending a message"
@@ -38,9 +44,25 @@ class GoogleChat(GoogleSkill):
         self._seen_at = None  # space name -> lastActiveTime at the last poll (None until the first one)
         self._me = None
         self.last_space = None  # (space name, who, when): what "reply saying..." answers
+        self._names = {}  # direct message space -> the other person's name
 
     def patterns(self):
         return [
+            (r"open (?:my |google |the )?chats(?: app)?", self.open_chats),  # (not "open google chat": that's what it says)
+            (r"open chat space (spaces/\S+)", self.open_space_id),  # a row of a chats card ("open the second one")
+            (r"open (?:my |the )?(?:chat|conversation|dm|messages) with (.+)|open (?:the |my )?(.+?) (space|group|room)"
+             r"(?: on %s)?" % CHAT, self.open_chat),
+            (r"(?:show|list|give|read)(?: me)? (?:all )?(?:the |my )?(?:chat |google chat )?(?:spaces|groups|rooms)(?: i'?m "
+             r"in| on chat| i have)?|what (?:chat )?(?:spaces|groups|rooms) (?:am i in|do i have|are there)|which (?:chat )?"
+             r"(?:spaces|groups) am i in", self.spaces),
+            (r"(?:show|list|give)(?: me)? (?:my )?(?:last |latest |recent )?(?:few )?(?:google )?(?:chats|conversations)"
+             r"(?: list)?|(?:my )?(?:last |latest )?recent chats|what chats do i have|who (?:have i been|was i) chatting "
+             r"with(?: lately| today)?", self.recent),
+            (r"search (?:my |the )?(?:google )?chats? for (.+)|(?:find|look for) (?:the )?(?:chat )?messages? (?:about|"
+             r"mentioning|with|saying) (.+?)(?: (?:on|in) %s)?|who (?:said|mentioned|talked about) (.+?) (?:on|in) %s"
+             % (CHAT, CHAT), self.search),
+            (r"(?:summari[sz]e|sum up|catch me up on) (?:my )?(?:chat|conversation|messages|dm|chats) with (.+)",
+             self.summarise_dm),
             (r"(?:tell|message|ping|text) (.+?) (?:on|in|over|via) %s(?:,? (?:saying|that|to say))?:? (.+)|(?:send|"
              r"write) (?:a )?%s(?: message)? to (.+?)(?:,? (?:saying|that|to say))?:? (.+)|reply (?:on chat |in chat )?"
              r"(?:to (.+?) )?(?:saying|with) (.+)" % (CHAT, CHAT), self.send),
@@ -49,8 +71,10 @@ class GoogleChat(GoogleSkill):
             (r"what (?:did|has) (.+?) (?:say|said|send|sent|write|written)(?: me)?(?: (?:on|in) %s| lately| today)?|"
              r"(?:read|show)(?: me)? (?:my )?(?:chats?|messages?) (?:from|with) (.+?)(?: (?:on|in) %s)?|any (?:chat )?"
              r"messages from (.+?)(?: (?:on|in) %s)?|did (.+?) (?:message|ping|text|dm|chat with) me(?: (?:on|in) %s)?"
-             r"(?: today| yet)?|what(?:'s| is) (.+?) saying(?: (?:on|in) %s)?" % (CHAT, CHAT, CHAT, CHAT, CHAT),
-             self.from_person),
+             r"(?: today| yet)?|what(?:'s| is) (.+?) saying(?: (?:on|in) %s)?|what(?:'s| was| is) the (?:last|latest|"
+             r"newest|most recent) (?:message|chat|text|thing) (?:from|by) (.+?)(?: (?:on|in) %s)?|(?:read|show)(?: me)? "
+             r"(?:the )?(?:last|latest) (?:message|chat) (?:from|by) (.+?)(?: (?:on|in) %s)?"
+             % (CHAT, CHAT, CHAT, CHAT, CHAT, CHAT, CHAT), self.from_person),
             (r"(?:any |do i have (?:any )?|have i got (?:any )?)(?:new |unread )?(?:messages (?:on|in) %s|%s(?: "
              r"messages?)?)|(?:read|show|check)(?: me)? (?:my )?(?:new |unread )?(?:%s(?: messages)?|messages (?:on|in) "
              r"%s)|what did i miss (?:on|in) %s" % (CHAT, CHAT, CHAT, CHAT, CHAT), self.catch_up),
@@ -88,7 +112,7 @@ class GoogleChat(GoogleSkill):
             return False if not said_chat else google.api("chat", "v1")
         chat = self.api("chat", "v1")
         email = find_email(self.api, name)
-        dm = self._dm(chat, email) if email else None
+        dm = (self._dm(chat, email) if email else None) or self._dm_named(chat, name)
         if not dm:
             if not said_chat:
                 return False  # "what did the report say": not a person on Chat
@@ -103,9 +127,10 @@ class GoogleChat(GoogleSkill):
         x = theirs[0]
         who = person((x.get("sender") or {}).get("displayName"), email)
         self.last_space = (dm["name"], who, time.time())
-        self._card([_item(y, dm, self.me()) for y in reversed(msgs)], "Chat with %s" % who)
-        self.say("%s, %s at %s: %s" % (who, day_word(parse_time(x["createTime"])), clock(parse_time(x["createTime"])),
-                                       short(x.get("text"), 40)))
+        self._card([it for it in (_item(y, dm, self.me()) for y in reversed(msgs)) if it], "Chat with %s" % who)
+        when = "%s at %s" % (day_word(parse_time(x["createTime"])), clock(parse_time(x["createTime"])))
+        self.say("%s, %s: %s" % (who, when, short(x["text"], 40)) if (x.get("text") or "").strip() else
+                 "%s's last message, %s, was a file or a card, with no text. It's on the card." % (who, when))
 
     def summarise(self, m):
         name, kind = m.group(1).strip(), m.group(2)
@@ -128,9 +153,13 @@ class GoogleChat(GoogleSkill):
         if not msgs:
             self.say("Nothing's been said in %s today." % hit.get("displayName"))
             return
-        listing = "\n".join("%s: %s" % (person((x.get("sender") or {}).get("displayName")), x.get("text") or "")
-                            for x in msgs)
-        self.say("Reading %s." % hit.get("displayName"))
+        self._summarise(hit.get("displayName"), msgs, "today")
+
+    def _summarise(self, label, msgs, when):
+        me = self.me()
+        listing = "\n".join("%s: %s" % ("Me" if (x.get("sender") or {}).get("name") == me else person(
+            (x.get("sender") or {}).get("displayName")), x.get("text") or "") for x in msgs)
+        self.say("Reading %s." % label)
         self.j.state("claude")
         try:
             summary = self.j.claude.rewrite(
@@ -142,9 +171,137 @@ class GoogleChat(GoogleSkill):
             return
         finally:
             self.j.state("thinking")
-        self.j.show({"id": "chat", "title": "%s, today" % hit.get("displayName"), "text": "> %s\n\n%d messages" % (
+        self.j.show({"id": "chat", "title": "%s, %s" % (label, when), "text": "> %s\n\n%d messages" % (
             " ".join(summary.split()), len(msgs)), "choices": [{"label": "Open Chat", "do": "open google chat"}]})
         self.j.claude_says(summary)
+
+    def summarise_dm(self, m):
+        name = m.group(1).strip()
+        chat = self.api("chat", "v1")
+        email = find_email(self.api, name)
+        dm = (self._dm(chat, email) if email else None) or self._dm_named(chat, name)
+        if not dm:
+            self.say("I can't find a chat with %s." % name)
+            return
+        if self.j.mode == "sys":
+            self.say("Summaries need Claude, which is off in system mode.")
+            return
+        msgs = google.run(chat.spaces().messages().list(parent=dm["name"], pageSize=40,
+                                                         orderBy="createTime desc")).get("messages") or []
+        if not msgs:
+            self.say("You haven't chatted with %s yet." % name.title())
+            return
+        self._summarise("your chat with %s" % name.title(), list(reversed(msgs)), "lately")
+
+    def open_chats(self, m):
+        return self.j.handle("open google chat")  # the Google Chat app, as "open google chat" opens it
+
+    def open_space_id(self, m):
+        space = google.run(self.api("chat", "v1").spaces().get(name=m.group(1)))
+        self.open_url(space.get("spaceUri") or "https://chat.google.com", reply="Opening it on Chat.")
+
+    def open_chat(self, m):
+        who, name, kind = m.group(1), m.group(2), m.group(3)
+        if not google.connected():
+            return False
+        chat = self.api("chat", "v1")
+        if who:
+            email = find_email(self.api, who)
+            dm = (self._dm(chat, email) if email else None) or self._dm_named(chat, who)
+            if not dm:
+                self.say("I can't find a chat with %s." % who)
+                return
+            uri, label = dm.get("spaceUri"), "your chat with %s" % who.title()
+        else:
+            hit = self._space_named(chat, name)
+            if not hit:
+                if kind != "space":
+                    return False  # "open the music room": not necessarily Chat's
+                self.say("I can't find a space called %s." % name)
+                return
+            uri, label = hit.get("spaceUri"), hit.get("displayName")
+        self.open_url(uri or "https://chat.google.com", reply="Opening %s on Chat." % label)
+
+    def recent(self, m):
+        """Your last few conversations: who or which space, and the last thing said there."""
+        chat, me = self.api("chat", "v1"), self.me()
+        spaces = sorted((s for s in google.run(chat.spaces().list(pageSize=200)).get("spaces") or []
+                         if s.get("lastActiveTime") and not s.get("singleUserBotDm")),
+                        key=lambda s: -parse_time(s["lastActiveTime"]))[:8]
+        rows, items, names, latest = [], [], [], None
+        for s in spaces:
+            msgs = google.run(chat.spaces().messages().list(parent=s["name"], pageSize=5,
+                                                             orderBy="createTime desc")).get("messages") or []
+            label = self._label(s, msgs)
+            last = next((x for x in msgs if (x.get("sender") or {}).get("type") == "HUMAN"), msgs[0] if msgs else None)
+            if not last:
+                continue
+            who = "You" if (last.get("sender") or {}).get("name") == me else first_name(person(
+                (last.get("sender") or {}).get("displayName")))
+            at = parse_time(last.get("createTime")) or parse_time(s["lastActiveTime"])
+            rows.append("%s | %s: %s | %s" % (cell(label), cell(who), cell(short(last.get("text") or "(a file)", 14)),
+                                             clock(at) if day_word(at) == "today" else day_word(at)))
+            items.append("open chat space %s" % s["name"])
+            names.append(label)
+            latest = latest or (label, who, last.get("text") or "a file")
+        if not rows:
+            self.say("You haven't chatted with anyone lately.")
+            return
+        self.j.show({"id": "chat-list", "title": "Your chats", "text": "```rows\n%s\n```" % "\n".join(rows),
+                     "items": items, "choices": [{"label": "Open Chat", "do": "open google chat"}]})
+        self.say("Your latest chats: %s. In %s, %s said: %s" % (
+            and_list(names[:4]), latest[0], "you" if latest[1] == "You" else latest[1], short(latest[2], 20)))
+
+    def spaces(self, m):
+        """Every named space and group, most active first, so you can pick one to sum up or open."""
+        chat = self.api("chat", "v1")
+        named = sorted((s for s in google.run(chat.spaces().list(pageSize=200)).get("spaces") or []
+                        if s.get("displayName") and s.get("spaceType") != "DIRECT_MESSAGE"),
+                       key=lambda s: -parse_time(s.get("lastActiveTime") or "1970-01-01"))
+        if not named:
+            self.say("You're not in any spaces, only direct messages.")
+            return
+        rows = ["# | %s | %s" % (cell(s["displayName"]), "active " + (
+            clock(parse_time(s["lastActiveTime"])) if day_word(parse_time(s["lastActiveTime"])) == "today" else
+            day_word(parse_time(s["lastActiveTime"]))) if s.get("lastActiveTime") else "quiet") for s in named[:20]]
+        self.j.show({"id": "chat-spaces", "title": "Your spaces (%d)" % len(named),
+                     "text": "```rows\n%s\n```" % "\n".join(rows), "items": ["open chat space %s" % s["name"]
+                                                                              for s in named[:20]],
+                     "choices": [{"label": "Sum up %s" % s["displayName"][:22],
+                                  "do": "summarise the %s space" % s["displayName"]} for s in named[:3]]})
+        self.say("You're in %d space%s. The most active: %s. Say summarise the, and its name, space." % (
+            len(named), "" if len(named) == 1 else "s", and_list(s["displayName"] for s in named[:3])))
+
+    def search(self, m):
+        said = next(g for g in m.groups() if g).strip(" .?")
+        words = [w for w in re.findall(r"[\w'-]+", said.lower()) if w not in ("the", "a", "an", "about", "my")]
+        if not words:
+            return False
+        chat, me, since = self.api("chat", "v1"), self.me(), time.time() - 7 * 86400
+        # shortcut: Chat has no text search, so this reads the last week of the 15 most active spaces
+        spaces = sorted((s for s in google.run(chat.spaces().list(pageSize=200)).get("spaces") or []
+                         if s.get("lastActiveTime") and parse_time(s["lastActiveTime"]) > since),
+                        key=lambda s: -parse_time(s["lastActiveTime"]))[:15]
+        hits = []
+        for s in spaces:
+            for x in google.run(chat.spaces().messages().list(parent=s["name"], filter='createTime > "%s"' % rfc(since),
+                                                               pageSize=100)).get("messages") or []:
+                text = (x.get("text") or "").lower()
+                if all(w in text for w in words):
+                    mine = (x.get("sender") or {}).get("name") == me
+                    hits.append((parse_time(x.get("createTime")) or 0, "You" if mine else person(
+                        (x.get("sender") or {}).get("displayName")), self._label(s, []), x.get("text") or "", s))
+        if not hits:
+            self.say("Nothing on Chat about %s in the last week." % said)
+            return
+        hits.sort(key=lambda h: -h[0])
+        self.j.show({"id": "chat-search", "title": "Chat: %s" % said, "text": "```rows\n%s\n```" % "\n".join(
+            "%s | %s | %s" % (cell(h[1]), cell(short(h[3], 18)), cell(h[2])) for h in hits[:12]),
+            "items": ["open chat space %s" % h[4]["name"] for h in hits[:12]]})
+        h = hits[0]
+        self.say("%s about %s. The latest, %s in %s, %s: %s" % (
+            "One message" if len(hits) == 1 else "%d messages" % len(hits), said, h[1], h[2], day_word(h[0]),
+            short(h[3], 20)))
 
     def send(self, m):
         g = m.groups()
@@ -240,6 +397,38 @@ class GoogleChat(GoogleSkill):
             if it:
                 out.append((it["who"], it["text"]))
         return out[:8]
+
+    def _label(self, space, msgs):
+        """A space's name, or for a direct message the other person's ("Anish Kumar")."""
+        if space.get("displayName"):
+            return space["displayName"]
+        if space["name"] not in self._names:
+            me = self.me()
+            if not msgs:
+                msgs = google.run(self.api("chat", "v1").spaces().messages().list(
+                    parent=space["name"], pageSize=10, orderBy="createTime desc")).get("messages") or []
+            other = next((x["sender"] for x in msgs if (x.get("sender") or {}).get("type") == "HUMAN"
+                          and x["sender"].get("name") != me), None)
+            if not other:
+                return "a direct message" if space.get("spaceType") == "DIRECT_MESSAGE" else "a group chat"
+            self._names[space["name"]] = person(other.get("displayName"))
+        return self._names[space["name"]]
+
+    def _dm_named(self, chat, name):
+        """Your direct message with someone, found by their name in it (for people the directory doesn't know)."""
+        want = name.lower().strip()
+        for s in google.run(chat.spaces().list(pageSize=200)).get("spaces") or []:
+            if s.get("spaceType") == "DIRECT_MESSAGE" and not s.get("singleUserBotDm"):
+                label = self._label(s, []).lower()
+                if label == want or label.split(" ")[0] == want.split(" ")[0]:
+                    return s
+        return None
+
+    def _space_named(self, chat, name):
+        spaces = google.run(chat.spaces().list(pageSize=200)).get("spaces") or []
+        name = name.lower().strip()
+        return next((s for s in spaces if name == (s.get("displayName") or "").lower()), None) or next(
+            (s for s in spaces if name and name in (s.get("displayName") or "").lower()), None)
 
     def _dm(self, chat, email):
         try:
