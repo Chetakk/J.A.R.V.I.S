@@ -314,9 +314,13 @@ class Media(Skill):
             desktop.keys("space")  # the web app pauses the device it plays on
             return
         if player:
+            before = track(player[0]) if action in ("Next", "Previous") else ""
             player[1].call_sync(action, None, 0, 2000, None)  # Play / Pause / Next / Previous
             if action == "Play" and (_spotify_player() or [None])[0] == player[0]:
                 self.follow(spotify=True)  # resuming Spotify brings its card back (it closes itself once paused)
+            check = threading.Timer(1.5, self._check, (action, player[0], before))
+            check.daemon = True
+            check.start()
             return
         win = desktop.find_window("youtube")
         if win and action in ("Play", "Pause"):
@@ -329,6 +333,24 @@ class Media(Skill):
         if action in ("Play", "Pause"):
             return False  # nothing playing: let "play X" go to the browser / Claude
         self.fail("Nothing seems to be playing.")
+
+    def _check(self, action, name, before=""):
+        """These say nothing when they work (you hear it). When the player didn't change, say so instead of nothing."""
+        try:
+            status = _player_property(name, "PlaybackStatus")
+        except (OSError, subprocess.SubprocessError):
+            return
+        if not status.strip():
+            return  # the player didn't answer: can't tell
+        if action == "Play":
+            worked = "'Playing'" in status or bool(spotify_title())  # (Spotify on the Echo: Chrome's player says Stopped)
+        elif action == "Pause":
+            worked = "'Playing'" not in status
+        else:
+            worked = not before or track(name) != before
+        if not worked:
+            self.j.inbox.put(("say", {"Play": "Hmm, it didn't start playing.", "Pause": "Hmm, it's still playing."}.get(
+                action, "Hmm, the song didn't change.")))
 
     def playing(self):
         player = _mpris_player()

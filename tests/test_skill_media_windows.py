@@ -361,3 +361,25 @@ def test_spotify_in_main_chrome_is_told_from_youtube(jv, monkeypatch, window, al
         jv.desktop.add("Yaad Hai Na • Arijit Singh", "open.spotify.com google-chrome", front=False)
     monkeypatch.setattr(media, "_player_property", lambda name, prop: "({'xesam:album': %s},)" % album)
     assert media._is_spotify("org.mpris.MediaPlayer2.chromium.instance82030") is spotify
+
+
+@pytest.mark.parametrize("action, status, same_song, says", [
+    ("Play", "(<'Paused'>,)", False, "didn't start playing"),
+    ("Pause", "(<'Playing'>,)", False, "still playing"),
+    ("Next", "(<'Playing'>,)", True, "song didn't change"),
+])
+def test_a_media_key_that_did_nothing_is_said(jv, monkeypatch, action, status, same_song, says):
+    """Pause / play / next say nothing when they work: you hear it. When the player didn't change, it says so."""
+    monkeypatch.setattr(media, "_player_property", lambda name, prop: status)
+    monkeypatch.setattr(media, "track", lambda name: "Song · Artist" if same_song else "Other · Artist")
+    monkeypatch.setattr(media, "spotify_title", lambda: "")
+    jv.j.skills.media._check(action, "org.mpris.MediaPlayer2.rhythmbox", "Song · Artist" if action == "Next" else "")
+    assert says in jv.j.inbox.get_nowait()[1]
+
+
+@pytest.mark.parametrize("action, status", [("Play", "(<'Playing'>,)"), ("Pause", "(<'Paused'>,)"), ("Play", "")])
+def test_a_media_key_that_worked_stays_quiet(jv, monkeypatch, action, status):
+    monkeypatch.setattr(media, "_player_property", lambda name, prop: status)
+    monkeypatch.setattr(media, "spotify_title", lambda: "")
+    jv.j.skills.media._check(action, "org.mpris.MediaPlayer2.rhythmbox")
+    assert jv.j.inbox.empty()
