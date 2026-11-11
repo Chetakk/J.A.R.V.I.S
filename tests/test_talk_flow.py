@@ -129,3 +129,87 @@ def test_lists_stay_whole(jv):
 
 def test_a_then_chain_with_an_unknown_part_stays_one_plan(jv):
     assert jv.j._split("work out a sum, then delete old.txt please") is None
+
+
+# --- Claude thinks in the background: what you say meanwhile isn't kept waiting ---
+
+import threading  # noqa: E402
+
+
+def _slow_claude(jv):
+    """Claude answers only once the returned event is set (the fake answers at once otherwise)."""
+    gate, fast = threading.Event(), jv.j.claude.ask
+
+    def ask(*a, **k):
+        gate.wait(5)
+        return fast(*a, **k)
+    jv.j.claude.ask = ask
+    jv.j.background = True
+    return gate
+
+
+def _ask(jv, text):
+    jv.j.requests += 1  # (as the main loop counts each request it takes)
+    jv.j.handle(text)
+
+
+def _answer_comes_in(jv):
+    kind, job = jv.j.inbox.get(timeout=5)
+    assert kind == "claude"
+    jv.j._claude_busy -= 1
+    jv.j._claude_done(job)
+    return job
+
+
+def test_a_request_while_claude_thinks_is_done_at_once(jv):
+    gate = _slow_claude(jv)
+    jv.claude.reply({"say": "How about Whiskers?"})
+    _ask(jv, "ask claude what's a good name for a cat")
+    assert jv.j._claude_busy == 1
+    _ask(jv, "open youtube")  # not stuck behind Claude
+    assert jv.shell.ran("youtube")
+    gate.set()
+    _answer_comes_in(jv)
+    assert jv.says("On your earlier question: How about Whiskers?")  # you moved on: it says which one it answers
+    assert jv.j._claude_busy == 0
+
+
+def test_an_answer_with_nothing_in_between_has_no_preamble(jv):
+    gate = _slow_claude(jv)
+    jv.claude.reply({"say": "How about Whiskers?"})
+    _ask(jv, "ask claude what's a good name for a cat")
+    gate.set()
+    _answer_comes_in(jv)
+    assert jv.says("How about Whiskers?") and not jv.says("earlier question")
+
+
+def test_a_second_question_waits_its_turn(jv):
+    gate = _slow_claude(jv)
+    jv.claude.reply({"say": "Whiskers."}).reply({"say": "Rex."})
+    _ask(jv, "ask claude for a cat name")
+    _ask(jv, "ask claude for a dog name")
+    assert jv.says("once Claude's done with the last one")
+    gate.set()
+    assert _answer_comes_in(jv)["text"].endswith("cat name")
+    assert _answer_comes_in(jv)["text"].endswith("dog name")  # in the order asked, one at a time
+
+
+def test_stop_drops_the_questions_waiting(jv):
+    gate = _slow_claude(jv)
+    _ask(jv, "ask claude for a cat name")
+    _ask(jv, "ask claude for a dog name")
+    jv.j.stop_claude()
+    gate.set()
+    _answer_comes_in(jv)
+    _answer_comes_in(jv)
+    assert len(jv.claude.asked()) <= 1  # the waiting one never went to Claude
+    assert jv.j._claude_busy == 0
+
+
+def test_the_orb_shows_claude_while_it_thinks(jv):
+    gate = _slow_claude(jv)
+    _ask(jv, "ask claude for a cat name")
+    jv.j.state("idle")
+    assert ("set_state", ("claude",)) in jv.ui.calls
+    gate.set()
+    _answer_comes_in(jv)

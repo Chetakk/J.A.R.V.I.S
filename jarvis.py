@@ -46,7 +46,7 @@ from core.chat import ChatReplies
 from core.intent import MODEL_DIR, Embedder, IntentMatcher
 from core.registry import Registry, _names_regex, clean
 from core.safety import MANUAL, Safety
-from voice.speech import Speaker, pick
+from voice.speech import FILLER as WAIT_LINE, Speaker, pick
 from voice.stt import Whisper
 from system.terminal import RUN_DIR
 from voice.wake import WakeWord, WhisperWake
@@ -285,8 +285,16 @@ class Jarvis:
         self.interrupted = False  # the last yes/no question was answered with a new request instead
         self.late_yes = None  # (until, fn): an offer that got no answer in time; a "yes" before `until` runs fn
         self._private = False  # this request is private: what's said in it isn't passed on to Claude
+        self.background = False  # Claude answers on its own thread (set when JARVIS runs for real, not in tests)
+        self.requests = 0  # requests taken from the inbox so far: did you ask something else while Claude thought?
+        self._claude_busy = 0  # questions with Claude or waiting for it
+        self._claude_gen = 0  # "stop" moves it on: questions asked before then are dropped
+        self._claude_jobs = queue.Queue()
+        self._claude_worker = None
 
     def state(self, name):
+        if name == "idle" and self._claude_busy:
+            name = "claude"  # back to rest, but Claude is still on a question: the orb keeps saying so
         # Music down while you talk to JARVIS (so it hears you), back up once it's done with what you said
         if name == "listening":
             audio.duck(True)
@@ -435,7 +443,7 @@ class Jarvis:
                     kind, answer = self.inbox.get(timeout=min(left, 0.5))
                 except queue.Empty:
                     continue
-                if kind not in ("say", "offer", "task", "ctl"):  # (a task's next step waits for the answer too)
+                if kind not in ("say", "offer", "task", "ctl", "claude"):  # (a task's next step waits for the answer too)
                     break
                 deferred.append((kind, answer))
         except queue.Empty:
@@ -742,45 +750,96 @@ class Jarvis:
             self.speaker.say(persona.lines("never_mind", persona.address(self.settings)))
 
     def _ask_claude(self, text, image=None):
+        """Ask Claude about `text`. When JARVIS runs for real (self.background) Claude answers on a thread of its
+        own and the answer comes back through the main loop ("claude"), so what you say meanwhile is done at once
+        instead of waiting behind it. A second question waits for the first: one conversation, one at a time."""
         recent = list(self.recent)[:-1]  # the last line is this request itself
+        self.recent.clear()  # Claude sees these now; what happens from here on is for its next question
         self.context.forget()  # "keep going" after Claude's answer isn't "volume up" from before
         print("  [claude] not in the command list, asking Claude (%s)..." % self.claude.model)
         self.chat("sys", "Asking Claude (%s)..." % self.claude.model)
-        self.state("claude")
+        known = " ".join(k for k in (self._focus_line(), self.projects.context(text),
+                                     self.skills.notes.for_claude(text)) if k)
+        job = {"text": text, "prompt": text + ("\n\n[%s]" % known if known else ""), "recent": recent,
+               "image": image, "about": self._about(), "source": self.source, "seq": self.requests,
+               "gen": self._claude_gen}
         if not image:
-            if re.search(r"\bclaude\b", text, re.I):
+            if self._claude_busy:
+                self.speaker.say(["One moment, I'll ask that once Claude's done with the last one.",
+                                  "One moment, that's next after the one Claude's on."])
+            elif re.search(r"\bclaude\b", text, re.I):
                 self.speaker.say("Asking Claude.")  # you named Claude, so say so
             else:
                 self.speaker.say(["Let me think.", "Thinking.", "Let me think for a bit.", "One moment, thinking."])
+        if not self.background:
+            self.state("claude")
+            self._claude_send(job)
+            self.state("thinking")
+            self._claude_done(job)
+            return
+        self._claude_busy += 1
+        self.state("claude")
+        self._claude_jobs.put(job)
+        if not self._claude_worker:
+            self._claude_worker = threading.Thread(target=self._claude_work, name="claude", daemon=True)
+            self._claude_worker.start()
+
+    def _claude_work(self):
+        """The background thread: asks Claude each question in turn and hands the answer to the main loop."""
+        while True:
+            job = self._claude_jobs.get()
+            try:
+                if job["gen"] == self._claude_gen:  # (not dropped by "stop" while it waited)
+                    self._claude_send(job)
+            except Exception as e:  # a broken answer must never stop the thread: later questions would hang
+                job["error"] = str(e)
+            finally:
+                self.inbox.put(("claude", job))
+
+    def _later(self, job, line):
+        """Claude's answer after you've asked something else meanwhile: say which one it answers."""
+        return "On your earlier question: " + line if line and self.requests != job["seq"] else line
+
+    def _claude_send(self, job):
+        """Ask Claude: sets job["answer"] (None if "stop" ended it) or job["error"]."""
+        def filler(lines):
+            if self.requests == job["seq"]:  # you've moved on to something else: no "still on it" over that
+                self.speaker.say(lines)
         # If Claude is slow, say something now and then so the silence doesn't feel broken.
-        fillers = [threading.Timer(delay, self.speaker.say, [lines]) for delay, lines in (
+        fillers = [threading.Timer(delay, filler, [lines]) for delay, lines in (
             (6, ["Still on it.", "Almost there.", "Just a moment more."]),
             (16, ["This one's taking a bit longer, hang on.", "Still thinking, sorry for the wait."]))]
         for timer in fillers:
             timer.daemon = True
             timer.start()
+
         def speak_early(line):
             # The spoken part streamed in first: say it now, while Claude finishes the rest.
             for timer in fillers:
                 timer.cancel()
             print("  [claude] answered:")
-            self.claude_says(line)
+            self.claude_says(self._later(job, line))
 
+        job["answer"] = None
         try:
-            known = " ".join(k for k in (self._focus_line(), self.projects.context(text),
-                                         self.skills.notes.for_claude(text)) if k)
-            answer = self.claude.ask(text + ("\n\n[%s]" % known if known else ""), recent, on_say=speak_early,
-                                     image=image, about=self._about())
+            job["answer"] = self.claude.ask(job["prompt"], job["recent"], on_say=speak_early, image=job["image"],
+                                            about=job["about"])
         except Stopped:
-            return  # you said "stop"
+            pass  # you said "stop"
         except ClaudeError as e:
-            self.speaker.say(persona.lines("problem", persona.address(self.settings), str(e).rstrip(".")))
-            return
+            job["error"] = str(e)
         finally:
-            self.recent.clear()  # Claude has seen it now
             for timer in fillers:
                 timer.cancel()
-            self.state("thinking")
+
+    def _claude_done(self, job):
+        """On the main loop: say and do what Claude answered."""
+        if job.get("error"):
+            self.speaker.say(persona.lines("problem", persona.address(self.settings), job["error"].rstrip(".")))
+            return
+        answer, text = job.get("answer"), job["text"]
+        if not answer:
+            return
         if not answer["steps"] and answer["run_now"] and " && " in answer["command"]:
             # Claude chained commands anyway: run them as separate steps, so each can be checked and stopped.
             answer["steps"] = [{"command": part.strip()} for part in answer["command"].split(" && ")]
@@ -797,8 +856,11 @@ class Jarvis:
             # to-dos") would be said twice and may be wrong. A mishearing note is still said.
             if not answer["spoken"] and not (dos and not answer["misheard"]):
                 print("  [claude] answered:")
-                self.claude_says(answer["say"])
-            self.recent.clear()  # Claude knows its own answer; what happens next (e.g. "Done.") is new to it
+                self.claude_says(self._later(job, answer["say"]))
+        # Claude knows its own answer and the "thinking" lines say nothing; what else happened meanwhile is new to it
+        for line in [l for l in self.recent if l.startswith("JARVIS said: ") and (
+                WAIT_LINE.match(l[13:]) or answer["say"] and l.endswith(str(answer["say"])))]:
+            self.recent.remove(line)
         for phrase in dos:
             self.chat("sys", "do: %s" % phrase)
             self.from_claude = True
@@ -996,6 +1058,11 @@ class Jarvis:
                 self.muted_on_purpose.add(key)
         if self.ui:
             self.ui.set_mutes(**self.mutes)
+
+    def stop_claude(self):
+        """"Stop": the question with Claude, and any waiting behind it, are dropped."""
+        self._claude_gen += 1
+        return self.claude.cancel()
 
     def _message(self, msg):
         """A message from tools/jarvis, on the pipe's thread. A line to say (Claude Code finished a reply) is said
@@ -1531,8 +1598,10 @@ def start_voice(jarvis, whisper):
             put_voice("follow" if follow_up else "voice", text)
         wake = WhisperWake(jarvis.names, whisper, on_text, on_wake=on_listen, is_busy=busy, is_echo=jarvis.speaker.is_echo, on_heard=jarvis.heard,
                            follow_seconds=wake_cfg.get("follow_up_seconds", 8),
-                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.claude.cancel(), jarvis.skills.todos.stop_alarm(),
+                           on_stop=lambda: (jarvis.speaker.stop(), jarvis.stop_claude(), jarvis.skills.todos.stop_alarm(),
                                             jarvis.state(jarvis.rest)),
+                           on_cut=lambda: (jarvis.speaker.stop(), jarvis.skills.todos.stop_alarm(),
+                                           jarvis.state(jarvis.rest)),
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
                            is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating,
                            on_wait=lambda seconds: jarvis.ui and jarvis.ui.follow_timer(seconds),
@@ -1553,6 +1622,7 @@ def start_voice(jarvis, whisper):
 
 def run_loop(jarvis, has_ui):
     """Handle typed, spoken and UI requests one at a time."""
+    jarvis.background = True  # Claude thinks on its own thread; what you say meanwhile is handled at once
     while True:
         sys.stdout.write("[%s] you> " % jarvis.mode)
         sys.stdout.flush()
@@ -1572,6 +1642,20 @@ def run_loop(jarvis, has_ui):
         if kind == "ctl":  # another Claude, via tools/jarvis
             print()
             jarvis.control(line)
+            continue
+        if kind == "claude":  # Claude's answer to a question asked earlier (Jarvis._ask_claude)
+            print()
+            jarvis._claude_busy -= 1
+            jarvis.handling_since = time.time()
+            try:
+                jarvis._claude_done(line)
+            except Exception as e:  # a broken answer must never take JARVIS down
+                print("[claude] handling the answer failed: %r" % e)
+            finally:
+                jarvis.handling_since = None
+                jarvis.state(jarvis.rest)
+            if line.get("answer") and line["source"] in ("voice", "follow", "again") and not something_playing():
+                jarvis.follow_up()  # your reply to it, without the name
             continue
         if kind == "task":  # the next step of a task (skills/tasks.py): one per turn, so a pause gets in between
             jarvis.state("thinking")
@@ -1600,6 +1684,7 @@ def run_loop(jarvis, has_ui):
         jarvis.handling_since = time.time()  # for the watchdog
         try:
             jarvis.source = kind
+            jarvis.requests += 1
             if not jarvis.handle(line, follow_up=kind == "follow"):
                 break
         finally:

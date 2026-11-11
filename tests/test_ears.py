@@ -438,3 +438,18 @@ def test_the_check_uses_the_one_whisper_that_writes_the_words():
 def test_the_command_itself_is_not_checked_for_the_name(monkeypatch):
     e = checked(monkeypatch, "open youtube")
     assert e.transcribe(LOUD, command=True) == "Jarvis, open youtube" and not e.checker.calls
+
+
+def test_a_new_request_over_jarvis_keeps_claude_going(monkeypatch):
+    """"Jarvis, Bios" over "Thinking." used to stop Claude too: the first question was lost without a word.
+    Now it only cuts JARVIS's speech; "stop" is what drops Claude's question."""
+    import inspect
+    for said, called in (("Jarvis, open youtube", ["cut"]), ("stop", ["stop"])):
+        w = wake_with(said, monkeypatch)
+        w.barge_in, calls = "named", []
+        w.on_stop, w.on_cut = (lambda: calls.append("stop")), (lambda: calls.append("cut"))
+        args = [np.full(8000, 0.2, dtype=np.float32), 0.5]
+        if "started" in inspect.signature(w._barge_in).parameters:  # (when the speech began, where it's passed in)
+            args.append(time.time())
+        assert w._barge_in(*args) and calls == called
+    assert w.passed == [] and wake_with("x", monkeypatch).on_cut is None

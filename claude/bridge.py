@@ -71,6 +71,10 @@ class Stopped(ClaudeError):
 
 
 class Claude:
+    # One question at a time in JARVIS's Claude conversation: a task's own question (skills/tasks.py) waits for
+    # one JARVIS asked in the background, instead of both resuming the same session at once.
+    _lock = threading.Lock()
+
     def __init__(self, cfg, name="Jarvis", user="the user", abilities=""):
         self.model = cfg.get("model", "claude-haiku-5-5")
         self.timeout = cfg.get("timeout", 60)
@@ -152,6 +156,10 @@ class Claude:
             raise Stopped("stopped")
 
     def ask(self, text, recent=(), on_say=None, image=None, about=None):
+        with self._lock:
+            return self._ask(text, recent, on_say, image, about)
+
+    def _ask(self, text, recent=(), on_say=None, image=None, about=None):
         """Return Claude's answer as a dict with say/details/command/run_now/output/save/steps/spoken.
 
         recent: lines about what JARVIS did on its own since the last question, so Claude can follow along.

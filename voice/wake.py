@@ -198,6 +198,8 @@ class WhisperWake:
     """Wakes on any of `names` heard by Whisper. on_text(command, follow_up) gets what to do (follow_up:
     said without the name, after an answer); on_wake(True/False) reports listening state, like WakeWord."""
 
+    on_cut = None  # see __init__
+
     def said_lately(self):
         """What JARVIS said in the last half minute (JARVIS passes its own in)."""
         return []
@@ -214,7 +216,7 @@ class WhisperWake:
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
                  on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
-                 is_dictating=None, on_wait=None, said_lately=None):
+                 is_dictating=None, on_wait=None, said_lately=None, on_cut=None):
         self.names = names
         self.on_wait = on_wait or (lambda seconds: None)  # listening without the name for this many seconds
         self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
@@ -223,6 +225,9 @@ class WhisperWake:
         self.is_dictating = is_dictating or (lambda: False)
         self.on_text = on_text
         self.on_stop = on_stop  # "stop" said while JARVIS is talking
+        # Talking over JARVIS with something new: it stops talking, but a question still with Claude goes on
+        # (cutting that off lost your first request without a word). on_stop is for "stop" itself.
+        self.on_cut = on_cut
         self.on_wake = on_wake or (lambda active: None)
         # on_heard(text, outcome): everything speech recognition heard, for checking it in the chat panel.
         self.on_heard = on_heard or (lambda text, outcome: None)
@@ -405,7 +410,7 @@ class WhisperWake:
         started = time.time() - seconds - VAD_TAIL
         echo = self.is_echo(text, started)
         if named and not echo:  # (an echo of JARVIS saying its own name mustn't interrupt it)
-            self.on_stop()
+            (self.on_cut or self.on_stop)()
             self.on_wake(True)
             if rest:
                 rest = self._command_again((np.clip(seg, -1, 1) * 32767).astype(np.int16).tobytes(), rest)
@@ -418,7 +423,7 @@ class WhisperWake:
             return True
         if (self.barge_in == "any" and time.time() - self.last_request < 60
                 and not echo):
-            self.on_stop()
+            (self.on_cut or self.on_stop)()
             self._pass_on(text, text, True, "interrupted, follow-up")
             return True
         self.on_heard(text, "ignored while talking (%s)" % ("my own voice" if echo
