@@ -140,6 +140,42 @@ def test_the_name_while_dictating_opens_no_window(monkeypatch):
     assert w.waits == []
 
 
+def test_its_own_reply_queued_in_the_mic_pipe_is_still_an_echo(monkeypatch):
+    """Seen in the log: "Opening the projects folder." came back from the speaker, sat in the mic pipe while
+    JARVIS was busy, and was taken as a new command because it was dated by when JARVIS got to it."""
+    s = Speaker.__new__(Speaker)
+    s._busy_until, s._audio_until, s.output_delay = time.time() - 3, 0.0, 0.8  # stopped talking 3 s ago
+    s.history = collections.deque([(time.time() - 5, "Opening the Projects folder.")])
+    w = _waiting_wake("Opening the projects folder.", monkeypatch)
+    w.following, w.is_echo, w.lag = True, s.is_echo, 4.0  # 4 s of audio still waited in the pipe
+    w._listen(None)
+    assert w.passed == [] and w.heard == ["ignored (my own voice)"]
+    w = _waiting_wake("Opening the projects folder.", monkeypatch)
+    w.following, w.is_echo = True, s.is_echo  # no backlog: said well after JARVIS stopped, so it's you
+    w._listen(None)
+    assert w.passed == ["Opening the projects folder."]
+
+
+def test_queued_counts_bytes_waiting_in_a_pipe():
+    import os
+    r, wfd = os.pipe()
+    os.write(wfd, b"x" * 640)
+    with os.fdopen(r, "rb") as pipe:
+        assert wake._queued(pipe) == 640
+    os.close(wfd)
+    assert wake._queued(None) == 0
+
+
+def test_a_long_line_of_its_own_heard_late_is_still_its_echo():
+    """Seen in the log: its replies came back after it had finished and it answered itself in a loop."""
+    s = _speaker(5, "Sounds like that got cut off, sir. What did you want to ask?")
+    assert s.is_echo("Sounds like that got cuddle, sir. What did you want to ask?", time.time() - 2)
+    s = _speaker(5, "Opening the project builder. Answer its questions in the terminal.")
+    assert s.is_echo("Opening the project builder. Answer its questions in the terminal.", time.time() - 2)
+    s = _speaker(5, "Did you mean open the Projects folder?")
+    assert not s.is_echo("open the projects folder", time.time() - 2)  # short: you, answering it
+
+
 def test_a_misheard_echo_while_it_is_still_talking_is_its_own_voice():
     """Seen in the log: Whisper misheard its own voice, so these didn't match word for word and got through."""
     for heard, said in (("Clones Text Editor.", "Closing Text Editor."),

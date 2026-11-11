@@ -243,11 +243,12 @@ class Speaker:
         Not all its words pooled together: common words like "just", "it", "that" made your own sentences match.
         While its audio is still playing, a misheard word counts too ("Clones Text Editor" for "Closing Text Editor"),
         and 80% is enough: Whisper adds a word ("Opening the project folder and")."""
-        if started_at > self._ends_at() + 1.0:
-            return False  # began well after JARVIS finished: that's you
         words = _words(heard)
         if not words:
             return False
+        if started_at > self._ends_at() + 1.0 and len(words) < 6:
+            return False  # began well after JARVIS finished: that's you, unless it's a long line of its own word for
+            # word ("Sounds like that got cut off, sir. What did you want to ask?" came back late and looped)
         playing = started_at <= self._ends_at() + 1.0  # (+1 s: the speaker's lag varies; its tail came back as a command)
         for text in self.said_lately():
             said = _words(text)

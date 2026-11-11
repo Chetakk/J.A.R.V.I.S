@@ -285,7 +285,7 @@ def test_stop_is_heard_while_jarvis_is_talking(monkeypatch):
     w = wake_with("stop", monkeypatch)
     w.barge_in, stopped = "named", []
     w.on_stop = lambda: stopped.append(True)
-    assert w._barge_in(np.full(8000, 0.2, dtype=np.float32), 0.5) and stopped
+    assert w._barge_in(np.full(8000, 0.2, dtype=np.float32), 0.5, time.time()) and stopped
     assert w.whisper.calls == [(True, False)]
 
 

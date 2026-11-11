@@ -9,9 +9,12 @@ kws: sherpa-onnx keyword spotting (CPU only, no GPU), then records until you sto
 The names come from settings.yaml, so renaming the assistant needs no retraining.
 """
 import collections
+import fcntl
 import os
 import re
+import struct
 import subprocess
+import termios
 import threading
 import time
 
@@ -29,6 +32,9 @@ MODELS = os.path.expanduser("~/.local/share/jarvis/models")
 KWS_DIR = os.path.join(MODELS, "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01")
 KWS_FILES = "epoch-12-avg-2-chunk-16-left-64.int8.onnx"
 VAD_WINDOW = 512
+# A short yes or no, to a question JARVIS is still saying.
+ANSWER = re.compile(r"^\W*(?:yes|yeah|yep|yup|sure|ok(?:ay)?|go ahead|do it|please|no|nope|nah|don'?t)\b"
+                    r"[\w\s',]{0,25}[.!?]*$", re.IGNORECASE)
 VAD_TAIL = 0.5  # silence the voice detector waits for before ending a bit of speech
 # The voice detector notices speech a moment after it starts, so a soft "s" or "j" ("set a timer",
 # "Jarvis") can be missing from the bit Whisper gets. Each bit keeps this much audio from before it.
@@ -198,7 +204,14 @@ class WhisperWake:
     """Wakes on any of `names` heard by Whisper. on_text(command, follow_up) gets what to do (follow_up:
     said without the name, after an answer); on_wake(True/False) reports listening state, like WakeWord."""
 
+    # Seconds of mic audio still queued in the pipe when the newest bit was read: while JARVIS was busy
+    # (transcribing, opening a folder) its own reply piled up there and looked as if said after it stopped.
+    lag = 0.0
     on_cut = None  # see __init__
+
+    def is_asking(self):
+        """JARVIS is asking you a yes/no question (JARVIS passes its own check in)."""
+        return False
 
     def said_lately(self):
         """What JARVIS said in the last half minute (JARVIS passes its own in)."""
@@ -220,7 +233,7 @@ class WhisperWake:
     def __init__(self, names, whisper, on_text, on_wake=None, is_busy=None, max_seconds=8, wait_seconds=8,
                  is_echo=None,
                  on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
-                 is_dictating=None, on_wait=None, said_lately=None, on_cut=None,
+                 is_dictating=None, on_wait=None, is_asking=None, said_lately=None, on_cut=None,
                  is_echo_sound=None):
         self.names = names
         self.on_wait = on_wait or (lambda seconds: None)  # listening without the name for this many seconds
@@ -238,6 +251,8 @@ class WhisperWake:
         self.on_heard = on_heard or (lambda text, outcome: None)
         self.is_busy = is_busy or (lambda: False)
         self.is_echo = is_echo or (lambda text, started: False)  # (heard text, start time) -> own voice?
+        if is_asking:
+            self.is_asking = is_asking
         if said_lately:
             self.said_lately = said_lately
         if is_echo_sound:
@@ -292,6 +307,7 @@ class WhisperWake:
                 return
             hear(raw)
             self.audio_at = time.time()
+            self.lag = _queued(mic.stdout) / (2.0 * RATE)
             if self.is_deaf():
                 pending = np.zeros(0, dtype=np.float32)
                 self.vad.reset()
@@ -320,12 +336,13 @@ class WhisperWake:
         self.vad.reset()
         for seg in self._segments(mic):
             seconds = len(seg) / RATE
+            started = time.time() - self.lag - seconds - VAD_TAIL  # roughly when this bit of speech began
             if self.is_busy():
-                if self.is_talking() and self.on_stop and seconds <= self.max_seconds and self._barge_in(seg, seconds):
+                if (self.is_talking() and self.on_stop and seconds <= self.max_seconds
+                        and self._barge_in(seg, seconds, started)):
                     continue
                 self.on_heard("", "skipped %.1f s of speech (JARVIS was talking or push-to-talk was on)" % seconds)
                 continue
-            started = time.time() - seconds - VAD_TAIL  # roughly when this bit of speech began
             if self.is_echo_sound(seg, started):  # the tail of its voice (Bluetooth lags): Whisper needn't run
                 self.on_heard("", "ignored (my own voice, by its sound; %.1f s)" % seconds)
                 continue
@@ -401,7 +418,7 @@ class WhisperWake:
                 self.following = False
                 self._wait(self.wait_seconds)
 
-    def _barge_in(self, seg, seconds):
+    def _barge_in(self, seg, seconds, started):
         """Speech while JARVIS is talking: True if it was for JARVIS (it stops talking and handles it)."""
         if seconds > 2.5 and self.barge_in == "off":
             return False
@@ -417,8 +434,7 @@ class WhisperWake:
             return True
         if self.barge_in == "off":
             return False
-        started = time.time() - seconds - VAD_TAIL
-        echo = self.is_echo(text, started)
+        echo = self.is_echo(text, started)  # (started: from before transcribing, which takes a while)
         if named and not echo:  # (an echo of JARVIS saying its own name mustn't interrupt it)
             (self.on_cut or self.on_stop)()
             self.on_wake(True)
@@ -430,6 +446,11 @@ class WhisperWake:
                 beep()
                 self.following = False
                 self._wait(self.wait_seconds)
+            return True
+        if not echo and self.is_asking() and ANSWER.match(text):
+            # "Yeah" while the question is still playing (the speaker lags behind): the answer, not chatter
+            (self.on_cut or self.on_stop)()
+            self._pass_on(text, text, True, "answered the question")
             return True
         if (self.barge_in == "any" and time.time() - self.last_request < 60
                 and not echo and not self.is_echo_sound(seg, started)):  # (its voice garbled past its words)
@@ -505,6 +526,14 @@ class WhisperWake:
         self.waiting_until = 0.0
         print("[wake] nothing said; back to waiting for the name")
         self.on_wake(False)
+
+
+def _queued(pipe):
+    """Bytes waiting unread in `pipe` (0 if that can't be told)."""
+    try:
+        return struct.unpack("i", fcntl.ioctl(pipe.fileno(), termios.FIONREAD, b"\0\0\0\0"))[0]
+    except (OSError, ValueError, AttributeError):
+        return 0
 
 
 def _audio_before(history, fed, start, count):
