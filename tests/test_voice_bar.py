@@ -276,6 +276,27 @@ def test_cards_and_the_chat_glide_to_their_new_spot_and_a_dragged_card_is_let_go
     assert moves[-1] == ("chat", 1500, 300) and ("card", 1000, 0) not in moves
 
 
+def test_a_card_follows_the_pointer_while_held_and_a_still_click_doesnt_pin_it(monkeypatch):
+    from types import SimpleNamespace as NS
+    from ui import card as C
+
+    pointer = {"at": (103, 52), "held": True}
+    root = NS(get_device_position=lambda _p: (None, *pointer["at"], 1 if pointer["held"] else 0))
+    seat = NS(get_pointer=lambda: None)
+    monkeypatch.setattr(C, "Gdk", NS(Display=NS(get_default=lambda: NS(get_default_seat=lambda: seat)),
+                                     get_default_root_window=lambda: root, ModifierType=NS(BUTTON1_MASK=1)))
+    moves, placed = [], []
+    card = C.Card.__new__(C.Card)
+    card.user_xy, card.deck = None, NS(_place=lambda: placed.append(1))
+    card.win = NS(move=lambda x, y: moves.append((x, y)))
+    card._grab, card._dragging = (5, 2, 100, 50), True  # pressed at (100, 50) on a card at (95, 48)
+    assert card._follow() and not moves and not card.user_xy  # a few pixels of wobble: still a click
+    pointer["at"] = (300, 400)
+    assert card._follow() and moves == [(295, 398)]
+    pointer["held"] = False
+    assert not card._follow() and card.user_xy == (295, 398) and not card._dragging and placed
+
+
 def test_idle_the_bar_says_how_to_wake_jarvis_or_why_it_cant_hear_and_breathes():
     from types import SimpleNamespace
     from ui.bar import Bar, _breath

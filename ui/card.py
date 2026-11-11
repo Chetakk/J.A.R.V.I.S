@@ -499,7 +499,8 @@ class Card:
         w.set_type_hint(Gdk.WindowTypeHint.DOCK)
         w.stick()
         w.connect("size-allocate", self._sized)
-        w.connect("configure-event", self._moved)
+        w.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        w.connect("button-press-event", self._press)  # anywhere a button, row or text didn't take the click
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         outer.get_style_context().add_class("panel")
         outer.get_style_context().add_class("card")
@@ -509,7 +510,7 @@ class Card:
 
         head = Gtk.Box(spacing=6)
         head.get_style_context().add_class("header")
-        grip = Gtk.EventBox()  # drag the title to move the card; click a folded card's title to open it again
+        grip = Gtk.EventBox()  # drag the card by its title (or anywhere free); click a folded card's title to open it
         grip.connect("button-press-event", self._press)
         line = Gtk.Box(spacing=7)
         self.icon = Gtk.Image()
@@ -705,22 +706,28 @@ class Card:
         return False
 
     def _press(self, widget, ev):
-        if ev.button == 1 and self.folded and self.deck:
+        if ev.button != 1:
+            return False
+        if self.folded and self.deck:
             self.deck.unfold(self)
-        elif ev.button == 1:
-            self._dragging = True
-            self.win.begin_move_drag(1, int(ev.x_root), int(ev.y_root), ev.time)
+            return True
+        x, y = self.win.get_position()
+        self._grab = (ev.x_root - x, ev.y_root - y, ev.x_root, ev.y_root)
+        self._dragging = True
+        GLib.timeout_add(16, self._follow)
         return True
 
-    def _moved(self, widget, ev):
-        if self._dragging:  # you moved it: it stays where you put it
-            self.user_xy = (ev.x, ev.y)
-            GLib.timeout_add(800, self._dropped)
-        return False
-
-    def _dropped(self):
-        if not self._dragging:
-            return False
+    def _follow(self):
+        """Keep under the pointer while the button is held (the window manager won't drag a DOCK window); once
+        let go, a card that really moved stays where you put it, and the rest close up."""
+        pointer = Gdk.Display.get_default().get_default_seat().get_pointer()
+        _w, px, py, mask = Gdk.get_default_root_window().get_device_position(pointer)
+        ox, oy, sx, sy = self._grab
+        if self.user_xy or abs(px - sx) > 4 or abs(py - sy) > 4:  # a click that wobbles a little isn't a drag
+            self.user_xy = (int(px - ox), int(py - oy))
+            self.win.move(*self.user_xy)
+        if mask & Gdk.ModifierType.BUTTON1_MASK:
+            return True
         self._dragging = False
         if self.deck:
             self.deck._place()
