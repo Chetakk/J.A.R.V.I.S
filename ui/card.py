@@ -6,7 +6,8 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
 - text: "# heading", "- bullet" (indent to nest), "1. step", "- [ ]"/"- [x]" checklists, "| table |" rows,
   ``` blocks, a ```bars block ("Label: 55%" per line), a ```rows block ("RS | Rahul Sharma {check} | Re: budget
   | 9:12" per line: initials, a glyph or file:pdf, then who, what, when; without the first cell the initials are
-  made from who), a ```people block (a name per line, "+3" for the rest: initials in circles), [[55%]] meters, "> quote", "---", **bold**, *italic*,
+  made from who), a ```people block (a name per line, "+3" for the rest: initials in circles), a ```stats block
+  ("9 | emails" per line: big numbers side by side), [[55%]] meters, "> quote", "---", **bold**, *italic*,
   `code`, [links](https://...); drawn blocks (```ring, ```steps, ```weather, ```map... see ui/blocks.py) and
   {ok}/{warn}/{bad} dots, {file:pdf} badges.
 - tick / untick: phrases a clicked checkbox says ("tick todo {n}", numbered from 1); without them a click only
@@ -63,6 +64,10 @@ CSS = b"""
                 font-weight: bold; }
 .card .people .avatar { min-width: 26px; min-height: 26px; margin-right: -5px; }
 .card .who { color: #f2f2f2; font-weight: bold; }
+.card .stat { background-color: rgba(255, 255, 255, 0.045); border: 1px solid rgba(255, 255, 255, 0.07);
+              border-radius: 11px; padding: 7px 10px; }
+.card .stat-value { color: #ffffff; font-size: 16pt; font-weight: bold; }
+.card .stat-label { color: rgba(255, 255, 255, 0.45); font-size: 8.5pt; }
 .card .what { color: rgba(255, 255, 255, 0.62); font-size: 9.5pt; }
 .card .when { color: rgba(255, 255, 255, 0.42); font-size: 9pt; }
 .card label link:link, .card label link:visited { color: #ffffff; }
@@ -144,6 +149,8 @@ def plain(card):
             else:
                 said = blocks.spoken(kind, block) if kind in blocks.KINDS else _spoken_rows(block) if \
                     kind == "rows" else _spoken_people(block) if kind == "people" else \
+                    [", ".join(" ".join(c.strip() for c in l.split("|")) for l in block if l.strip())] if \
+                    kind == "stats" else \
                     [] if kind in ("log", "git", "") else block
                 lines += [l.rstrip(".") + "." for l in said]
                 kind = None
@@ -256,6 +263,22 @@ def _people(lines):
     return box
 
 
+def _stats(lines):
+    """A ```stats block: "9 | emails" per line, as big numbers in tiles side by side (up to four)."""
+    box = Gtk.Box(spacing=8, homogeneous=True)
+    for line in [l for l in lines if l.strip()][:4]:
+        value, _, label = (c.strip() for c in line.partition("|"))
+        tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        tile.get_style_context().add_class("stat")
+        for text, cls in ((value, "stat-value"), (label, "stat-label")):
+            lab = Gtk.Label(label=text, xalign=0)
+            lab.set_ellipsize(Pango.EllipsizeMode.END)
+            lab.get_style_context().add_class(cls)
+            tile.pack_start(lab, False, False, 0)
+        box.pack_start(tile, True, True, 0)
+    return box
+
+
 def _spoken_rows(lines):
     out = []
     for line in lines:
@@ -331,7 +354,7 @@ def build(text):
                 block.append(lines[i])
                 i += 1
             chart = _bars(block) if kind == "bars" else _rows(block) if kind == "rows" else \
-                _people(block) if kind == "people" else blocks.make(kind, block)
+                _people(block) if kind == "people" else _stats(block) if kind == "stats" else blocks.make(kind, block)
             widgets.append(chart or _label("\n".join(block), mono=True))
         elif line.lstrip().startswith("|"):
             rows = []

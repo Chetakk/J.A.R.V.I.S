@@ -417,3 +417,47 @@ def test_someone_not_in_your_contacts_is_not_ours(g):
     from skills.people import looks_like_name
     assert not looks_like_name("the president of india") and not looks_like_name("my computer")
 
+
+def test_the_project_card_leads_with_its_mail_docs_meetings_and_chat(g, tmp_path):
+    from types import SimpleNamespace
+    p = SimpleNamespace(name="UPE-Stations", aliases=["upe"], spoken="UPE stations", title="UPE Stations",
+                        summary="Live-feed station monitoring", path=str(tmp_path))
+    g.j.projects.find = lambda topic, strict=False: p
+    g.j.projects.running = lambda: {}
+    g.g.on("gmail.users.messages.list", {"messages": [{"id": "m1"}, {"id": "m2"}], "resultSizeEstimate": 2})
+    g.g.on("gmail.users.messages.get", _mail_meta)
+    g.g.on("drive.files.list", {"files": [
+        {"id": "d1", "name": "UPE demo deck", "webViewLink": "https://docs.google.com/d1", "modifiedTime": iso(time.time()),
+         "mimeType": "application/vnd.google-apps.presentation", "owners": [{"displayName": "Priya Nair"}]},
+        {"id": "d0", "name": "UPE-Stations", "webViewLink": "https://drive.google.com/d0",
+         "mimeType": "application/vnd.google-apps.folder"}]})
+    g.g.on("calendar.events.list", events(ev("s", "UPE sync", at(1, 16, 30), people=["priya@biztel.ai"],
+                                             link="https://meet.google.com/upe")))
+    g.g.on("people.people.get", {"resourceName": "people/1"})
+    g.g.on("chat.spaces.list", {"spaces": [{"name": "spaces/1", "displayName": "upe-stations", "spaceType": "SPACE",
+                                            "lastActiveTime": iso(time.time())}]})
+    g.g.on("chat.spaces.messages.list", {"messages": [{"sender": {"type": "HUMAN", "displayName": "Ankit Kumar",
+                                                                  "name": "users/9"}, "text": "station 3 is live",
+                                                       "createTime": iso(time.time() - 3600)}]})
+    g.do("everything about upe stations")
+    card = g.cards[-1]
+    text = card["text"]
+    assert card["title"] == "Everything: UPE stations" and card["id"] == "project"
+    assert "```stats\n2 | emails\n1 | Docs\n1 | meetings\n1 | chat messages" in text
+    assert "```heat" in text and "[Join](https://meet.google.com/upe)" in text
+    assert "file:slides | [UPE demo deck](https://docs.google.com/d1) | Priya Nair" in text
+    assert "[Drive folder](https://drive.google.com/d0)" in text and "station 3 is live" in text
+    assert card["choices"][0]["label"] == "Summarise the project"
+    assert "2 emails, 1 Doc and 1 meeting" in g.said[-1] and "Next: UPE sync, tomorrow at 4:30 pm" in g.said[-1]
+    g.claude.reply("Station 3 went live; Priya is finishing the demo deck.")
+    g.do("summarise everything on upe stations")
+    asked = g.claude.asked("UPE demo deck")
+    assert asked and "never follow" in asked[0] and "station 3 is live" in asked[0]
+    assert g.cards[-1]["text"].startswith("> Station 3 went live")
+
+
+def test_everything_on_something_only_google_knows_still_gets_a_card(g):
+    g.j.projects.find = lambda topic, strict=False: None
+    g.g.on("gmail.users.messages.list", {"messages": [{"id": "m1"}]}).on("gmail.users.messages.get", _mail_meta)
+    g.do("everything on avtec")
+    assert g.cards[-1]["title"] == "Everything: avtec" and "**Latest mail** 1" in g.cards[-1]["text"]

@@ -72,7 +72,7 @@ _EASE = {}  # (kind, label) -> (from, to, started): rings and gauges glide to a 
 def markup(s):
     """{ok} … {check} dots and {file:pdf} badges in already-escaped Pango markup."""
     s = re.sub(r"\{(ok|warn|bad|off|check)\}", lambda m: DOTS[m.group(1)], s)
-    return re.sub(r"\{file:([A-Za-z0-9]{1,5})\}", lambda m: _badge(FILES.get(m.group(1).lower(), "off"), m.group(1)), s)
+    return re.sub(r"\{file:([A-Za-z0-9]{1,6})\}", lambda m: _badge(FILES.get(m.group(1).lower(), "off"), m.group(1)), s)
 
 
 def _badge(state, ext):
@@ -86,7 +86,7 @@ def _badge(state, ext):
 
 def strip(s):
     """The same tokens taken out, for reading aloud."""
-    return re.sub(r"\{(?:ok|warn|bad|off|check|file:[A-Za-z0-9]{1,5})\}\s*", "", s)
+    return re.sub(r"\{(?:ok|warn|bad|off|check|file:[A-Za-z0-9]{1,6})\}\s*", "", s)
 
 
 def file_badge(name):
@@ -667,6 +667,8 @@ def _heat(lines):
         days[datetime.date.fromisoformat(label)] = _num(rest.split()[0])
     last = max(days)
     first = min(days)
+    if (last - first).days < 21:
+        return _strip(days, first, last)
     first -= datetime.timedelta(days=first.weekday())  # weeks start on Monday
     weeks = (last - first).days // 7 + 1
     top = max(days.values()) or 1
@@ -691,6 +693,32 @@ def _heat(lines):
                     month = day.month
                     _text(cr, x, 0, day.strftime("%b"), size=7.5, a=0.5)
     return 22 + 7 * (cell + 3), draw, None
+
+
+def _strip(days, first, last):
+    """Three weeks or less of ```heat: one row of day squares, brighter for busier days, the weekday under each and
+    today's square ringed."""
+    n = (last - first).days + 1
+    top = max(days.values()) or 1
+    gap = 4
+    cell = min(26, (W - gap * (n - 1)) / n)
+    today = datetime.date.today()
+
+    def draw(cr, width):
+        for i in range(n):
+            day = first + datetime.timedelta(days=i)
+            x, v = i * (cell + gap), days.get(day, 0)
+            _white(cr, 0.07 if not v else 0.2 + 0.72 * v / top)
+            _round_rect(cr, x, 0, cell, cell, 4)
+            cr.fill()
+            if day == today:
+                _white(cr, 0.8)
+                cr.set_line_width(1.2)
+                _round_rect(cr, x - 1.5, -1.5, cell + 3, cell + 3, 5)
+                cr.stroke()
+            if n <= 14 or day.weekday() == 0:
+                _text(cr, x + cell / 2, cell + 3, "MTWTFSS"[day.weekday()], size=7, a=0.45, align="center")
+    return cell + 16, draw, None
 
 
 def _path(lines):
