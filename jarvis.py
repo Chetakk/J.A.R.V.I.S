@@ -31,7 +31,7 @@ try:
 except ImportError:
     pass
 
-from core import context, learned, misslog, outcomes, persona, teaching, undo, verify
+from core import context, learned, misslog, numbers, outcomes, persona, teaching, undo, verify
 from system import apps, audio, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, Stopped, open_in_vscode
@@ -423,7 +423,8 @@ class Jarvis:
         self.dropped = bool(re.search(persona.NEVER_MIND, answer)) and answer not in options
         if not answer or self.dropped or re.match(r"^(?:no|nope|neither|none|nothing|never ?mind|cancel)\b", answer):
             return None
-        ordinals = (("first", "second", "third"), ("one", "two", "three"))
+        ordinals = (("first", "second", "third", "fourth", "fifth", "sixth"), ("1st", "2nd", "3rd", "4th", "5th", "6th"),
+                    ("one", "two", "three", "four", "five", "six"), ("1", "2", "3", "4", "5", "6"))
         # "the biztel one" names an option: that one, not the first
         said = set(re.findall(r"[a-z']+", answer)) - set(sum(ordinals, ()))
         overlap = [len(said & set(re.findall(r"[a-z']+", o.lower()))) for o in options]
@@ -611,6 +612,25 @@ class Jarvis:
             self.executor.run(action.shell(self.registry.browsers), reply=[p % action.description for p in ("Opening %s", "Sure, opening %s", "Okay, pulling up %s")],
                               window=True)
             return True
+        # "workspace three" and "workspace 3" are the same: matched nothing as said, so the other spelling is tried
+        # (before the meaning match, which takes nearly anything as its nearest phrase)
+        for other in dict.fromkeys((numbers.as_digits(text), numbers.as_words(text))):
+            if other == text:
+                continue
+            self.failed = False
+            if self.skills.handle(other):
+                self.heard(text, "means \"%s\"" % other)
+                if self.failed:
+                    self.context.forget()
+                else:
+                    self.context.done(other)
+                self.last_request = other
+                return True
+            match = self.registry.match_exact(other)
+            if match and not self._not_running(match):
+                self.heard(text, "means \"%s\"" % other)
+                self.handled(other, "command", (match.command.get("say") or [""])[0], value=bool(match.slots))
+                return self._run_match(match)
         # "Open YouTube and turn the volume down": two requests, if each part is understood on its own.
         # (Before the meaning match, which could take the whole sentence as just one of them.)
         parts = self._split(text)
