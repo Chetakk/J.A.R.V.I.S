@@ -23,10 +23,11 @@ LOG_MAX = 1 << 20  # the log is emptied past this while no command runs
 
 
 def keys(command, reason):
-    """The bytes to type: end of line + clear it (Ctrl+E, Ctrl+U), then the command with the reason as a comment.
-    Ctrl+V before each control character inserts it as text, so a newline is never Enter and a tab never completion."""
+    """The bytes to type: end of line + clear it (Ctrl+E, Ctrl+U), then the command with the reason as a comment,
+    as a bracketed paste: ble.sh inserts it as text, so a newline is a real line break (not Enter, not a literal ^J)
+    and a tab never completion. ESC is dropped so the command can't end the paste early and press keys itself."""
     text = "# ⚠ %s\n%s" % (reason, command) if "\n" in command else "%s  # ⚠ %s" % (command, reason)
-    return ("\x05\x15" + "".join("\x16" + c if c < " " or c == "\x7f" else c for c in text)).encode()
+    return ("\x05\x15\x1b[200~" + text.replace("\x1b", "") + "\x1b[201~").encode()
 
 
 def at_prompt(shell):

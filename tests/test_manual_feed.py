@@ -7,13 +7,16 @@ from manual_feed import at_prompt, keys  # noqa: E402
 
 
 def test_one_line_command_gets_reason_as_comment():
-    assert keys("ls -la", "risky") == "\x05\x15ls -la  # ⚠ risky".encode()
+    assert keys("ls -la", "risky") == "\x05\x15\x1b[200~ls -la  # ⚠ risky\x1b[201~".encode()
 
 
-def test_newlines_and_tabs_are_inserted_not_pressed():
+def test_newlines_and_tabs_are_pasted_not_pressed():
     k = keys("cat <<EOF\nhi\tx\nEOF", "writes")
-    assert k.startswith("\x05\x15# ⚠ writes\x16\ncat".encode())
-    assert b"\n" not in k.replace(b"\x16\n", b"") and b"\t" not in k.replace(b"\x16\t", b"")
+    assert k == "\x05\x15\x1b[200~# ⚠ writes\ncat <<EOF\nhi\tx\nEOF\x1b[201~".encode()
+
+
+def test_command_cannot_end_the_paste_itself():
+    assert keys("echo \x1b[201~\rrm -rf x", "r").count(b"\x1b") == 2  # only the paste's own start and end
 
 
 def test_at_prompt_reads_proc():

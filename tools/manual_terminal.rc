@@ -17,6 +17,9 @@ __jarvis_hooks() {
   __jarvis_hooked=1
   blehook PREEXEC!=__jarvis_pre
   blehook POSTEXEC!=__jarvis_post
+  # Enter runs the whole command here, multi-line ones too (ble.sh's default makes Enter add a line to those)
+  ble-bind -m emacs -f C-m accept-line
+  ble-bind -m emacs -f RET accept-line
 }
 PROMPT_COMMAND=__jarvis_hooks
 [ -f ~/.bashrc ] && . ~/.bashrc
