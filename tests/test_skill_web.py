@@ -265,7 +265,71 @@ def test_my_tabs_come_from_jarvis_link(jv, link):
     assert jv.cards[-1]["title"] == "Open tabs (2)"
 
 
+# --- reader cards ---
+
+ARTICLE = {"url": "https://example.com/docs", "title": "Jetson", "byline": "A. Writer", "site": "example.com",
+           "image": "", "text": "# Jetson\n\n" + LONG}
+
+
+def test_this_page_as_a_reader_card(jv, agent, link, browser):
+    link.replies["article"] = ARTICLE
+    jv.do("show this page here")
+    assert [a["url"] for a in link.did("article")] == ["https://example.com/docs"] and not agent.calls
+    card = jv.cards[-1]
+    assert card["title"] == "Jetson" and card["text"].startswith("*A. Writer · example.com*\n\n# Jetson")
+    assert card["stay"] and card["image"] is None
+    assert card["choices"] == [{"label": "Open in Chrome", "do": "open https://example.com/docs in chrome"}]
+
+
+def test_a_link_in_a_reader_card_with_its_picture(jv, agent, link, monkeypatch):
+    link.replies["article"] = dict(ARTICLE, image="https://cdn.example.com/hero.jpg")
+    sent = []
+
+    class Reply:
+        def __init__(self, req):
+            sent.append(req)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def read(self, n):
+            return b"JPEG"
+
+    monkeypatch.setattr(web.urllib.request, "urlopen", lambda req, timeout: Reply(req))
+    jv.do("open example.com/docs in a card")
+    assert link.did("article")[0]["url"] == "https://example.com/docs"
+    assert sent[0].get_header("Referer") == "https://example.com/docs"  # as a browser would: no hotlink block
+    with open(jv.cards[-1]["image"], "rb") as f:
+        assert f.read() == b"JPEG"
+
+
+def test_a_reader_card_from_jarvis_own_browser(jv, agent, browser):
+    agent.replies["article"] = ARTICLE
+    jv.do("reader view")
+    assert agent.did("article") == [{"url": "https://example.com/docs"}] and jv.cards[-1]["title"] == "Jetson"
+
+
 # --- failure cases ---
+
+def test_a_reader_card_needs_text(jv, agent, link, browser):
+    link.replies["article"] = dict(ARTICLE, text="Log in to continue.")
+    jv.do("show this page here")
+    assert jv.said == ["There's hardly any text on that page to show."] and not jv.cards
+
+
+def test_a_reader_card_whose_picture_wont_load(jv, agent, link, browser, monkeypatch):
+    link.replies["article"] = dict(ARTICLE, image="https://cdn.example.com/hero.jpg")
+
+    def refuse(req, timeout):
+        raise OSError("403")
+    monkeypatch.setattr(web.urllib.request, "urlopen", refuse)
+    jv.do("show this page here")
+    assert jv.cards[-1]["image"] is None and jv.cards[-1]["title"] == "Jetson"
+
+
 
 def test_console_needs_jarvis_link(jv, agent, browser):
     jv.do("show the console errors on this page")

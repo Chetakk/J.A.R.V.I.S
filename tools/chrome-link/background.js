@@ -2,7 +2,7 @@
 // "page": its video and link titles; "open": go to a URL in that tab; "label": number links on screen;
 // "fullscreen" / "video": the biggest video; "tabs" / "focus_tab": every tab; "agent": the browser agent's calls
 // (read, click, type, ...) in your own Chrome, see agent() below. Nothing is sent anywhere but JARVIS.
-importScripts("page.js");  // pageText, interactive, SECRET: what the agents read off a page
+importScripts("page.js");  // pageText, interactive, article, SECRET: what the agents read off a page
 const HOST = "com.jarvis.link";
 let port = null;
 
@@ -579,8 +579,9 @@ async function agent(msg) {
   }
   const tab = msg.tab ? await chrome.tabs.get(msg.tab).catch(() => null) : await activeTab();
   if (!tab) throw new Error(msg.tab ? "its tab was closed" : "no tab");
-  if (d === "read" && msg.url && !msg.tab && tab.url !== msg.url) {  // not the page you're on: read out of your way
-    const [p] = await offscreen([msg.url], (id) => read(id, msg.max));
+  const reader = d === "article" ? (id) => inPage(id, article, [msg.max || 40000]) : (id) => read(id, msg.max);
+  if ((d === "read" || d === "article") && msg.url && !msg.tab && tab.url !== msg.url) {  // not the page you're on: out of your way
+    const [p] = await offscreen([msg.url], reader);
     if (p.error) throw new Error(p.error);
     return p;
   }
@@ -592,7 +593,7 @@ async function agent(msg) {
     const now = await chrome.tabs.get(id);
     return Object.assign(out, {url: now.url || "", title: now.title || ""});
   }
-  if (d === "read") return Object.assign(out, await read(id, msg.max));
+  if (d === "read" || d === "article") return Object.assign(out, await reader(id));
   if (d === "snapshot") return Object.assign(out, await snapshot(id));
   if (d === "act") return Object.assign(out, await act(id, msg));
   if (d === "download") return Object.assign(out, await download(id, msg));

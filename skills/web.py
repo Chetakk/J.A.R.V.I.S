@@ -1,6 +1,6 @@
 """The browser agent's phrases: "summarise this page", "what's the price on this page", "research X", "compare X and
 Y", "summarise this video", "fill the form on this page with ...", "in the agent browser <task>", "download <url>",
-"summarise my tabs", "in my browser <task>", "show the console errors on this page", "show the network requests on
+"summarise my tabs", "show this page here" (a reader card), "in my browser <task>", "show the console errors on this page", "show the network requests on
 this page", and bookmarks ("open my X bookmark", "search my bookmarks for X", "bookmark this").
 
 Pages are read and tasks done in your own Chrome through JARVIS Link (system/chrome_link.Agent: your logins, your
@@ -8,11 +8,13 @@ tabs) when it's answering, else in JARVIS's own Chrome (system/webagent.py: sepa
 logins; "in the agent browser" always uses that one). "this page" is the tab you're looking at. Everything a page
 says is passed to Claude as untrusted data. The agent asks before any click that sends, buys or deletes, never
 types passwords, and never pays."""
+import hashlib
 import json
 import os
 import re
 import shlex
 import time
+import urllib.request
 from urllib.parse import urlparse
 
 from claude.bridge import WORKSPACE, ClaudeError
@@ -50,7 +52,7 @@ PLAN_SYSTEM = (
 class Web(Skill):
     group = "web"
     does = "reads pages, researches, and does web tasks step by step, in your Chrome (JARVIS Link) or JARVIS's own"
-    phrases = ("summarise this page", "what's the price on this page", "research <topic>", "compare <x> and <y>",
+    phrases = ("summarise this page", "show this page here", "open <url> in a card", "what's the price on this page", "research <topic>", "compare <x> and <y>",
                "deep research <topic>", "summarise this video", "summarise my tabs",
                "fill the form on this page with <details>", "in my browser <task>", "in the agent browser <task>",
                "show the console errors on this page", "show the network requests on this page", "download <url>",
@@ -67,6 +69,10 @@ class Web(Skill):
     def patterns(self):
         page = r"(?:this|the|that) (?:page|tab|article|site|website|post)"
         return [
+            (r"(?:show|open|put) (?:me )?%s (?:here|in (?:a|the) card|in (?:jarvis|a reader))|reader (?:view|mode)"
+             r"(?: (?:for|of|on) %s)?" % (page, page), lambda m: self.reader()),
+            (r"(?:show|open|put) (?:me )?" + URL + r" (?:here|in (?:a|the) card|in (?:jarvis|a reader))",
+             lambda m: self.reader(m.group(1))),
             (r"(?:show|check|read|list|any|what'?s in|what are) (?:me )?(?:the )?(?:console(?: errors| logs?| messages)?|"
              r"(?:javascript|js|console) errors) (?:on|in|of|for) %s" % page, lambda m: self.console()),
             (r"(?:show|check|read|list|any|what are) (?:me )?(?:the )?(?:network(?: requests| calls| activity)?|"
@@ -179,6 +185,44 @@ class Web(Skill):
                 "points.")
         self._answer("%s\n\n%s" % (task, untrusted("%s\n\n%s" % (page["title"], page["text"][:15000]), page["url"])),
                      page["title"] or urlparse(page["url"]).netloc)
+
+    def reader(self, url=None):
+        """A page as a reader card: its clean text (headings, paragraphs, lists, links) under its main picture, read
+        in your Chrome when JARVIS Link answers (so logged-in pages work) and shown inside JARVIS. Cards stack."""
+        if url and not re.match(r"^https?://", url):
+            url = "https://" + url
+        url = url or self._page_url()
+        if not url:
+            self.say("I don't see a web page open.")
+            return
+        try:
+            art = self._agent().call("article", url=url)
+        except AgentError as e:
+            self.say("I couldn't open that page: %s." % e)
+            return
+        if len(art.get("text") or "") < 200:
+            self.say("There's hardly any text on that page to show.")
+            return
+        byline = " · ".join(x for x in (art.get("byline"), art.get("site")) if x)
+        self.j.show({"title": art.get("title") or art["url"], "text": ("*%s*\n\n" % byline if byline else "") + art["text"],
+                     "image": self._picture(art.get("image"), art["url"]), "id": "reader " + art["url"], "stay": True,
+                     "choices": [{"label": "Open in Chrome", "do": "open %s in chrome" % art["url"]}]})
+        self.say(["Here it is.", "It's on a card."])
+
+    def _picture(self, src, page):
+        """The article's main picture saved for the card (sent with the page as referrer, as a browser would), or None."""
+        if not re.match(r"^https?://", src or ""):
+            return None
+        path = os.path.join(WORKSPACE, "reader-%s" % hashlib.sha1(src.encode()).hexdigest()[:12])
+        try:
+            req = urllib.request.Request(src, headers={"User-Agent": "Mozilla/5.0", "Referer": page})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                data = r.read(8000000)
+            with open(path, "wb") as f:
+                f.write(data)
+        except (OSError, ValueError):
+            return None
+        return path
 
     def _read(self, url):
         """Your Chrome reads the tab you're on as it is (logged in, scrolled), and any other address out of your way."""

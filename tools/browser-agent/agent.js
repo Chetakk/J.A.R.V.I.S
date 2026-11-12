@@ -9,7 +9,7 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const { chromium } = require('playwright-core');
-const { pageText, interactive, SECRET } = require('../chrome-link/page.js');  // shared with JARVIS Link
+const { pageText, interactive, article, SECRET } = require('../chrome-link/page.js');  // shared with JARVIS Link
 
 const PROFILE = process.env.JARVIS_AGENT_PROFILE || path.join(os.homedir(), '.local/share/jarvis/agent-chrome');
 const CHROME = process.env.JARVIS_AGENT_CHROME || '/opt/google/chrome/chrome';
@@ -179,6 +179,11 @@ async function handle(req) {
       const p = await current();
       if (req.url) await goto(p, req.url);
       return read(p, req.max);
+    }
+    case 'article': {  // for a reader card
+      const p = await current();
+      if (req.url) await goto(p, req.url);
+      return p.evaluate(article, req.max || 40000);
     }
     case 'readMany': await browser(); return readMany(req);
     case 'search': await browser(); return search(req);
