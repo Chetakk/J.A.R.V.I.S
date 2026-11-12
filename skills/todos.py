@@ -18,7 +18,7 @@ from system import productvt
 from skills.daytracker import DayTracker, HubDown, new_id, spoken
 from skills.helpers import NTH, ORDINALS
 
-TODO = r"(?:to ?-?dos?|todo list|to ?do list|task list|tasks)"
+TODO = r"(?:to ?-?dos?|to ?-?do ?list|task list|tasks)"
 MAX_READ = 5
 CARD = "todos"  # the to-do card's id; its ticks say "tick todo 3" / "untick todo 3"
 SHORT = 60  # a to-do longer than this is said up to its first ":" or cut
@@ -178,7 +178,7 @@ class Todos(Skill):
             (r"(?:cancel|delete|remove|clear|turn off|switch off) (?:the |my |all )?(?:(.+?) )?(?:reminders?|alarms?)"
              r"(?: (?:about|for|to|at) (.+))?", self.cancel),
             (r"(un)?tick todo (\d+)", self.tick_n),  # a tick clicked on the to-do card
-            (r"(?:add|put) (.+?) (?:to|on|in|onto) (?:my|the) %s|(?:add|create|make)(?: a)?(?: new)? to ?-?do(?: to| for)?:? (.+)"
+            (r"(?:add|put) (.+?) (?:to|on|in|onto) (?:(?:my|the) )?%s|(?:add|create|make)(?: a)?(?: new)? to ?-?do(?: to| for)?:? (.+)"
              % TODO, self.add),
             (r"(?:clear|empty|wipe)(?: out)? (?:my |the |all (?:of )?(?:my )?)?%s|(?:mark|tick off|check off) (?:all|everything)"
              r"(?: of them| on (?:my|the) %s)?(?: as)? done" % (TODO, TODO), lambda m: self.clear()),
