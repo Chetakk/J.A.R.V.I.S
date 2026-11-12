@@ -30,7 +30,8 @@ class Dictation(Skill):
              lambda m: self.start_dictation()),
             (r"(?:start )?typ(?:e|ing) (?:in|into|on) (?:the |my )?((?:\S+ ?){1,3}?)(?: app| window)?(?: for me)?",
              self.type_in),
-            (r"type(?: this| that| out)?[:,]? (.+)", lambda m: self.type_text(m.group(1))),
+            (r"type(?: this| that| out)?[:,]? (?!.* on (?:my|the) (?:phone|mobile)$)(.+)",  # that's the phone skill's
+             lambda m: self.type_text(m.group(1))),
         ]
 
     def start_dictation(self):

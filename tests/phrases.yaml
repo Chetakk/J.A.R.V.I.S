@@ -966,7 +966,6 @@
 "copy this window into vs code": skill:move
 "summarise this and put it in vs code": skill:transform
 "translate my clipboard to hindi and paste it into the terminal": skill:transform
-"send this to my phone": claude
 "copy this to workspace 2": claude
 "put this on the left": skill:snap
 # Browser agent (skills/web.py)
@@ -1971,3 +1970,47 @@
 "open what rahul shared": skill:open_shared
 "read what priya shared": skill:read_shared
 "show me the species": skill:spaces
+# the phone (skills/phone.py, 2026-11-12)
+"open spotify on my phone": skill:open_app
+"call mom": skill:call
+"text rahul saying i'm running late": skill:text
+"whatsapp mom saying ok": skill:whatsapp
+"message mom on whatsapp see you soon": skill:whatsapp
+"tap send on my phone": skill:tap
+"scroll down on my phone": skill:scroll
+"phone battery": skill:battery
+"how much battery does my phone have": skill:battery
+"pause my phone": skill:key
+"lock my phone": skill:key
+"phone volume up": skill:volume
+"show my phone screen": skill:screenshot
+"where's my phone": skill:ring
+"send this to my phone": skill:send
+"send buy milk to my phone": skill:send
+"send this link to my phone": skill:send
+"paste from my phone": skill:pull_clipboard
+"get my phone's clipboard": skill:pull_clipboard
+"type hello there on my phone": skill:type_text
+"find my phone": skill:ring
+"dismiss that notification": skill:dismiss
+"mute the call": skill:mute_call
+"read my texts": skill:texts
+"any texts from rahul": skill:texts
+"did i get any texts": skill:texts
+"open my phone's files": skill:phone_files
+"get my latest photo from my phone": skill:latest_photo
+"show me the last screenshot from my phone": skill:latest_photo
+"send these photos to my phone": skill:send
+"send plan.pdf to my phone": skill:send
+"open this on my phone": skill:open_on_phone
+"open spotify on my phone": skill:open_app
+"send a note to my phone saying buy milk": skill:note
+"send a screenshot to my phone": skill:send
+"share it on my phone": skill:share_on_phone
+"send this photo to mom on whatsapp": skill:whatsapp_file
+"whatsapp the screenshot to rahul": skill:whatsapp_file
+"whatsapp mom saying i'm going to the gym": skill:whatsapp
+"copy phone clipboard": skill:pull_clipboard
+"copy my clipboard to my phone": skill:push_clipboard
+"copy my clipboard to phone": skill:push_clipboard
+"what's on my phone's clipboard": skill:phone_clipboard

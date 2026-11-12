@@ -11,7 +11,7 @@ resume.pdf" isn't a website); the network check before troubleshooting ("what's 
 wifi" isn't a project); the briefing before "everything about X" ("what do I have on today"); "everything
 about X" before projects and notes; Google (calendar, Gmail, Chat, Drive, the wrap) before the briefing ("what's on my
 calendar" is Google's once connected), the to-dos ("add this email to my to-dos") and your own documents
-(their "tell me about" / "what do you remember about" would take it); clicking in a window and window focus go last.
+(their "tell me about" / "what do you remember about" would take it); the phone after the to-dos ("call the bank is done" is a to-do); clicking in a window and window focus go last.
 """
 from skills.browser_tabs import BrowserTabs
 from skills.audio import Audio
@@ -48,6 +48,7 @@ from skills.nano import Nano
 from skills.notes import Notes
 from skills.notifications import Notifications
 from skills.people import People
+from skills.phone import Phone
 from skills.organise import Organise
 from skills.proactive import Proactive
 from skills.projects import Projects
@@ -74,7 +75,7 @@ ORDER = [
     ("slow_computer", SlowComputer), ("frozen", Frozen), ("where_was_i", WhereWasI),
     ("clipboard_history", ClipboardHistory),
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
-    ("daytracker", DayTracker), ("todos", Todos), ("studybuddy", StudyBuddy), ("videos", Videos),
+    ("daytracker", DayTracker), ("todos", Todos), ("phone", Phone), ("studybuddy", StudyBuddy), ("videos", Videos),
     ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("lookup", Lookup), ("projects", Projects), ("screen", Screen),
     ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),
@@ -89,6 +90,7 @@ class Skills:
             skill = cls(jarvis)
             setattr(self, name, skill)
             self.all.append(skill)
+        self.notifications.watcher.on_add = self.phone.arrived  # the phone's messages and calls, said as they come
 
     def first(self, text):
         """Before everything else: says the words back while repeating after you, and remembers the request for "where was I"."""

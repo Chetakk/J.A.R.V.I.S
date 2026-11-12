@@ -308,6 +308,9 @@ class GoogleChat(GoogleSkill):
         g = m.groups()
         name, text = (g[0], g[1]) if g[1] else (g[2], g[3]) if g[3] else (g[4], g[5])
         text = (text or "").strip()
+        if "chat" not in m.group(0).lower() and self.j.skills.phone.reply_target(
+                name, 0 if name or not self.last_space else self.last_space[2]):
+            return False  # "reply saying ..." right after a phone message: the phone's (skills/phone.py)
         chat = self.api("chat", "v1", "chat.messages.create")
         if name:
             email = find_email(self.api, name)
