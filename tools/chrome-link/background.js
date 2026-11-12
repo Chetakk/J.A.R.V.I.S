@@ -73,7 +73,7 @@ async function handle(msg) {
                                     active: t.active}))};
   }
   if (msg.op === "focus_tab") {
-    const t = await chrome.tabs.update(msg.id, {active: true});
+    const t = await chrome.tabs.update(msg.tab, {active: true});  // not msg.id: the host numbers its messages with that
     await chrome.windows.update(t.windowId, {focused: true});
     return {ok: true};
   }

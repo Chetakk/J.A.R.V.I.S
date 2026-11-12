@@ -137,7 +137,7 @@ def test_a_tab_by_name_through_the_extension(jv, link):
     link.replies["tabs"] = {"tabs": [{"id": 7, "windowId": 1, "title": "Inbox - Gmail", "url": "", "active": False},
                                      {"id": 9, "windowId": 1, "title": "Jetson forum", "url": "", "active": True}]}
     jv.do("switch to the gmail tab")
-    assert link.did("focus_tab") == [{"id": 7}]
+    assert link.did("focus_tab") == [{"tab": 7}]
     assert not jv.desktop.did("keys")
 
 

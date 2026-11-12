@@ -62,7 +62,7 @@ class BrowserTabs(Skill):
             from skills.videos import best  # (videos imports this module)
             hit = next((t for t in tabs if target in t["title"].lower()), None) or best(target, tabs)
             if hit:
-                chrome_link.call("focus_tab", id=hit["id"])
+                chrome_link.call("focus_tab", tab=hit["id"])
                 self.say(["Here it is.", "Switched."])
                 return
         win = self._browser()
