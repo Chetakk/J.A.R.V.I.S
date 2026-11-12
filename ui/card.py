@@ -787,6 +787,7 @@ class Card:
         """Show the body, buttons and pin, or only the title line of a folded card."""
         self.scroll.set_visible(not self.folded)
         self.buttons.set_visible(not self.folded and bool(choices(self.last)))
+        self.buttons.queue_resize()  # shown again after a card without choices, it kept measuring 0 high: cut off
         self.pin_button.set_visible(not self.folded and not self.pinned)
         self.title.set_tooltip_text("Click to open it" if self.folded else (self.last or {}).get("title") or None)
         self.win.set_size_request(FOLD_W if self.folded else width(self.last), -1)
