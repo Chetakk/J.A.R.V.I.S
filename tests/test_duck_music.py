@@ -42,3 +42,14 @@ def test_a_stream_started_while_ducked_comes_back_too(jv):
     jv.j.state(jv.j.rest)
     assert jv.shell.ran(r"set-sink-input-volume") == ["pactl set-sink-input-volume 62 24%",
                                                       "pactl set-sink-input-volume 80 80%"]
+
+
+def test_shutting_down_puts_the_music_back_first(jv):
+    """"Shut down" is answered while JARVIS still listens: the computer would go off with the music lowered, and
+    PulseAudio would start Chrome at 24% from then on."""
+    jv.shell.on(r"^pactl list sink-inputs$", out=STREAMS)
+    jv.j.state("listening")
+    jv.do("shut down", "yes")
+    ran = jv.shell.ran(r"set-sink-input-volume|systemctl poweroff")
+    assert ran[:3] == ["pactl set-sink-input-volume 62 24%", "pactl set-sink-input-volume 62 80%",
+                       "systemctl poweroff"]

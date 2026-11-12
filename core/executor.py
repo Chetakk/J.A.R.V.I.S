@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 from core import verify
-from system import desktop
+from system import audio, desktop
 from core.persona import address, lines, with_name
 from core.safety import CONFIRM, MANUAL
 from voice.speech import pick
@@ -15,6 +15,8 @@ from system.terminal import DEFAULT_TERMINAL, ManualTerminal
 
 # Shell builtins have no program file to find, so `cd x && ls` must not be called "missing".
 BUILTINS = {"cd", "pwd", "echo", "true", "false", "test", "[", "export", "type", "pushd", "popd"}
+# These end the session before JARVIS gets to put lowered music back up, and PulseAudio would keep it lowered.
+ENDS_SESSION = ("systemctl poweroff", "systemctl reboot", "gnome-session-quit")
 
 
 class Executor:
@@ -59,6 +61,8 @@ class Executor:
             self.outcome = "missing"
             self.speaker.say("Hmm, I can't find %s on this computer." % prog)
             return None
+        if command.startswith(ENDS_SESSION):
+            audio.duck(False)
         if output:
             try:
                 res = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout,
