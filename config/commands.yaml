@@ -241,6 +241,13 @@ commands:
     run: gnome-screenshot
     reply: ["Screenshot taken, it's in Pictures", "Captured. It's in Pictures", "Got it. It's in Pictures", "Screenshot saved in Pictures"]
 
+  - name: screenshot_clipboard
+    say: [take a screenshot and copy it to my clipboard, take a screenshot and copy it to the clipboard,
+          take a screenshot and copy it, screenshot to clipboard, screenshot to my clipboard, copy a screenshot,
+          copy a screenshot to my clipboard, screenshot and copy it, take a screenshot to my clipboard]
+    run: gnome-screenshot -c
+    reply: ["Screenshot's on your clipboard", "Captured and copied. Paste away", "On your clipboard. Ready to paste"]
+
   - name: screenshot_area
     say: [screenshot area, screenshot a region, take a screenshot of an area]
     run: gnome-screenshot -a
