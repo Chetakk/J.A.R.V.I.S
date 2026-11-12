@@ -220,8 +220,10 @@ async function transcript(req) {
     let segments = [];
     if (await btn.count()) {
       await btn.click({ timeout: 5000 }).catch(() => {});
-      await p.waitForSelector('ytd-transcript-segment-renderer', { timeout: 10000 }).catch(() => {});
-      segments = await p.$$eval('ytd-transcript-segment-renderer .segment-text', els => els.map(e => e.innerText));
+      // YouTube's older panel and its newer one (2026)
+      await p.waitForSelector('ytd-transcript-segment-renderer, transcript-segment-view-model', { timeout: 10000 }).catch(() => {});
+      segments = await p.$$eval('ytd-transcript-segment-renderer .segment-text, transcript-segment-view-model [role=text]',
+        els => els.map(e => e.innerText));
     }
     return { url: req.url, title, text: segments.join(' ').replace(/\s+/g, ' ').trim().slice(0, 60000) };
   } finally { await p.close().catch(() => {}); }
