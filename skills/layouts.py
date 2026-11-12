@@ -178,8 +178,9 @@ class Layouts(Skill):
         saved[name] = {"workspace": ws, "windows": items}
         save_json(SAVED, saved, indent=1)
         self.j.chat("sys", "saved layout %s: %s" % (name, json.dumps(items)))
-        self.say("Saved %d window%s as your %s layout. Say %s layout to bring it back."
-                 % (len(items), "" if len(items) == 1 else "s", name, name))
+        windows = "%d window%s" % (len(items), "" if len(items) == 1 else "s")
+        self.say(["Saved %s as your %s layout. Say %s layout to bring it back." % (windows, name, name),
+                  "Your %s layout is saved, %s. Say %s layout any time to bring it back." % (name, windows, name)])
 
     def list_layouts(self):
         layouts = self._all()

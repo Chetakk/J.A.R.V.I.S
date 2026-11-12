@@ -77,7 +77,7 @@ class Dictation(Skill):
                         r" (?:the )?(?:dictation|dictating|typing|transcri\w*|listening)(?: now| please)?"
                         r"|stop|that'?s all|i'?m done)", low):
             self.dictating = False
-            self.say("Dictation off.")
+            self.say(["Dictation off.", "Done dictating."])
         elif low in ("type", "type here", "start dictation", "start typing", "dictation mode"):
             self.say("Still dictating.")  # "Jarvis, type" again mustn't type the word "Type."
         elif low in ("new line", "next line", "press enter", "enter", "send", "send it", "send that"):

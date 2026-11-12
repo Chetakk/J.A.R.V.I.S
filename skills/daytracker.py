@@ -453,7 +453,8 @@ class DayTracker(Skill):
                 where["it"] = "your last session"
 
         self._save(change)
-        self.say("Noted on %s." % where["it"] if where else "There's no session to put a note on.")
+        self.say(["Noted on %s." % where["it"], "Added that to %s." % where["it"]] if where else
+                 "There's no session to put a note on.")
 
     @_guard
     def discard(self):
@@ -488,7 +489,7 @@ class DayTracker(Skill):
             return
         kind, e = last
         if not self.j.ask("Delete %s?" % self._describe(kind, e)):
-            self.say("Okay, kept it.")
+            self.say(["Okay, kept it.", "Alright, it stays."])
             return
         if kind == "autoEntries":
             self._call("DELETE", "/api/auto/" + e["id"])

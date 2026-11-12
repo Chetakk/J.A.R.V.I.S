@@ -125,7 +125,7 @@ class Phone(Skill):
             if not pkg:
                 return self.fail("I can't find %s on your phone." % name)
             self._adb("shell", "monkey", "-p", pkg, "-c", "android.intent.category.LAUNCHER", "1")
-        self.say("Opening %s on your phone." % name)
+        self.say(["Opening %s on your phone." % name, "Bringing up %s on your phone." % name])
 
     def call(self, m):
         who = m.group(1)
@@ -140,25 +140,25 @@ class Phone(Skill):
         if not number:
             return False  # not a contact or a number: someone else's phrase
         self._adb("shell", "am", "start", "-a", "android.intent.action.CALL", "-d", "tel:" + number)
-        self.say("Calling %s." % name)
+        self.say(["Calling %s." % name, "Calling %s now." % name, "Ringing %s." % name])
 
     def text(self, m):
         name, number = self._number(m.group(1))
         if not number:
             return self.fail("I can't find %s in your phone's contacts." % m.group(1))
         message = m.group(2)
-        if not self.j.ask("Text %s: %s?" % (name, message)):
-            return self.say("Okay, not sent.")
+        if not self.j.ask(["Text %s: %s?" % (name, message), "Send %s a text saying: %s?" % (name, message)]):
+            return self.say(["Okay, not sent.", "Alright, I won't send it.", "Not sent."])
         self._act("sendSms", "(%s, %s)" % (_gstr(number), _gstr(message)))
-        self.say("Sent to %s." % name)
+        self.say(["Sent to %s." % name, "Message sent to %s." % name])
 
     def whatsapp(self, m):
         who, message = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
         name, number = self._number(who)
         if not number:
             return self.fail("I can't find %s in your phone's contacts." % who)
-        if not self.j.ask("WhatsApp %s: %s?" % (name, message)):
-            return self.say("Okay, not sent.")
+        if not self.j.ask(["WhatsApp %s: %s?" % (name, message), "Send %s on WhatsApp: %s?" % (name, message)]):
+            return self.say(["Okay, not sent.", "Alright, I won't send it.", "Not sent."])
         url = "https://api.whatsapp.com/send?phone=%s&text=%s" % (_international(number), urllib.parse.quote(message))
         self._adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "'%s'" % url, "-p", "com.whatsapp")
         for _ in range(8):  # WhatsApp takes a moment to open the chat
@@ -166,7 +166,7 @@ class Phone(Skill):
             node = _find(self._screen(), "send")
             if node:
                 self._adb("shell", "input", "tap", *map(str, node["at"]))
-                return self.say("Sent to %s on WhatsApp." % name)
+                return self.say(["Sent to %s on WhatsApp." % name, "Done, %s has it on WhatsApp." % name])
         self.fail("WhatsApp opened the chat but I couldn't find its Send button. The message is typed in.")
 
     def tap(self, m):
@@ -174,7 +174,7 @@ class Phone(Skill):
         if not node:
             return self.fail("I can't see %s on your phone's screen." % m.group(1))
         self._adb("shell", "input", "tap", *map(str, node["at"]))
-        self.say("Tapped %s." % node["label"])
+        self.say(["Tapped %s." % node["label"], "Pressed %s." % node["label"]])
 
     def scroll(self, m):
         w, h = self._size()
@@ -198,7 +198,7 @@ class Phone(Skill):
     def key(self, m):
         word = (m.group(1) or m.group(2)).lower()
         self._adb("shell", "input", "keyevent", str(KEYS[word]))
-        self.say("Phone locked." if word == "lock" else "Done.")
+        self.say(["Phone locked.", "Locked your phone."] if word == "lock" else "Done.")
 
     def volume(self, m):
         word = next(g for g in m.groups() if g).lower()
@@ -213,11 +213,11 @@ class Phone(Skill):
         with open(path, "wb") as f:
             f.write(png)
         self.j.show({"title": "Your phone", "image": path})
-        self.say("Here's your phone's screen.")
+        self.say(["Here's your phone's screen.", "Your phone's screen, right here."])
 
     def ring(self, m):
         self._act("ring")
-        self.say("Ringing your phone.")
+        self.say(["Ringing your phone.", "Making your phone ring. Listen for it."])
 
     def send(self, m, opening=False):
         """"Send this to my phone": the page you're on in Chrome, else what you're looking at (the files selected in
@@ -233,7 +233,7 @@ class Phone(Skill):
             page = chrome_link.page()
             if page and page.get("url"):
                 self._act("shareUri", _gstr(page["url"]))  # the phone opens a link in its browser
-                return self.say("Sent the page to your phone.")
+                return self.say(["Sent the page to your phone.", "The page is on your phone now."])
             if not vague:
                 return self.fail("I can't see the page in Chrome.")
         paths = self._pick(what)
@@ -243,16 +243,17 @@ class Phone(Skill):
             for path in paths:
                 self._act("shareFile", "(%s, %s)" % (_gstr(path), "true" if opening else "false"))
             name = os.path.basename(paths[0]) if len(paths) == 1 else "%d files" % len(paths)
-            return self.say("Opening %s on your phone." % name if opening else "Sending %s to your phone." % name)
+            return self.say(["Opening %s on your phone." % name, "Bringing up %s on your phone." % name] if opening else
+                            ["Sending %s to your phone." % name, "On its way to your phone: %s." % name])
         if vague or low in ("my clipboard", "the clipboard", "what i copied"):
             if opening:
                 return self.fail("I can't tell what to open. Select the file first.")
             self._act("clipboardPush")
-            return self.say("Your phone has your clipboard now.")
+            return self.say(["Your phone has your clipboard now.", "Clipboard sent to your phone."])
         if re.match(r"(?:this|that|these|those) ", low):
             return self.fail("I don't know which %s you mean. Open or select it first." % low.split(" ", 1)[1])
         self._act("shareText", _gstr(what))
-        self.say("Sent to your phone's clipboard.")
+        self.say(["Sent to your phone's clipboard.", "Your phone's clipboard has it now."])
 
     def _pick(self, what):
         """The file(s) `what` means: "a screenshot" takes one; "it" / "this photo" is a screenshot you just took
@@ -299,7 +300,8 @@ class Phone(Skill):
             uri, mime = self._on_phone(paths[0])
             self._adb("shell", "am", "start", "-a", "android.intent.action.SEND", "-t", mime, "--eu",
                       "android.intent.extra.STREAM", uri, "--grant-read-uri-permission")
-        self.say("It's in your phone's share menu. Pick where it goes.")
+        self.say(["It's in your phone's share menu. Pick where it goes.",
+                  "The share menu is open on your phone. Choose where it goes."])
 
     def whatsapp_file(self, m):
         """The file to someone on WhatsApp: their chat opens with it attached, and Send is tapped after a yes."""
@@ -311,7 +313,7 @@ class Phone(Skill):
         if not number:
             return self.fail("I can't find %s in your phone's contacts." % who)
         if not self.j.ask("Send %s to %s on WhatsApp?" % (os.path.basename(paths[0]), name)):
-            return self.say("Okay, not sent.")
+            return self.say(["Okay, not sent.", "Alright, I won't send it.", "Not sent."])
         self._awake()
         uri, mime = self._on_phone(paths[0])
         self._adb("shell", "am", "start", "-a", "android.intent.action.SEND", "-t", mime, "--eu",
@@ -322,7 +324,7 @@ class Phone(Skill):
             node = _find(self._screen(), "send")
             if node:
                 self._adb("shell", "input", "tap", *map(str, node["at"]))
-                return self.say("Sent to %s on WhatsApp." % name)
+                return self.say(["Sent to %s on WhatsApp." % name, "Done, %s has it on WhatsApp." % name])
         self.fail("WhatsApp has it ready for %s, but I couldn't find Send. Tap it on your phone." % name)
 
     def _awake(self):
@@ -372,17 +374,17 @@ class Phone(Skill):
         self._act("sendNotification", "{'appName': <'JARVIS'>, 'id': <%s>, 'title': <'JARVIS'>, 'body': <%s>, "
                   "'ticker': <%s>, 'isClearable': <true>}" % (_gstr("jarvis-%d" % time.time()), _gstr(m.group(1)),
                                                                _gstr("JARVIS: " + m.group(1))))
-        self.say("It's on your phone.")
+        self.say(["It's on your phone.", "Sent. It's on your phone."])
 
     def push_clipboard(self, m):
         self._act("clipboardPush")
-        self.say("Your phone has your clipboard now.")
+        self.say(["Your phone has your clipboard now.", "Clipboard sent to your phone."])
 
     def pull_clipboard(self, m):
         """The phone's clipboard, as GSConnect last heard it: Android 10+ only lets KDE Connect see it when you
         share it from the phone (its "Send clipboard"), so it can be an older copy."""
         self._act("clipboardPull")
-        self.say("Your phone's clipboard is on this computer now.")
+        self.say(["Your phone's clipboard is on this computer now.", "Got your phone's clipboard here."])
 
     def phone_clipboard(self, m):
         self._act("clipboardPull")
@@ -394,7 +396,7 @@ class Phone(Skill):
     def type_text(self, m):
         text = re.sub(r"([\\\"'`$&|;<>()*?!#~ ])", lambda c: "%s" if c.group(1) == " " else "\\" + c.group(1), m.group(1))
         self._adb("shell", "input", "text", text)
-        self.say("Typed it.")
+        self.say(["Typed it.", "Typed.", "Typed it in."])
 
     # --- what the phone says by itself (system/notifications.py on_add) ---
     def arrived(self, item):
@@ -438,7 +440,7 @@ class Phone(Skill):
         message = m.group(2)
         where = "a text" if item["app"] == "Messages" else item["app"]
         if not self.j.ask('Reply to %s on %s: "%s"?' % (item["title"], where, message)):
-            return self.say("Okay, not sent.")
+            return self.say(["Okay, not sent.", "Alright, I won't send it.", "Not sent."])
         if item["app"] == "Messages":
             name, number = self._number(item["title"])
             if not number:
@@ -448,7 +450,7 @@ class Phone(Skill):
             self._act("replyNotification", "(%s, %s, {'appName': %s, 'title': %s, 'text': %s})" % (
                 _gstr(item["phone"]["reply"]), _gstr(message), _gstr(item["app"]), _gstr(item["title"]),
                 _gstr(item["body"])))
-        self.say("Sent to %s." % item["title"])
+        self.say(["Sent to %s." % item["title"], "Replied to %s." % item["title"]])
 
     def dismiss(self, m):
         w = self.j.skills.notifications.watcher
@@ -456,11 +458,12 @@ class Phone(Skill):
         if not item:
             return self.fail("There's no phone notification to clear.")
         self._act("closeNotification", _gstr(item["phone"]["key"]))
-        self.say("Cleared %s's notification." % (item["title"] or item["app"]))
+        self.say(["Cleared %s's notification." % (item["title"] or item["app"]),
+                  "Dismissed %s's notification." % (item["title"] or item["app"])])
 
     def mute_call(self, m):
         self._act("muteCall")
-        self.say("Muted.")
+        self.say(["Muted.", "Silenced."])
 
     def texts(self, m):
         who = next((g for g in m.groups() if g), None)
@@ -501,7 +504,7 @@ class Phone(Skill):
         os.makedirs(here, exist_ok=True)
         self._adb("pull", "%s/%s" % (folder, name), os.path.join(here, name))
         self.j.show({"title": name, "image": os.path.join(here, name)})
-        self.say("Here it is. It's in Pictures, Phone.")
+        self.say(["Here it is. It's in Pictures, Phone.", "Got it from your phone. It's in Pictures, Phone."])
 
     # --- the links ---
     def _adb(self, *args, raw=False):

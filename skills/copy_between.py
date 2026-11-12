@@ -126,9 +126,10 @@ class CopyBetween(Skill):
 
     def _paste(self, text, win, app, send):
         if not win:
-            if not self.j.ask("%s isn't open. Open it and paste it there?" % app["name"]):
+            if not self.j.ask(["%s isn't open. Open it and paste it there?" % app["name"],
+                               "%s isn't open. Shall I open it and paste it there?" % app["name"]]):
                 set_clipboard(text)
-                self.say("Okay. It's on your clipboard if you want it.")
+                self.say(["Okay. It's on your clipboard if you want it.", "Alright. It's still on your clipboard."])
                 return
             win = self._open(app)
             if not win:
@@ -141,7 +142,8 @@ class CopyBetween(Skill):
             if lines > 1 and not self.j.ask("That's %d lines, and a terminal runs each one as it's pasted. Paste it "
                                             "anyway?" % lines):
                 set_clipboard(text)
-                self.say("Okay, I didn't. It's on your clipboard.")
+                self.say(["Okay, I didn't. It's on your clipboard.",
+                          "Left it. It's on your clipboard, if you need it."])
                 return
         desktop.focus(win)
         time.sleep(0.4)
@@ -151,7 +153,8 @@ class CopyBetween(Skill):
         ok, what = before.report(least=PASTED_PIXELS)
         verify.record("paste into %s" % (win.title or "a window"), ok, what)
         if ok:
-            self.say("Done, I pasted it. I haven't sent it." if send else ["Done, I pasted it.", "Done, it's in."])
+            self.say(["Done, I pasted it. I haven't sent it.", "Pasted it, but I haven't sent it."] if send else
+                     ["Done, I pasted it.", "Done, it's in.", "Pasted.", "There, it's in."])
         else:
             self.say("I pasted it, but nothing changed in that window that I can see. Click where it should go and "
                      "press control V; it's on your clipboard.")

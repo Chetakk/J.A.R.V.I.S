@@ -49,7 +49,8 @@ class Learning(Skill):
         if not recent or last.get("unlearned") or last["means"] == LEAVE:
             self.say("There's nothing new to save. When you say yes to one of my guesses, I keep it on my own.")
             return True
-        self.say("Already saved. Next time, %s means %s." % (last["said"], last["means"]))
+        self.say(["Already saved. Next time, %s means %s." % (last["said"], last["means"]),
+                  "I already have that one: %s means %s." % (last["said"], last["means"])])
         return True
 
     def _save_claudes(self, said, phrase):
@@ -57,12 +58,15 @@ class Learning(Skill):
         Claude. You asked for it, so it's kept even if JARVIS had chosen not to ask (too long, has a number, declined)."""
         said = said.strip(" .!?")
         if said.lower() == phrase.lower().strip(" .!?") or learned.load()["wordings"].get(said.lower()) == phrase:
-            self.say("Already saved. Next time, %s means %s." % (said, phrase))
+            self.say(["Already saved. Next time, %s means %s." % (said, phrase),
+                      "I already have that one: %s means %s." % (said, phrase)])
             return True
         learned.remember(said, phrase, why="you asked me to remember it")
         if self.j.intents:
             self.j.intents.learn(said, phrase)
-        self.say("Saved. Next time, %s means %s." % (said, phrase))
+        self.say(["Saved. Next time, %s means %s." % (said, phrase),
+                  "Got it. From now on, %s means %s." % (said, phrase),
+                  "Learned: %s means %s from now on." % (said, phrase)])
         return True
 
     def whats_new(self, m):

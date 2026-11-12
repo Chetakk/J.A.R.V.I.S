@@ -113,7 +113,7 @@ class Media(Skill):
         app = self.j.apps.find("spotify")
         if not app:
             return False  # not installed: let the browser / Claude have "play music"
-        self.say(["Starting Spotify.", "Putting some music on."])
+        self.say(["Starting Spotify.", "Putting some music on.", "Music coming up."])
         threading.Thread(target=self._start_spotify, args=(app,), daemon=True, name="spotify").start()
 
     def _start_spotify(self, app):
@@ -198,7 +198,7 @@ class Media(Skill):
         app = self.j.apps.find("spotify")
         if not app:
             return False
-        self.say("Starting Spotify.")
+        self.say(["Starting Spotify.", "Spotify, coming up."])
         desktop.go_to_jarvis_workspace()
         if not self.j.apps.launch(app):
             self.fail("Hmm, Spotify didn't start.")
@@ -233,7 +233,7 @@ class Media(Skill):
             data = _load()
             data.setdefault("plays", {})[item["path"]] = data.get("plays", {}).get(item["path"], 0) + 1
             _save(data)
-        self.say("Playing %s." % (item["name"] if item else said))
+        self.say(["Playing %s." % (item["name"] if item else said), "Here's %s." % (item["name"] if item else said)])
         self.follow(spotify=True)
 
     def play_usual(self):
@@ -273,12 +273,13 @@ class Media(Skill):
         if what == "repeat":
             self.say({True: "Repeating the playlist.", "one": "Repeating this song.", False: "Repeat off."}.get(now, "Done."))
         else:
-            self.say("Shuffle on." if now else "Shuffle off.")
+            self.say(["Shuffle on.", "Shuffling."] if now else ["Shuffle off.", "Back in order."])
 
     def like(self):
         r = self._control("like")
         if r is not None:
-            self.say("Added to your Liked Songs." if r.get("liked") else "Hmm, it didn't take.")
+            self.say(["Added to your Liked Songs.",
+                      "Liked. It's in your Liked Songs."] if r.get("liked") else "Hmm, it didn't take.")
 
     def spotify_volume(self, percent=None, step=0):
         state = _page("state") or {}

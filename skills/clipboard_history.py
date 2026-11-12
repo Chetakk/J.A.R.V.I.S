@@ -119,4 +119,5 @@ class ClipboardHistory(Skill):
                                                    .replace("\n", " ")) for i, t in enumerate(labels)),
                      "choices": [{"label": " ".join(t.split())[:40] or "(blank)", "do": "paste number %d" % (i + 1)}
                                  for i, t in enumerate(labels)]})
-        self.say("Here's what you copied, newest first. Say a number to paste it.")
+        self.say(["Here's what you copied, newest first. Say a number to paste it.",
+                  "Your recent copies, newest first. Say a number to paste one."])

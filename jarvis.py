@@ -1251,7 +1251,7 @@ class Jarvis:
                               "No answer, so I haven't saved it. Just say yes if you'd like it."])
             return
         if not YES.match(answer):
-            self.speaker.say(["Okay, I won't save it.", "No problem, not saved."])
+            self.speaker.say(["Okay, I won't save it.", "No problem, not saved.", "Alright, I'll leave it unsaved."])
             return
         self._keep(save, name, phrases, run, phrase)
 
@@ -1264,7 +1264,8 @@ class Jarvis:
                     self.intents.learn(p, phrases[0] if "{" not in phrases[0] else p)
         self.chat("sys", "saved command %s: %s" % (name, " | ".join(phrases)))
         self.speaker.say(['I\'ve saved that. Next time just say "%s".' % phrase,
-                          'Saved. Just say "%s" next time.' % phrase])
+                          'Saved. Just say "%s" next time.' % phrase,
+                          'Learned. From now on, just say "%s".' % phrase])
 
     def _run_match(self, match):
         cmd = match.command
@@ -1372,14 +1373,17 @@ class Jarvis:
         if mode == "off" or not self.intents or not learned.worth_learning(said, phrase, learned.load()) \
                 or learned.points(said, phrase):  # Claude read "this" off the screen: right only that once
             return
-        if mode == "ask" and not self.ask("Should I remember that \u201c%s\u201d means %s?" % (said, phrase)):
+        if mode == "ask" and not self.ask(["Should I remember that \u201c%s\u201d means %s?" % (said, phrase),
+                                            "Shall I remember that \u201c%s\u201d means %s?" % (said, phrase)]):
             learned.decline(said)  # never asked about again
             return
         learned.remember(said, phrase, why="Claude did it for you")
         self.intents.learn(said, phrase)
         self.heard(said, "learned: means \"%s\"" % phrase)
         if mode == "ask":
-            self.speaker.say(["Got it, I'll remember that.", "Okay, noted for next time."])
+            self.speaker.say(["Got it, I'll remember that.", "Okay, noted for next time.",
+                               "Noted. I'll know next time.",
+                               "Learned."])
 
     def _split(self, text):
         """["open youtube", "turn the volume down"] for "open youtube and turn the volume down", or None.

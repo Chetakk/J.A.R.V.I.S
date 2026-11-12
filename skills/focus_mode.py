@@ -78,7 +78,8 @@ class FocusMode(Skill):
         left = self.focus_until - time.time()
         self._clear_focus()
         self.paused = left
-        self.say("Focus paused with %s left. Say resume focus when you're back." % _length(round(left / 60)))
+        self.say(["Focus paused with %s left. Say resume focus when you're back." % _length(round(left / 60)),
+                  "Paused, with %s to go. Say resume focus when you're ready." % _length(round(left / 60))])
 
     def resume(self):
         if not self.paused:
@@ -86,7 +87,8 @@ class FocusMode(Skill):
             return
         left, self.paused = self.paused, 0.0
         self._start_focus(time.time() + left)
-        self.say("Back to focus, %s left." % _length(round(left / 60)))
+        self.say(["Back to focus, %s left." % _length(round(left / 60)),
+                  "Focus resumed. %s to go." % _length(round(left / 60)).capitalize()])
 
     def extend(self, m):
         said = next((g for g in m.groups() if g), "")
@@ -154,7 +156,7 @@ class FocusMode(Skill):
             self.say("You weren't in focus mode.")
             return
         self._clear_focus()
-        self.say("Focus mode off.")
+        self.say(["Focus mode off.", "Focus is over. Nicely done.", "Focus mode off. Back to normal."])
 
     def _clear_focus(self):
         self.focus_until, self.ending = 0.0, None
