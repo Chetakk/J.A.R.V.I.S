@@ -320,7 +320,80 @@ def small_talk(text, name=None, me="Jarvis", names=(), real=None):
 
 def daypart():
     hour = time.localtime().tm_hour
-    return "morning" if 5 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening"
+    return "morning" if 4 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening"
+
+
+# The startup line, by part of the day: (from hour, part). Late night and the small hours never say "Good ...".
+PARTS = ((0, "late_night"), (2, "small_hours"), (4, "early_morning"), (6, "morning"), (12, "afternoon"),
+         (17, "evening"), (21, "night"))
+_ANYTIME = ["Online and ready. What are we working on today?", "At your service, {name}.",
+            "Systems check complete. Ready when you are."]
+GREETINGS = {
+    "early_morning": ["Up before the sun, {name}? Impressive. Or concerning.",
+                      "Good morning, {name}. You're up early. The world is still asleep.",
+                      "Early start, {name}. I'll have everything ready.",
+                      "Good morning. It's still dark out, but I'm ready when you are.",
+                      "The early bird, {name}. Systems are up and running.",
+                      "Morning, {name}. Coffee first, I'd suggest.",
+                      "You're up early, {name}. Couldn't sleep, or a big day ahead?"],
+    "morning": ["Good morning, {name}. Systems are fully operational.",
+                "Good morning. All systems online. How may I be of assistance?",
+                "Morning, {name}. Ready when you are.",
+                "Good morning, {name}. I trust you slept well.",
+                "Rise and shine, {name}. Everything's up and running.",
+                "Good morning. A fresh day. What's first?",
+                "Morning, {name}. What are we working on today?",
+                "Good morning, {name}. Shall we get started?"],
+    "afternoon": ["Good afternoon, {name}. Systems are fully operational.",
+                  "Good afternoon. All systems online. How may I be of assistance?",
+                  "Afternoon, {name}. What's next?",
+                  "Good afternoon, {name}. I hope lunch was good.",
+                  "Afternoon. Half the day done, {name}. Let's make the rest count.",
+                  "Back to it, {name}? I'm ready when you are.",
+                  "Good afternoon, {name}. How's the day treating you?"],
+    "evening": ["Good evening, {name}. Systems are fully operational.",
+                "Good evening. All systems online. How may I be of assistance?",
+                "Evening, {name}. How was your day?",
+                "Good evening, {name}. Winding down, or just getting started?",
+                "Evening. The day's work is nearly done, {name}.",
+                "Evening, {name}. What can I do for you tonight?",
+                "Good evening, {name}. I hope the day was kind to you."],
+    "night": ["Good evening, {name}. Working late tonight?",
+              "Still at it, {name}? I'm here.",
+              "A late session, {name}. I'll keep things running.",
+              "It's getting late, but I'm all yours, {name}.",
+              "Night shift, {name}? Very well. Systems are online.",
+              "Evening, {name}. Don't stay up too late.",
+              "Online and ready, {name}. One more thing before bed?"],
+    "late_night": ["I see we're burning the midnight oil. Don't work too hard, {name}.",
+                   "It's past midnight, {name}. Might I suggest some sleep? No? Very well, I'm here.",
+                   "Past midnight, {name}. I'm up if you are.",
+                   "Midnight already. What's keeping you up, {name}?",
+                   "Burning the candle at both ends again, {name}?",
+                   "It's a new day, technically. Systems are online, {name}.",
+                   "The house is asleep, {name}. I'm not. What do you need?",
+                   "Late night, {name}. I'll keep my voice down."],
+    "small_hours": ["It's the middle of the night, {name}. Are you all right?",
+                    "This is a very unusual hour, even for you, {name}.",
+                    "Sleep is not optional, {name}, despite your best efforts. But I'm here.",
+                    "Couldn't sleep, {name}? Neither could I. Well, I never do.",
+                    "At this hour, {name}? Very well. I'm at your service.",
+                    "The small hours, {name}. Let's be quick, and then bed.",
+                    "I won't ask what you're doing up, {name}. How can I help?",
+                    "Still awake, {name}? Your bed misses you."],
+}
+# Back after 3 hours or more (not after midnight: then the hour is what's worth mentioning). {away} = "about 5 hours".
+WELCOME_BACK = ["Welcome home, {name}. You've been away {away}.",
+                "Good {daypart}, {name}. Welcome back.",
+                "Welcome back, {name}. I kept everything running while you were gone.",
+                "Welcome back, {name}. You were gone {away}, and nothing caught fire.",
+                "Good to have you back, {name}.",
+                "There you are, {name}. Missed you. Strictly professionally, of course.",
+                "Welcome home, {name}."]
+
+
+def day_part(hour):
+    return [p for h, p in PARTS if hour >= h][-1]
 
 
 def _ago(seconds):
@@ -331,17 +404,21 @@ def _ago(seconds):
 
 
 def greeting(settings, memory, ups=()):
-    """The startup line: depends on the time and how long you were away, plus any heads-ups."""
-    name, hour = address(settings), time.localtime().tm_hour
+    """The startup line: by the part of the day and how long you were away, plus any heads-ups. A line said in this
+    part of today isn't said again (restarts included) until all of its part's lines have been."""
+    name, part = address(settings), day_part(time.localtime().tm_hour)
     away = time.time() - memory.data.get("last_seen", time.time())
-    if hour < 4:
-        line = pick(["I see we're burning the midnight oil. Don't work too hard, {name}.",
-                     "It's past midnight, {name}. Might I suggest some sleep? No? Very well, I'm here."])
-    elif 3 * 3600 <= away < 4 * DAY:
-        line = pick(["Welcome home, {name}. You've been away %s." % _ago(away),
-                     "Good %s, {name}. Welcome back." % daypart()])
-    else:
-        line = pick(settings.get("greeting") or "I'm online.").replace("{daypart}", daypart())
+    pool = GREETINGS[part] + list(settings.get("greeting") or [])  # (settings greeting: your own, any time)
+    if part not in ("late_night", "small_hours"):
+        pool += _ANYTIME + (WELCOME_BACK if away >= 3 * 3600 else [])
+    today = "%s %s" % (time.strftime("%Y-%m-%d"), part)
+    said = memory.pref("greeted") or {}
+    said = said.get("said", []) if said.get("when") == today else []
+    if not [g for g in pool if g not in said]:
+        said = said[-1:]  # all said: start over, but not with the one just said
+    line = random.choice([g for g in pool if g not in said] or pool)
+    memory.set_pref("greeted", {"when": today, "said": said + [line]})
+    line = line.replace("{daypart}", daypart()).replace("{away}", _ago(away))
     ups = list(ups)[:2]
     if len(ups) == 2:
         ups[1] = re.sub(r"^Heads up, (\w)", lambda m: "Also, " + m.group(1), ups[1])

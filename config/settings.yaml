@@ -7,14 +7,9 @@ names: ["jarvis", "ev", "e v", "evie", "eevee"]
 # What speech recognition writes instead of a name ("EV, show chat" heard as "Asset show chat"): taken off the start
 # of what you say when more follows, as a name is. These never wake it up: only the names above do.
 heard_as: ["asset", "zarevis"]
-# Spoken greeting when it starts: one is picked at random. {daypart} = morning / afternoon / evening.
-greeting:
-  - "Good {daypart}, {name}. Systems are fully operational."
-  - "Online and ready. What are we working on today?"
-  - "At your service, {name}."
-  - "Good {daypart}. All systems online. How may I be of assistance?"
-  - "Welcome home, {name}."
-  - "Systems check complete. Ready when you are."
+# Spoken greeting when it starts: lines for each part of the day are in core/persona.py GREETINGS. Lines of your own
+# for any time go here ({daypart} = morning / afternoon / evening):
+# greeting: ["Good {daypart}, {name}. Systems are fully operational."]
 # What JARVIS calls you, now and then ("Done, sir."). Remove to never use a name.
 user_name: sir
 # Chat replies (config/chat.yaml): {name} is one of call_me at random (user_name when unset), {real} who you are.
