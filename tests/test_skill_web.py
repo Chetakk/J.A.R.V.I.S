@@ -9,6 +9,7 @@ import pytest
 import conftest
 from harness import Clock
 from skills import web
+from system import chrome_link
 from system.webagent import AgentError
 
 CHROME = "google-chrome Google-chrome"
@@ -20,7 +21,7 @@ class Agent:
     used in turn, or an exception)."""
 
     def __init__(self):
-        self.calls, self.replies, self.shown = [], {}, None
+        self.calls, self.replies, self.shown, self.timeout = [], {}, None, 60
 
     def call(self, name, **args):
         self.calls.append((name, args))
@@ -53,6 +54,37 @@ def agent(jv, monkeypatch):
 def browser(jv):
     jv.clipboard.text = "what you had copied"
     return jv.desktop.add("Docs - Google Chrome", CHROME, url="https://example.com/docs")
+
+
+class Link:
+    """Stands in for your Chrome through JARVIS Link (system/chrome_link.call): "agent" calls answer from
+    `replies` by what they do, like Agent above, always in tab 7."""
+
+    def __init__(self):
+        self.calls, self.replies = [], {}
+
+    def __call__(self, op, timeout=2.0, raw=False, **args):
+        if op == "tabs":
+            return {"tabs": [{"id": 7, "title": "Inbox (3) - Gmail", "url": "https://mail.google.com/", "active": True},
+                             {"id": 8, "title": "", "url": "https://example.com/docs", "active": False}]}
+        if op == "page":
+            return {"url": "https://example.com/docs", "title": "Docs", "items": [], "video": False}
+        assert op == "agent" and raw
+        self.calls.append((args["do"], args))
+        r = self.replies.get(args["do"], {})
+        if isinstance(r, list):
+            r = r.pop(0) if r else {}
+        return dict(r, tab=7)
+
+    def did(self, name):
+        return [a for n, a in self.calls if n == name]
+
+
+@pytest.fixture
+def link(jv, agent, monkeypatch):
+    fake = Link()
+    monkeypatch.setattr(chrome_link, "call", fake)
+    return fake
 
 
 def answer(say, card=""):
@@ -163,7 +195,88 @@ def test_bookmarks(jv, agent):
     assert jv.says("1 bookmark, on the card.")
 
 
+# --- in your own Chrome, through JARVIS Link ---
+
+def test_this_page_is_read_in_your_chrome(jv, agent, link, browser):
+    link.replies["read"] = {"url": "https://example.com/docs", "title": "Docs", "text": LONG}
+    jv.claude.reply(answer("It's the docs."))
+    jv.do("summarise this page")
+    assert [a["url"] for a in link.did("read")] == ["https://example.com/docs"] and not agent.calls
+    assert jv.says("It's the docs.")
+
+
+def test_a_task_on_this_page_works_in_your_tab(jv, agent, link, browser):
+    link.replies["snapshot"] = {"url": "https://example.com/form", "title": "Form", "text": "Contact us",
+                                "elements": [{"id": 1, "label": "Name", "type": "text"}]}
+    jv.claude.reply(json.dumps({"action": "fill", "id": 1, "value": "Chetak"}))
+    jv.claude.reply(json.dumps({"action": "done", "say": "Filled it in."}))
+    jv.do("fill the form on this page with my name")
+    assert not link.did("open") and not agent.calls  # no new tab, and not JARVIS's own browser
+    # the element goes as "el": the host numbers its messages "id", which once turned a fill into clicking Submit
+    assert [(a["action"], a["el"], a["value"], a["tab"]) for a in link.did("act")] == [("fill", 1, "Chetak", 7)]
+    assert not any("id" in a for _, a in link.calls)
+    assert jv.says("Filled it in.")
+
+
+def test_a_task_in_my_browser_gets_its_own_tab(jv, agent, link):
+    link.replies["snapshot"] = {"url": "chrome://newtab/", "title": "New Tab", "text": "", "elements": []}
+    jv.claude.reply(json.dumps({"action": "goto", "value": "https://github.com/notifications"}))
+    jv.claude.reply(json.dumps({"action": "done", "say": "Two new notifications."}))
+    jv.do("in my chrome check my github notifications")
+    first, *rest = link.calls
+    assert first == ("open", {"do": "open", "tab": None})
+    assert [a["tab"] for _, a in rest] == [7, 7, 7] and jv.says("Two new notifications.")
+
+
+def test_submitting_in_your_chrome_asks_with_its_picture(jv, agent, link, browser):
+    link.replies["snapshot"] = {"url": "https://example.com/form", "title": "Form", "text": "",
+                                "elements": [{"id": 2, "label": "Send message", "submit": True}]}
+    link.replies["screenshot"] = {"png": "UE5HIQ=="}  # "PNG!"
+    jv.claude.reply(json.dumps({"action": "click", "id": 2}))
+    jv.do("fill the form on this page", "no")
+    assert jv.questions == ["Shall I click Send message on example.com? It's on the card."]
+    assert not link.did("act") and jv.says("It's in your Chrome for you to finish.")
+    with open(jv.cards[-1]["image"], "rb") as f:
+        assert f.read() == b"PNG!"
+
+
+def test_console_errors_on_this_page(jv, link, browser):
+    link.replies["console"] = {"entries": [{"level": "log", "text": "ready", "at": ""},
+                                           {"level": "warning", "text": "deprecated API", "at": ""},
+                                           {"level": "error", "text": "TypeError: x is undefined", "at": "app.js:3"}]}
+    jv.do("show the console errors on this page")
+    assert jv.says("1 error and 1 warning in the console, on the card.")
+    assert jv.cards[-1]["text"].startswith("- **error** TypeError: x is undefined · `app.js:3`")
+
+
+def test_network_requests_on_this_page(jv, link, browser):
+    link.replies["network"] = {"requests": [
+        {"url": "https://example.com/", "type": "document", "status": 200, "ms": 120, "kb": 14},
+        {"url": "https://example.com/api/me", "type": "fetch", "status": 401, "ms": 40, "kb": 0}]}
+    jv.do("show the network requests on this page")
+    assert jv.says("2 requests since the page opened, 1 failed.")
+    assert "**Failed**\n- 401 fetch" in jv.cards[-1]["text"]
+
+
+def test_my_tabs_come_from_jarvis_link(jv, link):
+    jv.claude.reply(answer("Two tabs.", "- mail\n- docs"))
+    jv.do("summarise my tabs")
+    assert "Inbox (3) - Gmail\nhttps://example.com/docs" in jv.claude.asked("")[-1]
+    assert jv.cards[-1]["title"] == "Open tabs (2)"
+
+
 # --- failure cases ---
+
+def test_console_needs_jarvis_link(jv, agent, browser):
+    jv.do("show the console errors on this page")
+    assert jv.said == ["I can only see that for a page in your Chrome, with JARVIS Link on."]
+
+
+def test_your_tab_closed_mid_task(jv, agent, link, browser):
+    link.replies["snapshot"] = {"error": "its tab was closed"}
+    jv.do("fill the form on this page with my name")
+    assert jv.says("The browser agent hit a problem: its tab was closed.")
+
 
 def test_a_page_that_wont_open(jv, agent, browser):
     agent.replies["read"] = AgentError("the page timed out")

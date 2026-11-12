@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Native messaging host for the JARVIS Link extension. Chrome starts it (and stops it when Chrome closes).
 It listens on $XDG_RUNTIME_DIR/jarvis-<uid>/chrome-link.sock: JARVIS writes one JSON line, the request goes
-to the extension, and its answer comes back as one line. Standard library only."""
+to the extension, and its answer comes back as one line ("wait": how many seconds it may take, TIMEOUT if not
+given). Standard library only."""
 import json
 import os
 import socket
@@ -12,6 +13,7 @@ import threading
 RUN_DIR = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "jarvis-%d" % os.getuid())  # as system/terminal.py
 SOCKET = os.path.join(RUN_DIR, "chrome-link.sock")
 TIMEOUT = 3
+MAX_WAIT = 330  # a download may take five minutes
 
 pending = {}  # id -> [event, reply]
 out_lock = threading.Lock()
@@ -64,6 +66,10 @@ def serve(conn):
             return
         if not isinstance(req, dict):
             return
+        try:
+            wait = min(float(req.pop("wait", TIMEOUT)), MAX_WAIT)
+        except (TypeError, ValueError):
+            wait = TIMEOUT
         with out_lock:
             next_id[0] += 1
             rid = next_id[0]
@@ -71,7 +77,7 @@ def serve(conn):
         req["id"] = rid
         try:
             to_chrome(req)
-            reply = slot[1] if slot[0].wait(TIMEOUT) else {"error": "the extension didn't answer"}
+            reply = slot[1] if slot[0].wait(wait) else {"error": "the extension didn't answer"}
         finally:
             pending.pop(rid, None)
         try:

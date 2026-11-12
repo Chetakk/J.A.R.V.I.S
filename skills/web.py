@@ -1,10 +1,13 @@
 """The browser agent's phrases: "summarise this page", "what's the price on this page", "research X", "compare X and
 Y", "summarise this video", "fill the form on this page with ...", "in the agent browser <task>", "download <url>",
-"summarise my tabs", and bookmarks ("open my X bookmark", "search my bookmarks for X", "bookmark this").
+"summarise my tabs", "in my browser <task>", "show the console errors on this page", "show the network requests on
+this page", and bookmarks ("open my X bookmark", "search my bookmarks for X", "bookmark this").
 
-Pages are read by JARVIS's own Chrome (system/webagent.py: separate profile, so without your logins); "this page"
-is the address in the browser you're looking at. Everything a page says is passed to Claude as untrusted data.
-The agent asks before any click that sends, buys or deletes, never types passwords, and never pays."""
+Pages are read and tasks done in your own Chrome through JARVIS Link (system/chrome_link.Agent: your logins, your
+tabs) when it's answering, else in JARVIS's own Chrome (system/webagent.py: separate profile, so without your
+logins; "in the agent browser" always uses that one). "this page" is the tab you're looking at. Everything a page
+says is passed to Claude as untrusted data. The agent asks before any click that sends, buys or deletes, never
+types passwords, and never pays."""
 import json
 import os
 import re
@@ -17,7 +20,7 @@ from skills.base import Skill
 from skills.browser_tabs import BROWSERS
 from skills.helpers import clipboard, set_clipboard
 from skills.screen import front_window, screenshot
-from system import desktop
+from system import chrome_link, desktop
 from system.webagent import PAYMENT, RISKY, UNTRUSTED_RULE, AgentError, WebAgent, untrusted
 
 MAX_STEPS = 10  # actions per agent task before it stops and tells you where it got to
@@ -46,12 +49,13 @@ PLAN_SYSTEM = (
 
 class Web(Skill):
     group = "web"
-    does = "JARVIS's own browser reads pages, researches, and does web tasks step by step"
+    does = "reads pages, researches, and does web tasks step by step, in your Chrome (JARVIS Link) or JARVIS's own"
     phrases = ("summarise this page", "what's the price on this page", "research <topic>", "compare <x> and <y>",
                "deep research <topic>", "summarise this video", "summarise my tabs",
-               "fill the form on this page with <details>", "in the agent browser <task>", "download <url>",
+               "fill the form on this page with <details>", "in my browser <task>", "in the agent browser <task>",
+               "show the console errors on this page", "show the network requests on this page", "download <url>",
                "open my <name> bookmark", "search my bookmarks for <x>", "bookmark this")
-    gives = "spoken answer and a card; actions in its own browser"
+    gives = "spoken answer and a card; actions in your Chrome, or JARVIS's own browser without JARVIS Link"
     permission = "confirm"
     asks = "before any click that sends, submits, buys or deletes, and before uploads; never pays or types passwords"
     checks = "each step re-reads the page; it stops after 10 steps or when it goes round in circles"
@@ -63,6 +67,10 @@ class Web(Skill):
     def patterns(self):
         page = r"(?:this|the|that) (?:page|tab|article|site|website|post)"
         return [
+            (r"(?:show|check|read|list|any|what'?s in|what are) (?:me )?(?:the )?(?:console(?: errors| logs?| messages)?|"
+             r"(?:javascript|js|console) errors) (?:on|in|of|for) %s" % page, lambda m: self.console()),
+            (r"(?:show|check|read|list|any|what are) (?:me )?(?:the )?(?:network(?: requests| calls| activity)?|"
+             r"(?:failed|slow) requests) (?:on|in|of|for) %s" % page, lambda m: self.network()),
             (r"(?:summari[sz]e|sum up|tl;? ?dr|give me the gist of|what'?s the gist of) %s|(?:what'?s|what is) %s "
              r"(?:about|saying)|tl;? ?dr" % (page, page), lambda m: self.page(None)),
             (r"(?:summari[sz]e|sum up|read) (?:the |this )?(?:youtube )?video|(?:what'?s|what is) (?:this|the) video "
@@ -90,7 +98,8 @@ class Web(Skill):
              r"(?: on| into| about)? "
              r"(.+)", self.deep_research),
             (r"(?:in|using|with) the (?:agent|agent'?s) browser,? (.+)|(?:use )?the browser agent(?: to)?,? (.+)|"
-             r"agent,? (go to .+|open .+ and .+)", lambda m: self.browse(next(g for g in m.groups() if g))),
+             r"agent,? (go to .+|open .+ and .+)", lambda m: self.browse(next(g for g in m.groups() if g), mine=False)),
+            (r"(?:in|using|with) my (?:own )?(?:browser|chrome),? (.+)", lambda m: self.browse(m.group(1))),
             (r"download " + URL, self.download),
             (r"(?:(?:show|open|bring up)(?: me)?|let me (?:see|watch|take over)|i want to (?:see|watch|take over)|"
              r"take over) (?:%s|the agent)|(?:log|sign) ?(?:in|on)(?: ?to)? (.+?) (?:in|on|with|using) %s" % (AGENT, AGENT),
@@ -112,11 +121,28 @@ class Web(Skill):
         win = front_window()
         return win if win and any(b in win.wm_class for b in BROWSERS) else None
 
+    def _agent(self, here=False):
+        """Your own Chrome through JARVIS Link when it's answering, else JARVIS's own. here: the work is on the
+        page you're looking at, so that must be Chrome's."""
+        win = self._browser_window() if here else None
+        if (not here or (win and "google-chrome" in win.wm_class.lower())) and chrome_link.call("tabs") is not None:
+            return chrome_link.Agent(self.agent.timeout)
+        return self.agent
+
+    def _take_over(self, agent):
+        return ("It's in your Chrome for you to finish." if agent is not self.agent else
+                "Say show the agent browser to take over.")
+
     def _page_url(self):
-        """The address of the tab you're looking at: copied from its address bar, your clipboard put back."""
+        """The address of the tab you're looking at: Chrome's from JARVIS Link, else copied from its address bar
+        (your clipboard put back)."""
         win = self._browser_window()
         if not win:
             return None
+        if "google-chrome" in win.wm_class.lower():
+            got = chrome_link.page()
+            if got and re.match(r"^https?://", got.get("url") or ""):
+                return got["url"]
         desktop.focus(win)
         time.sleep(0.2)
         old = clipboard()
@@ -155,8 +181,9 @@ class Web(Skill):
                      page["title"] or urlparse(page["url"]).netloc)
 
     def _read(self, url):
+        """Your Chrome reads the tab you're on as it is (logged in, scrolled), and any other address out of your way."""
         try:
-            return self.agent.call("read", url=url)
+            return self._agent().call("read", url=url)
         except AgentError as e:
             self.say("I couldn't open that page: %s." % e)
             return None
@@ -196,7 +223,7 @@ class Web(Skill):
             return
         self.say(["Getting the transcript.", "One sec, fetching what's said in it."])
         try:
-            got = self.agent.call("transcript", url=url, timeout=60)
+            got = self._agent().call("transcript", url=url, timeout=60)
         except AgentError as e:
             self.say("I couldn't open the video: %s." % e)
             return
@@ -213,7 +240,14 @@ class Web(Skill):
                          page["title"] or "Video")
 
     def tabs(self):
-        """Your browser's tabs, read off the window title while stepping through them."""
+        """Your browser's tabs: Chrome's from JARVIS Link, else read off the window title while stepping through."""
+        got = chrome_link.call("tabs")
+        if got and got.get("tabs"):
+            titles = [t["title"] or t["url"] for t in got["tabs"]]
+            self._answer("These are the titles of my open browser tabs. Say how many there are and what they're about "
+                         "in one or two sentences; \"card\" them grouped by topic as bullets.\n\n%s" % untrusted(
+                             "\n".join(titles), "tab titles"), "Open tabs (%d)" % len(titles))
+            return
         win = self._browser_window() or next((desktop.find_window(b) for b in BROWSERS if desktop.find_window(b)),
                                              None)
         if not win:
@@ -233,6 +267,54 @@ class Web(Skill):
                      "one or two sentences; \"card\" them grouped by topic as bullets.\n\n%s" % untrusted(
                          "\n".join(titles), "tab titles"), "Open tabs (%d)" % len(titles))
 
+    # --- what the page is doing (your Chrome only) ----------------------------------------------------------
+
+    def _link(self):
+        agent = self._agent(here=True)
+        if agent is self.agent:
+            self.say("I can only see that for a page in your Chrome, with JARVIS Link on.")
+            return None
+        return agent
+
+    def console(self):
+        agent = self._link()
+        if not agent:
+            return
+        try:
+            got = agent.call("console", timeout=15)
+        except AgentError as e:
+            self.say("I couldn't read the console: %s." % e)
+            return
+        entries = got.get("entries") or []
+        if not entries:
+            self.say("The console's empty on this page.")
+            return
+        errors = sum(e["level"] == "error" for e in entries)
+        warnings = sum(e["level"] in ("warning", "warn") for e in entries)
+        order = {"error": 0, "warning": 1, "warn": 1}
+        self.j.show({"title": "Console", "text": "\n".join(
+            "- **%s** %s%s" % (e["level"], e["text"].replace("\n", " ")[:300], " · `%s`" % e["at"][-80:] if e["at"] else "")
+            for e in sorted(entries, key=lambda e: order.get(e["level"], 2))[:60])})
+        self.say("%d error%s and %d warning%s in the console, on the card." % (
+            errors, "" if errors == 1 else "s", warnings, "" if warnings == 1 else "s"))
+
+    def network(self):
+        agent = self._link()
+        if not agent:
+            return
+        try:
+            reqs = agent.call("network", timeout=15).get("requests") or []
+        except AgentError as e:
+            self.say("I couldn't read the network: %s." % e)
+            return
+        failed = [r for r in reqs if r["status"] >= 400]
+        slow = sorted(reqs, key=lambda r: -r["ms"])[:10]
+        line = lambda r: "- %s %s · %d ms · %d KB · `%s`" % (r["status"] or "", r["type"], r["ms"], r["kb"], r["url"][-120:])
+        self.j.show({"title": "Network (%d requests)" % len(reqs), "text": (
+            ("**Failed**\n%s\n\n" % "\n".join(line(r) for r in failed[:30]) if failed else "") +
+            "**Slowest**\n%s" % "\n".join(line(r) for r in slow))})
+        self.say("%d requests since the page opened, %d failed. The slowest are on the card." % (len(reqs), len(failed)))
+
     # --- research -----------------------------------------------------------------------------------------
 
     def research(self, m, compare=False):
@@ -247,7 +329,7 @@ class Web(Skill):
                 self.say("I couldn't find pages on that.")
             return
         try:
-            pages = [p for p in self.agent.call("readMany", urls=urls, max=7000, timeout=90)["pages"]
+            pages = [p for p in self._agent().call("readMany", urls=urls, max=7000, timeout=90)["pages"]
                      if len(p.get("text") or "") > 300]
         except AgentError as e:
             self.say("I couldn't read the pages: %s." % e)
@@ -273,19 +355,25 @@ class Web(Skill):
 
     # --- doing things in the agent's browser ------------------------------------------------------------
 
-    def browse(self, goal, here=False):
-        """A task in the agent's browser, one Claude-chosen step at a time. here: start from the page you're on."""
+    def browse(self, goal, here=False, mine=True):
+        """A web task, one Claude-chosen step at a time. here: start from the page you're on. mine: in your own
+        Chrome (a new tab, unless here) when JARVIS Link answers; else, or with mine=False, in JARVIS's own."""
+        agent = self._agent(here) if mine else self.agent
         try:
             if here:
                 url = self._page_url()
                 if not url:
                     self.say("I don't see a web page open.")
                     return
-                self.agent.call("open", url=url)
-            self.say(["On it.", "Working on it in my browser."])
+                if agent is self.agent:
+                    agent.call("open", url=url)
+            elif agent is not self.agent:
+                agent.call("open")  # a tab of its own, so yours stay as they are
+            self.say(["On it.", "Working on it in your Chrome." if agent is not self.agent else
+                      "Working on it in my browser."])
             history = []
             for _ in range(MAX_STEPS):
-                snap = self.agent.call("snapshot")
+                snap = agent.call("snapshot")
                 step = self._claude(self._plan_prompt(goal, snap, history), PLAN_SYSTEM)
                 if step is None:
                     return
@@ -306,24 +394,23 @@ class Web(Skill):
                     history.append("asked %r, user said %r" % (step.get("question"), reply))
                     continue
                 el = next((e for e in snap["elements"] if e["id"] == step.get("id")), {})
-                if not self._allowed(action, step, el, snap):
+                if not self._allowed(agent, action, step, el, snap):
                     return
                 if step.get("say"):
                     self.j.chat("sys", "agent: %s" % step["say"])
                 if action == "download":
-                    got = self.agent.call("download", id=step.get("id"), timeout=60)
+                    got = agent.call("download", id=step.get("id"), timeout=60)
                     history.append("downloaded to %s" % got["path"])
                     self.say("Saved %s in Downloads." % os.path.basename(got["path"]))
                     continue
                 done = "%s %s%s" % (action, el.get("label") or step.get("value") or "",
                                     " = %r" % step["value"] if action in ("fill", "select") else "")
                 if history[-2:] == [done, done]:
-                    self.say("I'm going round in circles on that page, so I stopped. Say show the agent browser "
-                             "to take over.")
+                    self.say("I'm going round in circles on that page, so I stopped. " + self._take_over(agent))
                     return
-                self.agent.call("act", action=action, id=step.get("id"), value=step.get("value"))
+                agent.call("act", action=action, id=step.get("id"), value=step.get("value"))
                 history.append(done)
-            self.say("I stopped after %d steps. Say show the agent browser to see where it got to." % MAX_STEPS)
+            self.say("I stopped after %d steps. %s" % (MAX_STEPS, self._take_over(agent)))
         except AgentError as e:
             self.say("The browser agent hit a problem: %s." % e)
 
@@ -334,18 +421,22 @@ class Web(Skill):
             snap["url"], untrusted("%s\n\n%s\n\nElements:\n%s" % (snap["title"], snap["text"][:2500], "\n".join(
                 json.dumps(e) for e in snap["elements"])), snap["url"])))
 
-    def _allowed(self, action, step, el, snap):
+    def _allowed(self, agent, action, step, el, snap):
         """Asks first for anything that sends, buys or deletes; never pays; checks uploads."""
         host = urlparse(snap["url"]).netloc or "this page"
         label = " ".join(str(el.get(k) or "") for k in ("label", "autocomplete", "name", "type"))
         if action in ("click", "press", "fill") and (PAYMENT.search(label) or (
                 action != "fill" and any(PAYMENT.search(str(e.get("autocomplete") or "")) for e in snap["elements"]))):
+            if agent is not self.agent:
+                self.say("That's a payment step, and I never pay for things. It's there in your Chrome.")
+                return False
             self.say("That's a payment step, and I never pay for things. I've put the page in your browser.")
             self.j.executor.run("xdg-open %s" % shlex.quote(snap["url"]), reply="", window=True)
             return False
         if action == "fill" and SECRET_FIELD.search(label):  # Claude is told never to; a page might talk it into it
-            self.say("That's a password or a code, and I never type those. Say show the agent browser and log in "
-                     "yourself; I'll stay logged in.")
+            self.say("That's a password or a code, and I never type those. Log in yourself in that tab, then ask "
+                     "me again." if agent is not self.agent else "That's a password or a code, and I never type "
+                     "those. Say show the agent browser and log in yourself; I'll stay logged in.")
             return False
         if action == "upload":
             path = os.path.expanduser(str(step.get("value") or ""))
@@ -359,11 +450,11 @@ class Web(Skill):
         if action in ("click", "press") and (el.get("submit") or RISKY.search(el.get("label") or "") or
                                              (action == "press" and str(step.get("value")) == "Enter")):
             shot = os.path.join(WORKSPACE, "agent.png")
-            self.agent.call("screenshot", path=shot)
+            agent.call("screenshot", path=shot)
             self.j.show({"title": "About to: %s" % (el.get("label") or "submit"), "image": shot})
             if not self.j.ask("Shall I %s on %s? It's on the card." % (
                     ("click %s" % el["label"]) if el.get("label") else "submit this", host)):
-                self.say("Okay, I've left it. Say show the agent browser to finish it yourself.")
+                self.say("Okay, I've left it. " + self._take_over(agent))
                 return False
         return True
 
@@ -371,7 +462,7 @@ class Web(Skill):
         url = m.group(1) if re.match(r"^https?://", m.group(1)) else "https://" + m.group(1)
         self.say("Downloading it.")
         try:
-            got = self.agent.call("download", url=url, timeout=120)
+            got = self._agent().call("download", url=url, timeout=120)
         except AgentError as e:
             self.say("I couldn't download that: %s." % e)
             return
