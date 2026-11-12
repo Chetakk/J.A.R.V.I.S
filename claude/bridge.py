@@ -189,7 +189,7 @@ class Claude:
         self.running.add(proc)
         timer = threading.Timer(self.timeout, proc.kill)
         timer.start()
-        block, result, spoken = "", None, False
+        block, result, spoken, said = "", None, False, 0  # said: characters of the "say" passed to on_say
         try:
             for line in proc.stdout:
                 try:
@@ -204,10 +204,14 @@ class Claude:
                     block = ""
                 elif ev.get("type") == "content_block_delta" and ev["delta"].get("type") == "text_delta":
                     block += ev["delta"]["text"]
-                    say = _early_say(block) if on_say and not spoken else None
-                    if say is not None:
-                        spoken = True
-                        on_say(say)
+                    # Each finished sentence of the "say" is spoken as it streams in: on_say(piece, last).
+                    so_far = _say_so_far(block) if on_say and not spoken else None
+                    if so_far:
+                        text, spoken = so_far
+                        ready = text if spoken else _whole_sentences(text)
+                        piece, said = ready[said:].strip(), max(said, len(ready))
+                        if piece or spoken:
+                            on_say(piece, spoken)
             proc.wait()
         finally:
             timed_out = not timer.is_alive() and proc.returncode not in (0, None) and result is None
@@ -352,7 +356,35 @@ def open_in_vscode(prompt=None, here=False):
 
 
 _SAY = re.compile(r'"say"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_SAY_OPEN = re.compile(r'"say"\s*:\s*"')
+_STRING = re.compile(r'(?:[^"\\]|\\.)*')
 _DO_FIRST = re.compile(r'^\s*\{\s*"do"\s*:\s*\[\s*"')  # the answer opens with a "do" phrase
+_WHOLE = re.compile(r'.*[.!?]["\')\]]*\s', re.DOTALL)  # up to the last sentence end that more text follows
+
+
+def _say_so_far(block):
+    """The answer's own "say" as far as it has streamed in: (text, finished), or None (not begun, or the answer
+    opens with a "do" phrase). Same rules as _early_say."""
+    if _DO_FIRST.match(block):
+        return None
+    for m in _SAY_OPEN.finditer(block):
+        if _depth(block[:m.start()]) != 1:
+            continue
+        rest = block[m.end():]
+        end = _STRING.match(rest).end()
+        finished = rest[end:end + 1] == '"'
+        raw = rest[:end] if finished else re.sub(r'\\u[0-9a-fA-F]{0,3}$', '', rest[:end])  # a half-sent \u escape
+        try:
+            return json.loads('"%s"' % raw), finished
+        except ValueError:
+            return None
+    return None
+
+
+def _whole_sentences(text):
+    """`text` up to its last sentence that more text already follows ("" if none)."""
+    m = _WHOLE.match(text)
+    return m.group(0) if m else ""
 
 
 def _depth(text):

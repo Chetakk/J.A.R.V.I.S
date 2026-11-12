@@ -280,6 +280,7 @@ class Jarvis:
         self.source = "text"  # how the current request came in: text / voice / follow
         self.from_claude = False  # handling one of Claude's "do" phrases: never send it back to Claude
         self._claude_saying = False  # what's being said is Claude's answer: the chat panel shows it as Claude's
+        self._claude_parts = None  # sentences of Claude's answer said so far, while more of it streams in
         self.last_suggest = 0.0  # when Claude's last own suggestion was passed on, so it doesn't nag
         self.asking = None  # the question waiting for your answer, for the dashboard
         self.interrupted = False  # the last yes/no question was answered with a new request instead
@@ -317,15 +318,26 @@ class Jarvis:
         if self.ui and what and "{" not in what:
             self.ui.show_understood(what)
 
-    def claude_says(self, text):
-        """Say Claude's own answer; the chat panel shows it as Claude's rather than JARVIS's."""
+    def claude_says(self, text, last=True):
+        """Say Claude's own answer; the chat panel shows it as Claude's rather than JARVIS's. last=False: more
+        sentences of the same answer follow, and the chat and history get the whole answer as one line."""
+        if not last and self._claude_parts is None:
+            self._claude_parts = []
         self._claude_saying = True
         try:
-            self.speaker.say(text)
+            if text:
+                self.speaker.say(text)
+            if last and self._claude_parts is not None:
+                parts, self._claude_parts = self._claude_parts, None
+                if parts:
+                    self._said(" ".join(parts))
         finally:
             self._claude_saying = False
 
     def _said(self, text):
+        if self._claude_saying and self._claude_parts is not None:
+            self._claude_parts.append(text)  # one sentence of Claude's answer: noted with the rest at its end
+            return
         self.chat("claude" if self._claude_saying else "jarvis", text)
         if self._private:
             return
@@ -815,12 +827,17 @@ class Jarvis:
             timer.daemon = True
             timer.start()
 
-        def speak_early(line):
-            # The spoken part streamed in first: say it now, while Claude finishes the rest.
+        started = []
+
+        def speak_early(line, last=True):
+            # The spoken part streams in first, a sentence at a time: say each now, while Claude writes the rest.
             for timer in fillers:
                 timer.cancel()
-            print("  [claude] answered:")
-            self.claude_says(self._later(job, line))
+            if line and not started:
+                started.append(True)
+                print("  [claude] answered:")
+                line = self._later(job, line)
+            self.claude_says(line, last)
 
         job["answer"] = None
         try:
@@ -833,6 +850,8 @@ class Jarvis:
         finally:
             for timer in fillers:
                 timer.cancel()
+            if started and self._claude_parts is not None:
+                self.claude_says("")  # stopped mid-answer: what was said still goes to the chat and history
 
     def _claude_done(self, job):
         """On the main loop: say and do what Claude answered."""
@@ -865,7 +884,8 @@ class Jarvis:
                 self.claude_says(self._later(job, answer["say"]))
         # Claude knows its own answer and the "thinking" lines say nothing; what else happened meanwhile is new to it
         for line in [l for l in self.recent if l.startswith("JARVIS said: ") and (
-                WAIT_LINE.match(l[13:]) or answer["say"] and l.endswith(str(answer["say"])))]:
+                WAIT_LINE.match(l[13:]) or answer["say"] and " ".join(l.split()).endswith(
+                    " ".join(str(answer["say"]).split())))]:  # (said a sentence at a time: rejoined with spaces)
             self.recent.remove(line)
         if blank and not steps:
             self.recent.append("JARVIS couldn't do \"%s\": <...> is a blank to fill in, not something it can do" %
