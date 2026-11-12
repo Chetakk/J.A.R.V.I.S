@@ -12,8 +12,11 @@ import threading
 import time
 from collections import deque
 
+from system import calls
+
 MATCHES = ["type='method_call',interface='org.freedesktop.Notifications',member='Notify'",
-           "type='method_call',interface='org.gtk.Notifications',member='AddNotification'"]
+           "type='method_call',interface='org.gtk.Notifications',member='AddNotification'",
+           "type='method_call',interface='org.gtk.Notifications',member='RemoveNotification'"]
 # A string value runs to the quote that ends its line before the next value (bodies can have newlines).
 STRING = re.compile(r'^\s*(?:variant\s+)?string "(.*?)"$(?=\n(?: {3,}(?:\)|\]|(?:string|u?int\d+|byte|boolean|double|'
                     r'array|dict entry|variant|object path|signature)\b)|\Z))', re.M | re.S)
@@ -64,15 +67,22 @@ class Watcher:
 
     def _parse(self, text):
         header, _, args = text.partition("\n")
-        values = STRING.findall(args + "\n")
+        values = STRING.findall(args.rstrip("\n") + "\n")  # (so a last value, as in RemoveNotification, ends at \Z)
         if "member=Notify" in header and len(values) >= 4:
             self.add(values[0], values[2], values[3])
         elif "member=AddNotification" in header and values:
             fields = dict(zip(values[2::2], values[3::2]))  # app id, notification id, then key/value pairs
             if values[0].endswith(".GSConnect") and len(values) > 1 and "|" in values[1]:
+                call = values[1].split("|")
+                if call[1:2] == ["talking"]:  # answered: JARVIS stays asleep until it's withdrawn
+                    calls.phone_talking("|".join(call[2:]))
                 self.add(*from_phone(values[1], fields.get("title", ""), fields.get("body", "")))
             else:
                 self.add(values[0].rsplit(".", 1)[-1], fields.get("title", ""), fields.get("body", ""))
+        elif "member=RemoveNotification" in header and len(values) > 1 and values[0].endswith(".GSConnect"):
+            call = values[1].split("|")
+            if call[1:2] == ["talking"]:  # the call ended
+                calls.phone_ended("|".join(call[2:]))
 
     def add(self, app, title, body, phone=None):
         app, title, body = app.strip(), title.strip(), re.sub(r"<[^>]+>", "", body).strip()  # bodies may be markup

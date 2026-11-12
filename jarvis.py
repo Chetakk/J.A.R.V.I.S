@@ -32,7 +32,7 @@ except ImportError:
     pass
 
 from core import context, learned, misslog, numbers, outcomes, persona, teaching, undo, verify
-from system import apps, audio, desktop, watchdog
+from system import apps, audio, calls, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, Stopped, open_in_vscode
 from core.executor import Executor
@@ -1667,7 +1667,7 @@ def start_voice(jarvis, whisper):
                            on_cut=lambda: (jarvis.speaker.stop(), jarvis.skills.todos.stop_alarm(),
                                            jarvis.state(jarvis.rest)),
                            is_talking=jarvis.speaker.busy, barge_in=wake_cfg.get("barge_in", "any"),
-                           is_deaf=lambda: jarvis.deaf, is_dictating=lambda: jarvis.skills.dictation.dictating,
+                           is_deaf=lambda: jarvis.deaf or bool(calls.on_call()), is_dictating=lambda: jarvis.skills.dictation.dictating,
                            on_wait=lambda seconds: jarvis.ui and jarvis.ui.follow_timer(seconds),
                            is_asking=lambda: bool(jarvis.asking), said_lately=jarvis.speaker.said_lately,
                            is_echo_sound=jarvis.speaker.is_echo_sound,
@@ -1679,7 +1679,7 @@ def start_voice(jarvis, whisper):
         print('[voice] Wake word ready: say any of: %s (optionally with "hey").' % ", ".join(jarvis.names))
     elif wake_cfg.get("enabled", True):
         phrases = [g + n for n in jarvis.names for g in ("", "hey ", "hello ", "ok ")]
-        WakeWord(phrases, on_audio, on_wake=on_listen, is_busy=busy, is_deaf=lambda: jarvis.deaf,
+        WakeWord(phrases, on_audio, on_wake=on_listen, is_busy=busy, is_deaf=lambda: jarvis.deaf or bool(calls.on_call()),
                  threshold=wake_cfg.get("threshold", 0.10), boost=wake_cfg.get("boost", 2.0)).start()
         print('[voice] Wake word ready (keyword model): say any of: %s.' % ", ".join(jarvis.names))
     jarvis.rest = "idle"
@@ -1898,7 +1898,7 @@ def main():
         if (jarvis.settings.get("ears") or {}).get("words") != "whisper":
             subprocess.call(["pkill", "-x", "whisper-server"])  # one left by an earlier run would hold on to 1.5 GB
         whisper = jarvis.whisper = Ears(jarvis.settings.get("ears") or {}, jarvis.settings.get("stt") or {})
-        whisper.is_deaf = lambda: jarvis.deaf
+        whisper.is_deaf = lambda: jarvis.deaf or bool(calls.on_call())
     else:
         whisper = jarvis.whisper = Whisper(jarvis.settings.get("stt") or {})
     threading.Thread(target=watchdog.run, args=(jarvis, jarvis.settings.get("watchdog") or {}), daemon=True).start()
