@@ -28,6 +28,7 @@ PICTURES = os.path.expanduser("~/Pictures")
 VAGUE = (r"(?:this|that|these|those|it|them)(?: (?:file|photo|picture|pic|image|video|clip|pdf|document|doc|song|"
          r"one|screenshot))?s?")
 SHOT = r"(?:a |my |the )?(?:screen ?shot|screen|screen ?grab)(?: of (?:my|the) screen)?"
+LINKS = ("this link", "this page", "this tab", "that link", "that page", "the link", "the page")
 A_FILE = r"%s|%s|[^ ]+\.[A-Za-z0-9]{2,5}" % (VAGUE, SHOT)  # a file by pointing or by its name, not just words
 ON_PHONE = r"(?: on (?:my|the) (?:phone|mobile))"
 COUNTRY = "91"  # shortcut: India's code for 10-digit numbers, make it a setting if a non-Indian number comes up
@@ -54,7 +55,7 @@ class Phone(Skill):
                "send this to my phone", "send <file> to my phone", "send <text> to my phone",
                "copy my clipboard to my phone", "what's on my phone's clipboard",
                "open this on my phone", "send a note to my phone saying <message>",
-               "send this to <name> on whatsapp", "share this on my phone", "paste from my phone", "type <text> on my phone",
+               "send this to <name> on whatsapp", "share this on my phone", "share it to my phone", "paste from my phone", "type <text> on my phone",
                "reply saying <message>", "dismiss that notification", "mute the call", "read my texts",
                "any texts from <name>", "open my phone's files", "get my latest photo from my phone")
     gives = "done on the phone, said back; its messages and calls said as they come; texts, photos, screen on a card"
@@ -75,7 +76,6 @@ class Phone(Skill):
             (r"(?:open|launch|start) (?:the )?(.+?)(?: app)?%s" % ON_PHONE, self.open_app),
             (r"(?:send|share|forward) (%s) to (.+?) on whatsapp|whatsapp (%s) to (.+)" % (A_FILE, A_FILE),
              self.whatsapp_file),
-            (r"share (%s)(?: on| from) (?:my|the) (?:phone|mobile)" % A_FILE, self.share_on_phone),
             (r"(?:send )?(?:a )?(?:text|sms)(?: message)?(?: to)? (.+?) (?:saying|that) (.+)", self.text),
             (r"(?:whatsapp|send a whatsapp to|send a whatsapp message to) (.+?) (?:saying|that) (.+)|"
              r"(?:message|tell) (.+?) on whatsapp (?:saying |that )?(.+)", self.whatsapp),
@@ -98,7 +98,8 @@ class Phone(Skill):
              r"(?:copy|get|bring|paste) (?:my |the )?clipboard from (?:my |the )?(?:phone|mobile)", self.pull_clipboard),
             (r"(?:what'?s|what is|read(?: me)?) (?:on |in )?(?:my |the )?(?:phone'?s?|mobile'?s?) clipboard",
              self.phone_clipboard),
-            (r"(?:send|share|push) (.+?) to (?:my |the )?(?:phone|mobile)", self.send),
+            (r"share (.+?) (?:on|to|with|onto|from|in) (?:my |the )?(?:phone|mobile)", self.share_on_phone),
+            (r"(?:send|push) (.+?) to (?:my |the )?(?:phone|mobile)", self.send),
             (r"type (.+?)%s" % ON_PHONE, self.type_text),
             (r"reply(?: to (.+?))?(?: on (?:my phone|the phone|whatsapp))? (?:saying|with|that) (.+)", self.reply),
             (r"(?:dismiss|clear|close|swipe away) (?:that|this|the) (?:notification|message)%s?" % ON_PHONE, self.dismiss),
@@ -227,7 +228,7 @@ class Phone(Skill):
         low = what.lower()
         vague = bool(re.fullmatch(VAGUE, low))
         front = desktop.active_window()
-        if low in ("this link", "this page", "this tab", "that link", "that page") or (
+        if low in LINKS or (
                 vague and front and "chrome" in front.wm_class.lower()):
             page = chrome_link.page()
             if page and page.get("url"):
@@ -261,20 +262,43 @@ class Phone(Skill):
         if re.fullmatch(SHOT, low):
             return [self._screenshot()]
         if re.fullmatch(VAGUE, low):
+            for _ in range(10):  # "take a screenshot and send it ...": let the one being taken finish first
+                if not _run(["pgrep", "-f", r"^(\S*/)?gnome-screenshot( |$)"]).stdout.strip():  # (-x: names stop at 15)
+                    break
+                time.sleep(0.3)
             return _fresh_screenshot() or files.front_files(self.j) or files.recent_file() or []
         if documents.sure(what):
             return [h for h in files._find_files(what) if os.path.basename(h).lower() == low][:1]
         return []
 
     def share_on_phone(self, m):
-        """The file on the phone, in Android's share menu: you pick the app there."""
-        paths = self._pick(m.group(1))
-        if not paths:
-            return self.fail("I can't tell which file you mean. Open or select it first.")
+        """Android's share menu on the phone, with it attached: you pick the app there. A file goes as the file
+        ("it" as for send: a screenshot just taken, what you're looking at...), the Chrome page you're on as its
+        link, other words as text."""
+        what = m.group(1)
+        low = what.lower()
+        vague = bool(re.fullmatch(VAGUE, low))
+        front = desktop.active_window()
+        text, paths = None, []
+        if low in LINKS or (vague and front and "chrome" in front.wm_class.lower()):
+            page = chrome_link.page()
+            text = page.get("url") if page else None
+            if not text and not vague:
+                return self.fail("I can't see the page in Chrome.")
+        if not text:
+            paths = self._pick(what)
+            if not paths:
+                if re.fullmatch(A_FILE, low):
+                    return self.fail("I can't tell which file you mean. Open or select it first.")
+                text = what
         self._awake()
-        uri, mime = self._on_phone(paths[0])
-        self._adb("shell", "am", "start", "-a", "android.intent.action.SEND", "-t", mime, "--eu",
-                  "android.intent.extra.STREAM", uri, "--grant-read-uri-permission")
+        if text:
+            self._adb("shell", "am", "start", "-a", "android.intent.action.SEND", "-t", "text/plain", "--es",
+                      "android.intent.extra.TEXT", shlex.quote(text))
+        else:
+            uri, mime = self._on_phone(paths[0])
+            self._adb("shell", "am", "start", "-a", "android.intent.action.SEND", "-t", mime, "--eu",
+                      "android.intent.extra.STREAM", uri, "--grant-read-uri-permission")
         self.say("It's in your phone's share menu. Pick where it goes.")
 
     def whatsapp_file(self, m):
@@ -611,8 +635,9 @@ def _international(number):
 
 
 def _fresh_screenshot():
-    """[the newest screenshot in Pictures] when it's under a minute old, else []."""
-    shots = glob.glob(os.path.join(PICTURES, "Screenshot*"))
+    """[the newest screenshot in Pictures or Pictures/Screenshots] when it's under a minute old, else []."""
+    shots = [p for d in (PICTURES, os.path.join(PICTURES, "Screenshots"))
+             for p in glob.glob(os.path.join(d, "Screenshot*")) if os.path.isfile(p)]  # not the Screenshots folder
     newest = max(shots, key=os.path.getmtime, default=None)
     return [newest] if newest and time.time() - os.path.getmtime(newest) < 60 else []
 

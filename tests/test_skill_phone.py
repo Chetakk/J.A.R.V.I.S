@@ -160,6 +160,15 @@ def test_a_screenshot_just_taken_is_it(ph, monkeypatch):
     assert len(sent) == 1 and "Screenshot from now.png" in sent[0]
 
 
+def test_a_screenshot_still_being_saved_is_waited_for(ph, monkeypatch):
+    running = iter(["4242\n", "4242\n", ""])  # gnome-screenshot still saving, then done
+    ph.shell.on(r"^pgrep -f .*gnome-screenshot", out=lambda line: next(running))
+    monkeypatch.setattr(phone, "_fresh_screenshot", lambda: ["/home/me/Pictures/Screenshot from now.png"]
+                        if len(ph.shell.ran(r"^pgrep")) >= 3 else ["/home/me/Pictures/Screenshot older.png"])
+    ph.do("send it to my phone")
+    assert "Screenshot from now.png" in action(ph, "shareFile")[0] and not action(ph, "clipboardPush")
+
+
 def test_send_a_screenshot_takes_one(ph):
     ph.do("send a screenshot to my phone")
     shot = ph.shell.ran(r"^gnome-screenshot -f ")
@@ -387,3 +396,22 @@ def test_whats_on_the_phones_clipboard_is_read_out(ph, monkeypatch):
     monkeypatch.setattr(phone, "clipboard", lambda: "flight AI 302 at 6:40")
     ph.do("what's on my phone's clipboard")
     assert action(ph, "clipboardPull") and ph.says("Your phone's clipboard says: flight AI 302 at 6:40")
+
+
+def test_share_to_my_phone_is_the_same_as_share_on_my_phone(shot):
+    shot.do("share it to phone")
+    assert shot.shell.ran(r"am start -a android\.intent\.action\.SEND -t image/png ") and shot.says("share menu")
+    assert not action(shot, "clipboardPush")
+
+
+def test_share_the_chrome_page_puts_its_link_in_the_share_menu(shot, monkeypatch):
+    shot.desktop.add("Docs - Google Chrome", "google-chrome")
+    monkeypatch.setattr(phone.chrome_link, "page", lambda: {"url": "https://example.com/a?b=1&c=2", "title": "A"})
+    shot.do("share this to my phone")
+    assert shot.shell.ran(r"-t text/plain --es android\.intent\.extra\.TEXT .*https://example\.com/a\?b=1&c=2")
+    assert not action(shot, "shareFile")
+
+
+def test_share_words_puts_them_in_the_share_menu(shot):
+    shot.do("share buy milk to my phone")
+    assert shot.shell.ran(r"-t text/plain --es android\.intent\.extra\.TEXT .*buy milk")

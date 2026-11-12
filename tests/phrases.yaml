@@ -2014,3 +2014,7 @@
 "copy my clipboard to my phone": skill:push_clipboard
 "copy my clipboard to phone": skill:push_clipboard
 "what's on my phone's clipboard": skill:phone_clipboard
+"share it to my phone": skill:share_on_phone
+"share it to phone": skill:share_on_phone
+"share this page to my phone": skill:share_on_phone
+"share my clipboard to my phone": skill:push_clipboard
