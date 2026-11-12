@@ -85,5 +85,81 @@ near:
 - Is this yours
 - Jarring noise
 - Purpose
+- Jaa raha hoon
+- Achha, bas kar
+- Jarur karenge
+- Sarvis wala aaya
+- Jab bhi time mile
+- Car service is due
+- Did you see Travis yesterday
+- The jar is in the kitchen
+- Harvey, come here
+- Darvish
+- Javed
+- Chavis
+- Her voice is nervous
+- It's a service charge
 talk:
 - Say any sentence to yourself, not to JARVIS
+- Tell someone in the room what you're doing today
+- Ask someone if they've eaten
+- Read a line out from your screen
+- Talk on the phone as you would (just your side)
+- Complain about something, a bit annoyed
+- Laugh at something and say why it's funny
+# The name in different voices: it must wake for every one.
+tones:
+- Jarvis (whispering)
+- Jarvis (whispering)
+- Jarvis? (asking, unsure)
+- Jarvis? (asking, unsure)
+- Jarvis (annoyed, impatient)
+- Jarvis (annoyed, impatient)
+- Jarvis (happy, smiling)
+- Jaaarvis (drawn out)
+- Jarvis (clipped, fast)
+- Jarvis (mumbling)
+- Jarvis (just woke up, sleepy voice)
+- Jarvis (while laughing)
+- Jarvis (while eating or chewing)
+- Jarvis (from another room, calling)
+- Jarvis (deep, low voice)
+- Jarvis (high voice)
+# A series or song playing at your normal volume (from the speaker JARVIS uses); the name must still wake it.
+over:
+- Jarvis
+- Jarvis
+- Jarvis
+- Hey Jarvis
+- Jarvis (quietly)
+- Jarvis (loud, over the show)
+- Jarvis, pause it
+- Jarvis, volume down
+# Commands said different ways, in one go with the name: each line says how.
+ways:
+- Jarvis, could you open YouTube for me
+- Jarvis, YouTube (just the word)
+- Jarvis, pause (annoyed)
+- Jarvis, stop it, stop it (quick)
+- Jarvis, uh, what's the time (pausing at uh)
+- Jarvis, play something (bored)
+- Jarvis, turn it down a bit (quietly)
+- Jarvis, louder (calling out)
+- Jarvis, skip this song (happy)
+- Jarvis, what's on my calendar today (sleepy)
+- Jarvis, close Chrome please
+- Jarvis, can you mute (whispering)
+- Jarvis, never mind
+- Jarvis, cancel that (fast)
+- Jarvis, open the dashboard (tired)
+- Jarvis, any new messages? (asking)
+# Timed: it records the whole time, pauses and all. Never say the name in these.
+chat:
+- Talk with someone in the room for 2 minutes (or a phone call on speaker)
+- Talk with someone again, a different topic, for 2 minutes
+- Talk to yourself or think out loud for 2 minutes
+show:
+- Play a series with lots of talking at your normal volume and stay quiet for 3 minutes
+- Play a different series or a YouTube video with talking, 3 minutes
+- Play a series and chat over it now and then, 3 minutes
+- Play music with singing, 3 minutes

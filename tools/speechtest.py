@@ -4,7 +4,8 @@
   tools/speechtest.py record     guided: shows a line, you read it (Enter = next, r = redo, q = stop and resume later)
   tools/speechtest.py score      word errors, right actions, wake hits and confidence for each setting
   tools/speechtest.py score-ears the same for Ears (voice/ears.py: the wake model and Parakeet)
-  tools/speechtest.py record-wake  guided: "Jarvis" from around the room, for retraining the wake model
+  tools/speechtest.py record-wake  guided: "Jarvis" from around the room, in different voices and over a show,
+                                 plus sound-alikes, talk and shows it must ignore, for retraining the wake model
 
 Recordings go through the wake loop's own voice detector, so a clip is what Whisper gets in real use. They stay
 in ~/.local/share/jarvis/speech-test, out of this public repo. The list to read is tests/speech_commands.yaml.
@@ -14,6 +15,7 @@ import glob
 import json
 import os
 import re
+import signal
 import socket
 import subprocess
 import sys
@@ -46,7 +48,15 @@ WAKE_PARTS = (("close", "Sit or stand about 30 cm from the mic, facing it."),
               ("seat", "Your usual seat, looking at your screen, not the mic. Say it the way each line says."),
               ("breath", "Anywhere you like: the name and the command in one go, no pause."),
               ("near", "Words that sound a bit like the name, said normally: JARVIS must stay asleep for these."),
-              ("talk", "Last one: just talk normally, not to JARVIS."))
+              ("talk", "Just talk normally, not to JARVIS."),
+              ("tones", "Your usual seat. The name in a different voice each time, the way each line says."),
+              ("over", "Put a series on at your normal volume and leave it playing. Press Enter, say the line, then Enter "
+                       "again right after."),
+              ("ways", "Turn the series off. The name and the command in one go, the way each line says."),
+              ("chat", "Long takes: it records the whole time. Never say the name. Get someone to talk with, or a call."),
+              ("show", "Long takes with a series or music playing. Never say the name; stay where you usually sit."))
+# record-wake parts recorded as one take instead of one bit of speech: seconds, or None = until you press Enter.
+TIMED = {"over": None, "chat": 120, "show": 180}
 MOVE = False  # record-wake: wait for Enter at each new place
 TIMEOUT = 15  # seconds to wait for someone to speak
 NUMBERS = {"2": "two", "4th": "fourth", "5": "five", "10": "ten", "40": "forty", "40%": "forty", "to-do": "todo"}
@@ -86,6 +96,22 @@ def save(clip, seg):
         w.writeframes(pcm)
 
 
+def take(clip, seconds):
+    """Records straight to the clip's file for `seconds`, or until Enter: pauses and the show playing all kept."""
+    mic = subprocess.Popen(["arecord", "-q", "-f", "S16_LE", "-r", str(RATE), "-c", "1"] +
+                           (["-d", str(seconds)] if seconds else []) + [path(clip)], stderr=subprocess.DEVNULL)
+    if seconds:
+        print("  recording %d s..." % seconds)
+        mic.wait()
+    else:
+        input("  recording... Enter right after you say it: ")
+        time.sleep(0.3)  # (the name's tail)
+        mic.send_signal(signal.SIGINT)  # (arecord finishes the file's header on SIGINT)
+        mic.wait()
+    with wave.open(path(clip)) as w:
+        return w.getnframes() / RATE
+
+
 def problem(part, line, seg):
     """Why this take should be redone, if it should. Never judged on what Whisper made of it: that's the test."""
     if part != "commands":
@@ -117,16 +143,21 @@ def record():
             if MOVE and input("  Move there, then press Enter (q = stop): ").strip().lower() == "q":
                 return 0
         print("\n[%d/%d]  %s" % (i + 1, len(todo), line.upper() if part != "noise" else line))
-        seg = grab(ears)
-        if seg is None:
-            print("  Nothing heard in %d s." % TIMEOUT)
-            answer = input("  Enter = try again, s = skip it, q = stop: ").strip().lower()
-            if answer == "q":
+        if part in TIMED:
+            if input("  Enter = start, q = stop: ").strip().lower() == "q":
                 return 0
-            i += answer == "s"
-            continue
-        save(clip, seg)
-        print("  saved, %.1f s  %s" % (len(seg) / RATE, problem(part, line, seg)))
+            print("  saved, %.1f s" % take(clip, TIMED[part]))
+        else:
+            seg = grab(ears)
+            if seg is None:
+                print("  Nothing heard in %d s." % TIMEOUT)
+                answer = input("  Enter = try again, s = skip it, q = stop: ").strip().lower()
+                if answer == "q":
+                    return 0
+                i += answer == "s"
+                continue
+            save(clip, seg)
+            print("  saved, %.1f s  %s" % (len(seg) / RATE, problem(part, line, seg)))
         answer = input("  Enter = next, r = redo, q = stop: ").strip().lower()
         if answer == "q":
             return 0

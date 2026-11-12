@@ -32,7 +32,9 @@ MINE = os.path.join(JARVIS, "wake-data", "mine")  # tools/speechtest.py record-w
 MEDIA = os.path.join(JARVIS, "wake-data", "media")  # voice/ears.py MediaRecorder
 MINE_HITS = os.path.join(JARVIS, "wake-data", "hits")
 FALSE = os.path.join(JARVIS, "wake-data", "false")  # wake-ups you called false ("Jarvis, false wake": voice/ears.py)
-PLACES = ("close", "arm", "side", "across", "away", "far", "seat")  # tests/wake_session.yaml parts with the name alone
+PLACES = ("close", "arm", "side", "across", "away", "far", "seat", "tones", "over")  # tests/wake_session.yaml parts with the name alone
+ONE_BREATH = ("named", "breath", "ways", "overcmd")  # the name and a command in one go: scored, never trained on
+LONG = ("chat", "show")  # long takes of talk or a show, never the name: used like the MediaRecorder's
 NAME_CHECK_SINCE = 1794323250  # ears.name_check went on (c1cd4ff): every wake-up kept after it, Whisper heard the name too
 OUT = "jarvis_wake.next"
 FILES = {"mel": "melspectrogram.onnx", "embed": "embedding_model.onnx", "noise": "validation_set_features.npy"}
@@ -179,13 +181,13 @@ def show_audio():
         with open(os.path.join(MINE_HITS, "hits.jsonl")) as f:
             woke = [json.loads(l)["time"] for l in f if l.strip()]
     train, held, seconds = [], [], 0.0
-    for path in sorted(glob.glob(os.path.join(MEDIA, "*.wav"))):
+    for path in sorted(glob.glob(os.path.join(MEDIA, "*.wav"))) + [p for part in LONG for p in sorted(glob.glob(os.path.join(MINE, part + "-*.wav")))]:
         x = read(path)
         if len(x) < 3 * RATE:
             continue
         e = embeddings(x)
         clear = np.ones(len(e), dtype=bool)
-        for t in woke:
+        for t in woke if path.startswith(MEDIA) else ():  # (JARVIS doesn't listen during record-wake)
             i = int((t - started(path)) / 0.08)
             clear[max(0, i - 40):max(0, i + 40)] = False
         w = stacked(e, 1)
@@ -208,17 +210,18 @@ def main():
     named = {i: t for i, t in enumerate(lines["commands"], 1) if "jarvis" in t.lower().split(",")[0]}
     bare = [i for i in range(1, len(lines["commands"]) + 1) if i not in named]
     wake = {("wake", i): clip("wake", i) for i in range(1, len(lines["wake"]) + 1)}
+    breath = {("named", i): clip("commands", i) for i in named}
     # Your "Jarvis" from around the room (tools/speechtest.py record-wake), and what must not wake it
-    wake.update({(part, i): read(mine(part, i)) for part in PLACES for i in range(1, len(session.get(part) or []) + 1)
-                 if os.path.exists(mine(part, i))})
+    for part in PLACES + ("breath", "ways"):
+        for i, line in enumerate(session.get(part) or [], 1):
+            if os.path.exists(mine(part, i)):  # "Jarvis, pause it" over a show counts as one breath
+                one = part in ("breath", "ways") or "," in line.split("(")[0]
+                (breath if one else wake)[("overcmd" if one and part == "over" else part, i)] = read(mine(part, i))
     wake.update({("real", i): c for i, c in enumerate(real_calls(), 1)})
     other = dict([(("commands", i), clip("commands", i)) for i in bare] + [(("noise", i), clip("noise", i)) for i in range(1, len(lines["noise"]) + 1)])
     other.update({(part, i): read(mine(part, i)) for part in ("near", "talk") for i in range(1, len(session.get(part) or []) + 1)
                   if os.path.exists(mine(part, i))})
     other.update({("false", i): read(p) for i, p in enumerate(sorted(glob.glob(os.path.join(FALSE, "*.wav"))), 1)})
-    breath = {("named", i): clip("commands", i) for i in named}
-    breath.update({("breath", i): read(mine("breath", i)) for i in range(1, len(session.get("breath") or []) + 1)
-                   if os.path.exists(mine("breath", i))})
     room = [c for k, c in other.items() if k[0] == "noise"]
     print("clips: %d name, %d other (%d false wakes), %d name-in-one-breath" % (
         len(wake), len(other), sum(k[0] == "false" for k in other), len(breath)), flush=True)
@@ -264,7 +267,7 @@ def main():
         trainY = torch.tensor(np.concatenate([y[mask], np.zeros(len(used), dtype=np.float32)]), device=device)
         net = fit(trainX, trainY, device)
         for k, w in test.items():
-            if k[0] in ("named", "breath") or fold_of(k) == fold:  # (name-in-one-breath clips are never trained on)
+            if k[0] in ONE_BREATH or fold_of(k) == fold:  # (name-in-one-breath clips are never trained on)
                 scores.setdefault(k, []).append(score(net, w, device))
         with torch.no_grad():
             run = lambda w: torch.sigmoid(net(torch.tensor(w, device=device))).squeeze(1).cpu().numpy()  # noqa: E731
@@ -279,7 +282,7 @@ def main():
           "one-breath", "sound-alike", "commands", "noise", "false wake", "outside/h", "show/h"))
     table = []
     for t in THRESHOLDS:
-        row = {"cutoff": t, "old": hit(("wake",), t), "room": hit(PLACES, t), "real": hit(("real",), t), "breath": hit(("named", "breath"), t),
+        row = {"cutoff": t, "old": hit(("wake",), t), "room": hit(PLACES, t), "real": hit(("real",), t), "breath": hit(ONE_BREATH, t),
                "near": hit(("near", "talk"), t), "commands": hit(("commands",), t), "noise": hit(("noise",), t), "false": hit(("false",), t),
                "per_hour": float(np.mean([alarms(s, t) for s in outside_scores])) / hours,
                "show_per_hour": (float(np.mean([sum(alarms(r, t, 1) for r in runs) for runs in show_scores])) / show_hours
