@@ -48,6 +48,8 @@ wake_word:
   #          Commands right on your recordings: 40/50, Whisper 33/50. Only knows "Jarvis", not the other names.
   engine: ears
   follow_up_seconds: 8     # whisper only: after an answer, the orb stays lit and you can just talk (0 = off)
+  hold_unfinished: 1.6     # whisper/ears: a command ending on "and", "the", "to", "my", a comma... waits this many
+                           # seconds for the rest ("what's the weather in" ... "London"), else goes as it is (0 = off)
   barge_in: named          # whisper only: talking over JARVIS. any = a new request stops it (no name needed
                            # within a minute of your last one), named = only with the name, off = only "stop"
   threshold: 0.10          # kws only: lower = triggers more easily (and more false alarms)

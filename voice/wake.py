@@ -202,6 +202,18 @@ STOP = re.compile(r"^\W*(?:(?:ok(?:ay)?|alright|all right|right|great|cool|perfe
                   re.IGNORECASE)
 
 
+# A command that stops on one of these (or a comma, a dash, "...") isn't over, whatever the silence says:
+# "what's the weather in -" pause "- London". Only words a request can't end on: "that", "it", "in", "on", "up",
+# "her", "is" and the like end real ones ("remember that", "zoom in", "call her", "what is it").
+_UNFINISHED = re.compile(r"(?:(?:,|\.\.\.|…|[-–—])\W*|\b(?:and|or|but|because|if|while|whose|to|of|for|with|from|into|"
+                         r"onto|between|than|the|a|an|my|your|our|their|its|very)\W*)$", re.IGNORECASE)
+
+
+def unfinished(text):
+    """`text` stops mid-sentence: "set a timer for" -> True, "set a timer for 5 minutes." -> False."""
+    return bool(_UNFINISHED.search(text.strip()))
+
+
 class WhisperWake:
     """Wakes on any of `names` heard by Whisper. on_text(command, follow_up) gets what to do (follow_up:
     said without the name, after an answer); on_wake(True/False) reports listening state, like WakeWord."""
@@ -210,6 +222,9 @@ class WhisperWake:
     # (transcribing, opening a folder) its own reply piled up there and looked as if said after it stopped.
     lag = 0.0
     on_cut = None  # see __init__
+    # A command that sounds unfinished waits this long for the rest of it (0 = never); see unfinished(), _hold
+    hold_seconds = 0.0
+    held, held_follow, _held_lock = "", False, threading.Lock()
 
     def is_asking(self):
         """JARVIS is asking you a yes/no question (JARVIS passes its own check in)."""
@@ -236,8 +251,9 @@ class WhisperWake:
                  is_echo=None,
                  on_heard=None, follow_seconds=8, on_stop=None, is_talking=None, barge_in="any", is_deaf=None,
                  is_dictating=None, on_wait=None, is_asking=None, said_lately=None, on_cut=None,
-                 is_echo_sound=None):
+                 is_echo_sound=None, hold_seconds=1.6):
         self.names = names
+        self.hold_seconds = hold_seconds
         self.on_wait = on_wait or (lambda seconds: None)  # listening without the name for this many seconds
         self.is_deaf = is_deaf or (lambda: False)  # "mute the mic": I stop listening, the system mic stays live
         self.whisper = whisper
@@ -386,17 +402,22 @@ class WhisperWake:
                         self._wait(self.wait_seconds)
                     continue
                 self.waiting_until = 0.0
+                held, held_follow = self._take_held()
                 if STOP.match(command) and not dictating:
-                    self.on_heard(text, "done; back to waiting for the name")
+                    self.on_heard(text, "done; back to waiting for the name")  # (and the unfinished bit is dropped)
                     if INTERRUPT.match(command) and self.on_stop:  # "stop" also stops Claude if it's still thinking
                         self.on_stop()
                     self.on_wake(False)
                     continue
+                follow = held_follow if held else self.following and not named
+                command = ("%s %s" % (held, command)) if held else command
+                if not dictating and self._hold(text, command, follow):
+                    continue
                 beep("end")
                 print("[wake] command: %r" % command)
-                self.on_heard(text, "follow-up" if self.following and not named else "command")
+                self.on_heard(text, "follow-up" if follow else "command")
                 self.last_request = time.time()
-                self.on_text(command, self.following and not named)
+                self.on_text(command, follow)
                 continue
             named, command = split_name(text, self.names)
             if not named:
@@ -412,6 +433,8 @@ class WhisperWake:
                 command = self._command_again(pcm, command)
             print("[wake] heard %r" % text)
             self.on_wake(True)
+            if command and self._hold(text, command, False):
+                continue
             if command:
                 self.on_heard(text, "woke, command: %s" % command)
                 beep("end")
@@ -510,6 +533,23 @@ class WhisperWake:
             self.on_wake(True)
             self._wait(left)
 
+    def _hold(self, heard, command, follow):
+        """`command` sounds unfinished: keep it and listen (no name needed) for the rest, which is added to it.
+        If nothing more comes, it goes on as it is (_expire). True if held."""
+        if not (self.hold_seconds and unfinished(command)):
+            return False
+        with self._held_lock:
+            self.held, self.held_follow = command.rstrip(" ,.!?…-–—"), follow
+        self.on_heard(heard, "sounds unfinished; waiting for the rest: %s" % command)
+        self._wait(self.hold_seconds)
+        return True
+
+    def _take_held(self):
+        """The unfinished command being held, and whether it was a follow-up; ("", False) if none. Taken once."""
+        with self._held_lock:
+            held, self.held = self.held, ""
+            return held, self.held_follow
+
     def _wait(self, seconds):
         self.on_wait(seconds)
         self.waiting_until = until = time.time() + seconds
@@ -526,6 +566,10 @@ class WhisperWake:
             # You just stopped: the voice detector hands the sentence over after a short silence, so
             # give it a moment to arrive before closing the window.
             threading.Timer(VAD_TAIL + 0.7, self._expire, args=(until, False)).start()
+            return
+        held, follow = self._take_held()
+        if held:  # nothing more came: what was said is the whole command after all
+            self._pass_on(held, held, follow, "command (nothing more came)")
             return
         # Still waiting, and nothing was said after the name.
         self.waiting_until = 0.0
