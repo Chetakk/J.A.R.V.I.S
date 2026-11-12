@@ -194,6 +194,19 @@ def test_switch_workspace_by_word(jv):
     assert jv.desktop.did("workspace") == [3]
 
 
+def test_next_and_previous_workspace(jv):
+    jv.desktop.workspace = 2
+    jv.do("take it to the next workspace")
+    jv.do("go to the previous workspace")
+    assert jv.desktop.did("workspace") == [3, 2]
+
+
+def test_which_workspace_answer_by_word_digit_or_ordinal(jv):
+    for answer in ("3", "three", "third one"):
+        jv.do("switch workspace", answer)
+    assert jv.desktop.did("workspace") == [3, 3, 3]
+
+
 def test_move_the_front_window_to_a_workspace(jv, two_windows):
     jv.do("move this window to workspace 2")
     assert jv.desktop.did("to_workspace") == [("biztelai@jetson: ~", 2)]

@@ -25,7 +25,9 @@ class Windows(Skill):
 
     def patterns(self):
         return [
-            (r"(?:switch|go) to workspace (\w+)", self.workspace),
+            # "go to workspace 3", "take it to the next workspace", "previous workspace", "the third one workspace"
+            (r"(?:(?:switch|go|jump|take|bring|show)(?: me| it| us| you)?(?: over)? to )?(?:the )?"
+             r"(?:workspace (?:number )?(\w+)|(\w+)(?: one)? workspace)", self.workspace),
             (r"(?:move|put|send|shift) (?:(?:this|it|that)(?: window| one)?|(?:the )?(.+?))?\s*(?:to|on|onto) "
              r"(?:the )?(?:workspace (\w+)|(\w+) workspace)", self.move_window),
             (r"(maximi[sz]e|minimi[sz]e|full ?screen|restore)(?: the| this)?(?: window)?(?: (.+))?", self.window_state),
@@ -36,7 +38,7 @@ class Windows(Skill):
         ]
 
     def workspace(self, m):
-        n = _number(m.group(1))
+        n = _number(m.group(1) or m.group(2))
         if not n:
             return False
         desktop.switch_to(n)

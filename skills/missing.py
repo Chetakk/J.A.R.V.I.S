@@ -52,6 +52,9 @@ def _brightness(answer, m):
 
 
 def _workspace(answer, m):
+    step = re.search(r"\b(next|previous)\b", answer, re.I)
+    if step:
+        return "go to the %s workspace" % step.group(1).lower()
     n = _number(answer)
     return "go to workspace %d" % n if n else None
 
