@@ -1,6 +1,9 @@
 """The desktop notifications that arrive while JARVIS runs, read off the session bus with dbus-monitor (both the
 freedesktop Notify call most apps use, and GNOME's own org.gtk.Notifications). Kept in memory only, never written
-to disk; the ones shown before JARVIS started can't be read. JARVIS's own notify-send lines are skipped."""
+to disk; the ones shown before JARVIS started can't be read. JARVIS's own notify-send lines are skipped.
+
+The phone's (GSConnect) come as the phone app, sender and text, with what's needed to answer or clear them on the
+phone (item["phone"]); on_add(item) hears each new one as it comes (skills/phone.py speaks messages and calls)."""
 import os
 import re
 import select
@@ -23,6 +26,7 @@ class Watcher:
         self.lock = threading.Lock()
         self.proc = None
         self.read_at = time.time()  # when you last heard them: newer ones are "new"
+        self.on_add = None
 
     def running(self):
         return bool(self.proc and self.proc.poll() is None)
@@ -65,9 +69,12 @@ class Watcher:
             self.add(values[0], values[2], values[3])
         elif "member=AddNotification" in header and values:
             fields = dict(zip(values[2::2], values[3::2]))  # app id, notification id, then key/value pairs
-            self.add(values[0].rsplit(".", 1)[-1], fields.get("title", ""), fields.get("body", ""))
+            if values[0].endswith(".GSConnect") and len(values) > 1 and "|" in values[1]:
+                self.add(*from_phone(values[1], fields.get("title", ""), fields.get("body", "")))
+            else:
+                self.add(values[0].rsplit(".", 1)[-1], fields.get("title", ""), fields.get("body", ""))
 
-    def add(self, app, title, body):
+    def add(self, app, title, body, phone=None):
         app, title, body = app.strip(), title.strip(), re.sub(r"<[^>]+>", "", body).strip()  # bodies may be markup
         if not (title or body) or (title == "JARVIS" and app in ("notify-send", "")) or "jarvis" in app.lower():
             return
@@ -76,7 +83,12 @@ class Watcher:
             last = self.items[-1] if self.items else None
             if last and (last["app"], last["title"], last["body"]) == (app, title, body) and now - last["at"] < 3:
                 return  # GNOME passes each one on once more
-            self.items.append({"at": now, "app": app or "an app", "title": title, "body": body})
+            item = {"at": now, "app": app or "an app", "title": title, "body": body}
+            if phone:
+                item["phone"] = phone
+            self.items.append(item)
+        if self.on_add:
+            self.on_add(item)
 
     def recent(self, since=0.0, app=None):
         with self.lock:
@@ -93,3 +105,20 @@ class Watcher:
     def stop(self):
         if self.running():
             self.proc.terminate()
+
+
+def from_phone(nid, title, body):
+    """(app, sender, text, phone) from a GSConnect notification: its id is "<device>|<Android key>[|<reply id>]",
+    the Android key "0|<package>|<n>|<tag>|<uid>", or "<device>|ringing|<caller>" for a call. GSConnect shows
+    the phone app as the title and "Sender: text" as the body, except for texts (sender as the title)."""
+    parts = nid.split("|")
+    if parts[1] in ("ringing", "talking"):
+        return "Phone", title, body, {"call": parts[1]}
+    phone = {"key": "|".join(parts[1:6]), "package": parts[2] if len(parts) > 2 else "",
+             "reply": parts[6] if len(parts) > 6 else None}
+    sender, sep, text = body.partition(": ")
+    if "messaging" in phone["package"] or "mms" in phone["package"]:  # an SMS: GSConnect titles it with the sender
+        return "Messages", title, body, phone
+    if sep and sender != title:
+        return title, sender, text, phone
+    return title, "", body, phone
