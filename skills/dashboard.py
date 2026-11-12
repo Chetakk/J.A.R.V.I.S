@@ -4,7 +4,7 @@ It comes up by itself when JARVIS starts; "show my dashboard" (or "let me see th
 
 A rail on the left: the live orb with a greeting and tiles (running, notifications, alerts, next reminder), the modes
 that are on, the last action and a phrase to try. Then two columns: the computer as rings, the question waiting for
-your answer (Yes / No) and your projects (the one you touched last and any open in VS Code or running under biztel
+your answer (Yes / No) and your projects (the last 3 you touched and any open in VS Code or running under biztel
 run, each with run / stop, VS Code and browser icons and its links); today's timeline, unread mail (not GitHub's) and
 what else is running (terminal commands, Claude tasks, JARVIS's browser, timers). A task under way keeps its own card.
 Everything is read from what JARVIS already keeps; nothing is stored for it. The slow parts (when each project was
@@ -26,6 +26,7 @@ SLOW = 60  # seconds between looking at the projects, mail and the calendar
 FOR = 30 * 60  # it stops updating itself after this long
 TASK_MINUTES = 30  # a finished task still counts in the spoken line this long
 PROJECTS = 4  # projects on the card at most
+RECENT = 3  # the projects touched last, always on the card
 MAILS = 3
 TIP_EVERY = 30  # seconds each "Try saying" phrase stays
 MOODS = {"hot": "running hot", "straining": "working hard", "busy": "busy", "squeezed": "low on memory",
@@ -43,7 +44,7 @@ class Dashboard(Skill):
 
     def __init__(self, jarvis):
         super().__init__(jarvis)
-        self._local = {"at": 0.0}  # projects: the one touched last, when each was
+        self._local = {"at": 0.0}  # projects: the RECENT touched last, when each was
         self._remote = {"at": 0.0, "mail": [], "today": []}  # Gmail and the calendar, fetched off the card's thread
         self._fetching = threading.Lock()
 
@@ -171,13 +172,11 @@ class Dashboard(Skill):
                        "choices": choices}
 
     def _projects(self, up):
-        """The projects worth showing: the one touched last, then ones running or open in VS Code; newest first."""
+        """The projects worth showing: the last RECENT touched, then ones running or open in VS Code; newest first."""
         reg, local = self.j.projects, self._local
         titles = [w.title for w in desktop.windows() if w.title.endswith("Visual Studio Code")]
         found = [p for p in reg.items if p.name in up or any(p.name in t.split(" - ") for t in titles)]
-        last = local.get("last")
-        if last and last not in found:
-            found.append(last)
+        found += [p for p in local.get("last", ()) if p not in found]
         return sorted(found, key=lambda p: -local["touched"].get(p.path, 0))[:PROJECTS]
 
     def _fetch(self, now):
@@ -185,7 +184,7 @@ class Dashboard(Skill):
         if now - self._local["at"] >= SLOW:
             reg = self.j.projects
             touched = {p.path: p.touched() for p in reg.items}
-            last = max(reg.items, key=lambda p: touched[p.path], default=None)
+            last = sorted((p for p in reg.items if touched[p.path]), key=lambda p: -touched[p.path])[:RECENT]
             self._local = {"at": now, "last": last, "touched": touched}
         if now - self._remote["at"] < SLOW:
             return
