@@ -516,7 +516,7 @@ class Jarvis:
             return self._wrong(fix.group("meant"))
         again = None if self._rewording or self.from_claude else SAID_AGAIN.match(text)
         if again:
-            self.speaker.say(["Sorry about that.", "Apologies.", "My apologies.", "Sorry, sir."])
+            self.speaker.say(persona.lines("said_again", persona.address(self.settings)))
             text = again.group("rest").strip()
             low = text.lower()
         if not self._rewording and not self.from_claude:
@@ -746,9 +746,9 @@ class Jarvis:
         if persona.AGAIN.match(text):
             if self.last_request:
                 return self.handle(self.last_request)
-            self.speaker.say("Hmm, I haven't done anything yet.")
+            self.speaker.say(persona.lines("nothing_to_repeat", user))
         elif persona.WHAT_DID_YOU_SAY.match(text):
-            self.speaker.say(self.speaker.last or "I haven't said anything yet.")
+            self.speaker.say(self.speaker.last or persona.lines("nothing_said", user))
         elif persona.CLOSE_IT.match(text):
             if self.ui and self.ui.card_visible():
                 self.ui.close_card()  # the card on screen is the likeliest "it"
@@ -757,7 +757,7 @@ class Jarvis:
             elif self.last_app:
                 return self.handle("close %s" % self.last_app)
             else:
-                name = (self._answer("I'm not sure what to close. Which app?") or "").strip(" .!?")
+                name = (self._answer(pick(persona.lines("close_what", user))) or "").strip(" .!?")
                 if name and not re.match(r"^(?:no|nope|nothing|never ?mind|cancel|leave it)\b", name, re.I):
                     return self.handle("close %s" % name)  # "VSCode": close it, not open it
                 self.speaker.say(persona.lines("never_mind", persona.address(self.settings)))
@@ -778,7 +778,7 @@ class Jarvis:
         cmd = next((c for c in self.registry.commands if c["name"] == name), None)
         if not (cmd and cmd.get("say")):
             return
-        if self.ask("You usually %s around now. Want me to?" % cmd["say"][0]):
+        if self.ask(pick(persona.lines("habit_offer", persona.address(self.settings), cmd["say"][0]))):
             self.handle(cmd["say"][0])
         else:
             self.speaker.say(persona.lines("never_mind", persona.address(self.settings)))
@@ -831,7 +831,7 @@ class Jarvis:
 
     def _later(self, job, line):
         """Claude's answer after you've asked something else meanwhile: say which one it answers."""
-        return "On your earlier question: " + line if line and self.requests != job["seq"] else line
+        return pick(persona.LINES["earlier"]) + line if line and self.requests != job["seq"] else line
 
     def _claude_send(self, job):
         """Ask Claude: sets job["answer"] (None if "stop" ended it) or job["error"]."""

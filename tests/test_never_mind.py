@@ -12,7 +12,7 @@ NEVER_MIND = [
     "changed my mind", "actually no", "actually, never mind", "on second thought, no", "not now", "maybe later",
     "rehne do", "chhodo", "kuch nahi", "nevemind nothing leave it", "for now let it be nothing just ignore it",
 ]
-REPLIES = ("Very well.", "As you wish", "Alright, never mind then.")
+REPLIES = ("Very well.", "As you wish", "Alright, never mind then.", "Of course", "No problem.", "Consider it forgotten.")
 
 
 @pytest.mark.parametrize("said", NEVER_MIND)

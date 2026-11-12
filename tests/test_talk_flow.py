@@ -194,7 +194,7 @@ def test_a_request_while_claude_thinks_is_done_at_once(jv):
     assert jv.shell.ran("youtube")
     gate.set()
     _answer_comes_in(jv)
-    assert jv.says("On your earlier question: How about Whiskers?")  # you moved on: it says which one it answers
+    assert jv.says("earlier question: How about Whiskers?")  # you moved on: it says which one it answers
     assert jv.j._claude_busy == 0
 
 
