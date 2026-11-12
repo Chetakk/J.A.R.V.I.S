@@ -9,7 +9,7 @@ import re
 import time
 
 from claude.bridge import ClaudeError
-from core import verify
+from core import persona, verify
 from skills import helpers
 from skills.base import Skill
 from skills.browser_tabs import BROWSERS
@@ -69,7 +69,7 @@ class CopyBetween(Skill):
         text = self._source(m)
         if text is None:
             return
-        self.say(["On it.", "Sure, one moment."])
+        self.say(persona.lines("working", persona.address(self.j.settings)))
         try:
             text = self.j.claude.rewrite(("%s this %s" % (m.group("job"), m.group("rest").strip())).strip(), text)
         except ClaudeError as e:

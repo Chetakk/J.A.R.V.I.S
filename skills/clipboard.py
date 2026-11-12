@@ -1,5 +1,6 @@
 """"What's on my clipboard", and Claude jobs on it ("summarise what I copied")."""
 from claude.bridge import ClaudeError
+from core import persona
 from skills.base import Skill
 from skills.helpers import clipboard, set_clipboard
 
@@ -75,7 +76,7 @@ class Clipboard(Skill):
             self.say("Your clipboard is empty. Copy something first.")
             return
         instruction = (m.group(1) + " this " + m.group(2)).strip()
-        self.say(["On it.", "Sure, one moment."])
+        self.say(persona.lines("working", persona.address(self.j.settings)))
         try:
             result = self.j.claude.rewrite(instruction, text)
         except ClaudeError as e:

@@ -256,6 +256,17 @@ LINES = {
                     "That isn't one of my protocols, I'm afraid, and system mode keeps Claude out of reach."],
     "cant_undo": ["My apologies, I can't undo that one.", "There's nothing I can undo just now, {name}."],
     "problem": ["My apologies, {name}, I ran into a problem: %s.", "Something went wrong: %s. My apologies."],
+    # Wait lines, in JARVIS's own grammar: work is a bare "-ing" ("Considering.", never "I'm checking" or "let me");
+    # deferential, not eager (no "right away", "at once", "sure"); no apology, enthusiasm or "!"; the name goes last.
+    # One line when work starts, then quiet unless it runs long. voice/speech.py FILLER must match every one.
+    "attention": ["Yes, {name}?", "At your service, {name}.", "Standing by.", "I'm listening.", "Go ahead, {name}."],
+    "thinking": ["Thinking.", "Considering.", "Looking into it.", "Working on it, {name}.", "One moment, {name}.",
+                 "Thinking it through."],
+    "asking_claude": ["Asking Claude.", "Consulting Claude."],
+    "queued": ["Noted. That's next, after the one Claude is on.", "Queued, {name}. Claude is still on the last one."],
+    "working": ["Working on it.", "One moment.", "Directly, {name}."],
+    "still_working": ["Still working.", "Nearly there.", "A moment more, {name}."],
+    "slow": ["This one's taking longer than usual, {name}.", "Still working. It's a long one."],
 }
 
 

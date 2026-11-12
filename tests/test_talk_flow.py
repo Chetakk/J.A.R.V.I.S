@@ -212,7 +212,7 @@ def test_a_second_question_waits_its_turn(jv):
     jv.claude.reply({"say": "Whiskers."}).reply({"say": "Rex."})
     _ask(jv, "ask claude for a cat name")
     _ask(jv, "ask claude for a dog name")
-    assert jv.says("once Claude's done with the last one")
+    assert jv.says("Claude is")  # queued: "That's next, after the one Claude is on."
     gate.set()
     assert _answer_comes_in(jv)["text"].endswith("cat name")
     assert _answer_comes_in(jv)["text"].endswith("dog name")  # in the order asked, one at a time

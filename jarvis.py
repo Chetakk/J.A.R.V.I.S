@@ -491,7 +491,7 @@ class Jarvis:
         self._private = False
         text = clean(raw, self.names, self.settings.get("heard_as") or ())
         if not text:
-            self.speaker.say(["Yes?", "I'm listening.", "Yeah, what's up?", "Go ahead."])
+            self.speaker.say(persona.lines("attention", persona.address(self.settings)))
             return True
 
         late, self.late_yes = self.late_yes, None
@@ -799,12 +799,11 @@ class Jarvis:
                "gen": self._claude_gen}
         if not image:
             if self._claude_busy:
-                self.speaker.say(["One moment, I'll ask that once Claude's done with the last one.",
-                                  "One moment, that's next after the one Claude's on."])
+                self.speaker.say(persona.lines("queued", persona.address(self.settings)))
             elif re.search(r"\bclaude\b", text, re.I):
-                self.speaker.say("Asking Claude.")  # you named Claude, so say so
+                self.speaker.say(persona.lines("asking_claude"))  # you named Claude, so say so
             else:
-                self.speaker.say(["Let me think.", "Thinking.", "Let me think for a bit.", "One moment, thinking."])
+                self.speaker.say(persona.lines("thinking", persona.address(self.settings)))
         if not self.background:
             self.state("claude")
             self._claude_send(job)
@@ -841,8 +840,8 @@ class Jarvis:
                 self.speaker.say(lines)
         # If Claude is slow, say something now and then so the silence doesn't feel broken.
         fillers = [threading.Timer(delay, filler, [lines]) for delay, lines in (
-            (6, ["Still on it.", "Almost there.", "Just a moment more."]),
-            (16, ["This one's taking a bit longer, hang on.", "Still thinking, sorry for the wait."]))]
+            (6, persona.lines("still_working", persona.address(self.settings))),
+            (16, persona.lines("slow", persona.address(self.settings))))]
         for timer in fillers:
             timer.daemon = True
             timer.start()

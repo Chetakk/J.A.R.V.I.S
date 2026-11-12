@@ -22,8 +22,8 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 _PAUSE = re.compile(r"\b(Hmm|Oh|Okay|Alright|Well|Oops),(?=\s)")
 INBOX = os.path.join(RUN_DIR, "speak.fifo")
 # Lines that only fill a wait while Claude thinks (jarvis.py _ask_claude): no apology goes in front of these.
-FILLER = re.compile(r"^(?:let me think|thinking|one moment|asking claude|still on it|almost there|just a moment"
-                    r"|this one's taking|still thinking)\b", re.I)
+FILLER = re.compile(r"^(?:thinking|considering|looking into it|working on it|one moment|asking claude|consulting claude"
+                    r"|directly|queued|noted\. that's next|still working|nearly there|a moment more|this one's taking)\b", re.I)
 SETTINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "settings.yaml")
 
 
@@ -81,9 +81,20 @@ def echo_match(heard, played):
     return float(max(0.0, corr[lag])), int(extra)
 
 
+_last_pick = {}  # alternatives -> the line picked from them last time
+
+
 def pick(text):
-    """One line at random when `text` is a list of alternatives, so replies don't sound canned."""
-    return random.choice(text) if isinstance(text, (list, tuple)) else text
+    """One line at random when `text` is a list of alternatives, never the same one twice running from the same
+    list, so replies don't sound canned."""
+    if not isinstance(text, (list, tuple)):
+        return text
+    key = tuple(text)
+    line = random.choice([t for t in text if t != _last_pick.get(key)] or text)
+    if len(_last_pick) > 500:  # lists with values filled in are new keys each time
+        _last_pick.clear()
+    _last_pick[key] = line
+    return line
 
 
 _OKAY = re.compile(r"^(?:okay[,.!]?\s+)*okay[,.!]?(?:\s+|$)", re.I)
