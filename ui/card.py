@@ -440,7 +440,6 @@ def _hero(lines):
             box.pack_start(tiles, False, False, 0)
     if blocks.ORB:
         box.every = 0.05
-        box.queue_draw = orb.queue_draw  # Card._tick redraws "the block": only the orb moves, not the tiles
     return box
 
 
@@ -817,10 +816,11 @@ class Card:
             self._ticking = False
             return False
         now = time.time()
-        for area in self._moving:
-            if now >= area.due:
-                area.due = now + area.every
-                area.queue_draw()
+        due = [area for area in self._moving if now >= area.due]
+        for area in due:
+            area.due = now + area.every
+        if due:  # the whole card: a part repaint loses the glass's sheen and flickers a dark box (_draw_glass)
+            self.win.queue_draw()
         return True
 
     def close(self):
