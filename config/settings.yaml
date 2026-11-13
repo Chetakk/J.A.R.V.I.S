@@ -221,3 +221,8 @@ teaching:
 # Weather and the time anywhere (skills/weather.py): with no place said, it is this one.
 weather:
   home: Bengaluru
+
+# What to do with phone messages (system/messages.py): personal = who is said, never the text; quiet_chats = a chime only.
+messages:
+  personal: [Rupa]
+  quiet_chats: []
