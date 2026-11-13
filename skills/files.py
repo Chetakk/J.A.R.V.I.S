@@ -229,9 +229,11 @@ class Files(Skill):
         key = m.group(2) and paste_key(self.say)
         if key:
             desktop.keys(key)
-            self.say(["Pasted %s." % name, "Done, %s is pasted." % name])
+            self.say(["Pasted %s." % name,
+                      "Pasted %s, right where you wanted it." % name, "Done, %s is pasted." % name])
         elif not m.group(2):
             self.say(["Copied %s. Say paste it, or press control V where you want it." % name,
+                      "%s is on the clipboard. Say paste it, or hit control V wherever you want it." % name,
                       "%s is copied. Say paste it, or press control V where it should go." % name])
 
     def open_path(self, m):

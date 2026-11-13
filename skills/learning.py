@@ -50,6 +50,7 @@ class Learning(Skill):
             self.say("There's nothing new to save. When you say yes to one of my guesses, I keep it on my own.")
             return True
         self.say(["Already saved. Next time, %s means %s." % (last["said"], last["means"]),
+                  "Already got it: %s means %s." % (last["said"], last["means"]),
                   "I already have that one: %s means %s." % (last["said"], last["means"])])
         return True
 
@@ -59,12 +60,15 @@ class Learning(Skill):
         said = said.strip(" .!?")
         if said.lower() == phrase.lower().strip(" .!?") or learned.load()["wordings"].get(said.lower()) == phrase:
             self.say(["Already saved. Next time, %s means %s." % (said, phrase),
+                      "Already got it: %s means %s." % (said, phrase),
                       "I already have that one: %s means %s." % (said, phrase)])
             return True
         learned.remember(said, phrase, why="you asked me to remember it")
         if self.j.intents:
             self.j.intents.learn(said, phrase)
         self.say(["Saved. Next time, %s means %s." % (said, phrase),
+                  "Taught. From now on, %s means %s." % (said, phrase),
+                  "Lesson learned: %s means %s." % (said, phrase),
                   "Got it. From now on, %s means %s." % (said, phrase),
                   "Learned: %s means %s from now on." % (said, phrase)])
         return True

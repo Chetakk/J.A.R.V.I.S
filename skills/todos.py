@@ -273,7 +273,9 @@ class Todos(Skill):
         else:
             self._change("todos", lambda items: items.append(
                 {"id": new_id(), "text": text[:200], "done": False, "created": int(time.time() * 1000)}))
-        self.say(["Added %s to your todos." % text, "Okay, %s is on your list." % text,
+        self.say(["Added %s to your todos." % text,
+                  "%s is on the list. I'll make sure it doesn't escape." % text,
+                  "Added %s. The list grows." % text, "Okay, %s is on your list." % text,
                   "Noted: %s, on your todos." % text])
         if self._card_up():
             self._card(self._open())
@@ -331,7 +333,10 @@ class Todos(Skill):
             self.say("Which one? %s." % " or ".join(_short(t["text"]) for t in hits[:3]))
             return
         self._set(hits, True)
-        self.say(["Done: %s." % _short(hits[0]["text"]), "Ticked off: %s." % _short(hits[0]["text"]),
+        self.say(["Done: %s." % _short(hits[0]["text"]),
+                  "Done: %s. That's one less thing." % _short(hits[0]["text"]),
+                  "%s, ticked off. Feels good, doesn't it?" % _short(hits[0]["text"]),
+                  "Ticked off: %s." % _short(hits[0]["text"]),
                   "Nicely done, that's %s off the list." % _short(hits[0]["text"])])
 
     @_guard
@@ -349,6 +354,7 @@ class Todos(Skill):
             return
         self._set(hits, False)
         self.say(["Okay, %s is open again." % _short(hits[0]["text"]),
+                  "%s is back on the list. It wasn't quite done." % _short(hits[0]["text"]),
                   "Back on the list: %s." % _short(hits[0]["text"])])
 
     @_guard
@@ -380,7 +386,9 @@ class Todos(Skill):
             self.shown = [s for s in self.shown if s["id"] != t["id"]]
             if self._card_up():
                 self._card()
-        self.say(["Removed %s from your todos." % _short(t["text"]), "Off your todos: %s." % _short(t["text"])])
+        self.say(["Removed %s from your todos." % _short(t["text"]),
+                  "%s is off the list. Not done, just gone." % _short(t["text"]),
+                  "Off your todos: %s." % _short(t["text"])])
 
     @_guard
     def clear(self):
@@ -389,11 +397,13 @@ class Todos(Skill):
             self.say("Your todo list is already clear.")
             return
         if not self.j.ask("Tick off all %d of your to-dos?" % len(todos)):
-            self.say(["Okay, I left them.", "Alright, they stay."])
+            self.say(["Okay, I left them.",
+                      "Fine, they stay.", "Alright, they stay."])
             return
         for t in todos:
             self._set([t], True)
-        self.say(["Done, all %d ticked off." % len(todos), "All %d ticked off. A clean list." % len(todos)])
+        self.say(["Done, all %d ticked off." % len(todos),
+                  "All %d ticked off. Look at you go." % len(todos), "All %d ticked off. A clean list." % len(todos)])
 
     # --- reminders ---
 
@@ -411,7 +421,9 @@ class Todos(Skill):
             when = _every(repeat, at) + ("" if repeat == "daily" else ", starting " + spoken_time(at))
         self.say(["Okay, alarm set %s." % when, "Alarm set, %s." % when,
                   "Right, I'll wake you %s." % when] if text == ALARM
-                 else ["Okay, I'll remind you %s." % when, "I'll remind you %s." % when])
+                 else ["Okay, I'll remind you %s." % when,
+                       "Alarm set %s. I'll be the one shouting." % when,
+                       "Right, I'll get you up %s." % when, "I'll remind you %s." % when])
 
     @_guard
     def remind_in(self, m):
@@ -579,7 +591,8 @@ class Todos(Skill):
         if self.j.ui:
             self.j.ui.close_card("alarm")
         if not quiet:
-            self.say(["Alarm off.", "Okay, it's off. Good morning.", "Alarm's off. Rise and shine."])
+            self.say(["Alarm off.", "Okay, it's off. Good morning.",
+                      "Alarm off. Up and at them.", "Alarm's off. Rise and shine."])
         return True
 
     @_guard
@@ -596,6 +609,8 @@ class Todos(Skill):
         self._change("reminders", lambda items: items.append(
             {"id": new_id(), "text": r["text"], "at": int(at * 1000), "fired": False, "alarm": True}))
         self.say(["Okay, snoozing for %s." % _in_words(minutes * 60),
+                  "Fine, %s more. I'll be back." % _in_words(minutes * 60),
+                  "Snoozing %s. Enjoy it." % _in_words(minutes * 60),
                   "Snoozed. %s more." % _in_words(minutes * 60).capitalize()])
 
     def _watch(self):
@@ -626,8 +641,10 @@ class Todos(Skill):
                     if r["text"] == ALARM or r.get("alarm"):
                         self.ring(r)
                     else:
-                        self.say(["This is your reminder.", "Your reminder, as asked."] if r["text"] == NO_TEXT else
-                                 ["Reminder: %s." % r["text"], "A reminder: %s." % r["text"]])
+                        self.say(["This is your reminder.",
+                                  "Here's that reminder.", "Your reminder, as asked."] if r["text"] == NO_TEXT else
+                                 ["Reminder: %s." % r["text"],
+                                  "Remember this: %s." % r["text"], "A reminder: %s." % r["text"]])
             except Exception as e:  # hub down or restarting: try again next round
                 if not isinstance(e, HubDown):
                     print("[reminders] %r" % e)

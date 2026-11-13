@@ -238,7 +238,8 @@ class Gmail(GoogleSkill):
         self.j.show({"id": "gmail-saved", "title": "Saved to %s" % where, "text": "\n".join("- %s" % x for x in shown),
                      "choices": [{"label": "Open it", "do": "open file %s" % shown[0]}] if len(saved) == 1 else []})
         what = os.path.basename(saved[0]) if len(saved) == 1 else "%d attachments" % len(saved)
-        self.say(["Saved %s to %s." % (what, where), "Done, %s saved to %s." % (what, where)])
+        self.say(["Saved %s to %s." % (what, where),
+                  "Saved %s to %s. All tidy." % (what, where), "Done, %s saved to %s." % (what, where)])
 
     # --- from an email ---
 

@@ -357,7 +357,8 @@ class Tasks(Skill):
             self.say("There's no task to continue%s." % (", the last one was %s" % _how_ended(last) if last else ""))
             return
         if task["state"] == "running":
-            self.say(["I'm already on it.", "Already working on that one."])
+            self.say(["I'm already on it.",
+                      "Already on it. Hold tight.", "Already working on that one."])
             return
         i = tasks.current(task)
         if i is not None and task["steps"][i]["status"] == tasks.FAILED:
@@ -376,6 +377,7 @@ class Tasks(Skill):
         task["state"], task["why"] = "paused", "you paused it"
         self._changed()
         self.say(["Paused. Say continue the task when you're ready.",
+                  "Paused. Say continue the task and I'll pick up where I left off.",
                   "Task paused. Say continue the task to pick it up."])
 
     def stop(self):
@@ -388,6 +390,7 @@ class Tasks(Skill):
         self._end()
         done, total = tasks.counts(task)
         self.say(["Okay, stopped. %d of %d steps were done." % (done, total),
+                  "Stopped. We got through %d of %d steps." % (done, total),
                   "Stopped, with %d of %d steps done." % (done, total)])
 
     def status(self):
@@ -412,7 +415,8 @@ class Tasks(Skill):
             self.say("There's no step to skip.")
             return
         task["steps"][i]["status"] = tasks.SKIPPED
-        self.say(["Skipped step %d." % (i + 1), "Step %d skipped." % (i + 1)])
+        self.say(["Skipped step %d." % (i + 1),
+                  "Skipping step %d. Moving on." % (i + 1), "Step %d skipped." % (i + 1)])
         if task["state"] == "paused":
             self._go()
         else:

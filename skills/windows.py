@@ -66,7 +66,8 @@ class Windows(Skill):
         if not n:
             return False
         desktop.move_to_workspace(win, n)
-        self.say(["Moved it to workspace %d." % n, "It's on workspace %d now." % n])
+        self.say(["Moved it to workspace %d." % n,
+                  "Off it goes to workspace %d." % n, "It's on workspace %d now." % n])
 
     def window_state(self, m):
         action = m.group(1).lower().replace(" ", "")

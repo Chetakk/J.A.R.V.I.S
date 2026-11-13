@@ -163,13 +163,21 @@ class Notes(Skill):
         save_notes(notes)
         item = self.last = self._item("note", entry)
         self.j.last_undo = lambda: self._drop(item, quiet=True) or self.say(
-            ["Okay, I've forgotten that.", "Forgotten, as if you never said it.", "Done, that's gone."])
+            ["Okay, I've forgotten that.",
+             "Wiped from memory. What were we talking about?",
+             "Forgotten. Clean as a whistle.", "Forgotten, as if you never said it.", "Done, that's gone."])
         if secret:
             self.say(["Noted, as a private note. Your keyring isn't reachable, so it isn't encrypted.",
+                      "Saved privately, but your keyring's out of reach, so it isn't encrypted.",
                       "Noted privately. I can't reach your keyring, so it isn't encrypted."])
         else:
             self.say(["Noted, and kept private.", "Noted. That stays between us.", "Got it, kept private."] if private
-                     else ["Got it, I'll remember that.", "Okay, noted.", "I'll keep that in mind.",
+                     else ["Got it, I'll remember that.", "Okay, noted.",
+                           "Filed away.",
+                           "Committed to memory.",
+                           "Noted. My lips are sealed.",
+                           "Filed away, just between us.",
+                           "Tucked away safely.", "I'll keep that in mind.",
                            "Noted. I won't forget.", "Consider it remembered."])
 
     def _lock(self, name, value):
@@ -180,6 +188,7 @@ class Notes(Skill):
         self.last = self._item("secret", name)
         self.j.last_undo = lambda: keyring.delete(name) and self.say("Okay, it's out of your keyring.")
         self.say(["That's a secret, so I've locked your %s in your keyring. It never goes to Claude." % name,
+                  "Locked your %s in the keyring. It stays here, and Claude never sees it." % name,
                   "Locked your %s in your keyring. It's a secret, so Claude never sees it." % name])
 
     def _save_pref(self, text, private=False):
@@ -187,7 +196,9 @@ class Notes(Skill):
         topic = _topic(text)
         old = next((p for p in prefs if topic and p.get("topic") == topic), None) or self._closest(text, prefs)
         if old and old["value"].lower() == text.lower():
-            self.say(["I already know that.", "I know that one already.", "Already noted."])
+            self.say(["I already know that.",
+                      "You told me already. I was listening.",
+                      "Old news. I've got it.", "I know that one already.", "Already noted."])
             return
         new = {"topic": topic, "value": text, "at": time.time(), "private": private or bool(old and old.get("private"))}
         before = list(prefs)
@@ -198,12 +209,18 @@ class Notes(Skill):
         self.j.memory.set_preferences(prefs)
         self.last = self._item("pref", new)
         self.j.last_undo = lambda: self.j.memory.set_preferences(before) or self.say(
-            ["Okay, back to how it was.", "Undone. It's as it was.", "Put back the way it was."])
+            ["Okay, back to how it was.",
+             "Undone. As if it never happened.",
+             "Rewound. All back as it was.", "Undone. It's as it was.", "Put back the way it was."])
         if old:
-            self.say(["Got it, I've updated that: %s." % _you(text), "Updated: %s." % _you(text),
+            self.say(["Got it, I've updated that: %s." % _you(text),
+                      "Updated. Now I know %s." % _you(text),
+                      "Changed my notes: %s." % _you(text), "Updated: %s." % _you(text),
                       "Noted the change: %s." % _you(text)])
         else:
             self.say(["Got it, I'll remember that %s." % _you(text), "Okay, noted: %s." % _you(text),
+                      "Filed away: %s." % _you(text),
+                      "I'll hold on to that: %s." % _you(text),
                       "I'll remember that %s." % _you(text), "Got it: %s." % _you(text)])
 
     def _closest(self, text, prefs):
@@ -220,13 +237,18 @@ class Notes(Skill):
         if self.j.from_claude or ASKING.search(said):
             return False  # a question with a preference in it: Claude answers (and may offer to remember it)
         if any(p["value"].lower() == said.lower() for p in self.j.memory.preferences()):
-            self.say(["I know.", "So you've said.", "Already noted."])
+            self.say(["I know.",
+                      "You've mentioned.",
+                      "Yes, I remember.", "So you've said.", "Already noted."])
             return
         if self.j.ask(["Want me to remember that %s?" % _you(said), "Should I remember that %s?" % _you(said),
+                       "Want me to make a note that %s?" % _you(said),
                         "Shall I remember that %s?" % _you(said)]):
             self._save_pref(said)
         else:
-            self.say(["Okay, I won't.", "Sure, not saved.", "Alright, I'll let it go.", "Not saved."])
+            self.say(["Okay, I won't.", "Sure, not saved.",
+                      "Fine, it's forgotten.",
+                      "Not a trace saved.", "Alright, I'll let it go.", "Not saved."])
 
     def offer(self, item):
         """Claude noticed something lasting about you ("remember": {"text", "kind"}): keep it if you say yes."""
@@ -236,15 +258,23 @@ class Notes(Skill):
         known = [i["text"] for i in self._items(projects=True)]
         if known and self._best(text, known)[1] >= 0.85:
             return
-        if not self.j.ask(["Should I remember that %s?" % _you(text), "Want me to remember that %s?" % _you(text),
+        if not self.j.ask(["Should I remember that %s?" % _you(text),
+                           "Want me to make a note that %s?" % _you(text), "Want me to remember that %s?" % _you(text),
                             "Shall I remember that %s?" % _you(text)]):
-            self.say(["Okay, I won't.", "Sure, not saved.", "Alright, I'll let it go.", "Not saved."])
+            self.say(["Okay, I won't.", "Sure, not saved.",
+                      "Fine, it's forgotten.",
+                      "Not a trace saved.", "Alright, I'll let it go.", "Not saved."])
             return
         if item.get("kind") == "note" and not ABOUT_YOU.match(text):
             notes = load_notes()
             notes.append({"text": text, "at": time.time()})
             save_notes(notes)
-            self.say(["Got it, I'll remember that.", "Okay, noted.", "Noted.", "I'll remember that."])
+            self.say(["Got it, I'll remember that.", "Okay, noted.",
+                      "Filed away.",
+                      "Committed to memory.",
+                      "Noted. My lips are sealed.",
+                      "Filed away, just between us.",
+                      "Tucked away safely.", "Noted.", "I'll remember that."])
         else:
             self._save_pref(text)
 
@@ -400,7 +430,8 @@ class Notes(Skill):
         if re.match(r"^(?:everything|all(?: (?:my|the))? notes|all of it)$", what, re.IGNORECASE):
             if notes and self.j.ask("Forget all %d notes?" % len(notes)):
                 save_notes([])
-                self.say(["Done, all forgotten.", "All gone. A clean slate.", "Everything's forgotten."])
+                self.say(["Done, all forgotten.",
+                          "Clean slate. Everything's gone.", "All gone. A clean slate.", "Everything's forgotten."])
             return
         hits = self._find(what, self._items(projects=True, secrets=True))
         if not hits:
@@ -410,7 +441,9 @@ class Notes(Skill):
         if self.j.ask('Forget "%s"?' % (("your %s secret" % hits[0]["text"]) if hits[0]["kind"] == "secret"
                                         else hits[0]["text"])):
             self._drop(hits[0])
-            self.say(["Forgotten.", "Gone.", "Consider it forgotten."])
+            self.say(["Forgotten.",
+                      "Poof. Gone.",
+                      "Erased.", "Gone.", "Consider it forgotten."])
 
     def forget_nth(self, m):
         item = self._nth(m.group(1))
@@ -420,6 +453,7 @@ class Notes(Skill):
             self.j.keep_private()
         self._drop(item)
         self.say(["Forgotten. Say undo that if you didn't mean it.", "Done, it's gone.",
+                  "Gone. Changed your mind? Say undo that.",
                   "Gone. Say undo that if it was a mistake."])
 
     def edit_nth(self, m):
@@ -436,7 +470,9 @@ class Notes(Skill):
             if item["private"]:
                 self.j.keep_private()
             self._replace(item, text)
-        self.say(["Updated.", "Changed.", "Done, it's changed.", "Updated, as you asked."])
+        self.say(["Updated.", "Changed.",
+                  "Changed it.",
+                  "All up to date.", "Done, it's changed.", "Updated, as you asked."])
         self._refresh_card()
 
     def set_private(self, m):
@@ -487,7 +523,8 @@ class Notes(Skill):
         self.shown = [i for i in self.shown if i["ref"] != item["ref"]]
         if not quiet:
             self.j.last_undo = lambda: restore() or self.say(
-                ["Okay, I remember it again.", "Back again. I remember it.", "Restored."])
+                ["Okay, I remember it again.",
+                 "It's back. Good as new.", "Back again. I remember it.", "Restored."])
         self._refresh_card()
 
     def _replace(self, item, text, private=None):
@@ -508,7 +545,9 @@ class Notes(Skill):
         self.last = self._item(item["kind"], new)
         self.shown = [self.last if i["ref"] == item["ref"] else i for i in self.shown]
         self.j.last_undo = lambda: restore() or self.say(
-            ["Okay, back to how it was.", "Undone. It's as it was.", "Put back the way it was."])
+            ["Okay, back to how it was.",
+             "Undone. As if it never happened.",
+             "Rewound. All back as it was.", "Undone. It's as it was.", "Put back the way it was."])
 
     def _refresh_card(self):
         card = self.j.ui.current_card() if self.j.ui and self.j.ui.card_visible() else None

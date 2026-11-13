@@ -252,6 +252,8 @@ class Projects(Skill):
         notes.append({"text": m.group(2).strip(), "at": time.time(), "project": p.name})
         save_notes(notes)
         self.say(["Noted for %s." % p.spoken, "Okay, added to %s's notes." % p.spoken,
+                  "Noted, in %s's notes." % p.spoken,
+                  "Added to %s's notes. Safe and sound." % p.spoken,
                   "Got it, that's in %s's notes." % p.spoken])
 
     def project_notes(self, m):

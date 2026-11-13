@@ -41,6 +41,7 @@ class Clipboard(Skill):
             return
         set_clipboard("\n".join(lines))
         self.say(["Copied our conversation, %d lines. Just paste it." % len(lines),
+                  "Our whole chat, %d lines, is on your clipboard." % len(lines),
                   "Our conversation is on your clipboard, %d lines. Paste away." % len(lines)])
 
     def copy_said(self):
@@ -49,7 +50,9 @@ class Clipboard(Skill):
             self.say("I haven't said anything yet.")
             return
         set_clipboard(said)
-        self.say(["Copied.", "It's on your clipboard.", "Copied. Ready to paste.", "On your clipboard now."])
+        self.say(["Copied.", "It's on your clipboard.",
+                  "Copied. Paste wherever you like.",
+                  "Got it on the clipboard.", "Copied. Ready to paste.", "On your clipboard now."])
 
     def copy_above(self):
         """The card on screen is what's "above" when there is one; otherwise the last thing said."""
@@ -59,14 +62,17 @@ class Clipboard(Skill):
             self.copy_said()
             return
         set_clipboard(card["text"])
-        self.say(["Copied.", "It's on your clipboard.", "Copied. Ready to paste.", "On your clipboard now."])
+        self.say(["Copied.", "It's on your clipboard.",
+                  "Copied. Paste wherever you like.",
+                  "Got it on the clipboard.", "Copied. Ready to paste.", "On your clipboard now."])
 
     def read_clipboard(self):
         text = clipboard().strip()
         if not text:
             self.say("Your clipboard is empty.")
         elif len(text) <= 200:
-            self.say(["You copied: %s" % text, "Your clipboard says: %s" % text])
+            self.say(["You copied: %s" % text,
+                      "Last thing you copied: %s" % text, "Your clipboard says: %s" % text])
         else:
             self.j.chat("sys", "clipboard:\n" + text[:3000])
             self.j.skills.reading.long(text, "Clipboard")
@@ -90,4 +96,5 @@ class Clipboard(Skill):
             set_clipboard(result)
             self.j.chat("claude", result)
             self.say(["Done, it's on your clipboard. Just paste it.", "Done. Paste it wherever you like.",
+                      "All yours on the clipboard. Paste away.",
                       "There you go, on your clipboard. Paste away."])

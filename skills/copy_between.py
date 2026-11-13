@@ -127,9 +127,11 @@ class CopyBetween(Skill):
     def _paste(self, text, win, app, send):
         if not win:
             if not self.j.ask(["%s isn't open. Open it and paste it there?" % app["name"],
+                               "%s isn't open yet. Want me to open it and drop this in?" % app["name"],
                                "%s isn't open. Shall I open it and paste it there?" % app["name"]]):
                 set_clipboard(text)
-                self.say(["Okay. It's on your clipboard if you want it.", "Alright. It's still on your clipboard."])
+                self.say(["Okay. It's on your clipboard if you want it.",
+                          "No problem. It's waiting on your clipboard.", "Alright. It's still on your clipboard."])
                 return
             win = self._open(app)
             if not win:
@@ -143,6 +145,7 @@ class CopyBetween(Skill):
                                             "anyway?" % lines):
                 set_clipboard(text)
                 self.say(["Okay, I didn't. It's on your clipboard.",
+                          "Left it alone. It's still on your clipboard.",
                           "Left it. It's on your clipboard, if you need it."])
                 return
         desktop.focus(win)
@@ -154,7 +157,10 @@ class CopyBetween(Skill):
         verify.record("paste into %s" % (win.title or "a window"), ok, what)
         if ok:
             self.say(["Done, I pasted it. I haven't sent it.", "Pasted it, but I haven't sent it."] if send else
-                     ["Done, I pasted it.", "Done, it's in.", "Pasted.", "There, it's in."])
+                     ["Done, I pasted it.", "Done, it's in.",
+                      "In it goes, but I haven't hit send.",
+                      "Pasted in.",
+                      "Done. It's there.", "Pasted.", "There, it's in."])
         else:
             self.say("I pasted it, but nothing changed in that window that I can see. Click where it should go and "
                      "press control V; it's on your clipboard.")

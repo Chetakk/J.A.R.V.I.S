@@ -146,7 +146,8 @@ class Cards(Skill):
         self.j.chat("sys", "picked: %s" % choice[0])
         if any(p.match(choice[1].strip().rstrip("?.!")) for p, fn in self.rules if fn == self.pick):
             # a button whose phrase is itself "the first one" would pick itself forever
-            self.say(["Picked %s." % choice[0], "Going with %s." % choice[0]])
+            self.say(["Picked %s." % choice[0],
+                      "%s it is." % choice[0], "Going with %s." % choice[0]])
             return
         return self.j.handle(choice[1])
 
@@ -195,7 +196,8 @@ class Cards(Skill):
         if not card:
             return False
         subprocess.run(["xclip", "-selection", "clipboard"], input=whole(card), text=True, timeout=5)
-        self.say(["Copied.", "It's on your clipboard.", "Copied. Ready to paste.", "On your clipboard now."])
+        self.say(["Copied.", "It's on your clipboard.",
+                  "Copied. Paste wherever you like.", "Copied. Ready to paste.", "On your clipboard now."])
 
     def save(self, m):
         card = self._card()
@@ -209,7 +211,8 @@ class Cards(Skill):
             if card.get("image"):
                 f.write("\n![](%s)\n" % card["image"])
         self.j.chat("sys", "saved card: %s" % path)
-        self.say(["Saved it in your cards folder.", "Saved to your cards folder.", "Kept in your cards folder."])
+        self.say(["Saved it in your cards folder.",
+                  "Tucked into your cards folder.", "Saved to your cards folder.", "Kept in your cards folder."])
 
     def step(self, delta):
         if not (self.j.ui and self.j.ui.current_card()):
@@ -220,7 +223,8 @@ class Cards(Skill):
         if not self._card():
             return False
         self.j.ui.pin_card()
-        self.say(["Pinned. It'll stay put.", "Okay, that one stays.", "Pinned. It's not going anywhere."])
+        self.say(["Pinned. It'll stay put.", "Okay, that one stays.",
+                  "Pinned. It's staying right there.", "Pinned. It's not going anywhere."])
 
     def close_all(self, m):
         if not (self.j.ui and self.j.ui.card_visible()):
@@ -329,6 +333,7 @@ class Cards(Skill):
         end = time.time() + seconds
         which, how_long = name.lower() if what else "timer set", _spoken(seconds)
         self.say(["Okay, %s for %s." % (which, how_long),
+                  "%s for %s. I'll shout when it's done." % (which, how_long),
                   "Right, %s for %s. I'll tell you when it's up." % (which, how_long)])
 
         if self.j.ui:  # the ring counts down by itself (ui/blocks.py ```countdown): shown once, not every second
@@ -365,7 +370,8 @@ class Cards(Skill):
         if self.j.ui:
             for card_id, _stop in running:
                 self.j.ui.close_card(card_id)
-        self.say(["Timer cancelled.", "Okay, cancelled.", "Stopped the timer.", "Timer's off."])
+        self.say(["Timer cancelled.", "Okay, cancelled.",
+                  "Timer stopped. No rush after all.", "Stopped the timer.", "Timer's off."])
 
 
 def _clock(seconds):

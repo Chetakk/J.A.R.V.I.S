@@ -180,7 +180,8 @@ class Organise(Skill):
         question = "Put %s from %s in the Trash?" % (n, _where(folder)) if trash else "%s %s from %s to %s?" % (
             "Copy" if copy else "Move", n, _where(folder), _where(target))
         if not self.j.ask(question):
-            self.say(["Okay, left them.", "Alright, they stay where they are."])
+            self.say(["Okay, left them.",
+                      "Fair enough, they're staying put.", "Alright, they stay where they are."])
             return
         batch = Batch("%s %s in %s" % (verb, what, folder))
         if target and not os.path.isdir(target):
@@ -211,7 +212,8 @@ class Organise(Skill):
         if ext and not os.path.isdir(path) and not new.lower().endswith(ext.lower()):
             new += ext  # "rename it to final report" keeps .pdf
         if not exact and not self.j.ask("Rename %s to %s?" % (os.path.basename(path), new)):
-            self.say(["Okay, left it.", "Alright, it stays where it is."])
+            self.say(["Okay, left it.",
+                      "It stays right where it is.", "Alright, it stays where it is."])
             return
         batch = Batch("rename")
         try:
@@ -250,7 +252,8 @@ class Organise(Skill):
             return
         verb = "Copy" if copy else "Move"
         if not exact and not self.j.ask("%s %s to %s?" % (verb, os.path.basename(path), _where(dest))):
-            self.say(["Okay, left it.", "Alright, it stays where it is."])
+            self.say(["Okay, left it.",
+                      "It stays right where it is.", "Alright, it stays where it is."])
             return
         batch = Batch(verb.lower())
         if not os.path.isdir(dest):
@@ -296,7 +299,8 @@ class Organise(Skill):
             return next((f for f in found if _where(f) == pick), None)
         if self.j.ask("There's no %s folder. Make one in %s?" % (said, _where(near))):
             return os.path.join(near, said)
-        self.say(["Okay, left it.", "Alright, it stays where it is."])
+        self.say(["Okay, left it.",
+                  "It stays right where it is.", "Alright, it stays where it is."])
         return None
 
     def trash(self, m):
@@ -311,7 +315,8 @@ class Organise(Skill):
         what = "the %s folder and everything in it" % os.path.basename(path) if os.path.isdir(path) else \
             os.path.basename(path)
         if not self.j.ask("Put %s in the Trash?" % what):
-            self.say(["Okay, kept it.", "Alright, it stays."])
+            self.say(["Okay, kept it.",
+                      "Kept.", "Alright, it stays."])
             return
         batch = Batch("trash")
         try:
@@ -381,7 +386,8 @@ class Organise(Skill):
         if not self.j.ask("%d file%s %s copies, taking %s. Put the extra copies in the Trash? I'll keep one of each."
                           % (len(groups), "" if len(groups) == 1 else "s", "has" if len(groups) == 1 else "have",
                              _size(wasted))):
-            self.say(["Okay, left them.", "Alright, they stay where they are."])
+            self.say(["Okay, left them.",
+                      "Fair enough, they're staying put.", "Alright, they stay where they are."])
             return
         batch = Batch("duplicates in " + folder)
         failed = 0

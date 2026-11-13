@@ -446,6 +446,7 @@ class Web(Skill):
                     got = agent.call("download", id=step.get("id"), timeout=60)
                     history.append("downloaded to %s" % got["path"])
                     self.say(["Saved %s in Downloads." % os.path.basename(got["path"]),
+                              "%s is downloaded. You'll find it in Downloads." % os.path.basename(got["path"]),
                   "Downloaded %s. It's in Downloads." % os.path.basename(got["path"])])
                     continue
                 done = "%s %s%s" % (action, el.get("label") or step.get("value") or "",
@@ -512,6 +513,7 @@ class Web(Skill):
             self.say("I couldn't download that: %s." % e)
             return
         self.say(["Saved %s in Downloads." % os.path.basename(got["path"]),
+                  "%s is downloaded. You'll find it in Downloads." % os.path.basename(got["path"]),
                   "Downloaded %s. It's in Downloads." % os.path.basename(got["path"])])
 
     def show_agent(self, m):

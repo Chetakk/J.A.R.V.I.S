@@ -427,7 +427,8 @@ class StudyBuddy(Skill):
             self.say("There's no video to put it on yet.")
             return
         self._call("POST", "/items/%d/notes" % item["id"], {"atS": item["progress"]["positionS"], "body": text})
-        self.say(["Noted on %s." % item["title"], "Added that to %s." % item["title"]])
+        self.say(["Noted on %s." % item["title"],
+                  "Popped that onto %s." % item["title"], "Added that to %s." % item["title"]])
 
     @staticmethod
     def _clock(s):
@@ -466,7 +467,8 @@ class StudyBuddy(Skill):
             return
         last = max(notes, key=lambda n: (n["createdAt"], n["id"]))
         if not self.j.ask('Delete your note "%s"?' % last["body"][:80]):
-            self.say(["Okay, kept it.", "Alright, it stays."])
+            self.say(["Okay, kept it.",
+                      "No problem, it stays.", "Alright, it stays."])
             return
         self._call("DELETE", "/notes/%d" % last["id"])
         self._changed()
@@ -750,7 +752,8 @@ class StudyBuddy(Skill):
             return False  # "remove the tab group"
         if not self.j.ask("Delete %s and its %d playlist%s, with all their progress and notes? This can't be undone."
                           % (group["name"], len(group["sources"]), "" if len(group["sources"]) == 1 else "s")):
-            self.say(["Okay, kept it.", "Alright, it stays."])
+            self.say(["Okay, kept it.",
+                      "No problem, it stays.", "Alright, it stays."])
             return
         self._call("DELETE", "/groups/%d" % group["id"])
         self._changed()

@@ -1251,7 +1251,9 @@ class Jarvis:
                               "No answer, so I haven't saved it. Just say yes if you'd like it."])
             return
         if not YES.match(answer):
-            self.speaker.say(["Okay, I won't save it.", "No problem, not saved.", "Alright, I'll leave it unsaved."])
+            self.speaker.say(["Okay, I won't save it.", "No problem, not saved.",
+                              "Fair enough, it's not saved.",
+                              "Letting that one go.", "Alright, I'll leave it unsaved."])
             return
         self._keep(save, name, phrases, run, phrase)
 
@@ -1374,6 +1376,8 @@ class Jarvis:
                 or learned.points(said, phrase):  # Claude read "this" off the screen: right only that once
             return
         if mode == "ask" and not self.ask(["Should I remember that \u201c%s\u201d means %s?" % (said, phrase),
+                   "Want me to learn that \u201c%s\u201d means %s?" % (said, phrase),
+                   "Shall I make a note: \u201c%s\u201d means %s?" % (said, phrase),
                                             "Shall I remember that \u201c%s\u201d means %s?" % (said, phrase)]):
             learned.decline(said)  # never asked about again
             return
@@ -1382,8 +1386,10 @@ class Jarvis:
         self.heard(said, "learned: means \"%s\"" % phrase)
         if mode == "ask":
             self.speaker.say(["Got it, I'll remember that.", "Okay, noted for next time.",
+                              "Learned. You won't have to tell me twice.",
+                              "Got it. One more thing I know about you.",
                                "Noted. I'll know next time.",
-                               "Learned."])
+                               "Learned. I won't forget."])
 
     def _split(self, text):
         """["open youtube", "turn the volume down"] for "open youtube and turn the volume down", or None.

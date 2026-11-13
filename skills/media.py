@@ -113,7 +113,9 @@ class Media(Skill):
         app = self.j.apps.find("spotify")
         if not app:
             return False  # not installed: let the browser / Claude have "play music"
-        self.say(["Starting Spotify.", "Putting some music on.", "Music coming up."])
+        self.say(["Starting Spotify.", "Putting some music on.",
+                  "Let's have some music.",
+                  "Cueing up some music.", "Music coming up."])
         threading.Thread(target=self._start_spotify, args=(app,), daemon=True, name="spotify").start()
 
     def _start_spotify(self, app):
@@ -198,7 +200,8 @@ class Media(Skill):
         app = self.j.apps.find("spotify")
         if not app:
             return False
-        self.say(["Starting Spotify.", "Spotify, coming up."])
+        self.say(["Starting Spotify.",
+                  "Spotify, warming up.", "Spotify, coming up."])
         desktop.go_to_jarvis_workspace()
         if not self.j.apps.launch(app):
             self.fail("Hmm, Spotify didn't start.")
@@ -233,7 +236,10 @@ class Media(Skill):
             data = _load()
             data.setdefault("plays", {})[item["path"]] = data.get("plays", {}).get(item["path"], 0) + 1
             _save(data)
-        self.say(["Playing %s." % (item["name"] if item else said), "Here's %s." % (item["name"] if item else said)])
+        self.say(["Playing %s." % (item["name"] if item else said),
+                  "Playing %s. Good choice." % (item["name"] if item else said),
+                  "%s, coming right up." % (item["name"] if item else said),
+                  "Here's %s." % (item["name"] if item else said)])
         self.follow(spotify=True)
 
     def play_usual(self):
@@ -273,13 +279,17 @@ class Media(Skill):
         if what == "repeat":
             self.say({True: "Repeating the playlist.", "one": "Repeating this song.", False: "Repeat off."}.get(now, "Done."))
         else:
-            self.say(["Shuffle on.", "Shuffling."] if now else ["Shuffle off.", "Back in order."])
+            self.say(["Shuffle on.", "Shuffling."] if now else ["Shuffle off.",
+                      "Shuffling things up.",
+                      "Back in order, as the artist intended.", "Back in order."])
 
     def like(self):
         r = self._control("like")
         if r is not None:
             self.say(["Added to your Liked Songs.",
-                      "Liked. It's in your Liked Songs."] if r.get("liked") else "Hmm, it didn't take.")
+                      "Liked. It's in your Liked Songs."] if r.get("liked") else "Hmm, it didn't take.",
+                      "Liked. It's in your Liked Songs. Good taste.",
+                      "That like didn't stick, I'm afraid.")
 
     def spotify_volume(self, percent=None, step=0):
         state = _page("state") or {}

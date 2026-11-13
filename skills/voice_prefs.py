@@ -103,7 +103,8 @@ class VoicePrefs(Skill):
         low = text.lower().strip(" .!?,")
         if STOP_ECHO.fullmatch(low):
             self.echoing = False
-            self.say(["Okay, I've stopped repeating.", "No more repeats."])
+            self.say(["Okay, I've stopped repeating.",
+                      "No more repeating myself.", "No more repeats."])
         else:
             self.say(text.strip())
         return True
@@ -135,12 +136,15 @@ class VoicePrefs(Skill):
         if new in (0.6, 1.6):
             self.say("That's as %s as I go." % ("fast" if faster else "slow"))
         else:
-            self.say(["Okay, is this better?", "Sure. How's this?", "How about now?"])
+            self.say(["Okay, is this better?", "Sure. How's this?",
+                      "How's this?",
+                      "Better now?", "How about now?"])
 
     def normal_speed(self):
         self.j.speaker.set_speed(self.j.speaker.default_speed)
         self.j.memory.set_pref("speed", None)
-        self.say(["Back to my normal speed.", "Normal speed again."])
+        self.say(["Back to my normal speed.",
+                  "Back to my usual pace.", "Normal speed again."])
 
     def answers(self, how):
         self.j.memory.set_pref("answers", how)
@@ -158,7 +162,8 @@ class VoicePrefs(Skill):
             spk.sink = None
             spk.muted = bool(self.j.memory.pref("quiet"))
             self._show()
-            self.say(["Okay, I'm back on the speaker.", "Back on the speaker."] if not spk.muted else
+            self.say(["Okay, I'm back on the speaker.",
+                      "Speaker on. Everyone can hear me again.", "Back on the speaker."] if not spk.muted else
                      "Okay. I'm still in quiet mode, so I'll keep writing in the chat.")
             return
         sink = speech.headphones(self._preferred())
@@ -172,19 +177,22 @@ class VoicePrefs(Skill):
         name = "your earphones" if sink == self._preferred() else next(
             (d for n, d, _, _ in speech.sinks() if n == sink), "your headphones")
         self.say(["Okay, only %s will hear me now." % name,
+                  "Only %s gets my voice now." % name,
                   "Switching to %s. Just you now." % name])  # said on the speaker, then the switch
         spk.sink = sink
 
     def quiet(self, on):
         self.j.memory.set_pref("quiet", True if on else None)
         if on:
-            self.say(["Okay, I'll stay quiet and write in the chat.", "Going quiet. I'll write in the chat instead."])
+            self.say(["Okay, I'll stay quiet and write in the chat.",
+                      "I'll go quiet and type in the chat instead.", "Going quiet. I'll write in the chat instead."])
             self.j.speaker.muted = True
             if self.j.ui:
                 self.j.ui.show_chat(True)
         else:
             self.j.speaker.muted = bool(self.j.memory.pref("private")) and not self.j.speaker.sink
-            self.say(["Okay, I'm talking again.", "Voice back on."] if not self.j.speaker.muted else
+            self.say(["Okay, I'm talking again.",
+                      "And I'm back. Voice on.", "Voice back on."] if not self.j.speaker.muted else
                      "I'm still in private mode and your headphones aren't here, so I'll keep writing.")
         self._show()
 

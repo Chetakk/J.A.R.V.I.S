@@ -221,6 +221,7 @@ class Videos(Skill):
         chrome_link.call("label", urls=[it["url"] for it in items])
         self.labelled = (time.time(), items)
         self.say(["Numbered %d. Say play and a number." % len(items),
+                  "Numbered %d of them. Say play and a number." % len(items),
                   "%d numbered. Say play and a number." % len(items)])
 
     def unlabel(self):
@@ -228,7 +229,8 @@ class Videos(Skill):
             return False
         chrome_link.call("label", urls=[])
         self.labelled = None
-        self.say(["Numbers gone.", "Cleared the numbers."])
+        self.say(["Numbers gone.",
+                  "Numbers cleared away.", "Cleared the numbers."])
 
     # --- the player ---
 

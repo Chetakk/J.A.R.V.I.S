@@ -63,7 +63,9 @@ class BrowserTabs(Skill):
             hit = next((t for t in tabs if target in t["title"].lower()), None) or best(target, tabs)
             if hit:
                 chrome_link.call("focus_tab", tab=hit["id"])
-                self.say(["Here it is.", "Switched.", "There you go."])
+                self.say(["Here it is.", "Switched.",
+                          "Here you are.",
+                          "Switched over.", "There you go."])
                 return
         win = self._browser()
         if not win:
@@ -73,7 +75,9 @@ class BrowserTabs(Skill):
         for _ in range(40):  # cycle through the tabs, reading the window title
             title = (desktop.find_window(win.wm_class.split()[0]) or win).title
             if target in title.lower():
-                self.say(["Here it is.", "Switched.", "There you go."])
+                self.say(["Here it is.", "Switched.",
+                          "Here you are.",
+                          "Switched over.", "There you go."])
                 return
             if title == first:
                 break
