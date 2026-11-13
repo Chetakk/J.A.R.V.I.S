@@ -8,6 +8,7 @@ notifications on the desktop, where "read my notifications" already reads them. 
 phone's screen in its UI tree (uiautomator), so no vision model. Names are looked up in the phone's own contacts.
 Texts and WhatsApp messages are sent only after a yes."""
 import glob
+import json
 import os
 import shlex
 import re
@@ -447,12 +448,16 @@ class Phone(Skill):
         return False
 
     def _saved(self, who):
-        """True if `who` is a saved contact on the phone; None when the contacts can't be read."""
-        try:
-            people = self._people()
-        except Exception:  # adb off or the phone away
-            return None
-        return who.lower() in {n.lower() for n, _ in people} if people else None
+        """True if `who` is a saved contact: GSConnect's copy of the phone's contacts (synced without adb);
+        None when there is none yet."""
+        names = set()
+        for path in glob.glob(os.path.expanduser("~/.cache/gsconnect/*/contacts.json")):
+            try:
+                with open(path) as f:
+                    names.update(c.get("name", "").lower() for c in json.load(f).values())
+            except (OSError, ValueError, AttributeError):
+                continue
+        return who.lower() in names if names else None
 
     def _recent(self):
         if self.last and self.last.get("phone") and time.time() - self.last["at"] < 1800:
