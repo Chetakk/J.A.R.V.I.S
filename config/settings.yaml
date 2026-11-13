@@ -224,5 +224,5 @@ weather:
 
 # What to do with phone messages (system/messages.py): personal = who is said, never the text; quiet_chats = a chime only.
 messages:
-  personal: [Rupa]
+  personal: ["Rupa 🎀"]  # matched inside the name: just "Rupa" also caught "Shweta (Rupa)", "Rupa Jkn Frn"
   quiet_chats: []
