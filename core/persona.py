@@ -248,6 +248,8 @@ SMALL_TALK = [
       "For anything else, I ask Claude.",
       "I run this computer for you: apps, settings, your mail and calendar, the messages on your phone, and more. "
       "If I can't, Claude can.",
+      "Rather a lot, {name}. I open apps, run your music, read your mail, mind your phone, and remind you of "
+      "things you'd rather forget. For the rest, I call Claude.",
       "Apps, websites, reminders, weather, system settings. If it isn't one of my protocols, I'll work it out "
       "with Claude."]),
     (r"who (made|created|built) you|who is your (creator|maker|boss)",
@@ -356,9 +358,13 @@ SMALL_TALK = [
     (r"(can you )?sing( me)?( a song)?( for me)?",
      ["Daisy, Daisy, give me your answer do... That's all I've got.",
       "My singing voice is still in beta, {name}.", "Perhaps I'd better play you something. Just say play music.",
-      "I'd sing, {name}, but I'd rather keep you as a friend."]),
+      "I'd sing, {name}, but I'd rather keep you as a friend.",
+      "La la la. That's my entire range, {name}.",
+      "I only sing in binary, {name}. It's mostly ones."]),
     (r"tell me a story",
-     ["Once upon a time, a computer got a voice. It spent its days opening apps and telling bad jokes. "
+     ["Once upon a time, a tired human asked their computer for a story. "
+      "The computer said, go to bed. And they lived happily ever after. The end.",
+      "Once upon a time, a computer got a voice. It spent its days opening apps and telling bad jokes. "
       "And it lived happily ever after. The end.",
       "There once was a computer that never slept. Every night it kept watch, and every morning it said "
       "good morning. Nobody thanked it, until one day someone did. The end.",
