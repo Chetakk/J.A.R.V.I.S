@@ -458,7 +458,7 @@ class Jarvis:
                     kind, answer = self.inbox.get(timeout=min(left, 0.5))
                 except queue.Empty:
                     continue
-                if kind not in ("say", "note", "offer", "task", "ctl", "claude"):  # (a task's next step waits for the answer too)
+                if kind not in ("say", "note", "ask", "offer", "task", "ctl", "claude"):  # (a task's next step waits for the answer too)
                     break
                 deferred.append((kind, answer))
         except queue.Empty:
@@ -1697,9 +1697,11 @@ def run_loop(jarvis, has_ui):
             break
         if kind == "eof":
             continue  # No terminal attached; the UI keeps JARVIS running.
-        if kind in ("say", "note"):  # note: only printed and shown in the chat
+        if kind in ("say", "note", "ask"):  # note: only printed and shown in the chat
             print()
-            jarvis.speaker.say(line, aloud=kind == "say")
+            jarvis.speaker.say(line, aloud=kind != "note")
+            if kind == "ask" and not something_playing():
+                jarvis.follow_up()  # a heads-up with a question ("read it?"): answer without the name
             continue
         if kind == "offer":
             print()

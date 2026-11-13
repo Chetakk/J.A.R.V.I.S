@@ -76,6 +76,9 @@ class Phone(Skill):
 
     def patterns(self):
         return [
+            (r"open (?:the |that |this |their |her |his )?(?:message|messages|chat)", self.open_message),
+            (r"open (?:the message|the chat) on (?:my|the) phone|open it there", self.open_message_phone),
+            (r"open (whatsapp|instagram|messages)", self.open_app_of_message),
             (r"open ((?:this|that|these|those|it|them)(?: \w+)?|\S+\.[a-z0-9]{2,5})%s" % ON_PHONE,
              self.open_on_phone),
             (r"(?:open|launch|start) (?:the )?(.+?)(?: app)?%s" % ON_PHONE, self.open_app),
@@ -109,7 +112,7 @@ class Phone(Skill):
             (r"reply(?: to (.+?))?(?: on (?:my phone|the phone|whatsapp))? (?:saying|with|that) (.+)", self.reply),
             (r"what did (?:they|he|she|\w+) (?:say|write|mean)|what do(?:es)? (?:they|he|she|that|it) mean|"
              r"(?:summari[sz]e|sum up) (?:the |that |this |their )?(?:message|text)", self.summarise),
-            (r"read (?:them|those|all of them|(?:all )?(?:her|his|their|the|those) messages)(?: out)?(?: to me)?", self.read_them),
+            (r"read(?: them| those| all of them)?|read (?:them|those|all of them|(?:all )?(?:her|his|their|the|those) messages)(?: out)?(?: to me)?", self.read_them),
             (r"read (?:the|that|this|their) (?:whole |full |entire )?(?:message|text)", self.read_message),
             (r"(?:mute|silence) (?:messages |texts )?from (.+?)(?: for (.+))?", self.mute_sender),
             (r"(?:mute|silence) (her|him|them|that sender|that person)(?: for (.+))?", self.mute_sender),
@@ -410,7 +413,20 @@ class Phone(Skill):
         return path
 
     def open_on_phone(self, m):
+        if m.group(1) in ("it", "that", "this") and self.last and self.last.get("phone") and time.time() - self.last["at"] < 120:
+            return self.open_message(on_phone=True)  # right after a message: its chat, not a file
         self.send(m, opening=True)
+
+    def open_app_of_message(self, m):
+        """"Open WhatsApp" right after a WhatsApp message: its chat. Otherwise the app, as usual."""
+        last = self.last or {}
+        if not (last.get("phone") and time.time() - last["at"] < 120 and
+                messages.opener(last["app"]).lower() == "open " + m.group(1).lower()):
+            return False
+        self.open_message()
+
+    def open_message_phone(self, m):
+        self.open_message(on_phone=True)
 
     def note(self, m):
         """A notification on the phone (needs "Receive notifications" on in KDE Connect on the phone)."""
@@ -463,46 +479,99 @@ class Phone(Skill):
                     return
                 action, line = messages.decide(item, self.seen, self.j.settings.get("messages") or {}, time.time(),
                                                self._saved(item["title"]))
-                if len(item["body"]) > messages.LONG[0]:
-                    self.j.show({"title": item["title"] or item["app"], "text": item["body"]})  # "read it to me"
-                why = "A message came to your phone. Say reply saying, and your answer, or dismiss that notification."
+                why = "A message came to your phone. Say read it, open it, reply saying and your answer, or dismiss it."
                 who = item["title"] or item["app"]
                 if action == "say":
                     self._burst[who] = item["at"]
-                    self.j.skills.proactive.tell("phone", line, why)
-                else:
-                    if who in self._burst and len(self.seen.get(who, ())) > 1:  # more from them: one line once they stop
-                        threading.Timer(messages.GAP + 1, self._burst_over, (who,)).start()
-                    if action == "chime":
-                        listen.beep("end")
-                    shown = line or "%s: %s" % (item["title"] or item["app"], item["body"])
-                    self.j.skills.proactive.note("phone", shown, why)
-                    self.j.inbox.put(("note", shown))
+                    self._card(item)
+                    self.j.skills.proactive.tell("phone", line, why, ask=not self._personal(who))
+                    return
+                if who in self._burst and len(self.seen.get(who, ())) > 1:  # more from them: one line once they stop
+                    self._card(item)
+                    threading.Timer(messages.GAP + 1, self._burst_over, (who, item["app"])).start()
+                    return
+                if action == "chime":
+                    listen.beep("end")
+                shown = line or "%s: %s" % (who, item["body"])
+                self.j.skills.proactive.note("phone", shown, why)
+                self.j.inbox.put(("note", shown))
         except Exception as e:  # runs on the notification reader's thread: never let it die
             print("[phone] %r" % e)
 
-    def _burst_over(self, who):
+    def _personal(self, who):
+        return any(p.lower() in who.lower() for p in (self.j.settings.get("messages") or {}).get("personal") or [])
+
+    def _burst_over(self, who, app):
         """`who` has been quiet for GAP after a burst: say how many more came, once."""
         times = self.seen.get(who) or []
         if who not in self._burst or not times or time.time() - times[-1] < messages.GAP:
             return  # still going: a later timer says it
         self._burst.pop(who)
         if len(times) > 1:
-            self.j.skills.proactive.tell("phone", messages.more_line(who, len(times) - 1),
-                                         "They sent these right after the one I read out. Say read them.")
+            personal = self._personal(who)
+            self.j.skills.proactive.tell("phone", messages.more_line(who, len(times) - 1, app, personal),
+                                         "They sent these right after the first one. Say read them.", ask=not personal)
+
+    def _burst_items(self, item):
+        """The messages of `item`'s burst: its sender's, each within GAP of the one before, ending with the newest."""
+        mine = [n for n in self.j.skills.notifications.watcher.recent(item["at"] - 1800)
+                if n["title"] == item["title"] and n.get("phone")]
+        start = len(mine) - 1
+        while start > 0 and mine[start]["at"] - mine[start - 1]["at"] < messages.GAP:
+            start -= 1
+        return mine[start:] or [item]
+
+    def _card(self, item):
+        """The chat's card: the burst's messages, with Read and Open buttons (one card per sender, kept up to date)."""
+        who = item["title"] or item["app"]
+        self.j.show({"id": "msg-" + re.sub(r"\W+", "-", who.lower()), "title": "%s (%s)" % (who, item["app"]),
+                     "text": "\n".join("- %s" % n["body"] for n in self._burst_items(item)),
+                     "choices": [{"label": "Read it", "do": "read them"},
+                                 {"label": messages.opener(item["app"])[0].upper() + messages.opener(item["app"])[1:], "do": "open the message"}]})
 
     def read_them(self, m):
         """Every message in the last burst from whoever wrote last."""
         item = self._recent()
+        if item:
+            self.say(". ".join(n["body"].rstrip(".") for n in self._burst_items(item)) + ".")
+
+    def open_message(self, m=None, on_phone=False):
+        """The last message's chat: WhatsApp Web / GSConnect's SMS window / Instagram on the PC, else on the phone."""
+        item = self._recent()
         if not item:
             return
-        w = self.j.skills.notifications.watcher
-        since = item["at"] - 30 * 60
-        mine = [n for n in w.recent(since) if n["title"] == item["title"] and n.get("phone")]
-        start = len(mine) - 1
-        while start > 0 and mine[start]["at"] - mine[start - 1]["at"] < messages.GAP:
-            start -= 1
-        self.say(". ".join(n["body"].rstrip(".") for n in mine[start:]) + ".")
+        app, who = item["app"], item["title"]
+        if not on_phone and app == "WhatsApp":
+            number = self._contact_number(who)
+            url = "https://web.whatsapp.com/send?phone=%s" % _international(number) if number else "https://web.whatsapp.com"
+            return self.j.executor.run("xdg-open %s" % shlex.quote(url), reply="Opening %s's chat." % who, window=True)
+        if not on_phone and app == "Messages":
+            self._act("sms")
+            return self.say("Opening your messages.")
+        if not on_phone and app == "Instagram":
+            return self.j.executor.run("xdg-open https://www.instagram.com/direct/inbox/",
+                                       reply="Opening Instagram.", window=True)
+        try:
+            self._adb("shell", "monkey", "-p", item["phone"]["package"], "-c", "android.intent.category.LAUNCHER", "1")
+        except PhoneError:
+            return self.say(["I can't open that from here. Check your phone.",
+                             "The phone isn't on adb right now. Have a look on your phone."])
+        self.say("Opening %s on your phone." % app)
+
+    def _contacts(self):
+        """GSConnect's synced copy of the phone's contacts (no adb): [{"name", "numbers": [{"value"}]}]."""
+        found = []
+        for path in glob.glob(os.path.expanduser("~/.cache/gsconnect/*/contacts.json")):
+            try:
+                with open(path) as f:
+                    found += list(json.load(f).values())
+            except (OSError, ValueError, AttributeError):
+                continue
+        return found
+
+    def _contact_number(self, who):
+        c = next((c for c in self._contacts() if c.get("name", "").lower() == who.lower() and c.get("numbers")), None)
+        return re.sub(r"[^\d+]", "", c["numbers"][0]["value"]) if c else None
 
     def _muted(self, who):
         """True if `who` is muted (until a time) or blocked (0)."""
@@ -512,15 +581,8 @@ class Phone(Skill):
         return False
 
     def _saved(self, who):
-        """True if `who` is a saved contact: GSConnect's copy of the phone's contacts (synced without adb);
-        None when there is none yet."""
-        names = set()
-        for path in glob.glob(os.path.expanduser("~/.cache/gsconnect/*/contacts.json")):
-            try:
-                with open(path) as f:
-                    names.update(c.get("name", "").lower() for c in json.load(f).values())
-            except (OSError, ValueError, AttributeError):
-                continue
+        """True if `who` is a saved contact (GSConnect's synced copy, no adb); None when there is none yet."""
+        names = {c.get("name", "").lower() for c in self._contacts()}
         return who.lower() in names if names else None
 
     def _recent(self):

@@ -142,7 +142,7 @@ class Proactive(Skill):
         with self.lock:
             return sum(not e.get("read") for e in self.log)
 
-    def tell(self, kind, line, why, hold=True, card=None):
+    def tell(self, kind, line, why, hold=True, card=None, ask=False):
         """Say a heads-up from a background thread, and show its card. During focus / quiet hours it's kept for
         later (hold=False: you asked for it, so it's said anyway), its card only in the alerts list. False if it
         wasn't said now."""
@@ -154,7 +154,7 @@ class Proactive(Skill):
                 self.held.append((time.time(), line, why, "focus" if self.j.skills.focusing() else "quiet"))
             print("[proactive] held: %s" % line)
             return False
-        self.j.inbox.put(("say", line))
+        self.j.inbox.put(("ask" if ask else "say", line))  # ask: it ends in a question, listen for the answer
         if card:
             self.j.inbox.put(("ctl", {"show": card}))
         return True

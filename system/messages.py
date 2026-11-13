@@ -1,13 +1,13 @@
 """What to do with a message from the phone (WhatsApp, SMS, Instagram...): decide(item, seen, rules, now) ->
 (action, line). action: "say" (line spoken), "chime" (a soft sound, nothing spoken) or "silent" (panel only).
 Rules (settings.yaml `messages:`): personal: [names] (who, never the text), quiet_chats: [names] (a chime only).
+Nothing is read out: who, what was sent (a photo...) and a question; the text is on the card (read it / open it).
 Order: one-time codes, unknown numbers, a burst (the first is said, the rest silent: the caller says more_line()
-once the sender has been quiet for GAP), personal, quiet chats, media, long, short."""
+once the sender has been quiet for GAP), personal, quiet chats, media, the rest."""
 import random
 import re
 
 GAP = 30  # s: a message within this of the sender's last one is part of the same burst
-LONG = (160, 25)  # characters or words: "sent a long message"
 OTP = re.compile(r"\botp\b|one[- ]time|verification code|passcode|security code|\bcode\b.{0,20}\b\d{4,8}\b|"
                  r"\b\d{4,8}\b.{0,20}\bcode\b", re.I)
 UNKNOWN = re.compile(r"^[+\d\s()-]{6,}$|^[A-Z]{2}-[A-Z0-9]{3,}$")  # a number or an SMS short code, not a saved name
@@ -34,30 +34,35 @@ def decide(item, seen, rules, now, known=None):
     if len(times) > 1:
         return "silent", ""
     if any(p.lower() in low for p in rules.get("personal") or []):
-        return say("%s messaged you." % who, "%s wrote to you." % who,
-                   "Something from %s. It's private, so I'll leave it to you." % who, "%s is on the phone for you." % who)
+        return say("%s messaged you." % who, "%s wrote to you." % who, "Something from %s. It's on the card." % who)
     if any(q.lower() in low for q in rules.get("quiet_chats") or []):
         return "chime", ""
     text = " ".join(MARKS.sub("", body).split())
     media = MEDIA.search(text)
+    where = opener(app)
     if media:
         sent = media.group(0).strip()
         sent = sent.lower() if sent.lower().startswith("sent") else "sent a " + sent.lower()
-        f = who
-        return say("%s %s." % (f, sent), "%s %s. It's on your phone." % (f, sent), "Heads up: %s %s." % (f, sent))
-    if len(text) > LONG[0] or len(text.split()) > LONG[1]:
-        f = who
-        return say("%s sent a long one. Say read it, or ask what it says." % f, "A long message from %s. Want it read, or the short version?" % f,
-                   "%s wrote an essay. Say summarize it for the gist." % f)
-    kind = "Text" if app in ("Messages", "WhatsApp") else app
-    return say("%s from %s: %s" % (kind, who, body), "%s says: %s" % (who, body), "%s is saying: %s" % (who, body),
-               "%s writes: %s" % (who, body), "%s messaged: %s" % (who, body))
+        return say("%s %s. Want me to %s?" % (who, sent, where), "%s %s. Should I open it?" % (who, sent),
+                   "%s %s. %s?" % (who, sent, where[0].upper() + where[1:]))
+    kind = "Text" if app in ("Messages", "WhatsApp") else "Message"
+    return say("%s from %s. Want me to read it?" % (kind, who), "%s messaged you. Read it, or %s?" % (who, where),
+               "Something from %s. Should I open it?" % who, "%s wrote to you. Read it, or open it?" % who,
+               "New message from %s. Shall I read it?" % who)
 
 
-def more_line(who, n):
-    """Said once a burst is over: `n` messages after the first one that was said."""
+def opener(app):
+    """What "open it" does, said: "open WhatsApp", "open messages", "open Instagram", else "open it"."""
+    return {"WhatsApp": "open WhatsApp", "Messages": "open messages", "Instagram": "open Instagram"}.get(app, "open it")
+
+
+def more_line(who, n, app="", personal=False):
+    """Said once a burst is over: `n` messages after the first one."""
     more = "one more" if n == 1 else "%d more" % n
-    lines = ["%s sent %s. Say read them." % (who, more), "%s from %s. Say read them to hear them." % (more.capitalize(), who)]
+    if personal:
+        return "%s sent %s. They're on the card." % (who, more)
+    lines = ["%s sent %s. Read them, or %s?" % (who, more, opener(app)),
+             "%s from %s. Want me to read them?" % (more.capitalize(), who)]
     if n >= 5:
-        lines = [l + " Or mute messages from %s." % who for l in lines]
+        lines = [l + " Or say mute messages from %s." % who for l in lines]
     return random.choice(lines)
