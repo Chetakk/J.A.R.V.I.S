@@ -60,18 +60,56 @@ _SOUNDS = {}
 
 
 def beep(kind="wake"):
-    """The marimba sound: "wake" (two knocks going up: JARVIS is listening) or "end" (one low knock: it stopped).
-    Never blocks and never raises."""
+    """The marimba sound: "wake" (two knocks going up: JARVIS is listening), "end" (one low knock: it stopped)
+    or "claude" (three soft knocks going down: your question went to Claude). Never blocks and never raises."""
     def play():
         if kind not in _SOUNDS:
-            _SOUNDS[kind] = _marimba([(0, 523.0)] if kind == "end" else [(0, 784.0), (0.08, 1047.0)],
-                                     SOUND_VOLUME * (0.9 if kind == "end" else 1))
+            notes, volume = {"end": ([(0, 523.0)], 0.9),
+                             "claude": ([(0, 1047.0), (0.09, 880.0), (0.18, 659.0)], 0.8)}.get(
+                kind, ([(0, 784.0), (0.08, 1047.0)], 1))
+            _SOUNDS[kind] = _marimba(notes, SOUND_VOLUME * volume)
         try:
             subprocess.run(["aplay", "-q", "-r", "22050", "-f", "S16_LE", "-t", "raw", "-"], input=_SOUNDS[kind],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
         except (OSError, subprocess.SubprocessError):
             pass
     threading.Thread(target=play, daemon=True).start()
+
+
+KNOCK_WAIT = 0.5  # s the end knock waits after a command, so a Claude question gets the chime instead
+_knock = None  # the end knock still waiting to play (knock_soon)
+_knock_lock = threading.Lock()
+
+
+def knock_soon(delay=KNOCK_WAIT):
+    """The end knock, played a moment late: claude_sound() in that moment plays the Claude chime instead."""
+    global _knock
+
+    def play():
+        global _knock
+        with _knock_lock:
+            if _knock is not timer:
+                return
+            _knock = None
+        beep("end")
+    timer = threading.Timer(delay, play)
+    timer.daemon = True
+    with _knock_lock:
+        if _knock:
+            _knock.cancel()
+        _knock = timer
+    timer.start()
+
+
+def claude_sound():
+    """The Claude chime in place of a waiting end knock. Nothing if the knock already played (or nothing was
+    said, e.g. typed): one sound per command, never both."""
+    global _knock
+    with _knock_lock:
+        waiting, _knock = _knock, None
+    if waiting:
+        waiting.cancel()
+        beep("claude")
 
 
 class Recorder:

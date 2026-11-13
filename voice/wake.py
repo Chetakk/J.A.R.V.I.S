@@ -23,7 +23,7 @@ import sentencepiece
 import sherpa_onnx
 
 from voice.level import hear
-from voice.listen import RATE, beep
+from voice.listen import RATE, beep, knock_soon
 from core.registry import NAME_AS_THING, _names_regex
 from skills.status import STOP as INTERRUPT  # "stop", "be quiet", "enough"...
 from system.terminal import RUN_DIR
@@ -413,7 +413,7 @@ class WhisperWake:
                 command = ("%s %s" % (held, command)) if held else command
                 if not dictating and self._hold(text, command, follow):
                     continue
-                beep("end")
+                knock_soon()  # (or the Claude chime instead, if it goes to Claude)
                 print("[wake] command: %r" % command)
                 self.on_heard(text, "follow-up" if follow else "command")
                 self.last_request = time.time()
@@ -437,7 +437,7 @@ class WhisperWake:
                 continue
             if command:
                 self.on_heard(text, "woke, command: %s" % command)
-                beep("end")
+                knock_soon()
                 self.last_request = time.time()
                 self.on_text(command, False)
             else:
@@ -502,7 +502,7 @@ class WhisperWake:
 
     def _pass_on(self, heard, command, follow_up, outcome):
         self.waiting_until = 0.0
-        beep("end")
+        knock_soon()
         print("[wake] command: %r" % command)
         self.on_heard(heard, outcome)
         self.last_request = time.time()

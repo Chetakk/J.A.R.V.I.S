@@ -38,7 +38,7 @@ from claude.bridge import WORKSPACE, Claude, ClaudeError, Stopped, open_in_vscod
 from core.executor import Executor
 from skills import Skills, registry
 from skills.media import something_playing
-from voice.listen import PushToTalk
+from voice.listen import PushToTalk, claude_sound
 from system.projects import Projects
 from system.apps import Apps
 from core.context import Context, sounds_like_follow_up
@@ -790,7 +790,8 @@ class Jarvis:
         recent = list(self.recent)[:-1]  # the last line is this request itself
         self.recent.clear()  # Claude sees these now; what happens from here on is for its next question
         self.context.forget()  # "keep going" after Claude's answer isn't "volume up" from before
-        print("  [claude] not in the command list, asking Claude (%s)..." % self.claude.model)
+        print("  [claude] not in the command list, asking Claude (%s, decided in %.2f s)..." % (
+            self.claude.model, time.time() - self.asked_at))
         self.chat("sys", "Asking Claude (%s)..." % self.claude.model)
         known = " ".join(k for k in (self._focus_line(), self.projects.context(text),
                                      self.skills.notes.for_claude(text)) if k)
@@ -798,12 +799,11 @@ class Jarvis:
                "image": image, "about": self._about(), "source": self.source, "seq": self.requests,
                "gen": self._claude_gen}
         if not image:
+            claude_sound()  # in place of the end knock, not "Thinking.": "still working" follows only if Claude is slow
             if self._claude_busy:
                 self.speaker.say(persona.lines("queued", persona.address(self.settings)))
             elif re.search(r"\bclaude\b", text, re.I):
                 self.speaker.say(persona.lines("asking_claude"))  # you named Claude, so say so
-            else:
-                self.speaker.say(persona.lines("thinking", persona.address(self.settings)))
         if not self.background:
             self.state("claude")
             self._claude_send(job)
@@ -840,7 +840,7 @@ class Jarvis:
                 self.speaker.say(lines)
         # If Claude is slow, say something now and then so the silence doesn't feel broken.
         fillers = [threading.Timer(delay, filler, [lines]) for delay, lines in (
-            (6, persona.lines("still_working", persona.address(self.settings))),
+            (3, persona.lines("still_working", persona.address(self.settings))),
             (16, persona.lines("slow", persona.address(self.settings))))]
         for timer in fillers:
             timer.daemon = True
