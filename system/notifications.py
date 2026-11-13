@@ -91,8 +91,8 @@ class Watcher:
         now = time.time()
         with self.lock:
             last = self.items[-1] if self.items else None
-            if last and (last["app"], last["title"], last["body"]) == (app, title, body) and now - last["at"] < 3:
-                return  # GNOME passes each one on once more
+            if last and (last["app"], last["title"], last["body"]) == (app, title, body) and now - last["at"] < (30 if phone else 3):
+                return  # GNOME passes each one on once more; the phone re-posts a message ~5 s later (shortcut: a real repeat within 30 s is dropped too)
             item = {"at": now, "app": app or "an app", "title": title, "body": body}
             if phone:
                 item["phone"] = phone
