@@ -62,5 +62,7 @@ def decide(item, seen, rules, now, known=None):
                    "%s wrote an essay. Say summarize it for the gist." % f)
     kind = "Text" if app in ("Messages", "WhatsApp") else app
     if len(times) == 2:  # right after another one: less to say
-        return say("%s from %s again: %s" % (kind, who, body), "Another %s from %s: %s" % (kind.lower(), who, body))
-    return say("%s from %s: %s" % (kind, who, body))
+        return say("%s from %s again: %s" % (kind, who, body), "Another %s from %s: %s" % (kind.lower(), who, body),
+                   "%s adds: %s" % (who, body), "%s again: %s" % (who, body))
+    return say("%s from %s: %s" % (kind, who, body), "%s says: %s" % (who, body), "%s is saying: %s" % (who, body),
+               "%s writes: %s" % (who, body), "%s messaged: %s" % (who, body))
