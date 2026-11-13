@@ -76,6 +76,8 @@ WHY = ("Every 30 seconds I check that I can hear you (microphone), talk (speaker
 FIXED = {"mic": "The microphone is working again.", "speaker": "The speaker is back.",
          "voice": "My voice is working again.", "stt": "Speech recognition is running again."}
 
+MUTED = {"Your microphone is muted.", "The speaker is muted."}  # shown in the chat, never said (nor their "back" line)
+
 
 class Monitor:
     def __init__(self, jarvis):
@@ -88,15 +90,15 @@ class Monitor:
         if announce:
             for key, line in now.items():
                 if self.known.get(key) != line:
-                    self._tell(line, urgent=True, kind="health:" + key)
+                    self._tell(line, urgent=True, kind="health:" + key, aloud=line not in MUTED)
             for key in self.known.keys() - now.keys():
-                self._tell(FIXED.get(key, "That's fixed."), kind="health:" + key)
+                self._tell(FIXED.get(key, "That's fixed."), kind="health:" + key, aloud=self.known[key] not in MUTED)
         self.known = now
         return now
 
-    def _tell(self, line, urgent=False, kind="health"):
+    def _tell(self, line, urgent=False, kind="health", aloud=True):
         print("[health] %s" % line)
         self.jarvis.skills.proactive.note(kind, line, WHY)
         subprocess.Popen(["notify-send", "-u", "critical" if urgent else "normal", "JARVIS", line],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self.jarvis.inbox.put(("say", line))
+        self.jarvis.inbox.put(("say" if aloud else "note", line))
