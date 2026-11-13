@@ -20,19 +20,20 @@ def say(*lines):
 
 
 def first(name):
-    return (name.split() or [name])[0]
+    return name  # the whole name as the phone shows it ("Avani Ma'am"): "mute messages from" it works the same
 
 
-def decide(item, seen, rules, now):
-    """`seen`: {sender: [times]} kept by the caller (this message is added here)."""
+def decide(item, seen, rules, now, known=None):
+    """`seen`: {sender: [times]} kept by the caller (this message is added here). `known`: the sender is a saved
+    contact (None: not looked up, a number or short code counts as unknown)."""
     who, body, app = item["title"] or item["app"], item["body"], item["app"]
     times = seen.setdefault(who, [])
     times[:] = [t for t in times if now - t < BURST[1]] + [now]
     low = who.lower()
     if OTP.search(body):
         return "silent", "A code from %s is on the panel." % who
-    if UNKNOWN.match(who) and app != "Phone":
-        return "silent", ""  # unknown numbers and short codes (spam, delivery, bank): panel only
+    if (not known) if known is not None else UNKNOWN.match(who):
+        return "silent", ""  # not a saved contact (spam, delivery, bank, groups): panel only
     if any(p.lower() in low for p in rules.get("personal") or []):
         return say("%s messaged you." % first(who), "%s wrote to you." % first(who), "Something from %s. It's private, so I'll leave it to you." % first(who), "%s is on the phone for you." % first(who)) if len(times) < BURST[0] else ("silent", "")
     if any(q.lower() in low for q in rules.get("quiet_chats") or []):
@@ -59,8 +60,7 @@ def decide(item, seen, rules, now):
         f = first(who)
         return say("%s sent a long one. Say read it, or ask what it says." % f, "A long message from %s. Want it read, or the short version?" % f,
                    "%s wrote an essay. Say summarize it for the gist." % f)
+    kind = "Text" if app in ("Messages", "WhatsApp") else app
     if len(times) == 2:  # right after another one: less to say
-        return say("%s again: %s" % (first(who), body), "Another from %s: %s" % (first(who), body), "%s adds: %s" % (first(who), body))
-    return say(*(l % (first(who), body) for l in (
-        ["Text from %s: %s", "%s texted: %s"] if app == "Messages" else
-        [app + " from %s: %s", "%s on " + app + ": %s", "%s says: %s"])))
+        return say("%s from %s again: %s" % (kind, who, body), "Another %s from %s: %s" % (kind.lower(), who, body))
+    return say("%s from %s: %s" % (kind, who, body))

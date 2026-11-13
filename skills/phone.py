@@ -423,7 +423,8 @@ class Phone(Skill):
                 self.last = item
                 if self._muted(item["title"]):
                     return
-                action, line = messages.decide(item, self.seen, self.j.settings.get("messages") or {}, time.time())
+                action, line = messages.decide(item, self.seen, self.j.settings.get("messages") or {}, time.time(),
+                                               self._saved(item["title"]))
                 if len(item["body"]) > messages.LONG[0]:
                     self.j.show({"title": item["title"] or item["app"], "text": item["body"]})  # "read it to me"
                 why = "A message came to your phone. Say reply saying, and your answer, or dismiss that notification."
@@ -444,6 +445,14 @@ class Phone(Skill):
             if name in (who or "").lower() and (not until or until > time.time()):
                 return True
         return False
+
+    def _saved(self, who):
+        """True if `who` is a saved contact on the phone; None when the contacts can't be read."""
+        try:
+            people = self._people()
+        except Exception:  # adb off or the phone away
+            return None
+        return who.lower() in {n.lower() for n, _ in people} if people else None
 
     def _recent(self):
         if self.last and self.last.get("phone") and time.time() - self.last["at"] < 1800:
