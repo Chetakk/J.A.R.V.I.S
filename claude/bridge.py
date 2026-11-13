@@ -98,6 +98,57 @@ class Claude:
         except OSError:
             pass
         os.makedirs(WORKSPACE, exist_ok=True)
+        # A spare Claude, already booted and waiting on stdin for the next question: saves ~3 s of startup per
+        # answer for ~220 MB of RAM. It exits by itself (no API call) when JARVIS quits and its stdin closes.
+        self.spare, self.spare_sid, self.spare_timer = None, None, None
+        self._warm()
+
+    def _args(self, sid, image=None):
+        args = [self.bin, "-p", "--input-format", "stream-json", "--model", self.model,
+                "--tools", "Read" if image else "", "--strict-mcp-config", "--system-prompt", self.prompt,
+                "--effort", self.effort, "--output-format", "stream-json", "--include-partial-messages", "--verbose"]
+        return args + (["--resume", sid] if sid else ["--session-id", str(uuid.uuid4())])
+
+    def _start(self, sid, image=None):
+        return subprocess.Popen(self._args(sid, image), cwd=WORKSPACE, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True, env=_ENV)
+
+    def _warm(self):
+        """Boot the spare for the current session (caller holds _lock, or nothing else is running yet)."""
+        if self.spare_timer:
+            self.spare_timer.cancel()
+        if self.spare:
+            self.spare.kill()
+            self.spare.wait()
+            self.spare = None
+        if not self.bin:
+            return
+        sid = self.spare_sid = self.session
+        try:
+            self.spare = self._start(sid)
+        except OSError:
+            return
+        if sid:  # the session goes stale after self.idle; then boot a spare for a fresh one
+            try:
+                left = self.idle - (time.time() - os.path.getmtime(self.session_file))
+            except OSError:
+                left = 0
+            self.spare_timer = threading.Timer(max(left, 0) + 1, self._rewarm)
+            self.spare_timer.daemon = True
+            self.spare_timer.start()
+
+    def _rewarm(self):
+        with self._lock:
+            self._warm()
+
+    def _take(self, sid, image):
+        """The spare if it fits this question (same session, no screenshot, still alive), else a new process."""
+        proc, self.spare = self.spare, None
+        if proc and (image or sid != self.spare_sid or proc.poll() is not None):
+            proc.kill()
+            proc.wait()
+            proc = None
+        return proc or self._start(sid, image)
 
     @property
     def session(self):
@@ -157,7 +208,10 @@ class Claude:
 
     def ask(self, text, recent=(), on_say=None, image=None, about=None):
         with self._lock:
-            return self._ask(text, recent, on_say, image, about)
+            try:
+                return self._ask(text, recent, on_say, image, about)
+            finally:
+                self._warm()  # after the session file is updated, so the spare resumes this conversation
 
     def _ask(self, text, recent=(), on_say=None, image=None, about=None):
         """Return Claude's answer as a dict with say/details/command/run_now/output/save/steps/spoken.
@@ -179,18 +233,18 @@ class Claude:
                     "\"show\".\n\nUser says: %s" % (os.path.basename(image), image, text))
         if about:
             text = "[%s]\n%s" % (about, text)
-        args = [self.bin, "-p", text, "--model", self.model, "--tools", "Read" if image else "",
-                "--strict-mcp-config", "--system-prompt", self.prompt, "--effort", self.effort,
-                "--output-format", "stream-json", "--include-partial-messages", "--verbose"]
         sid = self.session
-        args += ["--resume", sid] if sid else ["--session-id", str(uuid.uuid4())]
-        proc = subprocess.Popen(args, cwd=WORKSPACE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                env=_ENV)
+        proc = self._take(sid, image)
         self.running.add(proc)
         timer = threading.Timer(self.timeout, proc.kill)
         timer.start()
         block, result, spoken, said = "", None, False, 0  # said: characters of the "say" passed to on_say
         try:
+            try:
+                proc.stdin.write(json.dumps({"type": "user", "message": {"role": "user", "content": text}}) + "\n")
+                proc.stdin.close()
+            except OSError:
+                pass  # it died at startup: no result below, so the usual "couldn't reach Claude"
             for line in proc.stdout:
                 try:
                     event = json.loads(line)
