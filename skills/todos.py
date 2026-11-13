@@ -26,7 +26,7 @@ LATE = 10 * 60  # a reminder that came due longer ago than this (JARVIS was off)
 WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "ten": 10, "fifteen": 15,
          "twenty": 20, "thirty": 30, "forty five": 45, "a couple of": 2, "a few": 3, "half an": 0.5}
 NUM = r"(\d+(?:\.\d+)?|%s)" % "|".join(sorted(WORDS, key=len, reverse=True))
-IN = r"in %s (seconds?|secs?|minutes?|mins?|hours?|hrs?)" % NUM
+IN = r"(?:in |after )?%s (seconds?|secs?|minutes?|mins?|hours?|hrs?)" % NUM
 AT = r"(?:(today|tonight|tomorrow) )?(?:at )?(\d{1,2})(?:[:.](\d{2}))? ?([ap]\.? ?m\.?)?(?: (today|tonight|tomorrow))?"
 # "remind me", "set a reminder", "I want you to set up a reminder": a reminder that may not say what it's for.
 SET = (r"(?:(?:i want you to|i need you to|i'd like you to|i want to|i need to|go ahead and|just|to) )?"
