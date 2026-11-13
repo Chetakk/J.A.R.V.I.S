@@ -33,6 +33,11 @@ VAGUE = (r"(?:this|that|these|those|it|them)(?: (?:file|photo|picture|pic|image|
 SHOT = r"(?:a |my |the )?(?:screen ?shot|screen|screen ?grab)(?: of (?:my|the) screen)?"
 LINKS = ("this link", "this page", "this tab", "that link", "that page", "the link", "the page")
 A_FILE = r"%s|%s|[^ ]+\.[A-Za-z0-9]{2,5}" % (VAGUE, SHOT)  # a file by pointing or by its name, not just words
+APP_LINKS = {"youtube": "https://www.youtube.com/", "instagram": "https://www.instagram.com/",
+             "spotify": "https://open.spotify.com/", "maps": "https://maps.google.com/",
+             "google maps": "https://maps.google.com/", "gmail": "https://mail.google.com/",
+             "whatsapp": "https://wa.me/", "linkedin": "https://www.linkedin.com/", "twitter": "https://x.com/",
+             "x": "https://x.com/"}  # apps that open from a link, for when adb isn't there
 ON_PHONE = r"(?: on (?:my|the) (?:phone|mobile))"
 COUNTRY = "91"  # shortcut: India's code for 10-digit numbers, make it a setting if a non-Indian number comes up
 KEYS = {"pause": 85, "play": 85, "resume": 85, "next": 87, "skip": 87, "previous": 88, "volume up": 24,
@@ -134,15 +139,25 @@ class Phone(Skill):
     # --- handlers ---
     def open_app(self, m):
         name = m.group(1).lower()
+        try:
+            if not self._open_app(name):
+                return self.fail("I can't find %s on your phone." % name)
+        except PhoneError:
+            if name not in APP_LINKS:
+                raise
+            self._act("shareUri", _gstr(APP_LINKS[name]))  # no adb: the link opens in the app (GSConnect)
+        self.say(["Opening %s on your phone." % name,
+                  "Pulling up %s on your phone." % name, "Bringing up %s on your phone." % name])
+
+    def _open_app(self, name):
         if name in APPS:
             self._adb("shell", "am", "start", "-a", APPS[name])
         else:
             pkg = self._package(name)
             if not pkg:
-                return self.fail("I can't find %s on your phone." % name)
+                return False
             self._adb("shell", "monkey", "-p", pkg, "-c", "android.intent.category.LAUNCHER", "1")
-        self.say(["Opening %s on your phone." % name,
-                  "Pulling up %s on your phone." % name, "Bringing up %s on your phone." % name])
+        return True
 
     def call(self, m):
         who = m.group(1)
@@ -554,6 +569,11 @@ class Phone(Skill):
         try:
             self._adb("shell", "monkey", "-p", item["phone"]["package"], "-c", "android.intent.category.LAUNCHER", "1")
         except PhoneError:
+            link = {"WhatsApp": "https://wa.me/%s" % _international(self._contact_number(who) or "") if
+                    self._contact_number(who) else None, "Instagram": APP_LINKS["instagram"] + "direct/inbox/"}.get(app)
+            if link:  # no adb: GSConnect opens the link, Android hands it to the app
+                self._act("shareUri", _gstr(link))
+                return self.say("Opening %s on your phone." % app)
             return self.say(["I can't open that from here. Check your phone.",
                              "The phone isn't on adb right now. Have a look on your phone."])
         self.say("Opening %s on your phone." % app)
