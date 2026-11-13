@@ -182,6 +182,17 @@ def test_new_invite_move_and_cancel_are_said(g):
     assert "Retro" in lines and "was cancelled" in lines
 
 
+def test_a_move_while_jarvis_was_off_is_still_said(g):
+    stays = ev("a", "Planning", at(2, 11))
+    g.g.on("calendar.events.list", events(stays))
+    g.j.skills.calendar.poll()
+    moved = dict(stays, start={"dateTime": iso(at(2, 14))}, end={"dateTime": iso(at(2, 15))})
+    g.g.on("calendar.events.list", events(moved))
+    restarted = type(g.j.skills.calendar)(g.j)  # a fresh start reads the last poll from disk
+    restarted.poll()
+    assert "Rahul moved Planning to" in " | ".join(said_by_itself(g))
+
+
 def test_accepting_an_invite_asks_then_answers_for_you(g):
     invite = ev("b", "Launch prep", at(4, 10), me="needsAction", organizer="priya@biztel.ai")
     g.g.on("calendar.events.list", events(invite)).on("calendar.events.get", invite)

@@ -11,17 +11,20 @@ focus mode holds heads-ups and banners and the music is paused ("turn off meetin
 
 Without Google connected, "what's on my calendar" is the Day Tracker's (skills/briefing.py)."""
 import datetime
+import os
 import re
 import threading
 import time
 import uuid
 
+from core.store import load_json, save_json
 from skills.google_common import (DAYS, GoogleSkill, cell, clock, day_word, find_email, first_name, header, parse_time,
                                   person, rfc, sender, short, when)
 from skills.helpers import and_list
 from skills.todos import tidy
 from system import google_account as google
 
+SEEN = os.path.expanduser("~/.local/share/jarvis/calendar_seen.json")  # the last poll, so a restart misses nothing
 WATCH_DAYS = 14  # invites, moves and cancellations are noticed this far ahead
 NOT_MEETINGS = ("workingLocation", "outOfOffice", "focusTime", "birthday")
 LINK = re.compile(r"https://(?:[\w-]+\.)*(?:zoom\.us|teams\.microsoft\.com|teams\.live\.com|meet\.google\.com|"
@@ -48,8 +51,9 @@ class Calendar(GoogleSkill):
 
     def __init__(self, jarvis):
         super().__init__(jarvis)
-        self._snap = None  # id -> event at the last poll (None until the first one)
-        self._since = 0.0  # when watching began: older events aren't new invites
+        seen = load_json(SEEN, {})
+        self._snap = seen.get("events")  # id -> event at the last poll, kept on disk (None until the first one)
+        self._since = seen.get("at", 0.0)  # when watching began: older events aren't new invites
         self._warned = set()  # (id, start) of meetings already given their heads-up
         self._in_call = None  # the id of the meeting meeting mode is on for
         self.last_invite = None  # (event, when said): what "accept the invite" means
@@ -333,6 +337,11 @@ class Calendar(GoogleSkill):
             was = (old or {}).get(e["id"])
             snap[e["id"]] = dict(was, cancelled=True) if e["cancelled"] and was else e
         self._snap = snap
+        if snap != old:
+            try:
+                save_json(SEEN, {"at": now, "events": snap})
+            except OSError as err:
+                print("[calendar] can't write %s: %r" % (SEEN, err))
         if old is None:
             self._since = now
             return
