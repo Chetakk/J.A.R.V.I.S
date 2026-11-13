@@ -39,7 +39,7 @@ class Drive(GoogleSkill):
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.found = []  # the files on the last card
-        self._shared_since = None  # the newest sharedWithMeTime at the last poll (None until the first one)
+        self._shared_since = self.last_seen()  # the newest sharedWithMeTime at the last poll (None until the first one)
 
     def patterns(self):
         return [
@@ -173,11 +173,13 @@ class Drive(GoogleSkill):
         newest = max((f["sharedWithMeTime"] for f in files), key=parse_time, default=None)
         if self._shared_since is None:
             self._shared_since = newest or rfc(time.time())
+            self.keep_seen(self._shared_since)
             return
         new = [f for f in files if parse_time(f["sharedWithMeTime"]) > parse_time(self._shared_since)]
         if not new:
             return
         self._shared_since = newest
+        self.keep_seen(newest)
         for f in reversed(new[:3]):  # oldest first
             line = "%s shared %s, a %s, with you." % (_who(f), f["name"], _kind(f))
             self.j.skills.proactive.tell("share", line, "%s shared it on Google Drive (%s). Say what's been shared "

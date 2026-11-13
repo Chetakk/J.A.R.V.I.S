@@ -3,10 +3,12 @@ plainly, times and names said the way people say them, links opened, and a backg
 jarvis.watch."""
 import datetime
 import functools
+import os
 import re
 import threading
 import time
 
+from core.store import load_json, save_json
 from skills.base import Skill
 from system import google_account as google
 from system.browser import open_command
@@ -40,6 +42,19 @@ class GoogleSkill(Skill):
 
     def cfg(self, key, default):
         return (self.j.settings.get("google") or {}).get(key, default)
+
+    def _seen_file(self):
+        return os.path.expanduser("~/.local/share/jarvis/%s_seen.json" % self.group)
+
+    def last_seen(self):
+        """What the background poll saw last time, kept on disk so changes while JARVIS was off are still said."""
+        return load_json(self._seen_file(), None)
+
+    def keep_seen(self, value):
+        try:
+            save_json(self._seen_file(), value)
+        except OSError as err:
+            print("[%s] can't write %s: %r" % (self.group, self._seen_file(), err))
 
     def watch(self):
         """Every 10 s from jarvis.watch: poll() once a minute (`every`), on a thread, when signed in."""

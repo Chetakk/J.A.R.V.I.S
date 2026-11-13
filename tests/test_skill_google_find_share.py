@@ -98,3 +98,12 @@ def test_a_doc_comment_is_said(g):
     gm.poll()
     gm.poll()
     assert [x for k, x in drain(g) if k == "say"] == ["Rahul on Google Docs: Budget 2026."]
+
+
+def test_a_file_shared_while_jarvis_was_off_is_still_said(g):
+    old = _shared("1", "Old plan", "Priya", 600)
+    g.g.on("drive.files.list", {"files": [old]})
+    g.j.skills.drive.poll()
+    g.g.on("drive.files.list", {"files": [_shared("2", "Budget 2026", "Rahul Kumar", 1), old]})
+    type(g.j.skills.drive)(g.j).poll()  # a fresh start reads the last poll from disk
+    assert [x for k, x in drain(g) if k == "say"] == ["Rahul shared Budget 2026, a sheet, with you."]

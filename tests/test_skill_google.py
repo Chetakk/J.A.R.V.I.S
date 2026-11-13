@@ -282,6 +282,14 @@ def test_every_new_email_is_announced(g):
     assert sorted(lines) == ["Email from Ops: Server renewal.", "Email from Rahul: Can you review?."]
 
 
+def test_an_email_while_jarvis_was_off_is_still_said(g):
+    _mailbox(g, [], sent_to=("rahul@biztel.ai",))
+    g.j.skills.gmail.poll()
+    _mailbox(g, [_msg("1", "Rahul <rahul@biztel.ai>", "Can you review?")], sent_to=("rahul@biztel.ai",))
+    type(g.j.skills.gmail)(g.j).poll()  # a fresh start reads the last poll from disk
+    assert said_by_itself(g) == ["Email from Rahul: Can you review?."]
+
+
 def test_mail_alerts_can_be_kept_to_people_you_write_to(g):
     g.j.settings["google"] = {"mail_alerts": "people"}
     _mailbox(g, [], sent_to=("rahul@biztel.ai",))
@@ -371,6 +379,17 @@ def test_chat_says_direct_messages_and_mentions_only(g):
            "spaces/team": [_said("Priya", "lunch anyone", 3)]})
     chat.poll()
     assert said_by_itself(g) == ["Rahul on Chat: are you free for a quick call?"]
+
+
+def test_chat_while_jarvis_was_off_is_one_line(g):
+    _chat(g, [_space("spaces/dm", "DIRECT_MESSAGE", "2026-11-11T09:00:00Z"),
+              _space("spaces/dm2", "DIRECT_MESSAGE", "2026-11-11T09:00:00Z")], {})
+    g.j.skills.google_chat.poll()
+    _chat(g, [_space("spaces/dm", "DIRECT_MESSAGE", "2026-11-11T10:00:01Z"),
+              _space("spaces/dm2", "DIRECT_MESSAGE", "2026-11-11T10:00:01Z")],
+          {"spaces/dm": [_said("Rahul", "hi", 2)], "spaces/dm2": [_said("Priya", "call?", 3)]})
+    type(g.j.skills.google_chat)(g.j).poll()
+    assert said_by_itself(g) == ["While I was off, 2 chat messages came in, from Priya and Rahul. Say read my chats."]
 
 
 def test_chat_stays_quiet_while_you_look_at_it(g):

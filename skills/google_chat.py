@@ -42,7 +42,8 @@ class GoogleChat(GoogleSkill):
 
     def __init__(self, jarvis):
         super().__init__(jarvis)
-        self._seen_at = None  # space name -> lastActiveTime at the last poll (None until the first one)
+        self._seen_at = self.last_seen()  # space name -> lastActiveTime at the last poll (None until the first one)
+        self._away = self._seen_at is not None  # the first poll after a start covers the time JARVIS was off
         self._me = None
         self.last_space = None  # (space name, who, when): what "reply saying..." answers
         self._names = {}  # direct message space -> the other person's name
@@ -338,10 +339,12 @@ class GoogleChat(GoogleSkill):
             return
         chat = self.api("chat", "v1")
         spaces = google.run(chat.spaces().list(pageSize=200)).get("spaces") or []
+        away, self._away = self._away, False
         if self._seen_at is None:
             self._seen_at = {s["name"]: s.get("lastActiveTime") for s in spaces}
+            self.keep_seen(self._seen_at)
             return
-        alerts = []
+        alerts, seen = [], dict(self._seen_at)
         for s in spaces:
             active = s.get("lastActiveTime")
             before = self._seen_at.get(s["name"])
@@ -355,6 +358,8 @@ class GoogleChat(GoogleSkill):
                 it = _item(x, s, self.me())
                 if it and (it["kind"] in TALKERS or it["mention"]):
                     alerts.append(it)
+        if self._seen_at != seen:
+            self.keep_seen(self._seen_at)
         if not alerts or _looking_at_chat():
             return
         last = alerts[-1]
@@ -369,6 +374,9 @@ class GoogleChat(GoogleSkill):
         else:
             line = "%d new chat messages, from %s." % (len(alerts), and_list(sorted({first_name(a["who"])
                                                                                      for a in alerts})))
+        if away and len(alerts) > 1:  # piled up while JARVIS was off: one line, the card has them all
+            line = "While I was off, %d chat messages came in, from %s. Say read my chats." % (
+                len(alerts), and_list(sorted({first_name(a["who"]) for a in alerts})))
         if self.j.skills.proactive.tell("chat", line, "Google Chat had a direct message or mention for you while it "
                                                       "wasn't the window in front. Say read my chats for all of "
                                                       "them, or reply saying, and your answer."):

@@ -44,7 +44,7 @@ class Gmail(GoogleSkill):
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.last = None  # (message, when): the email "this email" / "reply" means
-        self._seen = None  # unread ids already looked at by the watcher (None until its first look)
+        self._seen = self.last_seen()  # unread id -> when the watcher first saw it (None until its first look)
         self._writes_to = {}  # address -> True if you've ever sent them mail
         self._me = None
 
@@ -306,10 +306,15 @@ class Gmail(GoogleSkill):
             userId="me", q="((%s) OR from:%s) is:unread newer_than:1d" % (INBOX, DOCS),
             maxResults=10)).get("messages") or []]
         if self._seen is None:
-            self._seen = set(ids)
+            self._seen = {i: now for i in ids}
+            self.keep_seen(self._seen)
+        now = time.time()
             return
         new = [i for i in ids if i not in self._seen]
-        self._seen.update(ids)
+        if new:  # the search only finds mail from the last day, so older ids can go
+            self._seen = {i: t for i, t in self._seen.items() if t > now - 2 * 86400}
+            self._seen.update((i, now) for i in new)
+            self.keep_seen(self._seen)
         everyone = self.cfg("mail_alerts", True) is not False and self.cfg("mail_alerts", True) != "people"
         said = 0
         for i in reversed(new[:6]):  # oldest first
