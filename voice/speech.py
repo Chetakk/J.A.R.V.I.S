@@ -128,6 +128,9 @@ def speak_via_jarvis(text, why=None):
     speaker.close()
 
 
+EMOJI = re.compile('[\U0001F000-\U0001FAFF\u2460-\u24FF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]')
+
+
 class Speaker:
     def __init__(self, cfg):
         self.enabled = cfg.get("enabled", True)
@@ -212,7 +215,9 @@ class Speaker:
             if self.on_sink_lost:
                 self.on_sink_lost()  # private stays private: not out loud on the speaker
             return
-        line = " ".join(text.split())
+        line = " ".join(EMOJI.sub("", text).split())  # shown with them, never read out
+        if not re.search(r"\w", line):
+            return  # nothing but emojis
         for name, said in SPOKEN.items():
             line = re.sub(r"\b%s\b" % name, said, line)
         key = self._key()
