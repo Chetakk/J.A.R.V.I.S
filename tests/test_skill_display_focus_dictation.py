@@ -185,6 +185,20 @@ def test_pomodoro_is_25_minutes_then_a_break(jv):
     assert jv.j.inbox.get_nowait() == ("say", "Pomodoro done. Take a 5 minute break.")
 
 
+def test_meeting_mode_stays_on_while_the_call_runs_over(jv, monkeypatch):
+    fm = jv.j.skills.focus_mode
+    fm._start_focus(time.time() + 600)
+    fm.ending = "Stand-up is over, so I'm out of meeting mode."
+    monkeypatch.setattr(focus_mode.calls, "on_call", lambda: "Google Chrome is using the mic")
+    fm.focus_until = time.time() - 1  # the meeting's end on the calendar
+    fm._focus_over()
+    assert fm.focusing() and jv.j.inbox.empty()  # still on the call: quiet a little longer
+    monkeypatch.setattr(focus_mode.calls, "on_call", lambda: "")
+    fm.focus_until = time.time() - 1
+    fm._focus_over()
+    assert not fm.focusing() and jv.j.inbox.get_nowait() == ("say", "Stand-up is over, so I'm out of meeting mode.")
+
+
 def test_focus_carries_on_after_a_restart(jv):
     with open(focus_mode.FOCUS_FILE, "w") as f:
         json.dump({"until": time.time() + 600}, f)

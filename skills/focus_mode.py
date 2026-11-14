@@ -11,8 +11,10 @@ import time
 from skills.base import Skill
 from skills.helpers import HOME
 from skills.maths import NUM_WORDS, _number, _spoken
+from system import calls
 
 FOCUS_FILE = os.path.join(HOME, ".local/share/jarvis/focus.json")
+OVERTIME, MAX_OVERTIME = 120, 2 * 3600  # a meeting that runs over: checked every 2 min, for at most 2 hours
 POMODORO, BREAK = 25, 5  # minutes
 FOCUS = r"(?:my |the )?(?:focus(?: mode| session| time)?|do not disturb|pomodoro)"
 
@@ -35,6 +37,7 @@ class FocusMode(Skill):
         self.since = 0.0  # when the session started (its notifications are counted at the end)
         self.pomodoro = False
         self.ending = None  # what to say when it ends, for a session started for you (meeting mode)
+        self.overtime = 0.0  # when a meeting-mode session first ran past its end with the call still on
         self._restore_focus()
 
     def patterns(self):
@@ -129,6 +132,11 @@ class FocusMode(Skill):
 
     def _focus_over(self):
         if self.focus_until and time.time() >= self.focus_until - 1:
+            now = time.time()
+            if self.ending and calls.on_call() and now - (self.overtime or now) < MAX_OVERTIME:
+                self.overtime = self.overtime or now  # the meeting runs over: stay quiet while the call is on
+                self._start_focus(now + OVERTIME)
+                return
             ending = self.ending
             self._clear_focus()
             line = ending or ("Pomodoro done. Take a %d minute break." % BREAK if self.pomodoro else
@@ -164,7 +172,7 @@ class FocusMode(Skill):
                   "Focus mode off. Back to normal."])
 
     def _clear_focus(self):
-        self.focus_until, self.ending = 0.0, None
+        self.focus_until, self.ending, self.overtime = 0.0, None, 0.0
         if self._focus_timer:
             self._focus_timer.cancel()
             self._focus_timer = None
