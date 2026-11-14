@@ -101,6 +101,20 @@ def test_alerts_are_kept_after_a_restart_and_held_ones_listed(jv, p):
     assert jv.says("All your alerts are marked read.") and Proactive(jv.j).unread() == 0
 
 
+def test_held_heads_ups_are_still_said_after_a_restart(jv, p):
+    from skills.proactive import Proactive
+    jv.j.settings["quiet_hours"] = {"enabled": True, "start": 0, "end": 24, "hold": True}
+    assert not p.tell("mail", "Email from NVIDIA: Brev credits.", "New in your inbox.")
+    assert not p.tell("share", "Shubhajit shared Knowledge Base Schema, a sheet, with you.", "Shared on Drive.")
+    again = Proactive(jv.j)  # the PC shut down overnight
+    jv.j.settings["quiet_hours"] = {"enabled": False}
+    jv.j.memory.data["last_seen"] = time.time()  # you're back
+    again.watch()
+    assert said_later(jv) == ["During quiet hours: Email from NVIDIA: Brev credits. Shubhajit shared Knowledge Base "
+                              "Schema, a sheet, with you."]
+    assert Proactive(jv.j).held == []  # said once, not again on the next start
+
+
 def test_quiet_hours_by_voice(jv, p):
     jv.do("quiet hours from 10 pm to 6 am")
     assert jv.says("Quiet hours are now 10 pm to 6 am.")

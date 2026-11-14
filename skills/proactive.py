@@ -20,6 +20,7 @@ import uuid
 from collections import deque
 
 from core import persona
+from core.store import load_json, save_json
 from skills.base import Skill
 from skills.helpers import and_list, or_list
 from skills.slow_computer import _meminfo, top_processes
@@ -42,6 +43,7 @@ ALERTS = r"(?:alerts?|heads[- ]?ups?|warnings?)"  # not "notifications": "mute n
 POPUP = r"(?:alerts?|heads[- ]?ups?|warnings?|notifications?|messages?|pop-?ups?)"
 SOME = r"(?:the |my |your |these |those |this |that |all )?"
 ALERTS_FILE = os.path.expanduser("~/.local/share/jarvis/alerts.json")
+HELD_FILE = os.path.expanduser("~/.local/share/jarvis/held.json")  # held heads-ups survive a shutdown or crash
 KEEP, LISTED = 200, 12  # alerts kept on disk; rows on the "show my alerts" card
 GLYPH = {"mail": "✉", "calendar": "◷", "meeting": "◷", "share": "⇪", "chat": "#", "crash": "!", "job": "✓"}
 GENERIC = {"it", "this", "that", "this one", "that one", "the command", "this command", "my command", "the job",
@@ -61,7 +63,8 @@ class Proactive(Skill):
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.log = deque(_load(), maxlen=KEEP)  # {"id", "at", "kind", "line", "why", "card", "read"}, oldest first
-        self.held = []  # (when, line, why, during) events kept back during focus mode / quiet hours
+        self.held = [tuple(h) for h in load_json(HELD_FILE, [])]  # (when, line, why, during) kept back during focus
+        # mode / quiet hours, on disk too
         self._cpu = None  # (total, idle, when) from /proc/stat at the last check
         self._logs = None  # biztel run log -> (inode, bytes read); None until the first look
         self.waiting = []  # jobs.Job you asked to be told about ("tell me when this finishes")
@@ -152,12 +155,19 @@ class Proactive(Skill):
         if hold and self.holding():
             with self.lock:
                 self.held.append((time.time(), line, why, "focus" if self.j.skills.focusing() else "quiet"))
+                self._keep_held()
             print("[proactive] held: %s" % line)
             return False
         self.j.inbox.put(("ask" if ask else "say", line))  # ask: it ends in a question, listen for the answer
         if card:
             self.j.inbox.put(("ctl", {"show": card}))
         return True
+
+    def _keep_held(self):
+        try:
+            save_json(HELD_FILE, self.held)
+        except OSError as err:
+            print("[proactive] can't write %s: %r" % (HELD_FILE, err))
 
     def watch(self):
         """Every 10 s from jarvis.watch: crashed projects, then anything held once focus / quiet hours end."""
@@ -169,6 +179,7 @@ class Proactive(Skill):
             if any(h[3] == "quiet" for h in self.held) and time.time() - seen > 1800:
                 return  # quiet hours ended, but you're not back yet: wait for your first request
             held, self.held = self.held, []
+            self._keep_held()
         during = "while you were focusing" if all(h[3] == "focus" for h in held) else "during quiet hours"
         lines = [re.sub(r"^Heads up, (\w)", lambda m: m.group(1).upper(), h[1]) for h in held[-3:]]
         more = " And %d more on the card." % (len(held) - 3) if len(held) > 3 else ""
