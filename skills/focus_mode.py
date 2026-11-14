@@ -175,6 +175,7 @@ class FocusMode(Skill):
     def _clear_focus(self):
         if self.ending and self.j.ui:  # meeting mode: its card stays up until now
             self.j.ui.close_card("meeting")
+        calls.meeting_calls(False)  # your phone-call settings back, if a meeting changed them
         self.focus_until, self.ending, self.overtime, self.meeting = 0.0, None, 0.0, None
         if self._focus_timer:
             self._focus_timer.cancel()

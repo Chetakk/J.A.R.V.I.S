@@ -486,6 +486,10 @@ class Phone(Skill):
                 return
             if phone.get("call") == "ringing":
                 self.last = item
+                if self.j.skills.focus_mode.meeting and self.j.skills.focusing():  # seen, not said into the meeting
+                    self.j.inbox.put(("ctl", {"show": {
+                        "id": "phone-call", "title": "Phone call", "text": "{warn} **%s** is calling" % (
+                            item["title"] or "Someone"), "choices": [{"label": "Mute the call", "do": "mute the call"}]}}))
                 self.j.skills.proactive.tell("phone", "%s is calling." % (item["title"] or "Someone"),
                                              "Your phone is ringing. Say mute the call to silence it.")
             elif phone.get("reply") or item["app"] == "Messages":

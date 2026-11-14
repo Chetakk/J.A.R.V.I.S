@@ -20,6 +20,7 @@ from skills.google_common import (DAYS, GoogleSkill, cell, clock, day_word, find
                                   person, rfc, sender, short, when)
 from skills.helpers import and_list
 from skills.todos import tidy
+from system import calls
 from system import google_account as google
 
 WATCH_DAYS = 14  # invites, moves and cancellations are noticed this far ahead
@@ -408,6 +409,7 @@ class Calendar(GoogleSkill):
         if not fm.focusing():
             fm.since = time.time()
         fm.ending, fm.meeting = "%s is over, so I'm out of meeting mode." % e["title"], e
+        calls.meeting_calls(True)  # a phone call lowers the meeting instead of muting it
         fm._start_focus(max(e["end"], fm.focus_until))
         _pause_music()
         self.j.inbox.put(("ctl", {"show": self._meeting_card(e)}))
@@ -419,7 +421,7 @@ class Calendar(GoogleSkill):
         """The meeting-mode card: a time bar, Rejoin and I'm out; it stays up until meeting mode ends."""
         end = max(e["end"], self.j.skills.focus_mode.focus_until)  # later when the call runs over
         return {"id": "meeting", "title": "In %s" % e["title"], "stay": True,
-                "text": "```progress\nMeeting: %d/%d playing over\n```\n{check} Quiet until %s · music paused" % (
+                "text": "```progress\nMeeting: %d/%d playing\n```\n{check} Quiet until %s · music paused" % (
                     max(0, time.time() - e["start"]), end - e["start"], clock(end)),
                 "choices": [{"label": "Rejoin", "do": "join my meeting"}, {"label": "I'm out", "do": "stop focusing"}]}
 
