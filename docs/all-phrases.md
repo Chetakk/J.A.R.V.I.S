@@ -1,7 +1,7 @@
 # Everything you can say to JARVIS
 
 Generated 2026-11-13 from the skill patterns, config/commands.yaml, config/intents.yaml, tests/phrases.yaml and tools/variants.py.
-Each of the 48952 phrases was run through tools/dryrun.py and reached a feature, not Claude. Grouped by skill, then by what it runs.
+Each of the 49027 phrases was run through tools/dryrun.py and reached a feature, not Claude. Updated 2026-11-14 with 75 Google phrases (see [google-phrases-added.md](google-phrases-added.md)). Grouped by skill, then by what it runs.
 
 `<text>` is any words, `<n>` any number. `{slot}` is a value you fill in. Say "jarvis" anywhere in the sentence to wake it.
 
@@ -3289,10 +3289,11 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - reload your settings
 - reload yourself
 
-## calendar (1032)
+## calendar (1056)
 
 ### skill:connect
 
+- authorize google access
 - connect Google
 - connect gmail
 - connect gmail account
@@ -3443,6 +3444,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - do i have any events for on saturday
 - do i have any events for tonight
 - do i have any meeting now
+- do i have anything on tomorrow
 - do i have meeting for next sunday
 - do i have meeting now
 - do i have meetings now
@@ -3511,6 +3513,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - show me my calendar next week
 - show me the calendar on next saturday
 - show me the google calendar next wednesday
+- show me tomorrow's schedule
 - show my calendar for
 - show my calendar for today
 - show my calendar today
@@ -3525,6 +3528,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - the meeting this saturday
 - the meetings on sunday
 - the meetings on tuesday
+- what does my day look like tomorrow
 - what does my friday look like
 - what does my next saturday look like
 - what does my next sunday look like
@@ -3765,6 +3769,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - have i got some time free
 - have i got time free
 - have i got time free<text>
+- i need a free time tomorrow afternoon, when is it
 - is there any free slots
 - is there any free time<text>
 - is there any gap<text>
@@ -3778,6 +3783,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - is there some gaps<text>
 - is there some time free<text>
 - is there time free<text>
+- what's open on my calendar tomorrow afternoon
 - when am I free tomorrow afternoon
 - when am i available
 - when am i free
@@ -3935,6 +3941,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - open meeting link
 - open my call link
 - open my meet link
+- open my meeting and join it
 - open my zoom link
 - open the call link
 - open the meet link
@@ -3949,6 +3956,9 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 ### skill:meeting_mode
 
 - disable meeting mode
+- exit meeting mode
+- i'm done with my meeting, switch off meeting mode
+- i'm out of the call, stop meeting mode
 - meeting mode off
 - meeting mode on
 - start going quiet
@@ -4131,6 +4141,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - prepare me on the meeting
 - prepare me on the next call
 - prepare me on the next meeting
+- summarize what my next meeting is about
 - what do i need for my next meeting
 - what's my next call about
 - what's my next meeting about
@@ -4175,8 +4186,10 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - decline the last meeting invite from <text>
 - decline this latest meeting
 - decline this meeting
+- i can't make it, decline the invite
 - i can't make that meeting
 - i'll go to that meeting
+- i'm not going to that meeting, decline it
 - maybe invite
 - maybe last invitation
 - maybe latest invite
@@ -4214,8 +4227,10 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - reject this invite from <text>
 - reject this meeting invite
 - reject this new invite from <text>
+- reply no to the invitation
 - rsvp no
 - rsvp yes
+- rsvp yes to that invite
 - say no to the invite
 - say yes to the invite
 - tentatively accept invite from <text>
@@ -4236,7 +4251,9 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - tentatively accept the new invite from <text>
 - tentatively accept the new meeting from <text>
 - turn down the invite
+- turn down the meeting invite
 - yes accept the meeting invite
+- yes i'm attending, accept the invite
 
 ### skill:schedule
 
@@ -4355,6 +4372,16 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - set up quick catch-up
 - set up short one on one
 - set up sync
+
+### skill:show_meeting
+
+- bring up my meeting info
+- display my next meeting
+- i want to see the meeting on screen
+- let me see my meeting
+- open my meeting details
+- pull up my meeting
+- show the details of my meeting
 
 ## cards (2098)
 
@@ -12135,7 +12162,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - look at <text> with claude code
 - open <text> in claude properly
 
-## drive (370)
+## drive (390)
 
 ### skill:open_shared
 
@@ -12261,6 +12288,9 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - open what rahul shared
 - open whatever <text> just shared
 - open whatever <text> shared with me
+- open whatever was shared with me most recently
+- pull up the latest file shared with me
+- someone shared a file with me, open it
 
 ### skill:read_shared
 
@@ -12387,9 +12417,22 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - summarise thing that's been shared with me
 - summarise what <name> shared
 
+### skill:recent
+
+- i forgot what i was working on yesterday, what did i edit
+- list the files i modified yesterday
+- recent files in my drive
+- recent files on drive
+- show me my recent files in google drive
+- show me what i worked on yesterday
+- what did i touch in drive yesterday
+- what files did i change yesterday
+- which files did i edit yesterday
+
 ### skill:shared
 
 - any new shared files
+- anything new in google drive
 - anything shared with me today
 - did anybody share a doc with me
 - did anybody share a doc with me recently
@@ -12437,6 +12480,8 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - has someone share a file with me recently
 - has someone shared a doc with me today
 - has someone shared a file recently
+- is there anything new on my drive today
+- latest shared docs
 - list docs anyone shared with me today
 - list me the docs anyone shared with me this week
 - list me the sheets anyone shared with me
@@ -12458,6 +12503,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - me the docs people shared with me recently
 - me the files shared with me lately
 - me things shared with me today
+- new shared sheets
 - sheets anyone shared with me lately
 - show docs anyone shared with me this week
 - show files shared with me recently
@@ -12466,6 +12512,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - show me docs people shared with me lately
 - show me files anyone shared with me lately
 - show me files shared with me
+- show me recent shared files
 - show me the docs shared with me lately
 - show me the documents anyone shared with me today
 - show me things people shared with me lately
@@ -12476,6 +12523,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - show the things people shared with me
 - show the things people shared with me lately
 - the sheets shared with me this week
+- what did others share with me in drive
 - what did people share with me
 - what files have been shared with me
 - what has anyone shared with me today
@@ -12511,6 +12559,8 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - what's anyone shared with me recently
 - what's been shared with me
 - what's been shared with me this week
+- what's new in my drive
+- what's new on my drive
 - what's people shared with me this week
 - what's people shared with me today
 - what's shared with me this week
@@ -18488,7 +18538,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - kill this stuck window
 - kill this window
 
-## gmail (918)
+## gmail (934)
 
 ### skill:draft
 
@@ -19023,6 +19073,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - download its file from this e-mail on my desktop
 - download pictures from it mails to the desktop
 - download that picture from this emails to downloads
+- download the file attached to this message
 - download the invoice from it emails in desktop
 - download the invoice from it emails to desktop
 - download the invoice from that emails into my downloads
@@ -19129,6 +19180,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - save the document from this mail into documents folder
 - save the document from this mail to the desktop
 - save the file from it mails in the documents folder
+- save the file that came with this email
 - save the invoice from it email in downloads folder
 - save the invoice from it email to documents
 - save the picture from the mails into the documents
@@ -19136,9 +19188,11 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - save these photos from this e-mail on my downloads
 - save those pdf from that e-mail on my documents folder
 - save those pdf from that e-mail to the documents folder
+- store the file attached to this email
 
 ### skill:search
 
+- did i get an invoice last month, find the email
 - dig up all <text>e-mail
 - dig up me any <text>e-mails
 - find chat message about <text>
@@ -19302,6 +19356,14 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - who talked about <text> on chats
 - who talked about <text> on google chats
 
+### skill:summarise
+
+- brief me on my emails
+- give me the rundown of my email
+- i have too many emails, summarise them
+- tell me what's new in my inbox, short version
+- what's in my inbox
+
 ### skill:todo
 
 - add it email on task
@@ -19325,7 +19387,10 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - add the mails to my to do list
 - add the on a my tasks
 - add the on a my to do
+- add the open email to my tasks
 - add this email to my to-dos
+- i need to deal with this email later, add it to my to-dos
+- make a to-do from this email
 - make it e-mails on a my to-do
 - make it e-mails on a task
 - make it mail to a my to do
@@ -19373,6 +19438,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - put the to my to do list
 - put this email in todo
 - put this email in todos
+- put this email on my to-do list
 - put this emails as todo list
 - put this mail to a my tasks
 - put this mail to a todo
@@ -19404,6 +19470,9 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - remind me to respond to the mail
 - remind me to respond to the mails
 - remind me to respond to this
+- save this email as a task
+- this one needs action, put it on my to-dos
+- track this email in my to-do list
 - turn it emails in a my to-do
 - turn it emails on a my to do list
 - turn it emails on a my todo
@@ -19426,7 +19495,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - turn the mails on a to-do
 - turn the mails on a todo list
 
-## google_chat (491)
+## google_chat (506)
 
 ### skill:ask_note
 
@@ -19469,6 +19538,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - check new messages on chats
 - check unread chats messages
 - check unread messages in chat
+- did anyone message me in chat
 - did anyone message me on chat
 - do i have any chat
 - do i have any google chat
@@ -19625,14 +19695,29 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 
 ### skill:open_chats
 
+- bring up chat
+- go to chat
+- i want to go to chat
+- launch chat
 - open chats
 - open chats app
 - open google chats
 - open google chats app
 - open my chats
 - open my chats app
+- open the chat app
 - open the chats
 - open the chats app
+- start chat
+- take me to my chats
+
+### skill:recent
+
+- i want to see my chats
+- let me look at my chats
+- let me see my chats
+- pull up my chat list
+- show my chat conversations
 
 ### skill:send
 
@@ -19782,6 +19867,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 
 ### skill:spaces
 
+- display my chat spaces
 - give all the google chat spaces
 - give google chat species
 - give google chat species im in
@@ -19799,6 +19885,7 @@ Each of the 48952 phrases was run through tools/dryrun.py and reached a feature,
 - give my spaces i have
 - give the chat spaces
 - give the chat spaces on chat
+- let me see my chat spaces
 - list all spices im in
 - list google chat rooms i have
 - list me all google chat species
