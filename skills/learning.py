@@ -32,6 +32,8 @@ class Learning(Skill):
             (r"(?:tell me|show me|list) what you(?: have|'ve)? %s%s" % (LEARN, WHEN), self.whats_new),
             (r"(?:save|remember|keep|learn) (?:that|this|the last|my last) (?:command|one|wording)(?: for next time)?",
              self.save_last),
+            (r"(?:forget|unlearn|take back) (?:that )?(?P<said>.+?) (?:now |always )?means? (?P<phrase>.+)",
+             self.forget_wording),
             # A bare "remember that" after a command is about the command: as a note it saved just "that"
             (r"remember (?:that|this|it)(?: for next time)?", self.save_last),
         ]
@@ -52,6 +54,15 @@ class Learning(Skill):
         self.say(["Already saved. Next time, %s means %s." % (last["said"], last["means"]),
                   "Already got it: %s means %s." % (last["said"], last["means"]),
                   "I already have that one: %s means %s." % (last["said"], last["means"])])
+        return True
+
+    def forget_wording(self, m):
+        """"Forget open it now means open trash": the wording is taken back and never means that phrase again."""
+        from core import teaching  # (here: core.teaching reads the skills registry)
+        said = m.group("said").strip(" .!?").lower()
+        phrase = learned.load()["wordings"].get(said) or m.group("phrase").strip(" .!?")
+        teaching.unlearn(self.j, said, phrase, "you asked me to forget it")
+        self.say("Done. %s won't mean %s any more." % (said.capitalize(), phrase))
         return True
 
     def _save_claudes(self, said, phrase):

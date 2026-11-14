@@ -89,7 +89,7 @@ class Monitor:
         now = problems(self.jarvis)
         if announce:
             for key, line in now.items():
-                if self.known.get(key) != line:
+                if key not in self.known:  # once per change: a line that only varies (volume %) isn't new
                     self._tell(line, urgent=True, kind="health:" + key, aloud=line not in MUTED)
             for key in self.known.keys() - now.keys():
                 self._tell(FIXED.get(key, "That's fixed."), kind="health:" + key, aloud=self.known[key] not in MUTED)
@@ -99,6 +99,6 @@ class Monitor:
     def _tell(self, line, urgent=False, kind="health", aloud=True):
         print("[health] %s" % line)
         self.jarvis.skills.proactive.note(kind, line, WHY)
-        subprocess.Popen(["notify-send", "-u", "critical" if urgent else "normal", "JARVIS", line],
+        subprocess.Popen(["notify-send", "-u", "normal", "-t", "5000", "--hint=boolean:transient:true", "JARVIS", line],  # critical never times out
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.jarvis.inbox.put(("say" if aloud else "note", line))

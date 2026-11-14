@@ -199,7 +199,7 @@ commands:
 
   - name: open_text_editor
     say: [open text editor, open gedit, open notepad]
-    run: gedit
+    run: python3 ~/Projects/Notepad/notepad.py  # glass Notepad synced with ProducTVT notes (own repo)
     window: true
     reply: ["Opening the text editor", "A blank page, ready when you are", "A blank page. The hardest part is the first word", "Text editor's open. Over to you", "Text editor coming up", "Opening a fresh page"]
 
@@ -271,9 +271,9 @@ commands:
     reply: ["Full brightness", "Brightness at maximum", "Maximum brightness. Behold", "All the way up. Eyes ready?", "Brightness all the way up", "Full brightness. Sunglasses optional"]
 
   - name: brightness_high
-    say: [brightness high, brightness 80]
-    run: xrandr --output HDMI-0 --brightness 0.8
-    reply: "Brightness at 80 percent"
+    say: [brightness high]
+    run: xrandr --output HDMI-0 --brightness 1.0
+    reply: "Brightness at 100 percent"
 
   - name: brightness_medium
     say: [brightness medium, brightness half, half brightness, brightness 60]

@@ -136,3 +136,4 @@ class Todos:
         def q(cur):
             cur.execute('DELETE FROM "Todo" WHERE id = %s AND "ownerId" = %s', (tid, self._user(cur)))
         self._run(q)
+
