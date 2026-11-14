@@ -1961,6 +1961,8 @@
 "who shared files with me": skill:shared
 "what's new on my drive": skill:shared
 "anything new in google drive": skill:shared
+"show me recent shared files": skill:shared
+"recent files on drive": skill:recent
 "anything on my calendar tomorrow": skill:day
 "what was the last message from anish": skill:from_person
 "open chats": skill:open_chats

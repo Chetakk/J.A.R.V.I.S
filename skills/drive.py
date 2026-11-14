@@ -47,13 +47,14 @@ class Drive(GoogleSkill):
              r"google )?drive|search (?:my |the |google )?drive for (?:the |my )?(.+)", self.find),
             (r"what (?:did|have) i (?:edit|edited|work on|worked on|change|changed|open|opened)(?: in (?:google )?drive|"
              r" in (?:my )?docs)? ?(yesterday|today|this week|lately|recently)?|(?:show |list )?(?:me )?(?:my )?"
-             r"recent (?:google )?(?:docs|documents|drive files|files in drive|sheets)", self.recent),
+             r"recent (?:google )?(?:docs|documents|drive files|files (?:in|on|from) (?:my |the |google )?drive|sheets)", self.recent),
             (r"what (?:docs|documents|sheets|google docs) (?:did|have) i (?:open|opened|edit|edited|work on|worked on|"
              r"change|changed) ?(yesterday|today|this week|lately|recently)?(?: in (?:google )?drive)?", self.recent),
             (r"what(?:'s| has| have| is) (?:been |people |anyone |someone )?shared with me(?: lately| recently| today| this "
              r"week)?|(?:show |list )?(?:me )?(?:the )?(?:files|docs|documents|sheets|things) (?:people |anyone )?shared "
              r"with me(?: lately| recently| today| this week)?|(?:did|has) (?:anyone|anybody|someone) shared? (?:anything|"
-             r"a doc|a file|a sheet|a document)(?: with me)?(?: lately| recently| today)?|(?:what(?:'s| is)|(?:is there )?"
+             r"a doc|a file|a sheet|a document)(?: with me)?(?: lately| recently| today)?|(?:show |list )?(?:me )?(?:my |the )?"
+             r"(?:recent|recently|latest|new|newly) shared (?:files|docs|documents|sheets|things)|(?:what(?:'s| is)|(?:is there )?"
              r"anything) new (?:on|in) (?:my |the |google )?drive(?: lately| recently| today| this week)?", self.shared),
             (r"open (?:what|whatever|the (?:doc|file|sheet|document|thing|one)(?: that)?) (.+?) (?:just )?shared(?: with "
              r"me)?|open (?:the )?(?:last |latest |newest |most recent |new )?(?:doc |file |sheet |document |thing |one )?"
