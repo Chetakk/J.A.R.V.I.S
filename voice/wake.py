@@ -413,11 +413,14 @@ class WhisperWake:
                 command = ("%s %s" % (held, command)) if held else command
                 if not dictating and self._hold(text, command, follow):
                     continue
-                knock_soon()  # (or the Claude chime instead, if it goes to Claude)
+                if not dictating:  # dictation only ends with "stop dictation", so no end sound per phrase
+                    knock_soon()  # (or the Claude chime instead, if it goes to Claude)
                 print("[wake] command: %r" % command)
                 self.on_heard(text, "follow-up" if follow else "command")
                 self.last_request = time.time()
                 self.on_text(command, follow)
+                if dictating and not self.is_dictating():  # "stop dictation" just took effect
+                    beep("end")
                 continue
             named, command = split_name(text, self.names)
             if not named:

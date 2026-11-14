@@ -37,6 +37,8 @@ class Dictation(Skill):
     def start_dictation(self):
         main_box(desktop.active_window())
         self.dictating = True
+        from voice.listen import beep
+        beep()  # the same marimba family as the end sound: typing has started
         self.j.chat("jarvis", "Dictation on. Say stop dictation when you're done.")  # on the bar, not spoken: you start talking right away
 
     def type_in(self, m):
