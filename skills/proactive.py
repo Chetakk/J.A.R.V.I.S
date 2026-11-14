@@ -125,7 +125,8 @@ class Proactive(Skill):
     def note(self, kind, line, why, card=None):
         """Remember something JARVIS said by itself, why, and its card (it's said and shown elsewhere), on disk."""
         entry = {"id": uuid.uuid4().hex[:8], "at": time.time(), "kind": kind, "line": line, "why": why,
-                 "card": card, "read": False}
+                 "card": card, "read": kind in ("health:mic", "health:speaker") or
+                 (kind == "phone" and line.endswith(" is calling."))}  # seen live as a pop-up: never unread
         with self.lock:
             self.log.append(entry)
             self._save()
