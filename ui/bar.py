@@ -233,6 +233,8 @@ class Bar:
     """GTK-thread only; ui.UI wraps it with thread-safe calls."""
 
     hint, _hint_end = "", 0.0  # why it can't hear you now ("say Jarvis first"), for a few seconds
+    _face_now = _face_aim = 1.0  # the face: 1 shown, 0 gone to a card (class defaults: a bare Bar has them too)
+    _face_t = 0.0
     alerts = 0  # JARVIS's own unread alerts (ui/extras.py, via set_extras): a button on the full bar
 
     def __init__(self, ui, show_understood):
