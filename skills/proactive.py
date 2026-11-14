@@ -53,7 +53,7 @@ GENERIC = {"it", "this", "that", "this one", "that one", "the command", "this co
 class Proactive(Skill):
     group = "alerts"
     does = "Heads-ups JARVIS brings up by itself, why it did, muting them, quiet hours"
-    phrases = ("why did you say that (why a heads-up came up)", "show my alerts", "mark my alerts read", "don't warn me about that again",
+    phrases = ("why did you say that (why a heads-up came up)", "show my alerts", "mark my alerts read", "clear my alerts", "don't warn me about that again",
                "turn the cpu alerts back on", "tell me when this finishes (a command in a terminal)", "quiet hours from 10 pm to 6 am",
                "turn off quiet hours", "what are my quiet hours")
     gives = "speech, a card of your alerts (click one to see its card again)"
@@ -84,6 +84,8 @@ class Proactive(Skill):
             (r"show alert ([0-9a-f]{8})", self.open_alert),  # a row of the alerts card (its "items")
             (r"mark (?:all )?(?:my |the )?(?:%s|notifications) (?:as )?read|mark (?:them|all|everything) (?:as )?read"
              % ALERTS, lambda m: self.mark_read()),
+            (r"(?:clear|empty|delete|remove|wipe)(?: out)? (?:all )?(?:my |the )?%s(?: list)?" % ALERTS,
+             lambda m: self.clear()),
             (r"(?:don'?t|do not|never) (?:warn|tell|remind|bother) me about (%s) (?:again|any ?more)|"
              r"stop (?:warning|telling|reminding|bothering) me about (%s)|(?:stop|mute|turn off|disable|silence|"
              r"no more) %s(cpu|processor|memory|ram|temperature|temp|heat|overheating|disk(?: space)?|storage|"
@@ -245,6 +247,12 @@ class Proactive(Skill):
                 e["read"] = True
             self._save()
         self.say("All your alerts are marked read.")
+
+    def clear(self):
+        with self.lock:
+            self.log.clear()
+            self._save()
+        self.say("Your alerts are cleared.")
 
     # --- muting kinds of heads-up ---
 
