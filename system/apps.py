@@ -19,7 +19,8 @@ ALIASES = {"visual studio code": ["vs code", "vscode", "code", "code editor", "v
            "libreoffice writer": ["writer", "word"], "libreoffice calc": ["calc", "excel"],
            "libreoffice impress": ["impress", "powerpoint"], "files": ["nautilus", "file manager"],
            "document viewer": ["pdf viewer", "evince"], "image viewer": ["photo viewer"],
-           "text editor": ["gedit"], "terminal": ["gnome terminal"]}
+           "text editor": ["gedit"], "terminal": ["gnome terminal"],
+           "firefox": ["firebox", "fire fox", "fire box", "firefix"]}  # as speech recognition hears it
 # Apps that are really a browser window (web apps): closing their process would close the whole browser.
 BROWSERS = {"google-chrome", "google-chrome-stable", "chrome", "chromium", "chromium-browser", "firefox"}
 # Launcher -> the process it really runs as, where they differ.
@@ -27,7 +28,7 @@ PROCESS = {"libreoffice": "soffice.bin", "remmina-file-wrapper": "remmina", "goo
            "google-chrome": "chrome", "nautilus": "nautilus", "gnome-control-center": "gnome-control-c"}
 OPEN = re.compile(r"^(?:open|launch|start|run|play|bring up|fire up|show me) (?:up )?(?:the |my )?(.+?)(?: app)?$",
                   re.IGNORECASE)
-CLOSE = re.compile(r"^(?:close|quit|exit|kill|shut(?: down)?) (?:the |my )?(.+?)(?: app)?(?: down)?$", re.IGNORECASE)
+CLOSE = re.compile(r"^(?:there(?:'s| is) )?(?:close|quit|exit|kill|shut(?: down)?) (?:the |my )?(.+?)(?: app)?(?: down)?$", re.IGNORECASE)
 
 
 def _read(path):

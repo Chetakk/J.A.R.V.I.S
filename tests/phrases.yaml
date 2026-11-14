@@ -305,6 +305,8 @@
 "open the webcam": "app:open Cheese"
 "open discord": "app:open Discord"
 "close firefox": "app:close Firefox"
+"close firebox": "app:close Firefox"
+"there is close firebox": "app:close Firefox"  # a stray "there is" heard before the command
 "close the music player": "app:close Rhythmbox"
 "quit the calculator": "app:close Calculator"
 "turn the volume up": command:volume_up
