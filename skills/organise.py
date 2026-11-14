@@ -289,7 +289,9 @@ class Organise(Skill):
         m = re.fullmatch(FOLDER_RE, said, re.IGNORECASE)
         if m:
             return files._folder(m.group(1), m.group(2))
-        p = self.j.projects.find(said, strict=True)
+        # A project by part of its name ("plant intelligence": ~/Projects/Plant Intelligence System) before
+        # walking your whole home folder for one called exactly that
+        p = self.j.projects.find(said, strict=True) or self.j.projects.find(said)
         if p:
             return p.path
         found = find_dirs(said)
