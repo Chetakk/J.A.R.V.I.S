@@ -36,7 +36,7 @@ from system import apps, audio, calls, desktop, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, Stopped, open_in_vscode
 from core.executor import Executor
-from skills import Skills, registry
+from skills import Skills, files, registry
 from skills.media import something_playing
 from voice.listen import PushToTalk, claude_sound
 from system.projects import Projects
@@ -237,6 +237,10 @@ def command_phrases(registry):
 
 
 class Jarvis:
+    _depth = 0  # handle() inside handle() (a reworded phrase, a card's button): still the same request
+    asked_at = 0.0  # when the request being handled began
+    shown = (None, 0.0)  # (card, when): the last card shown in a later request than the file JARVIS last touched
+
     def __init__(self, inbox):
         self.inbox = inbox  # queue of ("text" | "voice" | "follow" | "eof" | "quit", str) from keyboard, mic and UI
         self.ui = None
@@ -485,6 +489,15 @@ class Jarvis:
     def handle(self, raw, follow_up=False):
         """follow_up: said without the name after an answer; then only a clear request goes to Claude.
         Sets self.ignored when it was treated as chatter."""
+        self._depth += 1
+        if self._depth == 1:
+            self.asked_at = time.time()
+        try:
+            return self._handle(raw, follow_up)
+        finally:
+            self._depth -= 1
+
+    def _handle(self, raw, follow_up):
         self.ignored = False
         raw = raw.strip()
         if not raw:
@@ -1198,6 +1211,9 @@ class Jarvis:
             return
         if not (card.get("text") or card.get("image") or card.get("choices") or card.get("rail") or card.get("columns")):
             return
+        # A card about the file touched in this same request isn't a new "it"; one that pops up on its own is
+        if not self._depth or files.last["at"] < self.asked_at:
+            self.shown = (card, time.time())
         if self.ui:
             if card.get("refresh"):
                 self.cards.live(card)  # shows it, then keeps it up to date

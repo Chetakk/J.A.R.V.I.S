@@ -12,6 +12,7 @@ import subprocess
 import threading
 import time
 
+from skills import files
 from skills.base import Skill
 from skills.helpers import NTH, ORDINALS
 from system.browser import open_command
@@ -24,6 +25,8 @@ NUMBER_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "fiv
                 "eight": 8, "nine": 9, "ten": 10, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
                 "forty-five": 45, "sixty": 60, "ninety": 90, "half an": 0.5, "a couple of": 2, "a few": 3}
 SOUNDS_LIKE = {"to": 2, "too": 2, "for": 4}  # Whisper's "number to": only after "number" / "option"
+OPEN_IT = re.compile(r"(?:(?:can|could|would) you |please )?(?:open|show) (?:it|that|this)(?: one)?(?: up)?"
+                     r"(?: (?:for|to) me)?(?: please)?", re.IGNORECASE)
 LEVEL_SECONDS = 3  # the volume / brightness ring stays this long after the last change
 UNITS = {"second": 1, "sec": 1, "minute": 60, "min": 60, "hour": 3600}
 _AMOUNT = r"(\d+(?:\.\d+)?|half an|a couple of|a few|[a-z]+(?:-[a-z]+)?)\s*(seconds?|secs?|minutes?|mins?|hours?)"
@@ -112,12 +115,20 @@ class Cards(Skill):
                     return card, label, phrase
         return None
 
+    def _file_is_it(self, said):
+        """"Open it" when JARVIS made, found or opened a file or folder after these cards came up: that's "it"."""
+        return bool(OPEN_IT.fullmatch(said.strip(" .!?"))) and bool(files.recent_file()) and not files.card_first(self.j)
+
     def button(self, m):
+        if self._file_is_it(m.group(0)):
+            return False
         hit = self._button_for(m.group(0))
         return self._press(*hit) if hit else False
 
     def open_it(self, m):
         """"Open it" with no button saying so: the card's Open (else Read, Play, Join) button, else its first link."""
+        if self._file_is_it(m.group(0)):
+            return False
         for card in self._open_cards():
             for verb in ("open", "read", "play", "join"):
                 button = next(((l, p) for l, p in choices(card)[:BUTTONS] if _words(l).startswith(verb)), None)

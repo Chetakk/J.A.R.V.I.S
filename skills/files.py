@@ -49,8 +49,11 @@ FOLDER_RE = (r"(?:(?:my |the )?(documents|downloads|desktop|pictures|videos|musi
              r"((?:~|/)\S+))")
 # "what's in the view menu" / "my clipboard history": asked the same way, but not a folder (other skills').
 NOT_A_FOLDER = re.compile(r"\b(?:menu|history|clipboard|bookmarks|memory|notes|fridge)$", re.IGNORECASE)
-THIS = (r"(?:this|that|the|it|this one|that one)(?: (?:file|document|doc|pdf|spreadsheet|sheet|presentation|slides|"
-        r"deck|picture|image|photo|one))?")
+# "it", "that pdf", "that folder", "the new folder", "the folder I just made": the thing just talked about
+THIS = (r"(?:(?:this|that|the|it)(?: one)?(?: new| same)?(?: (?:file|document|doc|pdf|spreadsheet|sheet|presentation|"
+        r"slides|deck|picture|image|photo|one|folder|directory))?|(?:the |that )?(?:new|newest|same) "
+        r"(?:file|folder|directory|one)|(?:the |that )?(?:file|folder|directory|one|thing) (?:i|you|we) (?:just )?"
+        r"(?:made|created|opened|found|saved|downloaded|renamed|moved))")
 PLACES = dict({f.lower(): os.path.join(HOME, f) for f in FOLDERS}, home=HOME, projects=PROJECTS)
 FRESH = 10 * 60  # "it" is the file JARVIS last found or opened for this long
 last = {"paths": [], "at": 0.0}  # files JARVIS last found, for "summarise it", "rename it"
@@ -106,6 +109,9 @@ class Files(Skill):
             (r"copy (?:the |my )?(?:latest|newest|last|most recent) (?:file|download)(?:ed file)?"
              r"(?: in (?:my )?(downloads|documents|desktop|pictures|videos))?( and paste it(?: in)?(?: here)?)?",
              self.copy_latest),
+            # "open it up", "go into it", "show it to me", "take me to the folder I just made"
+            (r"(?:open|show|bring up|go (?:in)?to|take me (?:in)?to|get into)(?: me)? (?:up )?(%s)(?: up)?"
+             r"(?: (?:for|to) me)?(?: please| again)?" % THIS, self.open_named),
             # "open resume.pdf", "open my resume", "open it", "open ai supervisor" (just listed); not "... in vs code"
             (r"(?:open|show me|bring up) (?:up )?(?!.* (?:in|with|using|on|for) \S)(.+)", self.open_named),
             (r"(?:which|what) folder (?:is|are|has|holds?) (.+?)(?: in)?|where (?:is|are|'s) (.+?) (?:kept|saved|stored)",
@@ -127,6 +133,9 @@ class Files(Skill):
         paths, _ = which(self.j, said)
         if paths:
             return paths[0]
+        if re.fullmatch(THIS, said, re.IGNORECASE) and re.search(r"\b(?:new|newest|just)\b", said, re.IGNORECASE):
+            self.say("I haven't made or opened anything in the last ten minutes.")
+            return None  # (not a guess: "open the new folder" was once taken as "make a folder")
         if re.fullmatch(THIS, re.sub(r"^(?:the|my) ", "", said, flags=re.IGNORECASE), re.IGNORECASE) \
                 or not re.match(r"[~/]|.+\.\w{2,5}$", said):
             return False  # "open it" with nothing just found, "open the presentation": maybe another skill's
@@ -622,6 +631,17 @@ def size_words(n):
         n /= 1024.0
 
 
+def card_first(j):
+    """True when "it" is the card on screen rather than the file: it came up in a later request than the file was last
+    touched (j.shown), it's still up, and it has something on it to open or press."""
+    from ui.card import choices, links
+    card, at = getattr(j, "shown", (None, 0.0))
+    if not card or at < last["at"] or not getattr(j, "ui", None):
+        return False
+    up = any(c is card or (card.get("id") and c.get("id") == card.get("id")) for c in j.ui.open_cards())
+    return up and bool(choices(card) or links(card))
+
+
 def recent_file():
     """The file JARVIS last found or opened, while that's fresh."""
     if time.time() - last["at"] < FRESH:
@@ -633,15 +653,25 @@ def which(j, said):
     """The files `said` means: "this file" / "it" (the file open in front, or the one just found), a path,
     "my latest download", "the pdf I downloaded today", or a name ("resume.pdf", "my resume").
     Returns (paths, how): how is "this", "path", "download" or "name"; ([], None) when there's no such file."""
-    said = re.sub(r"^(?:the|my) ", "", said.strip().strip("\"'"), flags=re.IGNORECASE)
+    said = said.strip().strip("\"'")
+    if not re.fullmatch(THIS, said, re.IGNORECASE):
+        said = re.sub(r"^(?:the|my) ", "", said, flags=re.IGNORECASE)
     if re.fullmatch(THIS, said, re.IGNORECASE):
-        # "it" / "that" is the file just talked about; "this" the one you're looking at.
+        # "it" / "that" is the thing just talked about; "this" the one you're looking at.
         kind = KIND_WORDS.get(said.split()[-1].lower())  # "this pdf" isn't the .md file open in front
-        fits = lambda paths: [p for p in paths if not kind or p.lower().endswith(KINDS[kind])]  # noqa: E731
-        if said.lower().startswith(("it", "that")):
-            found = fits(recent_file()) or fits(front_files(j))
+        folder = re.search(r"\b(?:folder|directory)\b", said, re.IGNORECASE)  # "that folder": a file's own folder
+
+        def fits(paths):
+            if folder:
+                return list(dict.fromkeys(p if os.path.isdir(p) else os.path.dirname(p) for p in paths))
+            return [p for p in paths if not kind or p.lower().endswith(KINDS[kind])]
+        # A bare "it" after a card came up (an email, a link) is that card's (skills/cards.py), not an older file
+        bare = re.fullmatch(r"(?:it|that|this)(?: one)?", said, re.IGNORECASE)
+        recent = [] if bare and card_first(j) else recent_file()
+        if said.lower().startswith("this"):
+            found = fits(front_files(j)) or fits(recent)
         else:
-            found = fits(front_files(j)) or fits(recent_file())
+            found = fits(recent) or fits(front_files(j))
         return found, "this" if found else None
     if said.startswith(("~", "/")):
         path = os.path.expanduser(said)
@@ -667,14 +697,17 @@ def place(j, said, folder=False):
     """The folder or file `said` names: "the projects folder", "downloads", "~/src", "jarvis" (a project), "temp"
     (a folder in your home), "resume.pdf", "it". folder=True: only a folder. None when it's neither (a website,
     an app, a folder that isn't there)."""
-    said = re.sub(r"^(?:the|my) ", "", said.strip().strip("\"'"), flags=re.IGNORECASE)
+    said = said.strip().strip("\"'")
+    if re.fullmatch(THIS, said, re.IGNORECASE) and (folder or re.search(r"\b(?:folder|directory)\b", said, re.I)):
+        # "this folder" is the one on your screen; "that folder", "the new folder" the one just made or opened
+        paths = [] if said.lower().startswith("this") else [p for p in which(j, said)[0] if os.path.isdir(p)]
+        return paths[0] if paths else front_folder(j)
+    said = re.sub(r"^(?:the|my) ", "", said, flags=re.IGNORECASE)
     m = re.fullmatch(r"(.+?) (?:folder|directory)", said, re.IGNORECASE)
     if m:
         said, folder = m.group(1), True
     if said.lower() in PLACES:
         return PLACES[said.lower()]
-    if re.fullmatch(r"(?:this|that)(?: one)?", said, re.IGNORECASE) and folder:
-        return front_folder(j)  # "open vs code in this folder": the one on your screen
     if said.lower() == "project":  # "the project folder": the one in the window you're in, else ~/Projects
         p = j.projects.focused()
         return p.path if p else PROJECTS

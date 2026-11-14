@@ -170,3 +170,67 @@ def test_create_then_open_it_in_vs_code(jv, launched):
     jv.do("open ai supervisor in vs code")
     assert launched == [("Visual Studio Code", [os.path.join(conftest.HOME, "Projects/ai process engineer")]),
                         ("Visual Studio Code", [os.path.join(conftest.HOME, "Projects/AI-Supervisor")])]
+
+
+# --- "open it" is the newest thing, whichever skill left it ---
+
+WAYS = ("open it", "open that", "open it up", "can you open it", "open that folder", "open the folder",
+        "open the new folder", "open the folder i just made", "go into it", "show it to me")
+
+
+@pytest.mark.parametrize("said", WAYS)
+def test_open_what_was_just_made(jv, said):
+    jv.do("open the projects folder")
+    jv.do("create zeta")
+    jv.clear()
+    jv.do(said)
+    assert jv.shell.ran(r"^xdg-open .*Projects/zeta'?$")
+
+
+def test_that_folder_in_vs_code_is_the_one_just_made(jv):
+    jv.do("open the projects folder")
+    jv.do("create zeta")
+    jv.clear()
+    jv.do("open that folder in vs code")
+    assert jv.shell.ran(r"^code .*Projects/zeta$")
+
+
+def test_the_new_folder_with_nothing_made_says_so_and_makes_nothing(jv):
+    jv.do("open the new folder", "yes")
+    assert jv.says("haven't made or opened anything")
+    assert not os.path.exists(os.path.join(conftest.HOME, "Documents", "yes"))
+    assert not jv.shell.ran(r"^(?:xdg-open|nautilus)")
+
+
+def test_opening_is_never_guessed_as_making():
+    from core.intent import wrong_kind
+    assert wrong_kind("open the new folder", "make a folder")
+    assert not wrong_kind("make a new tab", "open a new tab")
+
+
+def test_a_folder_made_after_a_card_beats_the_card(jv):
+    jv.j.show({"title": "Mail", "text": "x", "choices": [{"label": "Open it", "do": "open file ~/Downloads/a.pdf"}]})
+    jv.do("make a folder called invoices in documents")
+    jv.clear()
+    jv.do("open it")
+    assert jv.shell.ran(r"^xdg-open .*Documents/invoices$")
+
+
+def test_a_card_shown_after_the_folder_is_it(jv):
+    jv.do("make a folder called invoices in documents")
+    jv.j.show(  # later, on its own (a new email), a card with a link comes up
+        {"title": "Report", "text": "[Q3 report](https://example.com/q3)"})
+    jv.clear()
+    jv.do("open it")
+    assert jv.shell.ran(r"example\.com/q3")
+    assert not jv.shell.ran(r"invoices")
+
+
+def test_a_project_just_opened_is_it(jv):
+    path = os.path.join(conftest.HOME, "Projects", "avtec-hs")
+    os.makedirs(os.path.join(path, ".git"))
+    jv.j.projects.refresh()
+    jv.do("open the avtec hs project")
+    jv.clear()
+    jv.do("open it in a terminal")
+    assert jv.shell.ran(r"^gnome-terminal --working-directory=.*avtec-hs$")

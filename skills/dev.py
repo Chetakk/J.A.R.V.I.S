@@ -15,7 +15,7 @@ from claude.bridge import open_in_vscode
 from core import verify
 from skills.base import Skill
 from skills.daytracker import HUB
-from skills.files import THIS, WHEN, PLACES, _since, front_folder, place, spoken_place
+from skills.files import THIS, WHEN, PLACES, _since, front_folder, place, remember, spoken_place
 from skills.helpers import PROJECTS
 from system import desktop
 
@@ -156,14 +156,18 @@ class Dev(Skill):
         path = self._project_path(name) if m else os.path.join(PROJECTS, "J.A.R.V.I.S")
         if not path:
             return False
+        remember([path])  # "open it in a terminal" next
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s." % os.path.basename(path), window=True)
         self.j.last_app = "code"  # "close this" right after
 
     def open_front_folder(self, m):
-        path = front_folder(self.j)
+        # "that folder" / "the folder": the one just made or opened (else on your screen); "this folder": on screen
+        that = re.fullmatch(r"open (?:up )?(?:that|the) (?:folder|directory) in vs ?code", m.group(0), re.IGNORECASE)
+        path = place(self.j, "that folder") if that else front_folder(self.j)
         if not path:
             self.say("I don't see a folder on your screen. Open it in Files, or say its name.")
             return
+        remember([path])
         self.j.executor.run("code %s" % shlex.quote(path), reply="Opening %s in VS Code." % os.path.basename(path),
                             window=True)
         self.j.last_app = "code"
@@ -173,6 +177,7 @@ class Dev(Skill):
         if not plan:
             return False  # "open youtube in chrome" is the browser's, "open it in a new window" isn't an app
         path, kind, app = plan
+        remember([path])  # still "it" for the next request ("now open it in a terminal")
         folder = path if os.path.isdir(path) else os.path.dirname(path)
         if kind == "claude" and _HERE.search(m.group(1)):  # "open claude in this folder": VS Code in it, with Claude
             self.j.executor.run("code %s" % shlex.quote(folder), reply="Opening Claude in VS Code in %s."
@@ -209,6 +214,7 @@ class Dev(Skill):
             self.say("I don't see a project you worked on %s." % when if when else "I don't know your projects yet.")
             return
         self.projects.current = p
+        remember([p.path])
         how = " You spent about %d minutes on it %s." % (minutes, when) if minutes >= 2 and when else ""
         self.j.executor.run("code %s" % shlex.quote(p.path), reply="Opening %s.%s" % (p.spoken, how), window=True)
         self.j.last_app = "code"

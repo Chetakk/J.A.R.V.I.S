@@ -18,6 +18,7 @@ from email.message import EmailMessage
 
 from claude.bridge import ClaudeError
 from skills.google_common import GoogleSkill, cell, day_word, clock, first_name, header, sender, short
+from skills.files import remember
 from skills.helpers import HOME, and_list
 from system import fileops
 from system import google_account as google
@@ -233,6 +234,7 @@ class Gmail(GoogleSkill):
             with open(path, "wb") as f:
                 f.write(base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)))
             saved.append(path)
+        remember(saved)  # "open it", "move it to documents"
         where = os.path.basename(folder)
         shown = [x.replace(HOME, "~") for x in saved]
         self.j.show({"id": "gmail-saved", "title": "Saved to %s" % where, "text": "\n".join("- %s" % x for x in shown),

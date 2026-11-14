@@ -67,8 +67,13 @@ def _norm(text):
 
 
 def wrong_kind(said, phrase):
-    """True if `said` asks to do something and `phrase` only asks a question ("add a todo" / "what's on my todo list")."""
-    return bool(DOING.match(said)) and bool(ASKING.match(phrase))
+    """True if `said` asks to do something and `phrase` only asks a question ("add a todo" / "what's on my todo list"),
+    or asks to open something and `phrase` makes one ("open the new folder" / "make a folder")."""
+    return bool(DOING.match(said)) and bool(ASKING.match(phrase)) or bool(OPENING.match(said) and MAKING.match(phrase))
+
+
+OPENING = re.compile(r"^(?:(?:please|can you|could you|would you) )?(?:open|show|go (?:in)?to|bring up)\b", re.I)
+MAKING = re.compile(r"^(?:make|create)\b", re.I)
 
 
 # A loose match never turns the computer off: "please shut off" is "be quiet", not "shut down".
