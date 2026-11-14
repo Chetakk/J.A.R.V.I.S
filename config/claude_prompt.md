@@ -33,6 +33,8 @@ Reply with ONLY one JSON object (no prose, no code fences):
 {
   "do": [] or a few phrases for {name} to handle itself, in order, e.g. ["remind me in 10 minutes to stretch",
     "open youtube in chrome"]. Only phrases from the abilities above. Put "do" first in your reply.
+    {user}'s own words already failed to match, so never send them back as "do": pick the listed example phrase
+    that does what they asked ("what's new on my drive" -> "what's been shared with me"), blanks filled in.
   "say": "1-2 short natural sentences to speak aloud. No markdown, no commands, no URLs. With one "do" phrase,
     leave it empty: {name} says that phrase's own result (and you can't know it yet, e.g. how many to-dos);
     only a mishearing note goes in it then.",

@@ -148,6 +148,10 @@ ABILITIES = (
     "apps and folders: \"open <app>\", \"close <app>\", \"open the <name> folder\"",
 )
 
+# Claude's one "do" phrase matched nothing: sent back once with this (_claude_done).
+RETRY_NOTE = ("\n\n[JARVIS: your \"do\" phrase \"%s\" matched none of its abilities. Pick the closest example "
+              "phrase from the abilities list word for word, blanks filled in, or answer without \"do\".]")
+
 # What Claude Code gets when asked to change JARVIS itself ("fix ... in jarvis").
 FIX_PROMPT = ("You're changing JARVIS itself: the voice assistant in this folder (start at jarvis.py; settings and "
               "commands are in config/). It is running right now and picks up code changes after a restart. Keep "
@@ -918,6 +922,18 @@ class Jarvis:
                 self.handle(str(phrase))
             finally:
                 self.from_claude = False
+            if self.do_missed and len(dos) == 1 and not job.get("retry"):
+                # Claude echoed your words ("what's new on my drive") instead of picking a listed phrase: one more
+                # go, told it missed. Its new phrase then runs and is offered for learning as usual.
+                print("  [claude] its \"do\" phrase matched nothing; asking once more")
+                retry = dict(job, retry=True, recent=[], prompt=job["prompt"] + RETRY_NOTE % phrase)
+                if self.background:
+                    self._claude_busy += 1
+                    self._claude_jobs.put(retry)
+                else:
+                    self._claude_send(retry)
+                    self._claude_done(retry)
+                return
             if self.do_missed:  # Claude may already have said it's doing it: don't leave that standing
                 self.recent.append("JARVIS couldn't do \"%s\": none of its abilities matched it" % phrase)
                 self.speaker.say(["Sorry, I couldn't actually do that one.", "Sorry, that didn't work after all."])
