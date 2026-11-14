@@ -40,7 +40,7 @@ class Calendar(GoogleSkill):
                "am I free at 3", "when am I free tomorrow afternoon", "join my meeting",
                "prep me for my next meeting (the docs, last email and chat with the people in it)",
                "schedule a meeting with <name> tomorrow at 3 (about <topic>, for 30 minutes)",
-               "accept the invite", "decline the invite", "turn off meeting mode", "connect Google (sign in)")
+               "accept the invite", "decline the invite", "turn off meeting mode", "show my meeting (its card)", "connect Google (sign in)")
     gives = "speech and a card; heads-ups by themselves; joining opens the call in the browser"
     permission = "confirm"
     asks = "before scheduling a meeting or answering an invite (both email the other people)"
@@ -53,6 +53,7 @@ class Calendar(GoogleSkill):
         self._since = seen.get("at", 0.0)  # when watching began: older events aren't new invites
         self._warned = set()  # (id, start) of meetings already given their heads-up
         self._in_call = None  # the id of the meeting meeting mode is on for
+        self._meeting = None  # that meeting's event, for "show my meeting"
         self.last_invite = None  # (event, when said): what "accept the invite" means
         self._signing_in = False
 
@@ -71,6 +72,8 @@ class Calendar(GoogleSkill):
              r"open (?:the |my )?(?:meeting|call|meet|zoom) link|join the (?:google )?meet", self.join),
             (r"(?:turn|switch) (on|off) meeting mode|meeting mode (on|off)|(stop|start) (?:going quiet|meeting mode)"
              r"(?: (?:in|during) (?:meetings|calls))?", self.meeting_mode),
+            (r"(?:show|open|bring up|bring back)(?: me)? (?:my |the )?(?:current )?meeting(?: card| mode)?(?: card)?(?: again)?|"
+             r"where(?:'s| is) (?:my |the )?meeting card", self.show_meeting),
             (r"(?:prep|prepare|brief) me (?:for|on) (?:my |the )?(?:next )?(?:meeting|call)|what'?s my next "
              r"(?:meeting|call) about", self.prep),
             (r"when(?:'s| is) my next %s|what(?:'s| is) (?:my )?next (?:%s|on my calendar)|(?:do i have|is there|have "
@@ -395,19 +398,30 @@ class Calendar(GoogleSkill):
         if not self.j.memory.pref("meeting_mode", self.cfg("meeting_mode", True)) or self._in_call == e["id"] or \
                 fm.focusing():
             return
-        self._in_call = e["id"]
+        self._in_call, self._meeting = e["id"], e
         fm.ending = "%s is over, so I'm out of meeting mode." % e["title"]
         fm.since = time.time()
         fm._start_focus(e["end"])
         _pause_music()
-        self.j.inbox.put(("ctl", {"show": {
-            "id": "meeting", "title": "In %s" % e["title"], "text": "```progress\nMeeting: %d/%d playing\n```\n"
-            "{check} Quiet until %s · music paused" % (max(0, time.time() - e["start"]), e["end"] - e["start"],
-                                                        clock(e["end"])),
-            "choices": [{"label": "Rejoin", "do": "join my meeting"}, {"label": "I'm out", "do": "stop focusing"}]}}))
+        self.j.inbox.put(("ctl", {"show": self._meeting_card(e)}))
         self.j.skills.proactive.note("meeting", "Meeting mode for %s." % e["title"],
                                      "%s is on until %s, so I hold heads-ups and banners and paused the music. Say "
                                      "turn off meeting mode to stop that." % (e["title"], clock(e["end"])))
+
+    def _meeting_card(self, e):
+        """The meeting-mode card: a time bar, Rejoin and I'm out; it stays up until meeting mode ends."""
+        end = max(e["end"], self.j.skills.focus_mode.focus_until)  # later when the call runs over
+        return {"id": "meeting", "title": "In %s" % e["title"], "stay": True,
+                "text": "```progress\nMeeting: %d/%d playing\n```\n{check} Quiet until %s · music paused" % (
+                    max(0, time.time() - e["start"]), end - e["start"], clock(end)),
+                "choices": [{"label": "Rejoin", "do": "join my meeting"}, {"label": "I'm out", "do": "stop focusing"}]}
+
+    def show_meeting(self, m):
+        if not (self._meeting and self.j.skills.focus_mode.ending and self.j.skills.focusing()):
+            self.say("You're not in a meeting right now. Say join my meeting when it starts.")
+            return
+        self.j.show(self._meeting_card(self._meeting))
+        self.say("Here's %s." % self._meeting["title"])
 
     def meeting_mode(self, m):
         on = any(w in m.group(0).lower().split() for w in ("on", "start"))
@@ -572,8 +586,7 @@ def attending(e):
 
 def is_call(e):
     """A meeting worth going quiet for: you're in it, with other people or a call link."""
-    return attending(e) and not e["all_day"] and not e["free"] and (e["link"] or e["with"]) and \
-        (e["mine"] or e["response"] in ("accepted", "tentative"))
+    return attending(e) and not e["all_day"] and not e["free"] and (e["link"] or e["with"])  # unanswered too
 
 
 def span(said):

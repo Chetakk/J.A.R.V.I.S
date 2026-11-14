@@ -172,6 +172,8 @@ class FocusMode(Skill):
                   "Focus mode off. Back to normal."])
 
     def _clear_focus(self):
+        if self.ending and self.j.ui:  # meeting mode: its card stays up until now
+            self.j.ui.close_card("meeting")
         self.focus_until, self.ending, self.overtime = 0.0, None, 0.0
         if self._focus_timer:
             self._focus_timer.cancel()
