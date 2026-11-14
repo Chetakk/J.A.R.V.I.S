@@ -29,7 +29,8 @@ SOURCE = r"(?P<src>%s)" % "|".join((CLIPBOARD, LINK, ERROR, WINDOW, SELECTION))
 TO = r"(?:in|into|to|onto|over to|across to|over into) (?:the |my |a )?(?P<to>.+?)(?: window| app)?"
 FROM = r"(?: (?:from|in|on) (?:the |my )?(?P<from>.+?))?"
 NOT_APPS = re.compile(r"^(?:workspace\b.*|(?:the )?(?:left|right|top|bottom)(?: side| half)?|clipboard|"
-                      r"(?:my |the )?(?:notes?|todos?|to-?do list|list|trash|bin))$")
+                      r"(?:my |the )?(?:notes?|todos?|to-?do list|list|trash|bin)|"
+                      r"(?:my |the )?(?:desktop|documents|downloads|pictures|videos|music|home)(?: folder)?)$")  # folders
 PASTED_PIXELS = 15  # changed pixels that mean the paste showed (a blinking cursor is ~8, one letter ~20)
 MARK = "jarvis-copy-mark-%d"  # what the clipboard holds until the copy key replaces it: nothing selected if it stays
 
