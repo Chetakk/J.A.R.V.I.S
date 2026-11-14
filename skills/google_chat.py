@@ -75,7 +75,8 @@ class GoogleChat(GoogleSkill):
              r"messages from (.+?)(?: (?:on|in) %s)?|did (.+?) (?:message|ping|text|dm|chat with) me(?: (?:on|in) %s)?"
              r"(?: today| yet)?|what(?:'s| is) (.+?) saying(?: (?:on|in) %s)?|what(?:'s| was| is) the (?:last|latest|"
              r"newest|most recent) (?:message|chat|text|thing) (?:from|by) (.+?)(?: (?:on|in) %s)?|(?:read|show)(?: me)? "
-             r"(?:the )?(?:last|latest) (?:message|chat) (?:from|by) (.+?)(?: (?:on|in) %s)?"
+             r"(?:the )?(?:last|latest) (?:message|chat) (?:from|by) (.+?)(?: (?:on|in) %s)?|(?:is there )?anything "
+             r"(?:new )?from (.+?)(?: today| lately| this week)?"
              % (CHAT, CHAT, CHAT, CHAT, CHAT, CHAT, CHAT), self.from_person),
             (r"(?:any |do i have (?:any )?|have i got (?:any )?)(?:new |unread )?(?:messages (?:on|in) %s|%s(?: "
              r"messages?)?)|(?:read|show|check)(?: me)? (?:my )?(?:new |unread )?(?:%s(?: messages)?|messages (?:on|in) "
@@ -112,27 +113,64 @@ class GoogleChat(GoogleSkill):
             return False
         if not google.connected():
             return False if not said_chat else google.api("chat", "v1")
+        # "what did Rahul send me" / "anything from Rahul": Chat, email and Drive in one answer
+        everywhere = not said_chat and re.match(r"what (?:did|has) .+? (?:send|sent)|(?:is there )?anything",
+                                                m.group(0), re.I)
         chat = self.api("chat", "v1")
         email = find_email(self.api, name)
         dm = (self._dm(chat, email) if email else None) or self._dm_named(chat, name)
-        if not dm:
+        if not dm and not everywhere:
             if not said_chat:
                 return False  # "what did the report say": not a person on Chat
             self.say("I can't find a chat with %s." % name)
             return
         msgs = google.run(chat.spaces().messages().list(parent=dm["name"], pageSize=6,
-                                                         orderBy="createTime desc")).get("messages") or []
+                                                         orderBy="createTime desc")).get("messages") or [] if dm else []
         theirs = [x for x in msgs if (x.get("sender") or {}).get("name") != self.me()]
-        if not theirs:
-            self.say("%s hasn't sent you anything lately." % name.title())
+        line = None
+        if theirs:
+            x = theirs[0]
+            who = person((x.get("sender") or {}).get("displayName"), email)
+            self.last_space = (dm["name"], who, time.time())
+            self._card([it for it in (_item(y, dm, self.me()) for y in reversed(msgs)) if it], "Chat with %s" % who)
+            when = "%s at %s" % (day_word(parse_time(x["createTime"])), clock(parse_time(x["createTime"])))
+            line = ("%s, %s: %s" % (who, when, short(x["text"], 40)) if (x.get("text") or "").strip() else
+                    "%s's last message, %s, was a file or a card, with no text. It's on the card." % (who, when))
+        if not everywhere:
+            self.say(line or "%s hasn't sent you anything lately." % name.title())
             return
-        x = theirs[0]
-        who = person((x.get("sender") or {}).get("displayName"), email)
-        self.last_space = (dm["name"], who, time.time())
-        self._card([it for it in (_item(y, dm, self.me()) for y in reversed(msgs)) if it], "Chat with %s" % who)
-        when = "%s at %s" % (day_word(parse_time(x["createTime"])), clock(parse_time(x["createTime"])))
-        self.say("%s, %s: %s" % (who, when, short(x["text"], 40)) if (x.get("text") or "").strip() else
-                 "%s's last message, %s, was a file or a card, with no text. It's on the card." % (who, when))
+        others = self._elsewhere(name)
+        if not line and not others:
+            if not (email or dm):
+                return False  # "anything from yesterday": not a person
+            self.say("%s hasn't sent you anything this week." % name.title())
+            return
+        self.say(" ".join([("On Chat, " + line) if line else "Nothing on Chat."] + others))
+
+    def _elsewhere(self, name):
+        """What `name` emailed or shared with you this week, as lines to say after Chat's (each skipped on its own
+        if that part of Google isn't allowed)."""
+        lines, week = [], time.time() - 7 * 86400
+        gmail, drive = self.j.skills.gmail, self.j.skills.drive
+        try:
+            gm = self.api("gmail", "v1")
+            hit = google.run(gm.users().messages().list(userId="me", q='from:"%s" newer_than:7d' % name,
+                                                        maxResults=1)).get("messages")
+            if hit:
+                mail = gmail._meta(gm, hit[0]["id"])
+                gmail.last = (mail, time.time())  # "read that email" next
+                lines.append("%s emailed you %s about %s. Say read that email." % (
+                    first_name(mail["name"]), day_word(mail["at"]), short(mail["subject"], 10)))
+        except google.GoogleError:
+            pass
+        try:
+            f = drive._shared_pick(name)
+            if f and parse_time(f["sharedWithMeTime"]) > week:
+                lines.append("%s shared %s with you %s. Say open what %s shared." % (
+                    name.title(), f["name"], day_word(parse_time(f["sharedWithMeTime"])), name))
+        except google.GoogleError:
+            pass
+        return lines
 
     def summarise(self, m):
         name, kind = m.group(1).strip(), m.group(2)
