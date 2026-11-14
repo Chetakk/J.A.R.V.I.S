@@ -7,18 +7,33 @@ A name that isn't in Drive falls through to your own files (skills/documents.py)
 "What's been shared with me" lists files people shared with you lately, "open what Rahul shared" / "open the
 latest shared file" opens one, and "read" / "summarise what Priya shared" reads a shared Doc, Sheet or Slides; and by itself, every 2 minutes, a newly
 shared Doc, Sheet or file is said ("Rahul shared Budget 2026, a sheet, with you") with a card to open it (settings
-google share_alerts: false turns it off). Shared links pasted into Chat or mail come with those messages instead."""
+google share_alerts: false turns it off). Shared links pasted into Chat or mail come with those messages instead.
+
+"Download the second one" (or "save it to my documents") off the last Drive card saves it to Downloads, a Doc, Sheet
+or Slides as .docx / .xlsx / .pptx, never over a file there; then the files skill takes it as "it"."""
 import os
 import re
 import time
 
+from skills.files import FRESH, remember
 from skills.google_common import GoogleSkill, cell, clock, day_word, first_name, parse_time, person, rfc
+from skills.helpers import HOME, NTH, ORDINALS
+from system import fileops
 from system import google_account as google
 
 KINDS = {"document": "doc", "spreadsheet": "sheet", "presentation": "slides", "folder": "folder", "pdf": "PDF",
          "form": "form"}
 EXPORT = {"application/vnd.google-apps.document": "text/plain", "application/vnd.google-apps.spreadsheet": "text/csv",
           "application/vnd.google-apps.presentation": "text/plain"}
+# Google's own files download as Office files; the rest as they are.
+OFFICE = {"application/vnd.google-apps.document": ("application/vnd.openxmlformats-officedocument.wordprocessingml"
+                                                   ".document", ".docx"),
+          "application/vnd.google-apps.spreadsheet": ("application/vnd.openxmlformats-officedocument.spreadsheetml"
+                                                      ".sheet", ".xlsx"),
+          "application/vnd.google-apps.presentation": ("application/vnd.openxmlformats-officedocument."
+                                                       "presentationml.presentation", ".pptx"),
+          "application/vnd.google-apps.drawing": ("application/pdf", ".pdf")}
+FOLDER = r"(?: (?:to|into|in) (?:my |the )?(downloads|documents|desktop)(?: folder)?)?"
 DOC = r"(?:doc|docs|document|sheet|spreadsheet|slides|deck|presentation|file)"
 FIELDS = "files(id,name,mimeType,webViewLink,modifiedTime,modifiedByMeTime,owners(displayName))"
 SHARED = "files(id,name,mimeType,webViewLink,modifiedTime,sharedWithMeTime,owners(displayName),sharingUser(displayName,emailAddress))"
@@ -27,11 +42,11 @@ SHARED = "files(id,name,mimeType,webViewLink,modifiedTime,sharedWithMeTime,owner
 class Drive(GoogleSkill):
     group = "drive"
     does = ("Google Drive: finding files, what you edited lately, reading or summing up a Doc, Sheet or Slides, what "
-            "people shared with you; says newly shared files")
+            "people shared with you, downloading one off a Drive card; says newly shared files")
     every = 120
     phrases = ("find <name> in my drive", "what did I edit yesterday", "read the <name> doc",
                "summarise the <name> doc", "what's been shared with me", "open what <name> shared",
-               "open the latest shared file", "summarise what <name> shared")
+               "open the latest shared file", "summarise what <name> shared", "download the second one")
     gives = "a card of files (open one with open the second link), or the text read aloud"
     permission = "auto"
     checks = "searches Drive itself; a name it can't find there goes on to your own files"
@@ -39,6 +54,7 @@ class Drive(GoogleSkill):
     def __init__(self, jarvis):
         super().__init__(jarvis)
         self.found = []  # the files on the last card
+        self.found_at = 0.0
         self._shared_since = self.last_seen()  # the newest sharedWithMeTime at the last poll (None until the first one)
 
     def patterns(self):
@@ -66,6 +82,9 @@ class Drive(GoogleSkill):
              r"(?:shared )?(?:doc|file|sheet|document|thing) (?:that was |that's been )?shared with me", self.read_shared),
             (r"(read|summari[sz]e|sum up)(?: me)? (?:the |my |our )?(.+?) %s(?: (?:from|in|on) (?:my |google )?drive)?"
              % DOC, self.read),
+            (r"(?:download|save|get) (?:the |number )?%s(?: one| file| doc| sheet| link| result)?%s" % (NTH, FOLDER),
+             self.download),
+            (r"(?:download|save) (it|that|this)(?: one| file| doc| sheet)?%s" % FOLDER, self.download),
         ]
 
     def find(self, m):
@@ -210,8 +229,45 @@ class Drive(GoogleSkill):
                                                   fields=FIELDS)).get("files") or []
         return files
 
+    def download(self, m):
+        """"download the second one" from the last Drive card, into Downloads (or Documents / Desktop), never over a
+        file there. Then it's "it" for the files skill: "rename it to budget", "move it to documents"."""
+        if not self.found or time.time() - self.found_at > FRESH:
+            return False  # no Drive card just now: someone else's "save the second one"
+        word = m.group(1).lower()
+        n = ORDINALS.get(word) or (int(word) if word.isdigit() else 1 if len(self.found) == 1 else 0)
+        if not n or abs(n) > len(self.found) and n != -1:
+            if not n:
+                return False  # "download it" with several on the card: which one?
+            self.say("There are only %d on the card." % len(self.found))
+            return
+        f = self.found[n - 1 if n > 0 else -1]
+        if f["mimeType"] == "application/vnd.google-apps.folder" or (
+                f["mimeType"].startswith("application/vnd.google-apps.") and f["mimeType"] not in OFFICE):
+            self.say("%s is a %s, I can't download that. Say open link number %d." % (f["name"], _kind(f),
+                                                                                       self.found.index(f) + 1))
+            return
+        drive = self.api("drive", "v3")
+        mime, ext = OFFICE.get(f["mimeType"], (None, ""))
+        # shortcut: the whole file in memory, fine for documents; stream with MediaIoBaseDownload if big files matter
+        data = google.run(drive.files().export(fileId=f["id"], mimeType=mime) if mime else
+                          drive.files().get_media(fileId=f["id"]))
+        folder = os.path.join(HOME, {"documents": "Documents", "desktop": "Desktop"}.get(
+            (m.group(2) or "").lower(), "Downloads"))
+        os.makedirs(folder, exist_ok=True)
+        name = os.path.basename(f["name"].replace("/", "-")).lstrip(".") or "drive file"
+        path = fileops.free_name(os.path.join(folder, name if name.lower().endswith(ext) else name + ext))
+        with open(path, "wb") as out:
+            out.write(data if isinstance(data, bytes) else str(data or "").encode())
+        remember([path])  # "open it", "rename it to ...", "move it to documents"
+        shown = path.replace(HOME, "~")
+        self.j.show({"id": "drive-saved", "title": "Saved to %s" % os.path.basename(folder), "text": "- %s" % shown,
+                     "choices": [{"label": "Open it", "do": "open file %s" % shown}]})
+        self.say(["Saved %s to %s." % (os.path.basename(path), os.path.basename(folder)),
+                  "Done, %s is in %s." % (os.path.basename(path), os.path.basename(folder))])
+
     def _card(self, files, title):
-        self.found = files
+        self.found, self.found_at = files, time.time()
         rows = []
         for f in files[:10]:
             at = parse_time(f["modifiedTime"]) if f.get("modifiedTime") else None
