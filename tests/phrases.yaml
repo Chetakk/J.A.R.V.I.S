@@ -2022,3 +2022,70 @@
 "share it to phone": skill:share_on_phone
 "share this page to my phone": skill:share_on_phone
 "share my clipboard to my phone": skill:push_clipboard
+
+# --- added 2026-11-14 by tools/phrases.py (Google skills bulk)
+"show me tomorrow's schedule": skill:day
+"do i have anything on tomorrow": skill:day
+"what does my day look like tomorrow": skill:day
+"what's open on my calendar tomorrow afternoon": skill:free_time
+"i need a free time tomorrow afternoon, when is it": skill:free_time
+"open my meeting and join it": skill:join
+"summarize what my next meeting is about": skill:prep
+"rsvp yes to that invite": skill:respond
+"yes i'm attending, accept the invite": skill:respond
+"i can't make it, decline the invite": skill:respond
+"reply no to the invitation": skill:respond
+"turn down the meeting invite": skill:respond
+"i'm not going to that meeting, decline it": skill:respond
+"i'm done with my meeting, switch off meeting mode": skill:meeting_mode
+"exit meeting mode": skill:meeting_mode
+"i'm out of the call, stop meeting mode": skill:meeting_mode
+"pull up my meeting": skill:show_meeting
+"show the details of my meeting": skill:show_meeting
+"open my meeting details": skill:show_meeting
+"let me see my meeting": skill:show_meeting
+"i want to see the meeting on screen": skill:show_meeting
+"display my next meeting": skill:show_meeting
+"bring up my meeting info": skill:show_meeting
+"authorize google access": skill:connect
+"what's in my inbox": skill:summarise
+"i have too many emails, summarise them": skill:summarise
+"give me the rundown of my email": skill:summarise
+"tell me what's new in my inbox, short version": skill:summarise
+"brief me on my emails": skill:summarise
+"put this email on my to-do list": skill:todo
+"make a to-do from this email": skill:todo
+"i need to deal with this email later, add it to my to-dos": skill:todo
+"save this email as a task": skill:todo
+"add the open email to my tasks": skill:todo
+"track this email in my to-do list": skill:todo
+"this one needs action, put it on my to-dos": skill:todo
+"did i get an invoice last month, find the email": skill:search
+"store the file attached to this email": skill:save_attachments
+"save the file that came with this email": skill:save_attachments
+"download the file attached to this message": skill:save_attachments
+"did anyone message me in chat": skill:catch_up
+"let me see my chats": skill:recent
+"i want to see my chats": skill:recent
+"pull up my chat list": skill:recent
+"show my chat conversations": skill:recent
+"let me look at my chats": skill:recent
+"let me see my chat spaces": skill:spaces
+"display my chat spaces": skill:spaces
+"go to chat": skill:open_chats
+"launch chat": skill:open_chats
+"bring up chat": skill:open_chats
+"take me to my chats": skill:open_chats
+"i want to go to chat": skill:open_chats
+"start chat": skill:open_chats
+"open the chat app": skill:open_chats
+"which files did i edit yesterday": skill:recent
+"what files did i change yesterday": skill:recent
+"show me what i worked on yesterday": skill:recent
+"i forgot what i was working on yesterday, what did i edit": skill:recent
+"list the files i modified yesterday": skill:recent
+"what did i touch in drive yesterday": skill:recent
+"what did others share with me in drive": skill:shared
+"open whatever was shared with me most recently": skill:open_shared
+"pull up the latest file shared with me": skill:open_shared
+"someone shared a file with me, open it": skill:open_shared
