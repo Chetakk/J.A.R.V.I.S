@@ -197,6 +197,8 @@ class FocusMode(Skill):
         if until > time.time():
             self.ending, self.meeting = saved.get("ending"), saved.get("meeting")  # meeting mode carries on too
             self._start_focus(until)
+            if self.meeting:
+                calls.meeting_calls(True)
         else:
             self._clear_focus()
 
