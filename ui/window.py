@@ -391,7 +391,7 @@ class UI:
 
     def card_open(self, card_id):
         """Is the card with this id on screen (newest or not)?"""
-        return card_id in self.card.ids()
+        return card_id in self.card.ids() or any((w.last or {}).get("id") == card_id for w in self.card.pins)
 
     def current_card(self):
         """The card on screen opened or used last (or the last shown), or None."""

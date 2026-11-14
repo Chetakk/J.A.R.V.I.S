@@ -167,7 +167,7 @@ class Dashboard(Skill):
         if tips:  # a new one every TIP_EVERY seconds
             rail.append("**Try saying** “%s”" % tips[int(now // TIP_EVERY) % len(tips)])
 
-        return parts, {"id": CARD_ID, "title": "Dashboard", "place": "top", "rail": "\n".join(rail).strip(),
+        return parts, {"id": CARD_ID, "title": "Dashboard", "place": "top", "face": True, "rail": "\n".join(rail).strip(),
                        "columns": ["\n".join(c).strip() or "{ok} Nothing to show" for c in (mine, day)],
                        "choices": choices}
 

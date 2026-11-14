@@ -16,6 +16,7 @@ A card is {"title", "text" (markdown), "image" (path), "choices" [...], "id", "r
 - items: a phrase per row of the card's list ("read email 18c2…"), for "read / open / what's the second one":
   a row, where a bare "the second one" is the second button.
 - columns: more markdown texts, side by side under "text" (the card grows a COL_W wider for each past the first).
+- face: true: it draws the orb (a ```hero), so the bar leaves its own out while it's up (Bar._face).
 - place: "top" puts it at the top middle of the screen, out of the row above the bar (the dashboard: wide).
 - rail: markdown for a RAIL_W column left of the columns, set off by a line: the dashboard's orb, tiles and status
   lines.
@@ -416,14 +417,18 @@ def _hero(lines):
     def draw(_w, cr):
         # its own surface: a frame that fails half-way can't leave the card's context in a pushed group
         own = cairo.ImageSurface(cairo.FORMAT_ARGB32, HERO_ORB, HERO_ORB)
+        k = max(0.0, min(1.0, (time.time() - blocks.FACE_AT) / blocks.FACE_IN))
+        k = k * k * (3 - 2 * k)  # eased, as the bar's face fades out
         try:
             win, box = _w.get_window(), _w.get_allocation()  # where it is on screen, for its eyes to look from
             x, y = win.get_origin()[1:]
             blocks.ORB(cairo.Context(own), HERO_ORB, HERO_ORB, at=(x + box.x + HERO_ORB / 2, y + box.y + HERO_ORB / 2))
         except Exception:  # no orb (no bar) or a bad frame: an empty corner rather than a broken card
             return False
-        cr.set_source_surface(own, 0, 0)
-        cr.paint()
+        cr.translate(HERO_ORB / 2, HERO_ORB / 2)
+        cr.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k)  # grows in from 60% as it fades in
+        cr.set_source_surface(own, -HERO_ORB / 2, -HERO_ORB / 2)
+        cr.paint_with_alpha(k)
         return False
     orb.connect("draw", draw)
     box.pack_start(orb, False, False, 4)
@@ -564,7 +569,7 @@ class Card:
     """One card window. GTK-thread only; ui.UI wraps the Deck with thread-safe calls. `last` and `visible` are safe
     to read from any thread."""
 
-    def __init__(self, on_choice, pinned=False, deck=None):
+    def __init__(self, on_choice, pinned=False, deck=None, on_close=None):
         self.touched = 0.0  # when it opened or was last used: the card touched last is the one "it" is about
 
         def say(phrase):  # a button, row or tick clicked: its phrase ("open the first link") is about this card
@@ -573,6 +578,7 @@ class Card:
         self.on_choice = say
         self.pinned = pinned  # a pinned copy: closing it destroys it; it never moves on its own
         self.deck = deck  # the Deck that places it (None for a pinned copy)
+        self.on_close = on_close  # a pinned copy: tells the Deck it's gone, so nothing updates it any more
         self.last = None
         self.visible = False
         self.user_xy = None  # where you dragged it, if you did
@@ -682,6 +688,8 @@ class Card:
 
     def show(self, card):
         """Put `card` in this window (replacing what it showed)."""
+        if card.get("face") and not self.pinned and not (self.visible and (self.last or {}).get("face")):
+            blocks.FACE_AT = time.time()  # it opens (not a refresh): its orb grows in as the bar's fades
         self.last = card
         self.quiet = 0.0
         self.shown_at = time.time()
@@ -829,6 +837,8 @@ class Card:
         else:
             self.win.hide()
         self.visible = False
+        if self.on_close:
+            self.on_close(self)
         if self.deck:
             self.deck._closed(self)
         return False
@@ -933,6 +943,10 @@ class Deck:
         if not card:
             return False
         same = card.get("id") and next((w for w in self.open if (w.last or {}).get("id") == card.get("id")), None)
+        if not same and card.get("id"):
+            pinned = next((w for w in self.pins if (w.last or {}).get("id") == card.get("id")), None)
+            if pinned:
+                return pinned.show(card)  # a pinned copy follows its card (the song) in place; the others stay
         if record:
             kept = same and self.history and self.history[self.pos].get("id") == card.get("id")
             if kept:
@@ -1013,7 +1027,7 @@ class Deck:
         if not self.open:
             return False
         win = win if win in self.open else self.open[-1]
-        copy = Card(self.on_choice, pinned=True)
+        copy = Card(self.on_choice, pinned=True, on_close=lambda c: c in self.pins and self.pins.remove(c))
         x, y = win.win.get_position()
         offset = 24 * (len(self.pins) + 1)
         copy.user_xy = (x - offset, max(0, y - offset))
@@ -1034,6 +1048,10 @@ class Deck:
             self.spare.append(win)
             win.placed = False  # reused for a new card, it appears in its spot rather than sliding from the old one
             self._place()
+
+    def face_up(self):
+        """Is a card that draws the orb ("face": true, the dashboard) on screen? The bar then shows none."""
+        return any((w.last or {}).get("face") for w in self.open + self.pins if w.visible)
 
     def _place(self):
         """The chat and the cards in their row, centred or by the compact bar; a card you dragged stays where it is."""

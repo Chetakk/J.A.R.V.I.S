@@ -15,7 +15,8 @@
     ```map         12.97, 77.59: Bengaluru                                     (a pin on an offline outline map)
     ```clock       Tokyo: +0900  /  Here                                       (analog faces that tick)
     ```gauge       Download: 42 / 100 Mbps                                     (a needle on a half circle)
-    ```progress    Song: 63/215 playing                                        (moves by itself while playing)
+    ```progress    Song: 63/215 playing                                        (moves by itself while playing;
+                   Meeting: 3500/3600 playing over: the time keeps counting past the end)
     ```music       title: X  /  artist: Y  /  album: Z  /  art: cover.jpg  /  time: 63/215 playing   (now playing)
     ```log / ```git                                                            (text, errors red / changes coloured)
 
@@ -40,6 +41,7 @@ gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
+FACE_AT, FACE_IN = 0.0, 0.3  # when a card with the orb last opened, and how long its orb takes to grow in
 ORB = None  # the bar's orb painter (cr, w, h, at=(x, y) on screen), set by ui/window.py: a card's ```hero draws the same live orb
 W = 432  # a card's drawing width (CARD_W less its padding)
 # ok = frosted white (free / done), warn = crimson #CC0033 (needs you), bad = midnight indigo #0B0F19
@@ -1162,17 +1164,20 @@ def _progress(lines):
     bars = []
     for line in lines[:3]:
         label, rest = _split(line)
-        m = re.match(r"([\d.]+)\s*/\s*([\d.]+)\s*(\w*)", rest)
-        bars.append((label, float(m.group(1)), float(m.group(2)), m.group(3).lower() == "playing"))
+        m = re.match(r"([\d.]+)\s*/\s*([\d.]+)\s*(.*)", rest)
+        words = m.group(3).lower().split()
+        bars.append((label, float(m.group(1)), float(m.group(2)), "playing" in words, "over" in words))
     shown_at = time.time()
-    live = any(p for *_x, p in bars)
+    live = any(b[3] for b in bars)
 
     def draw(cr, width):
-        for i, (label, pos, length, playing) in enumerate(bars):
+        for i, (label, pos, length, playing, over) in enumerate(bars):
             y = i * 44
-            now = min(length, pos + (time.time() - shown_at if playing else 0))
+            ran = pos + (time.time() - shown_at if playing else 0)
+            now = min(length, ran)  # "over": the time keeps counting past the end (a meeting running late)
             _text(cr, 0, y, label, size=9.5, a=0.85, width=width - 90)
-            _text(cr, width, y, "%s / %s" % (_clock(now), _clock(length)), size=8.5, a=0.6, align="right")
+            _text(cr, width, y, "%s / %s" % (_clock(ran if over else now), _clock(length)), size=8.5, a=0.6,
+                  align="right")
             _white(cr, 0.1)
             _pill(cr, 0, y + 22, width, 6)
             cr.fill()

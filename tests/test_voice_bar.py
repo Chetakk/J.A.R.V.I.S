@@ -78,10 +78,10 @@ def test_idle_compact_says_ready_with_now_and_then_one_extra_or_what_the_eyes_fe
     body = SimpleNamespace(cpu=91.0, gpu=12.0, hottest=79.0, free=0.07)
     t = time.mktime((2026, 11, 9, 19, 42, 0, 0, 0, -1))  # an evening
     t = t - t % EXTRA_SECS + 1  # just into a slot
-    assert idle_line(None, None, music, body, {}, t, False)[0] in ("Ready", "Good evening")  # one or the other
+    assert idle_line(None, None, music, body, {}, t, False)[0] == "Good evening"  # never Ready while an extra exists
     extras = {"weather": "24° · clear", "next": "9:30 standup", "tips": ["brief me"]}
-    seen = {pick_extra(n, extras, 19) for n in range(200)}  # each slot one at random, or none at all
-    assert seen == {"Good evening", "24° · clear", "9:30 standup", "Try “brief me”", ""}
+    seen = {pick_extra(n, extras, 19) for n in range(200)}  # each slot one at random, never none
+    assert seen == {"Good evening", "24° · clear", "9:30 standup", "Try “brief me”"}
     assert pick_extra(7, extras, 19) == pick_extra(7, extras, 19)  # the same all through the slot
     assert pick_extra(1, {}, 3) == ""  # 3 am: no greeting, nothing else known
     n = next(n for n in range(200) if pick_extra(n, extras, 19) == "24° · clear")
@@ -95,7 +95,7 @@ def test_idle_compact_says_ready_with_now_and_then_one_extra_or_what_the_eyes_fe
     assert idle_line("hot", None, music, body, {}, t, False)[0] == "Running hot · 79°C"
     assert idle_line("straining", None, music, body, {}, t, False)[0] == "Working hard · CPU 91%"
     assert idle_line("squeezed", None, music, body, {}, t, False)[0] == "Low on memory · 7% free"
-    assert idle_line("hot", None, music, body, {}, t + ROTATE, False)[0].startswith("Ready")  # then takes turns
+    assert idle_line("hot", None, music, body, {}, t + ROTATE, False)[0] == "Good evening"  # then takes turns
     assert idle_line("hot", None, music, body, {}, t + ROTATE - 1.1, False)[1] < 1  # fading across
 
 
@@ -474,4 +474,16 @@ def test_a_line_too_long_for_the_bar_holds_then_scrolls_to_its_end_and_starts_ov
     assert bar._scrolling and still >= 100 and first_ink(10.0 + HOLD - 0.1, long) == still  # held at the start
     assert first_ink(10.0 + HOLD + 2, long) == 100  # scrolled: its start is clipped off at the left edge
     assert bar._scroll == (long, 10.0)
+
+
+def test_a_pinned_card_updates_in_place_when_its_id_comes_again_and_others_stay():
+    from types import SimpleNamespace as NS
+    from ui.card import Deck
+
+    deck = Deck(lambda: 0, lambda: True, lambda x, y: None, None)
+    song = NS(last={"id": "playing", "title": "old"}, show=lambda c: song.__setattr__("last", c))
+    other = NS(last={"id": "weather", "title": "sun"}, show=lambda c: other.__setattr__("last", c))
+    deck.pins = [song, other]  # nothing open: the original was closed when it was pinned
+    deck.show({"id": "playing", "title": "new"})
+    assert song.last["title"] == "new" and other.last["title"] == "sun" and not deck.open
 

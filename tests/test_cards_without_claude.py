@@ -333,3 +333,20 @@ def test_show_my_password_without_me(jv):
     jv.clear()
     jv.do("show my wifi password")
     assert any(c.get("id") == "secret" for c in jv.cards) and not jv.claude.calls, jv.said
+
+
+def test_bar_leaves_its_face_out_while_the_dashboard_shows_it(jv):
+    from types import SimpleNamespace as NS
+    from ui import bar as B
+    jv.do("show my dashboard")
+    assert shown(jv, "Dashboard")["face"]
+    b = B.Bar.__new__(B.Bar)
+    b.ui, b.poke = NS(card=NS(face_up=lambda: True)), lambda: None
+    b._face_now, b._face_aim, b._face_t = 1.0, 1.0, 0.0
+    assert not b._face() and b._words_x() == B.PAD + B.PILL + 8  # it fades: the words haven't moved yet
+    t = 100.0
+    seen = [b._face_k(t + n * 0.05) for n in range(10)]
+    assert seen[0] == 1.0 and seen[-1] == 0.0 and seen == sorted(seen, reverse=True)  # gone in FACE_FADE, smoothly
+    assert b._words_x() == B.PAD + B.FACELESS
+    b.ui.card.face_up = lambda: False
+    assert [b._face_k(t + 1 + n * 0.05) for n in range(10)][-1] == 1.0  # and back

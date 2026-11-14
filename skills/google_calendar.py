@@ -419,7 +419,7 @@ class Calendar(GoogleSkill):
         """The meeting-mode card: a time bar, Rejoin and I'm out; it stays up until meeting mode ends."""
         end = max(e["end"], self.j.skills.focus_mode.focus_until)  # later when the call runs over
         return {"id": "meeting", "title": "In %s" % e["title"], "stay": True,
-                "text": "```progress\nMeeting: %d/%d playing\n```\n{check} Quiet until %s · music paused" % (
+                "text": "```progress\nMeeting: %d/%d playing over\n```\n{check} Quiet until %s · music paused" % (
                     max(0, time.time() - e["start"]), end - e["start"], clock(end)),
                 "choices": [{"label": "Rejoin", "do": "join my meeting"}, {"label": "I'm out", "do": "stop focusing"}]}
 

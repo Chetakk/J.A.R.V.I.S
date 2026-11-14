@@ -139,7 +139,7 @@ class Briefing(Skill):
             lines += ["", "**To-dos**", "- None open"]
         goals = _goals(state.get("goals") or {}, today)
         if goals:
-            lines += ["", "**Goals today**", _rings(state.get("goals") or {}, today)] + goals
+            lines += ["", "**Goals today**", _rings(state.get("goals") or {}, today)]  # (the rings say it all)
         weekly = _goals(state.get("weeklyGoals") or {}, week, days_left=6 - time.localtime(now).tm_wday)
         if weekly:
             lines += ["", "**This week**"] + weekly

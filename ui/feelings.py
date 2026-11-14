@@ -79,9 +79,11 @@ class Music:
             now = time.time()
             if self.want and now - checked > 3:
                 checked, player = now, playing_player()
+                self.instant = bool(player) and ("spotify" in player.lower() or _is_spotify(player))
+                if not self.instant:
+                    player = None  # only Spotify's music gets a reaction, not shows or videos
                 playing, self.track = bool(player), track(player) if player else ""
                 (self.pos, self.length), self.pos_at = progress(player) if player else (0.0, 0.0), now
-                self.instant = bool(player) and ("spotify" in player.lower() or _is_spotify(player))
                 # Spotify on the Echo plays nothing here: the mic hears it in the room instead
                 was, device = device, "@DEFAULT_SOURCE@" if player == CONNECT else "@DEFAULT_MONITOR@"
                 if proc and device != was:

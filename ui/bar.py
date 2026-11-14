@@ -27,6 +27,9 @@ PILL = 56
 TEXT = 11.5  # point size of what you said
 STRIP = 62  # the height of the dock's strip: the pill sits in its middle
 HEIGHT = PILL + 2 * PAD
+FACELESS = 22  # where the words start, from the pill's end, while a card shows the orb (the dashboard) instead
+# (the bar keeps its size: the words just start further left)
+FACE_FADE = 0.3  # seconds the bar's face takes to shrink away (and to come back) as the dashboard opens (closes)
 FULL_W = 420 + 2 * PAD  # the widest the pill gets: shorter than the dock, about as tall; it fits what it says
 COMPACT_W = 296
 BREATH = 100  # ms between idle frames: the slow breath needs no more than 10 a second
@@ -129,11 +132,11 @@ def greeting(hour):
 
 
 def pick_extra(n, extras, hour):
-    """What follows "Ready" in slot n: one at random (the same all through the slot) of the greeting, the weather,
-    the next reminder, a thing to try, or nothing."""
+    """What takes Ready's place in slot n: one at random (the same all through the slot) of the greeting, the
+    weather, the next reminder or a thing to try; nothing only when there are none."""
     rng, tips = random.Random(n), extras.get("tips") or []
     some = [greeting(hour), extras.get("weather"), extras.get("next"), tips and "Try “%s”" % rng.choice(tips)]
-    return rng.choice([x for x in some if x] + [""])
+    return rng.choice([x for x in some if x] or [""])
 
 
 def _fade(at, span):
@@ -142,8 +145,8 @@ def _fade(at, span):
 
 def idle_line(mood, by, music, body, extras, t, mic_off):
     """(words, alpha) for the idle compact bar: one line, never crowded. A talk mood's line shows while it lasts; a
-    lasting mood's (music, the computer) takes turns with the plain line every ROTATE s. The plain line is Ready or,
-    now and then, one extra in its place (pick_extra), fading across when it changes; with the mic off, never Ready."""
+    lasting mood's (music, the computer) takes turns with the plain line every ROTATE s. The plain line is an extra
+    (pick_extra), fading across when it changes; Ready (Mic off with the mic off) only when there are none."""
     if (mood, by) in TALK_LINES:
         return TALK_LINES[mood, by], 1.0
     cpu = "GPU %d%%" % body.gpu if body.gpu > body.cpu else "CPU %d%%" % body.cpu
@@ -155,7 +158,7 @@ def idle_line(mood, by, music, body, extras, t, mic_off):
         return line, _fade(at, ROTATE)
     n, hour = int(t // EXTRA_SECS), time.localtime(t).tm_hour
     extra = pick_extra(n, extras, hour)
-    words = extra or ("" if mic_off else "Ready")
+    words = extra or ("Mic off" if mic_off else "Ready")
     if line:
         return words, _fade(at - ROTATE, ROTATE)
     return words, min(1.0, at / 0.3 if pick_extra(n - 1, extras, hour) != extra else 1.0,
@@ -246,6 +249,7 @@ class Bar:
         self._timer = None
         self.gaze = [0.0, 0.0]  # where the idle eyes look: -1..1 across and down
         self._pointer = self._last_pointer = None
+        self._face_now, self._face_aim, self._face_t = 1.0, 1.0, 0.0  # the face: 1 shown, 0 gone to a card
         self._far = {"spot": None, "moved": 0.0, "t": 0.0, "pos": [0.0, 0.0], "vel": [0.0, 0.0]}  # gaze_from's eyes
         self._pointer_at = self._gaze_t = 0.0
         self._gaze_v = [0.0, 0.0]  # the eyes' speed, for the spring
@@ -474,7 +478,7 @@ class Bar:
             note = self._text_w(self._note(state), TEXT - 1)
             room = max((self._text_w(words, TEXT) + 12 if words else 0) + note, 2 * note)  # _row gives a note half
         buttons = FULL_W - min(a for a, _b in self._zones(FULL_W).values())
-        return min(FULL_W, PAD + PILL + 16 + room + 2 + buttons)
+        return min(FULL_W, PAD + PILL + 16 + room + 2 + buttons)  # the face's room too: the bar's size never jumps
 
     def _text_w(self, text, size):
         return _layout(self._measure, text, size).get_pixel_size()[0] if text else 0
@@ -744,10 +748,17 @@ class Bar:
             self._sweep(cr, w, state, t, p)
         elif self._prev_state in ("thinking", "claude") and p < 1:
             self._sweep(cr, w, self._prev_state, t, 1 - p)
-        cr.save()
-        cr.translate(PAD, PAD)
-        self.ui._paint_orb(cr, PILL, PILL)
-        cr.restore()
+        k = self._face_k(t)
+        if k > 0.01:  # shrinking and fading as it goes to a card, growing back as it returns
+            cr.save()
+            cr.translate(PAD + PILL / 2, PAD + PILL / 2)
+            cr.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k)
+            cr.translate(-PILL / 2, -PILL / 2)
+            cr.push_group()
+            self.ui._paint_orb(cr, PILL, PILL)
+            cr.pop_group_to_source()
+            cr.paint_with_alpha(k)
+            cr.restore()
         zones = self._zones(w)
         self._paint_talk(cr, w, state, t, zones)
         self._paint_zones(cr, zones)
@@ -799,8 +810,29 @@ class Bar:
         if layout:
             _show(cr, layout, x + used, mid, alpha * 0.62)
 
+    def _face(self):
+        """Does the bar show the orb? Not while a card does (the dashboard's, "face" in ui/card.py): one face at a
+        time, whatever the bar's mode."""
+        deck = getattr(self.ui, "card", None)  # the Deck is made after the bar
+        return not (deck and deck.face_up())
+
+    def _face_k(self, t):
+        """How much of the face shows, 0..1 eased: it goes over FACE_FADE when a card takes it, and comes back."""
+        aim = 1.0 if self._face() else 0.0
+        if aim != self._face_aim:
+            self._face_aim = aim
+            self.poke()  # smooth frames for the fade, not the idle 10 a second
+        step = min(0.1, t - (self._face_t or t)) / FACE_FADE
+        self._face_t = t
+        self._face_now += max(-step, min(step, aim - self._face_now))
+        return _smooth(self._face_now)
+
+    def _words_x(self):
+        """Where the bar's words start: after the face, or near the pill's end without it, sliding as it fades."""
+        return PAD + FACELESS + (PILL + 8 - FACELESS) * _smooth(self._face_now)
+
     def _paint_talk(self, cr, w, state, t, zones):
-        left = PAD + PILL + 8
+        left = self._words_x()
         if self.mode == "compact":
             text, alpha = self._compact_text(state, t)
             tip = text.startswith("Try “")  # a thing to try gets the whole bar: the right end steps aside
@@ -1002,7 +1034,7 @@ class Bar:
         if not m.length or self.feeling[0] not in ("dance", "sway") or self._song_on_card():
             return
         part = max(0.0, min(1.0, (m.pos + t - m.pos_at) / m.length))
-        x0, x1, y = PAD + PILL + 8, w - PAD - 22, PAD + PILL - 7
+        x0, x1, y = self._words_x(), w - PAD - 22, PAD + PILL - 7
         cr.set_line_cap(cairo.LINE_CAP_ROUND)
         cr.set_line_width(2)
         for to, alpha in ((x1, 0.12 * self.feeling[1]), (x0 + (x1 - x0) * part, 0.6 * self.feeling[1])):
