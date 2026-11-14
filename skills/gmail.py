@@ -305,10 +305,10 @@ class Gmail(GoogleSkill):
         ids = [x["id"] for x in google.run(gm.users().messages().list(
             userId="me", q="((%s) OR from:%s) is:unread newer_than:1d" % (INBOX, DOCS),
             maxResults=10)).get("messages") or []]
+        now = time.time()
         if self._seen is None:
             self._seen = {i: now for i in ids}
             self.keep_seen(self._seen)
-        now = time.time()
             return
         new = [i for i in ids if i not in self._seen]
         if new:  # the search only finds mail from the last day, so older ids can go
@@ -373,6 +373,26 @@ class Gmail(GoogleSkill):
             if addr and addr != self.me(gm) and self.writes_to(gm, addr):
                 out.append((name, header(last, "Subject") or "(no subject)"))
         return out
+
+    def for_briefing(self):
+        """(card lines, spoken sentence) for the unread inbox mail since yesterday morning; ([], "") without Google."""
+        if not google.connected():
+            return [], ""
+        yesterday = time.mktime(time.localtime()[:3] + (0, 0, 0, 0, 0, -1)) - 86400
+        try:
+            gm = self.api("gmail", "v1")
+            got = google.run(gm.users().messages().list(userId="me", q="%s is:unread after:%d" % (INBOX, yesterday),
+                                                         maxResults=10))
+            ids = [x["id"] for x in got.get("messages") or []]
+            if not ids:
+                return [], ""
+            mails = [self._meta(gm, i) for i in ids[:5]]
+        except google.GoogleError as e:
+            return ["**Email**", "- %s" % e], ""
+        total = max(len(ids), got.get("resultSizeEstimate") or 0)
+        return (["**Unread email (%d)**" % total, _rows(mails)],
+                "%s since yesterday, the latest from %s." % ("One unread email" if total == 1 else
+                                                             "%d unread emails" % total, first_name(mails[0]["name"])))
 
     def _fresh(self):
         return bool(self.last) and time.time() - self.last[1] < FRESH

@@ -119,6 +119,12 @@ class Briefing(Skill):
                                   ["{ok} Nothing on today's calendar"])
         if meet_said:
             said.append(meet_said)
+        gmail = getattr(self.j.skills, "gmail", None)
+        mail_lines, mail_said = gmail.for_briefing() if gmail else ([], "")
+        if mail_lines:
+            lines += [""] + mail_lines
+        if mail_said:
+            said.append(mail_said)
         if reminders:
             first = reminders[0]
             said.append("%s: %s at %s." % ("One reminder" if len(reminders) == 1 else "%d reminders, first" % len(
@@ -148,7 +154,10 @@ class Briefing(Skill):
         if not (reminders or todos or spent):
             said.append("No reminders or to-dos, and nothing tracked yesterday.")
         said.append("It's on your screen.")
-        return {"title": "Briefing: " + date, "text": "\n".join(lines).strip()}, " ".join(said)
+        card = {"title": "Briefing: " + date, "text": "\n".join(lines).strip()}
+        if mail_said:
+            card["choices"] = [{"label": "Read them", "do": "any new emails"}]
+        return card, " ".join(said)
 
 
     # --- drawn cards from the same data ---
