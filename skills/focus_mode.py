@@ -38,6 +38,7 @@ class FocusMode(Skill):
         self.pomodoro = False
         self.ending = None  # what to say when it ends, for a session started for you (meeting mode)
         self.overtime = 0.0  # when a meeting-mode session first ran past its end with the call still on
+        self.meeting = None  # the calendar event meeting mode is on for (kept in FOCUS_FILE too)
         self._restore_focus()
 
     def patterns(self):
@@ -69,7 +70,7 @@ class FocusMode(Skill):
         self.focus_for(minutes)
 
     def focus_for(self, minutes, pomodoro=False):
-        self.pomodoro, self.paused, self.since, self.ending = pomodoro, 0.0, time.time(), None
+        self.pomodoro, self.paused, self.since, self.ending, self.meeting = pomodoro, 0.0, time.time(), None, None
         held = self._start_focus(time.time() + minutes * 60)
         self.say("%s for %s. I'll keep quiet%s." % ("Pomodoro" if pomodoro else "Focus mode", _length(minutes),
             " and hold notifications" if held else ", but I couldn't hold your notification banners"))
@@ -120,7 +121,7 @@ class FocusMode(Skill):
         held = _banners(False)
         try:
             with open(FOCUS_FILE, "w") as f:
-                json.dump({"until": until}, f)
+                json.dump({"until": until, "ending": self.ending, "meeting": self.meeting}, f)
         except OSError:
             pass
         if self._focus_timer:
@@ -174,7 +175,7 @@ class FocusMode(Skill):
     def _clear_focus(self):
         if self.ending and self.j.ui:  # meeting mode: its card stays up until now
             self.j.ui.close_card("meeting")
-        self.focus_until, self.ending, self.overtime = 0.0, None, 0.0
+        self.focus_until, self.ending, self.overtime, self.meeting = 0.0, None, 0.0, None
         if self._focus_timer:
             self._focus_timer.cancel()
             self._focus_timer = None
@@ -188,10 +189,12 @@ class FocusMode(Skill):
         """After a restart: carry on a focus session, or turn notifications back on if it ran out meanwhile."""
         try:
             with open(FOCUS_FILE) as f:
-                until = json.load(f)["until"]
+                saved = json.load(f)
+            until = saved["until"]
         except (OSError, ValueError, KeyError):
             return
         if until > time.time():
+            self.ending, self.meeting = saved.get("ending"), saved.get("meeting")  # meeting mode carries on too
             self._start_focus(until)
         else:
             self._clear_focus()

@@ -53,7 +53,6 @@ class Calendar(GoogleSkill):
         self._since = seen.get("at", 0.0)  # when watching began: older events aren't new invites
         self._warned = set()  # (id, start) of meetings already given their heads-up
         self._in_call = None  # the id of the meeting meeting mode is on for
-        self._meeting = None  # that meeting's event, for "show my meeting"
         self.last_invite = None  # (event, when said): what "accept the invite" means
         self._signing_in = False
 
@@ -393,15 +392,23 @@ class Calendar(GoogleSkill):
             self._start_meeting_mode(call)
 
     def _start_meeting_mode(self, e):
-        """Focus mode until the call ends, and the music paused; once per meeting, never over your own focus."""
+        """Focus mode until the call ends, and the music paused; once per meeting. Your own focus session is taken
+        over and kept going at least as long as you set it."""
         fm = self.j.skills.focus_mode
-        if not self.j.memory.pref("meeting_mode", self.cfg("meeting_mode", True)) or self._in_call == e["id"] or \
-                fm.focusing():
+        if not self.j.memory.pref("meeting_mode", self.cfg("meeting_mode", True)):
             return
-        self._in_call, self._meeting = e["id"], e
-        fm.ending = "%s is over, so I'm out of meeting mode." % e["title"]
-        fm.since = time.time()
-        fm._start_focus(e["end"])
+        if fm.focusing() and (fm.meeting or {}).get("id") == e["id"]:  # already on, maybe carried over a restart
+            if self._in_call != e["id"]:
+                self._in_call = e["id"]
+                self.j.inbox.put(("ctl", {"show": self._meeting_card(e)}))
+            return
+        if self._in_call == e["id"]:
+            return  # you ended it ("I'm out"): not again for this meeting
+        self._in_call = e["id"]
+        if not fm.focusing():
+            fm.since = time.time()
+        fm.ending, fm.meeting = "%s is over, so I'm out of meeting mode." % e["title"], e
+        fm._start_focus(max(e["end"], fm.focus_until))
         _pause_music()
         self.j.inbox.put(("ctl", {"show": self._meeting_card(e)}))
         self.j.skills.proactive.note("meeting", "Meeting mode for %s." % e["title"],
@@ -417,11 +424,12 @@ class Calendar(GoogleSkill):
                 "choices": [{"label": "Rejoin", "do": "join my meeting"}, {"label": "I'm out", "do": "stop focusing"}]}
 
     def show_meeting(self, m):
-        if not (self._meeting and self.j.skills.focus_mode.ending and self.j.skills.focusing()):
+        e = self.j.skills.focus_mode.meeting
+        if not (e and self.j.skills.focusing()):
             self.say("You're not in a meeting right now. Say join my meeting when it starts.")
             return
-        self.j.show(self._meeting_card(self._meeting))
-        self.say("Here's %s." % self._meeting["title"])
+        self.j.show(self._meeting_card(e))
+        self.say("Here's %s." % e["title"])
 
     def meeting_mode(self, m):
         on = any(w in m.group(0).lower().split() for w in ("on", "start"))
