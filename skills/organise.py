@@ -110,7 +110,7 @@ class Organise(Skill):
         self.j.last_undo = lambda: self._undo(batch)
         self.j.chat("sys", "file changes logged in ~/.local/share/jarvis/file_changes.log")
         moved = [s for s in batch.steps if s["op"] != "mkdir"]
-        self.say(said + " Say undo that to put %s back." % ("them" if len(moved) > 1 else "it"))
+        self.say(said + " Say undo to put %s back." % ("them" if len(moved) > 1 else "it"))
 
     def _undo(self, batch):
         failed = batch.undo()
@@ -213,7 +213,7 @@ class Organise(Skill):
         ext = os.path.splitext(path)[1]
         if ext and not os.path.isdir(path) and not new.lower().endswith(ext.lower()):
             new += ext  # "rename it to final report" keeps .pdf
-        if not exact and not self.j.ask("Rename %s to %s?" % (os.path.basename(path), new)):
+        if not exact and not self.j.ask("Rename %s to %s?" % (files.spoken_file(path), new)):
             self.say(["Okay, left it.",
                       "It stays right where it is.", "Alright, it stays where it is."])
             return
@@ -223,7 +223,7 @@ class Organise(Skill):
         except (FileError, OSError) as e:
             self.say("I couldn't rename it: %s." % e)
             return
-        self._done(batch, "Renamed it to %s." % os.path.basename(dst))
+        self._done(batch, "Done." if not exact else "Renamed it to %s." % os.path.basename(dst))  # (asked: said)
 
     def move(self, m, copy=False, to=None):
         """Move or copy one file or folder. to: "here" (the folder on screen), "beside" (a copy next to it), else
@@ -253,7 +253,7 @@ class Organise(Skill):
             self.say("I can't put a folder inside itself.")
             return
         verb = "Copy" if copy else "Move"
-        if not exact and not self.j.ask("%s %s to %s?" % (verb, os.path.basename(path), _where(dest))):
+        if not exact and not self.j.ask("%s %s to %s?" % (verb, files.spoken_file(path), _where(dest))):
             self.say(["Okay, left it.",
                       "It stays right where it is.", "Alright, it stays where it is."])
             return
@@ -269,7 +269,9 @@ class Organise(Skill):
         if to == "beside":
             self._done(batch, "Made a copy: %s." % os.path.basename(dst))
         else:
-            self._done(batch, "%s %s to %s." % ("Copied" if copy else "Moved", files._short(dst), _where(dest)))
+            # The question already said what and where: after a yes, just "Done."
+            self._done(batch, "Done." if not exact else "%s %s to %s." % (
+                "Copied" if copy else "Moved", files.spoken_file(dst), _where(dest)))
 
     def _folder(self, said, near):
         """The folder `said` means: here, one just listed, one of yours, a path, a new one, one found by name, or a

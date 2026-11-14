@@ -107,7 +107,7 @@ def test_copy_a_file_to_a_folder_and_undo(jv):
     make("Downloads/resume.pdf", "cv")
     jv.do("copy resume.pdf to documents")
     assert read("Documents/resume.pdf") == "cv" and read("Downloads/resume.pdf") == "cv"
-    assert not jv.questions and jv.says("Copied resume to Documents.")
+    assert not jv.questions and jv.says("Copied resume PDF to Documents.")
     jv.do("undo that")
     assert not exists("Documents/resume.pdf") and exists("Downloads/resume.pdf")
     assert jv.trashed == [os.path.join(H, "Documents/resume.pdf")]  # the copy goes to the Trash, never rm
@@ -124,7 +124,7 @@ def test_duplicate_makes_a_copy_beside_it(jv):
 def test_copy_a_folder_by_name_asks_first(jv):
     make("Projects/AI-Supervisor/plan.md", "plan")
     jv.do("copy the ai supervisor folder to documents", "yes")
-    assert jv.questions == ["Copy AI-Supervisor to Documents?"]
+    assert jv.questions == ["Copy the AI-Supervisor folder to Documents?"]
     assert read("Documents/AI-Supervisor/plan.md") == "plan" and exists("Projects/AI-Supervisor/plan.md")
 
 
@@ -295,5 +295,5 @@ def test_folders_from_the_log_go_where_you_are(jv):
 def test_put_it_in_a_folder_moves_what_was_just_made(jv):
     jv.do("make a folder called invoices in documents")
     jv.do("put it in the projects folder", "yes")
-    assert jv.questions == ["Move invoices to Projects?"]
+    assert jv.questions == ["Move the invoices folder to Projects?"]
     assert os.path.isdir(os.path.join(H, "Projects/invoices")) and not exists("Documents/invoices")

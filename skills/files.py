@@ -731,8 +731,32 @@ def place(j, said, folder=False):
     return _folder_named(said)
 
 
+TYPE_WORDS = dict({e: "doc" for e in (".doc", ".docx", ".odt", ".rtf")}, **{e: "spreadsheet" for e in KINDS["spreadsheet"]},
+                  **{e: "slides" for e in KINDS["presentation"]}, **{e: "picture" for e in KINDS["image"]},
+                  **{e: "video" for e in KINDS["video"]}, **{e: "song" for e in KINDS["audio"]},
+                  **{e: "archive" for e in KINDS["zip"]}, **{".pdf": "PDF", ".txt": "text file", ".md": "notes file",
+                                                            ".py": "Python file", ".json": "JSON file",
+                                                            ".html": "web page", ".sh": "script"})
+
+
+def spoken_file(path):
+    """A file as said in a question or a reply: its first few words and what kind it is ("Plant Intelligence Software
+    Design doc", "invoice PDF", "the photos folder"); the card shows the full name."""
+    if os.path.isdir(path):
+        return "the %s folder" % os.path.basename(path.rstrip(os.sep))
+    name = re.sub(r"\s*[(\[].*?[)\]]", "", _short(path))  # "(Pilot)", "[final]"
+    words = name.split()
+    ext = os.path.splitext(path)[1].lower()
+    kind = TYPE_WORDS.get(ext, ext[1:].upper() + " file" if ext else "file")
+    if words and words[-1].lower() in ("document", "doc", "file", "pdf", "sheet", "spreadsheet", "slides"):
+        words = words[:-1]  # "Design Document doc"
+    return " ".join(words[:4] + [kind]) if words else kind
+
+
 def _spoken_dir(path):
-    """"Documents, invoices", "your home folder"."""
+    """"Documents, invoices", "your home folder", a project by its own name ("Plant Intelligence System")."""
+    if os.path.dirname(os.path.normpath(path)) == os.path.normpath(PROJECTS):
+        return os.path.basename(os.path.normpath(path))
     rel = os.path.relpath(path, HOME)
     return "your home folder" if rel == "." else rel.replace("/", ", ") if not rel.startswith("..") else path
 
