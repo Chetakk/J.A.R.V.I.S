@@ -148,6 +148,9 @@ ABILITIES = (
     "apps and folders: \"open <app>\", \"close <app>\", \"open the <name> folder\"",
 )
 
+# A meaning-match guess that starts one of these is asked about first (handle).
+OPENS = re.compile(r"^(?:open|launch|pull up|go to)\b", re.IGNORECASE)
+
 # Claude's one "do" phrase matched nothing: sent back once with this (_claude_done).
 RETRY_NOTE = ("\n\n[JARVIS: your \"do\" phrase \"%s\" matched none of its abilities. Pick the closest example "
               "phrase from the abilities list word for word, blanks filled in, or answer without \"do\".]")
@@ -649,6 +652,25 @@ class Jarvis:
             return True
         # Same meaning, other words: rewritten to a phrase JARVIS knows, then handled again.
         phrase, score = self.intents.match(text) if self.intents and not self._rewording else (None, 0)
+        if phrase and OPENS.match(phrase) and not OPENS.match(text) and score < 0.99 and not self.from_claude:
+            # A guess that opens a file, site or app, when you didn't say "open" yourself: asked first ("show me recent
+            # shared files" opened one).
+            question = "%s?" % (phrase[0].upper() + phrase[1:])
+            answer = self._yes_or_no(question)
+            if self.interrupted:
+                return True
+            if is_yes(answer, question):
+                if self.settings.get("learn", "ask") != "off" and learned.worth_learning(text, phrase, learned.load()):
+                    learned.remember(text, phrase, why="you said yes")
+                    self.intents.learn(text, phrase)
+            else:
+                if answer and NO.match(answer) and teaching.fit_to_send(text) and not self._private:
+                    self.intents.block(text, phrase)  # never guessed again: Claude gets it below
+                    learned.wrong(text, phrase, why="you said no to \u201c%s\u201d" % question)
+                self.heard(text, "not \"%s\": you said no" % phrase)
+                if getattr(self, "dropped", False):
+                    return True
+                phrase = None
         if phrase:
             self.heard(text, "means \"%s\" (%.2f)" % (phrase, score))
             self.handled(text, "meaning", phrase, score=score)

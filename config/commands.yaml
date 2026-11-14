@@ -204,7 +204,7 @@ commands:
     reply: ["Opening the text editor", "A blank page, ready when you are", "A blank page. The hardest part is the first word", "Text editor's open. Over to you", "Text editor coming up", "Opening a fresh page"]
 
   - name: open_system_monitor
-    say: [open system monitor, open task manager]
+    say: [open system monitor, open task manager, show me the task manager]
     run: gnome-system-monitor
     window: true
     reply: ["Opening the system monitor", "Let's see what's running", "Let's see who's hogging the memory", "System monitor. Time to name and shame", "System monitor coming up", "Let's have a look under the hood"]
