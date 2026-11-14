@@ -295,6 +295,12 @@ class Organise(Skill):
         if p:
             return p.path
         found = find_dirs(said)
+        if not found and len(said) >= 3:  # "avtec": avtec-hs or avtec-circlip? asked, not made in Downloads
+            many = self.j.projects.candidates(said)
+            if len(many) > 1:
+                names = [os.path.basename(p.path) for p in many[:4]]
+                pick = self.j.choose("%s. Which one?" % and_list(names), names)
+                return next((p.path for p in many if os.path.basename(p.path) == pick), None)
         if len(found) == 1:
             return found[0]
         if found:
