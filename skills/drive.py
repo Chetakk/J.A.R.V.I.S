@@ -53,7 +53,8 @@ class Drive(GoogleSkill):
             (r"what(?:'s| has| have| is) (?:been |people |anyone |someone )?shared with me(?: lately| recently| today| this "
              r"week)?|(?:show |list )?(?:me )?(?:the )?(?:files|docs|documents|sheets|things) (?:people |anyone )?shared "
              r"with me(?: lately| recently| today| this week)?|(?:did|has) (?:anyone|anybody|someone) shared? (?:anything|"
-             r"a doc|a file|a sheet|a document)(?: with me)?(?: lately| recently| today)?", self.shared),
+             r"a doc|a file|a sheet|a document)(?: with me)?(?: lately| recently| today)?|(?:what(?:'s| is)|(?:is there )?"
+             r"anything) new (?:on|in) (?:my |the |google )?drive(?: lately| recently| today| this week)?", self.shared),
             (r"open (?:what|whatever|the (?:doc|file|sheet|document|thing|one)(?: that)?) (.+?) (?:just )?shared(?: with "
              r"me)?|open (?:the )?(?:last |latest |newest |most recent |new )?(?:doc |file |sheet |document |thing |one )?"
              r"(?:that was |that's been |that got |i got |was |just )?shared with me(?: by (.+))?|open (?:the )?(?:last|"
