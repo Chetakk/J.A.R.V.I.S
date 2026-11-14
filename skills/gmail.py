@@ -25,6 +25,10 @@ from system import google_account as google
 
 INBOX = "in:inbox"  # a work account: every email in the inbox matters, whatever its tab
 SHARES = ("drive-shares-dm-noreply@google.com", "drive-shares-noreply@google.com")  # skills/drive.py says those
+ECHOES = ("calendar-notification@google.com", "chat-noreply@google.com")  # Calendar's and Chat's own copies by email
+# Calendar sends invites from the organiser's address, so those are known by their subject
+INVITE = re.compile(r"(?:updated )?invitation(?: with note| from google calendar)?:|cancell?ed (?:event|invitation)"
+                    r"(?: with note)?:", re.I)
 DOCS = "comments-noreply@docs.google.com"  # Docs, Sheets and Slides mail comments and @mentions from here
 MAIL = r"(?:e-?mails?|mails?)"
 FRESH = 1800  # seconds "this email" means the one last read or announced
@@ -327,6 +331,8 @@ class Gmail(GoogleSkill):
             mail = self._meta(gm, i)
             if mail["addr"] in SHARES:
                 continue  # a file shared with you: Drive's own heads-up says it, with the file
+            if mail["addr"] in ECHOES or INVITE.match(mail["subject"]):
+                continue  # an invite, or a missed chat message: Calendar's and Chat's own heads-ups say those
             if mail["addr"] == DOCS:  # a comment on a Doc or Sheet: you were mentioned, or it's on your file
                 said += 1
                 self.last = (mail, time.time())
