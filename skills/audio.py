@@ -184,6 +184,9 @@ class Audio(Skill):
             self.j.last_undo = lambda: audio.switch(before) and self.say("I'm back on %s." % before.label)
         self.say("I'm listening on %s now." % d.label)
 
+    def say_quietly(self, text):  # muting and unmuting are shown in the chat, never said out loud
+        self.say(text, aloud=False)
+
     def sound_mute(self, on):
         """The speaker itself: muted, nothing on this computer is heard, JARVIS included. Said either way, so
         the reply is in the chat panel even while you can't hear it."""
@@ -194,13 +197,13 @@ class Audio(Skill):
         if d.mute == on or not audio.set_mute(d, on):
             self.j.show_mutes(_asked=False, speaker=d.mute)  # the tray shows what's true, not what was asked
             if d.mute != on:
-                self.say("Sorry, %s didn't take it." % d.label)
+                self.say_quietly("Sorry, %s didn't take it." % d.label)
             else:
-                self.say("It's already muted." if on else "Sound's already on.")
+                self.say_quietly("It's already muted." if on else "Sound's already on.")
             return
         self.j.show_mutes(speaker=on)
         self.j.last_undo = lambda: self.sound_mute(not on)
-        self.say(["Okay, sound's off.", "Done, it's quiet now.", "Muted.", "Okay okay, shhh.",
+        self.say_quietly(["Okay, sound's off.", "Done, it's quiet now.", "Muted.", "Okay okay, shhh.",
                   "Ugh, fine, sound's off."] if on
                  else ["Okay, sound's back.", "There you go, sound's back.", "And we're back."])
 
@@ -212,18 +215,18 @@ class Audio(Skill):
         mic = None if on or j.deaf else audio.current("source")
         if mic and mic.mute:  # the tray box shows the system's own mute too: unticking it must undo that
             if not audio.set_mute(mic, False):
-                self.say("Sorry, %s didn't take it." % mic.label)
+                self.say_quietly("Sorry, %s didn't take it." % mic.label)
                 return
             j.show_mutes(mic=False)
-            self.say("Okay, I've unmuted %s. I can hear you." % mic.label)
+            self.say_quietly("Okay, I've unmuted %s. I can hear you." % mic.label)
             return
         if j.deaf == on:
-            self.say("I'm already not listening, don't worry." if on else "I'm already listening.")
+            self.say_quietly("I'm already not listening, don't worry." if on else "I'm already listening.")
             return
         j.deaf = on
         j.show_mutes(mic=on)
         j.last_undo = lambda: self.mic_mute(not on)
-        self.say(NOT_LISTENING if on else ["I'm back, I can hear you.", "Okay, I'm listening again.", "Ears open again.",
+        self.say_quietly(NOT_LISTENING if on else ["I'm back, I can hear you.", "Okay, I'm listening again.", "Ears open again.",
                                       "Okay, I'm all ears."])
 
     def mic_volume(self, to=None, up=None):

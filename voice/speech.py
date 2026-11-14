@@ -132,6 +132,8 @@ EMOJI = re.compile('[\U0001F000-\U0001FAFF\u2460-\u24FF\u2600-\u27BF\u2B00-\u2BF
 
 
 class Speaker:
+    _waiting_since = 0.0  # a line went to Piper and no audio has come back yet (cold start: 2-3 s)
+
     def __init__(self, cfg):
         self.enabled = cfg.get("enabled", True)
         self.engine = cfg.get("engine", "piper")
@@ -193,8 +195,8 @@ class Speaker:
                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=log, start_new_session=True)
         return False
 
-    def say(self, text):
-        """Speak without blocking; `text` may be a list of alternatives. Text is always printed (and shown in the chat panel) too."""
+    def say(self, text, aloud=True):
+        """Speak without blocking (aloud=False: only print and show it); `text` may be a list of alternatives. Text is always printed (and shown in the chat panel) too."""
         if isinstance(text, (list, tuple)) and text and (self.quiet() or self.brief):
             text = min(text, key=len)
         text = _no_okay(pick(text))
@@ -208,7 +210,7 @@ class Speaker:
         print("%s JARVIS: %s" % (time.strftime("%H:%M:%S"), text))  # times: to see how late an echo came
         if self.on_say and text:
             self.on_say(text)
-        if not self.enabled or not text or self.muted:
+        if not self.enabled or not text or self.muted or not aloud:
             return
         if self.sink and not _sink_exists(self.sink):
             self.sink = None
@@ -231,6 +233,7 @@ class Speaker:
         if self.engine == "piper":
             # One sentence per line: Piper starts speaking the first while making the rest.
             sentences = _SENTENCE_END.split(_PAUSE.sub(r"\1.", line))
+            self._waiting_since = time.time()
             for _ in range(2):  # the second go: if Kokoro has just died, Piper takes this line
                 try:
                     self._pipeline().stdin.write(("\n".join(sentences) + "\n").encode())
@@ -247,7 +250,8 @@ class Speaker:
         return max(self._busy_until, played)
 
     def busy(self):
-        return time.time() < self._ends_at()
+        # Still busy while Piper starts up: the follow-up window's stop() killed a cold Piper before it said a word.
+        return time.time() < self._ends_at() or time.time() - self._waiting_since < 10
 
     def done_at(self):
         """When JARVIS stops talking (now, if it already has)."""
@@ -358,7 +362,7 @@ class Speaker:
                 except OSError:
                     pass
         self._proc = self._player = None
-        self._busy_until = self._audio_until = 0.0
+        self._busy_until = self._audio_until = self._waiting_since = 0.0
         self.played = collections.deque((w, x) for w, x in self.played if w < time.time())  # the rest never plays
         if self.engine == "spd-say":
             subprocess.Popen(["spd-say", "-S"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -423,6 +427,7 @@ class Speaker:
     def _pump(self, piper, player, bytes_per_second):
         odd = b""  # (a chunk can end in half a sample)
         for chunk in iter(lambda: piper.stdout.read1(4096), b""):
+            self._waiting_since = 0.0
             start = max(time.time(), self._audio_until)
             self._audio_until = start + len(chunk) / bytes_per_second
             whole = odd + chunk

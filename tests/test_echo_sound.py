@@ -137,3 +137,16 @@ def test_its_echo_by_sound_does_not_interrupt_it(monkeypatch):
     w = _wake("Show me the list.", monkeypatch, False)  # you, in the conversation: it stops for you
     assert _barge_in(w)
     assert w.stopped == [True]
+
+
+def test_it_stays_busy_until_a_cold_piper_makes_its_first_audio():
+    """Seen in the log: a long line took Piper 2.5 s to start; busy() ended at its 2 s guess, the follow-up
+    window's stop() killed Piper, and the answer was only written in the chat."""
+    s = _speaker()
+    s._waiting_since = time.time() - 3  # sent 3 s ago, no audio yet
+    s.output_delay = 0.8
+    assert s.busy()
+    s._waiting_since = 0.0  # _pump got the first chunk
+    assert not s.busy()
+    s._waiting_since = time.time() - 11  # Piper died without a sound: not busy forever
+    assert not s.busy()
