@@ -104,7 +104,9 @@ class Organise(Skill):
         return paths[0], exact
 
     def _done(self, batch, said):
-        files.remember([s.get("dst") or s.get("path") for s in batch.steps])
+        # (a folder made on the way isn't "it": "copy it to the desktop" then "move it to documents" moved Desktop)
+        made = [s for s in batch.steps if s["op"] != "mkdir"] or batch.steps  # ("make a folder": that is "it")
+        files.remember([s.get("dst") or s.get("path") for s in made])
         self.j.last_undo = lambda: self._undo(batch)
         self.j.chat("sys", "file changes logged in ~/.local/share/jarvis/file_changes.log")
         moved = [s for s in batch.steps if s["op"] != "mkdir"]
