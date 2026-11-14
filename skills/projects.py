@@ -44,7 +44,7 @@ class Projects(Skill):
             (r"(?:what are |give me |show me |tell me |read me |what'?s )?(?:the |its )?(?:links?|ports?|urls?)"
              r"(?: (?:for|of|to) (?:the )?(.+?)(?: project| station)?)?", self.project_links),
             (r"open (?:the )?(.+?) (?:in (?:the )?browser|frontend|page|ui)|open it in (?:the )?browser", self.open_frontend),
-            (r"(?:list|what are|show me|tell me) (?:all )?my projects|what projects do i have|which projects do i have",
+            (r"(?:what are|show me|tell me) (?:all )?my projects|what projects do i have|which projects do i have",
              lambda m: self.list_projects()),
             (r"what was i (?:working on|doing)(?: lately| last)?|(?:my )?recent projects|what did i work on(?: last)?",
              lambda m: self.recent_projects()),

@@ -612,3 +612,8 @@ commands:
     run: echo $(( $(cat /sys/devices/gpu.0/load) / 10 ))  # the Jetson gives per mille
     reply: The GPU is at {output} percent.
     output: true
+
+  - name: list_projects
+    say: [show my projects, show projects, list my projects, list projects]
+    run: jarvis show "Projects" "$(ls -1 /home/biztelai/Projects | sed 's/^/- /')"
+    reply: ["Here are your projects, they're on the card", "Your Projects folder is on the card"]

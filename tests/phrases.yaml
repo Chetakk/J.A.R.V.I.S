@@ -82,7 +82,10 @@
 "I didn't call you": skill:false_wake
 "nobody called you": skill:false_wake
 "what's running": skill:whats_running
-"list projects": skill:list_projects
+"list projects": command:list_projects
+"show projects": command:list_projects
+"show my projects": command:list_projects
+"show recent projects": skill:recent_projects
 "run the jarvis project": skill:run_project
 "stop all projects": skill:stop_all
 "git status of jarvis": skill:git_status
@@ -225,7 +228,7 @@
 "what are the links for jarvis": skill:project_links
 "what port is jarvis on": skill:project_links
 "open jarvis in the browser": skill:open_frontend
-"list my projects": skill:list_projects
+"list my projects": command:list_projects
 "what projects do i have": skill:list_projects
 "what was i working on": skill:recent_projects
 "refresh the projects": skill:refresh_projects
