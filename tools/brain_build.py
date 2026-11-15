@@ -12,6 +12,7 @@ project they name. Run again any time: notes are updated, and what you wrote in 
 """
 import collections
 import concurrent.futures
+import difflib
 import json
 import os
 import re
@@ -26,6 +27,7 @@ from core.store import load_json  # noqa: E402
 DAYS_BACK, DAYS_AHEAD = 30, 14
 HUB = os.environ.get("DAY_TRACKER_URL", "http://localhost:7313")
 NOTES = os.path.expanduser("~/.local/share/jarvis/notes.json")
+NOTEPAD = os.path.expanduser("~/Projects/Notepad")  # the Notepad app; its notes_db.py reads ProducTVT's Note table
 BOT = re.compile(r"no-?reply|do-?not-?reply|notifications?@|mailer-daemon|calendar-notification|drive-shares|"
                  r"@(?:\w+\.)*(?:google|github|slack|linkedin|zoom)\.com$|@docs\.google\.com", re.I)
 # a company or a service, not a person ("Anthropic, PBC", "NVIDIA Inception Program", "Accountnotify")
@@ -221,6 +223,47 @@ def google_people(people, link):
 LINKED = re.compile(r"\[\[([^\]|]+)")
 
 
+def notepad(mind, projects, people):
+    """Each Notepad tab (ProducTVT's Note table, ~/Projects/Notepad) as brain/notepad/<title>.md, linked to the
+    projects and people it names. The vault copy follows the tab: renamed, changed or closed there, the same here."""
+    sys.path.insert(0, NOTEPAD)
+    try:
+        import notes_db
+        if not notes_db.available():
+            print("[brain] Notepad's database isn't set up: no Notepad notes this time")
+            return
+        tabs = notes_db.Notes().list()
+    except Exception as e:  # ImportError, notes_db.Unavailable: skip, the rest of the map still gets built
+        print("[brain] Notepad notes skipped: %s" % e)
+        return
+    who = {p["name"]: [] for p in people.all() if " " in p["name"].strip() or len(p["name"]) >= 5}
+    link = linker(dict({n: [w for w in ws if w.lower() not in LOOSE] for n, ws in projects.items()
+                        if n.lower() not in LOOSE}, **who))
+    taken = {key(w) for n, ws in list(projects.items()) + list(who.items()) for w in [n] + ws}
+    keep = set()
+    for t in tabs:
+        text = t["content"]  # a [[name]] you write in Notepad stays a link
+        named = set(LINKED.findall(link(t["title"] + "\n" + text)))
+        # a misspelt title ("Pant Integnce"): on the 7 tabs, the right project scored 0.69, wrong ones 0.59 or less
+        score, best = max(((difflib.SequenceMatcher(None, key(t["title"]), key(a)).ratio(), n)
+                           for n, ws in projects.items() for a in [n] + ws), default=(0, None))
+        if score >= 0.65:
+            named.add(best)
+        named = sorted(named)
+        lines = ["*From Notepad, updated %s. Edit it there: changes made here aren't sent back.*" % t["at"][:16], ""]
+        if named:
+            lines += ["Mentions " + ", ".join("[[%s]]" % n for n in named), ""]
+        lines += [link(line) for line in text.splitlines()]
+        clash = key(t["title"]) in taken  # Obsidian finds [[links]] by name: the "Notepad" tab isn't the project
+        path = mind.write("notepad", t["title"] + (" (note)" if clash else ""), {"notepad_id": t["id"]}, lines)
+        if path:
+            keep.add(path)
+    for n in mind.notes():
+        if n.kind == "notepad" and n.path not in keep and n.meta.get("notepad_id"):
+            mind.forget(n.path)  # closed or renamed in Notepad
+    print("[brain] notepad: %d notes" % len(keep))
+
+
 def main(argv):
     mind = Mind()
     from system.projects import Projects
@@ -314,6 +357,7 @@ def main(argv):
             lines += ["## Projects", "- " + ", ".join("[[%s]]" % n for n in sorted(p["projects"]))]
         mind.write("people", p["name"], {"email": p["email"], "seen_in": sorted(p["from"])}, lines)
 
+    notepad(mind, names, people)
     counts = collections.Counter(n.kind for n in mind.notes())
     print("[brain] %s in %s" % (", ".join("%d %s" % (c, k) for k, c in sorted(counts.items())), mind.root))
 

@@ -81,6 +81,15 @@ class Mind:
                 f.write(rel + "\n")
         return path
 
+    def forget(self, path):
+        """Remove a note whose source is gone (a deleted Notepad tab), so the same name can come back later."""
+        rel = os.path.relpath(path, self.root)
+        if os.path.exists(path):
+            os.remove(path)
+        made = self._made() - {rel}
+        with open(os.path.join(self.root, MADE), "w") as f:
+            f.writelines(r + "\n" for r in sorted(made))
+
     def _made(self):
         """Every note JARVIS has ever written (brain/.made), so one you deleted stays deleted."""
         try:
