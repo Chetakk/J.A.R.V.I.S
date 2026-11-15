@@ -166,6 +166,10 @@ class Mind:
         for line in block.splitlines():
             line = re.sub(r"\[\[([^\]|]+)\|([^\]]+)\]\]", r"\2", line)
             line = re.sub(r"\[\[([^\]]+)\]\]", r"\1", line).replace("**", "").replace("*", "").strip()
+            line = re.sub(r",? ?·? ?\[(?:open it|link|watch it)\]\([^)]*\)", "", line)  # bare links: nothing to say
+            line = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", line)  # [title](url) -> title
+            if line.startswith("✓ done ·"):
+                continue  # the legend of a playlist note
             line = DATE.sub(lambda m: time.strftime("%-d %b", time.strptime(m.group(0), "%Y-%m-%d")), line)
             if line.startswith("#"):
                 heading = line.lstrip("# ").strip()

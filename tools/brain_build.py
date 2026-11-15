@@ -28,6 +28,7 @@ DAYS_BACK, DAYS_AHEAD = 30, 14
 HUB = os.environ.get("DAY_TRACKER_URL", "http://localhost:7313")
 NOTES = os.path.expanduser("~/.local/share/jarvis/notes.json")
 CONFIG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "brain.yaml")
+STUDY_DB = os.environ.get("STUDY_BUDDY_DB") or os.path.expanduser("~/.local/share/study-buddy/study.db")
 NOTEPAD = os.path.expanduser("~/Projects/Notepad")  # the Notepad app; its notes_db.py reads ProducTVT's Note table
 BOT = re.compile(r"no-?reply|do-?not-?reply|notifications?@|mailer-daemon|calendar-notification|drive-shares|"
                  r"@(?:\w+\.)*(?:google|github|slack|linkedin|zoom)\.com$|@docs\.google\.com", re.I)
@@ -282,6 +283,126 @@ def together_with(state):
     return out
 
 
+def mins(secs):
+    secs = int(secs or 0)
+    if not secs:
+        return "0 min"
+    return "%dh %02dm" % (secs // 3600, secs % 3600 // 60) if secs >= 3600 else "%d min" % max(1, round(secs / 60))
+
+
+def clock_at(secs):
+    secs = int(secs or 0)
+    return "%d:%02d:%02d" % (secs // 3600, secs % 3600 // 60, secs % 60) if secs >= 3600 else \
+        "%d:%02d" % (secs // 60, secs % 60)
+
+
+def learning(mind):
+    """Study Buddy (~/Projects/study-budd) as brain/learning/: Learning.md, a folder and note per group, a note per
+    playlist or problem set listing every video or problem with its link and how far you got, and a note of its own
+    for a video you wrote notes or flashcards on (each note's time opens the video there). Read-only from its
+    database, so it works when the app is closed."""
+    import sqlite3
+    if not os.path.exists(STUDY_DB):
+        print("[brain] no Study Buddy database: no Learning this time")
+        return
+    try:
+        db = sqlite3.connect("file:%s?mode=ro" % STUDY_DB, uri=True)
+        db.row_factory = sqlite3.Row
+        q = lambda sql, *a: db.execute(sql, a).fetchall()
+        groups = q("SELECT * FROM groups ORDER BY position")
+        sources = q("SELECT * FROM sources ORDER BY group_id, position")
+        items = q("SELECT i.*, p.status, p.watched_s, p.completed_at, p.updated_at FROM items i "
+                  "LEFT JOIN progress p ON p.item_id = i.id ORDER BY i.source_id, i.position")
+        notes = q("SELECT * FROM notes ORDER BY item_id, at_s")
+        cards = q("SELECT * FROM cards WHERE pending = 0 ORDER BY item_id, at_s")
+        week = q("SELECT SUM(seconds) FROM activity WHERE day >= date('now', '-6 days')")[0][0] or 0
+        days = [r[0] for r in q("SELECT DISTINCT day FROM activity ORDER BY day DESC")]
+    except sqlite3.Error as e:
+        print("[brain] Study Buddy unreadable: %s" % e)
+        return
+    by_source = collections.defaultdict(list)
+    for it in items:
+        by_source[it["source_id"]].append(it)
+    noted = collections.defaultdict(list)
+    for n in notes:
+        noted[n["item_id"]].append(n)
+    carded = collections.defaultdict(list)
+    for c in cards:
+        if c["item_id"]:
+            carded[c["item_id"]].append(c)
+
+    def url(it, at=None):
+        if it["kind"] == "video" and it["external_id"]:
+            return "https://www.youtube.com/watch?v=%s%s" % (it["external_id"], "&t=%ds" % at if at else "")
+        return it["url"] or ""
+
+    def counts(its):
+        live = [i for i in its if not i["skipped"]]
+        return sum(i["status"] == "done" for i in live), len(live)
+
+    keep, totals, picking = set(), [0, 0], None
+    for g in groups:
+        g_items = [it for s in sources if s["group_id"] == g["id"] for it in by_source[s["id"]]]
+        done, total = counts(g_items)
+        totals[0] += done
+        totals[1] += total
+        watched = sum(i["watched_s"] or 0 for i in g_items)
+        started = [i for i in g_items if i["status"] == "in_progress"]
+        nxt = started[0] if started else next((i for i in g_items if not i["skipped"] and i["status"] != "done"), None)
+        if started and (not picking or (started[0]["updated_at"] or "") > (picking[1]["updated_at"] or "")):
+            picking = (g["name"], started[0])
+        lines = ["- Part of [[Learning]]",
+                 "- %d of %d done (%d%%), %s watched" % (done, total, 100 * done // total if total else 0, mins(watched))]
+        if g["on_today"]:
+            lines.append("- On your Today page%s" % (", goal %d min a day" % g["goal_min"] if g["goal_min"] else ""))
+        if nxt:
+            lines.append("- Next: [%s](%s)" % (nxt["title"].replace("]", ")"), url(nxt)))
+        keep.add(mind.write("learning", g["name"], {"type": "study group"}, lines, folder=g["name"]))
+        for s in (s for s in sources if s["group_id"] == g["id"]):
+            its = by_source[s["id"]]
+            done, total = counts(its)
+            kind = "problem set" if s["kind"] == "problem_set" else "playlist"
+            lines = ["- Part of [[%s]]" % title(g["name"]),
+                     "- %s%s, [open it](%s)" % (kind.capitalize(), " by %s" % s["channel"] if s["channel"] and
+                                                kind == "playlist" else "", s["url"]),
+                     "- %d of %d %s" % (done, total, "solved" if kind == "problem set" else "done"), "",
+                     "✓ done · ◐ started · ○ not yet · ✗ skipped", ""]
+            for n, it in enumerate(its, 1):
+                mark = "✗" if it["skipped"] else {"done": "✓", "in_progress": "◐"}.get(it["status"], "○")
+                name = it["title"]
+                if noted[it["id"]] or carded[it["id"]]:
+                    name = "[[%s]]" % title(it["title"])
+                    lines_v = ["- In [[%s]] · [watch it](%s)" % (title(s["title"]), url(it)), "", "## Notes"]
+                    lines_v += ["- [%s](%s) %s" % (clock_at(x["at_s"]), url(it, int(x["at_s"] or 0)), x["body"])
+                                for x in noted[it["id"]]] or ["- none yet"]
+                    if carded[it["id"]]:
+                        lines_v += ["", "## Flashcards"] + ["- Q: %s · A: %s" % (c["front"], c["back"])
+                                                            for c in carded[it["id"]]]
+                    keep.add(mind.write("learning", it["title"], {"type": "video"}, lines_v,
+                                        folder="%s/%s" % (g["name"], s["title"])))
+                extra = ""
+                if it["kind"] == "video":
+                    extra = " (%s%s)" % (mins(it["duration_s"]), ", %s watched" % mins(it["watched_s"])
+                                         if it["status"] == "in_progress" else "")
+                else:
+                    meta = json.loads(it["meta"] or "{}")
+                    extra = " (%s)" % meta["difficulty"] if meta.get("difficulty") else ""
+                link = url(it)
+                lines.append("%s %d. %s%s%s" % (mark, n, name, extra, " · [link](%s)" % link if link else ""))
+                lines.append("")  # each item its own line in Obsidian's reading view
+            keep.add(mind.write("learning", s["title"], {"type": kind}, lines, folder=g["name"]))
+    lines = ["- %d of %d videos and problems done across %d groups" % (totals[0], totals[1], len(groups))]
+    if picking:
+        lines.append("- Picking up %s, in %s" % (picking[1]["title"], picking[0]))
+    lines.append("- Studied %s in the last 7 days%s" % (mins(week), ", last on %s" % days[0] if days else ""))
+    keep.add(mind.write("learning", "Learning", {"type": "area", "about": "What you're studying in Study Buddy"},
+                        lines))
+    for n in mind.notes():  # a group, playlist or video gone from Study Buddy goes from here too
+        if n.kind == "learning" and n.path not in keep:
+            mind.forget(n.path)
+    print("[brain] learning: %d groups, %d playlists and problem sets" % (len(groups), len(sources)))
+
+
 def notepad(mind, projects, people):
     """Each Notepad tab (ProducTVT's Note table, ~/Projects/Notepad) as brain/notepad/<title>.md, linked to the
     projects and people it names. The vault copy follows the tab: renamed, changed or closed there, the same here."""
@@ -394,7 +515,7 @@ def main(argv):
             continue
         name = label.split(" · ")[0] if " · " in label and "YouTube" in label else label
         lines = ["- %sh in all, %sh in the last 7 days, last on %s" % (hours(total), hours(recent), day(last / 1000)),
-                 "- One of your [[Apps]]"]
+                 "- One of your [[Apps]]"] + (["- What you study in: [[Learning]]"] if "study account" in label else [])
         if label == "VS Code":  # every project is edited in it: hours in words, no links
             on = sorted(((ms, by_folder[f]) for f, ms in folder_hours.items() if f in by_folder and ms >= HOUR),
                         reverse=True)
@@ -483,6 +604,7 @@ def main(argv):
         mind.write("people", p["name"], {"email": p["email"], "seen_in": sorted(p["from"])}, lines)
 
     notepad(mind, names, people)
+    learning(mind)
     counts = collections.Counter(n.kind for n in mind.notes())
     summary = ", ".join("%d %s" % (c, k) for k, c in sorted(counts.items()))
     mind.log("rebuilt the map%s: %s" % (" (no Google)" if "--local" in argv else "", summary))

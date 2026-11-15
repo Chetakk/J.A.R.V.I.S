@@ -154,6 +154,9 @@ class Notes(Skill):
             (r"(?:what do you (?:know|remember) about|do you remember|what do (?:my|your) notes say about|"
              r"what'?s in (?:my|your) (?:notes|brain|memory) (?:about|on)|check (?:my|your) (?:notes|brain) for) (.+)",
              self.recall),
+            (r"what am i (?:learning|studying)(?: (?:now|these days|lately|right now))?|what (?:am i|have i been) "
+             r"(?:learning|studying) (?:in|on) study ?buddy|what(?:'s| is) (?:on )?my (?:learning|study) (?:list|plan)",
+             lambda m: self._from_brain("Learning") or self.say("Study Buddy has nothing in my notes yet.")),
             (r"forget (?:about |the note )?(?!.*\breminders?$)(.+)", self.forget),  # "forget the X reminder": todos
             (CASUAL, self.casual),
         ]
@@ -339,7 +342,8 @@ class Notes(Skill):
         try:
             mind = Mind(embed=self.j.intents.embed if self.j.intents else None)
             note = mind.find(query)
-            facts = [f for f in mind.facts(note) if not f.startswith("From Notepad")] if note else []
+            facts = [f for f in mind.facts(note) if not f.startswith(("From Notepad", "Part of", "One of", "What you study in"))
+                     ] if note else []
         except Exception as e:
             print("[brain] recall failed: %r" % e)
             return False
@@ -465,15 +469,18 @@ class Notes(Skill):
     @staticmethod
     def _brain_for_claude(text):
         """What the mind map says about the people and projects `text` names, with the note each line came from.
-        Only notes named in the question; never Notepad tabs or the raw/ words (they can hold anything)."""
+        Only notes named in the question; never Notepad tabs, the raw/ words (they can hold anything) or a video's
+        study notes."""
         try:
             mind = Mind()
-            named = [n for n in mind.mentioned(text) if n.kind in ("people", "projects", "meetings", "groups")][:2]
+            named = [n for n in mind.mentioned(text) if n.kind in ("people", "projects", "meetings", "groups", "learning")
+                     and n.meta.get("type") != "video"][:2]
             parts = ["from its note on %s: %s" % (n.name, "; ".join(mind.facts(n)[:5])) for n in named]
         except Exception as e:
             print("[brain] nothing for Claude: %r" % e)
             return ""
-        return ("JARVIS's notes (say where a fact came from; if they don't answer it, say so): %s." %
+        return ("JARVIS's notes on what this names (use them only if they help; when you do, say they're from "
+                 "JARVIS's notes): %s." %
                 " | ".join(parts))[:900] if parts else ""
 
     # --- changing and forgetting ---
