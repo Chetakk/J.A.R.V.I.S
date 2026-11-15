@@ -68,7 +68,7 @@ class People:
         p = self.by_email.get(email) if email else None
         p = p or self.by_name.get(name.lower())
         if not p:
-            p = {"name": name, "email": email, "meetings": collections.Counter(), "last_meeting": {},
+            p = {"name": name, "email": email, "meetings": collections.Counter(), "last_meeting": {}, "next_meeting": {},
                  "mails": [], "dm": 0, "groups": set(), "from": set(), "projects": set()}
         if email and not p["email"]:
             p["email"] = email
@@ -148,6 +148,8 @@ def google_people(people, link):
             p["meetings"][name] += at <= now
             if at <= now:
                 p["last_meeting"][name] = max(p["last_meeting"].get(name, 0), at)
+            else:
+                p["next_meeting"][name] = min(p["next_meeting"].get(name, at), at)
             m["people"].add(p["name"])
     print("[brain] calendar: %d events, %d meetings with people" % (len(events), len(meetings)))
 
@@ -339,8 +341,11 @@ def main(argv):
         lines = []
         if p["meetings"]:
             lines.append("## Meetings")
-            lines += ["- [[%s]]: %s" % (called[n], "%d time%s, last %s" % (c, "" if c == 1 else "s", day(
-                p["last_meeting"][n])) if c else "booked, not yet held") for n, c in p["meetings"].most_common(8)]
+            for n, c in p["meetings"].most_common(8):
+                held = "%d time%s, last %s" % (c, "" if c == 1 else "s", day(p["last_meeting"][n])) if c else "not held yet"
+                ahead = p["next_meeting"].get(n)
+                lines.append("- [[%s]]: %s%s" % (called[n], held, ", next %s" % time.strftime(
+                    "%Y-%m-%d %H:%M", time.localtime(ahead)) if ahead else ""))
         if p["mails"]:
             lines.append("## Mail to you")
             lines += ["- %s: %s" % (day(at), link(subj.replace("[[", "").replace("]]", "")))
@@ -359,7 +364,9 @@ def main(argv):
 
     notepad(mind, names, people)
     counts = collections.Counter(n.kind for n in mind.notes())
-    print("[brain] %s in %s" % (", ".join("%d %s" % (c, k) for k, c in sorted(counts.items())), mind.root))
+    summary = ", ".join("%d %s" % (c, k) for k, c in sorted(counts.items()))
+    mind.log("rebuilt the map%s: %s" % (" (no Google)" if "--local" in argv else "", summary))
+    print("[brain] %s in %s" % (summary, mind.root))
 
 
 if __name__ == "__main__":

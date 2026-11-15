@@ -3,9 +3,15 @@ note per person, project, meeting, chat group and app, linked with [[names]]. Op
 
 JARVIS owns only its frontmatter keys and the lines between its two markers; anything you add above or below them,
 or any frontmatter key of your own ("role: manager"), stays when JARVIS rewrites the note.
-tools/brain_build.py fills it from Calendar, Gmail, Chat, ~/Projects and the day tracker."""
+tools/brain_build.py fills it from Calendar, Gmail, Chat, ~/Projects and the day tracker.
+
+brain/raw/<date>.md mirrors what you told JARVIS to remember (notes.json, kept by skills/notes.py), word for word and
+never rewritten by any AI; private notes and secrets are left out. brain/log.md is a dated diary of what JARVIS
+remembered, forgot and rebuilt."""
+import json
 import os
 import re
+import time
 
 import numpy as np
 import yaml
@@ -16,6 +22,9 @@ LINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 FRONT = re.compile(r"\A---\n(.*?)\n---\n?", re.S)
 FILLER = re.compile(r"\b(?:the|my|a|an|that|this|thing|stuff|one|project|app)\b", re.I)
 MADE = ".made"  # Obsidian skips dot files
+RAW_SEEN = ".raw.json"  # the notes raw/ showed last time, to log what was added or forgotten
+NOT_TOPICS = {"raw"}  # day files of things you said: not something a question is "about"
+DATE = re.compile(r"\b(20\d\d)-(\d\d)-(\d\d)\b")
 BAD = re.compile(r'[\\/:*?"<>|#^\[\]]+')  # not allowed in a file name or a [[link]]
 
 
@@ -81,6 +90,94 @@ class Mind:
                 f.write(rel + "\n")
         return path
 
+    # --- the diary and what you told JARVIS ---
+
+    def log(self, text):
+        """One dated line in brain/log.md."""
+        path = os.path.join(self.root, "log.md")
+        os.makedirs(self.root, exist_ok=True)
+        new = not os.path.exists(path)
+        with open(path, "a") as f:
+            if new:
+                f.write("# JARVIS's diary\n\nWhat JARVIS remembered, forgot and rebuilt, newest last.\n\n")
+            f.write("- %s %s\n" % (time.strftime("%Y-%m-%d %H:%M"), text))
+
+    def mirror(self, notes):
+        """Rewrite brain/raw/ from notes.json ([{text, at, project?, private?}]): one file per day, your words as
+        said, with known names linked. Logs what was added or forgotten since last time."""
+        public = [n for n in notes if not n.get("private")]
+        folder = os.path.join(self.root, "raw")
+        link = linker({n.name: n.names[1:] for n in self.notes() if n.kind not in NOT_TOPICS | {"apps"}})
+        days = {}
+        for n in sorted(public, key=lambda n: n.get("at") or 0):
+            line = link(n["text"])
+            if n.get("project"):
+                line = "%s: %s" % (link(n["project"]) if "[[" in link(n["project"]) else n["project"], line)
+            days.setdefault(time.strftime("%Y-%m-%d", time.localtime(n.get("at") or 0)), []).append(
+                "- %s %s" % (time.strftime("%H:%M", time.localtime(n.get("at") or 0)), line))
+        os.makedirs(folder, exist_ok=True)
+        for f in os.listdir(folder):
+            if f.endswith(".md") and f[:-3] not in days:
+                os.remove(os.path.join(folder, f))  # every note of that day was forgotten
+        for d, lines in days.items():
+            text = "---\ntype: raw\n---\nWhat you told JARVIS to remember on %s, as you said it. Change it by voice " \
+                   "(\"forget ...\"), not here: this file is rewritten from JARVIS's notes.\n\n%s\n" % (d, "\n".join(lines))
+            path = os.path.join(folder, d + ".md")
+            old = open(path).read() if os.path.exists(path) else None
+            if old != text:
+                with open(path + ".tmp", "w") as f:
+                    f.write(text)
+                os.replace(path + ".tmp", path)
+        seen_path = os.path.join(self.root, RAW_SEEN)
+        try:
+            with open(seen_path) as f:
+                seen = json.load(f)
+        except (OSError, ValueError):
+            seen = None
+        now = [n["text"] for n in public]
+        if seen is not None:
+            for t in now:
+                if t not in seen:
+                    self.log("remembered: %s" % t)
+            for t in seen:
+                if t not in now:
+                    self.log("forgot: %s" % t)
+        with open(seen_path, "w") as f:
+            json.dump(now, f)
+
+    # --- answering from it ---
+
+    def facts(self, note):
+        """JARVIS's lines in a note, plain enough to say: links as their words, headings as "Mail to you:",
+        "2026-11-03" as "3 Nov"."""
+        block = note.body.split(START, 1)[1].split(END, 1)[0] if START in note.body else note.body
+        out, heading = [], ""
+        for line in block.splitlines():
+            line = re.sub(r"\[\[([^\]|]+)\|([^\]]+)\]\]", r"\2", line)
+            line = re.sub(r"\[\[([^\]]+)\]\]", r"\1", line).replace("**", "").replace("*", "").strip()
+            line = DATE.sub(lambda m: time.strftime("%-d %b", time.strptime(m.group(0), "%Y-%m-%d")), line)
+            if line.startswith("#"):
+                heading = line.lstrip("# ").strip()
+            elif line.startswith("- "):
+                out.append("%s: %s" % (heading, line[2:]) if heading else line[2:])
+            elif line:
+                out.append(line)
+        return out
+
+    def mentioned(self, text, notes=None):
+        """Notes whose name or alias is in `text`, whole words only ("when do I meet Rahul" -> Rahul's note)."""
+        said = " %s " % " ".join(re.findall(r"[a-z0-9]+", text.lower()))
+        out = []
+        for n in notes or self.notes():
+            if n.kind in NOT_TOPICS:
+                continue
+            for name in n.names:
+                w = " ".join(re.findall(r"[a-z0-9]+", name.lower()))
+                if len(w.replace(" ", "")) >= 4 and " %s " % w in said:
+                    out.append(n)
+                    break
+        return out
+
     def forget(self, path):
         """Remove a note whose source is gone (a deleted Notepad tab), so the same name can come back later."""
         rel = os.path.relpath(path, self.root)
@@ -121,7 +218,7 @@ class Mind:
 
     def find(self, text, cutoff=0.5):
         """The note `text` is about: its name or alias said exactly, else the closest by meaning (needs embed)."""
-        notes = self.notes()
+        notes = [n for n in self.notes() if n.kind not in NOT_TOPICS]
         hit = self.note(text, notes)
         if hit or not self.embed or not notes:
             return hit
@@ -212,6 +309,14 @@ if __name__ == "__main__":  # self-check on a throwaway vault
     assert [n.name for n in m.around("AI Supervisor")] == ["Rahul K"]
     link = linker({"AI Supervisor": ["ai supervisor", "supervisor"]})
     assert link("the Supervisor demo, [[AI Supervisor]] ok") == "the [[AI Supervisor|Supervisor]] demo, [[AI Supervisor]] ok"
+    m.mirror([{"text": "Rahul K owes me the invoice", "at": 1794700000}, {"text": "pin", "at": 1794700001, "private": True}])
+    m.mirror([{"text": "Rahul K owes me the invoice", "at": 1794700000}, {"text": "demo moved", "at": 1794700002}])
+    raw = open(os.path.join(root, "raw", time.strftime("%Y-%m-%d", time.localtime(1794700000)) + ".md")).read()
+    diary = open(os.path.join(root, "log.md")).read()
+    assert "[[Rahul K]] owes me" in raw and "pin" not in raw and "demo moved" in raw, raw
+    assert "remembered: demo moved" in diary and "pin" not in diary, diary
+    assert m.facts(m.note("Rahul K")) == ["Meets you on AI Supervisor"], m.facts(m.note("Rahul K"))
+    assert [n.name for n in m.mentioned("what's up with rahul k today")] == ["Rahul K"]
     os.remove(m.note("supervisor").path)
     assert m.write("projects", "AI Supervisor", {}, ["back?"]) is None and not m.note("supervisor")
     print("ok")

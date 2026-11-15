@@ -15,10 +15,12 @@ Recall goes by meaning (the meaning matcher's MiniLM, a few ms per question); th
 a question are passed on to Claude with it.
 """
 import os
+import pwd
 import re
 import threading
 import time
 
+from core.mind import Mind
 from core.store import load_json, save_json
 from skills.base import Skill
 from skills.cards import ORDINALS
@@ -26,6 +28,7 @@ from skills.helpers import HOME, and_list, words
 from system import keyring
 
 NOTES_FILE = os.path.join(HOME, ".local/share/jarvis/notes.json")
+REAL_NOTES = os.path.join(pwd.getpwuid(os.getuid()).pw_dir, ".local/share/jarvis/notes.json")
 RECALL = 0.40  # meaning score for "what do you remember about X" (unrelated things score under 0.25)
 ANSWER = 0.45  # ... for answering "where did I park" from a note without asking Claude
 RELEVANT = 0.28  # ... for passing a note on to Claude with a question ("what should I eat" ~ "I'm vegetarian")
@@ -64,6 +67,12 @@ def load_notes():
 
 def save_notes(notes):
     save_json(NOTES_FILE, notes, indent=1)
+    if NOTES_FILE != REAL_NOTES:
+        return  # a test's notes (a made-up HOME) never reach your brain/
+    try:  # the brain's word-for-word copy (brain/raw/) and diary; a problem there never loses a note
+        Mind().mirror(notes)
+    except Exception as e:
+        print("[brain] raw/ not updated: %r" % e)
 
 
 def _note_line(n):
@@ -86,6 +95,12 @@ def _topic(text):
     """"my favourite editor is vim" -> "favourite editor" (a later one replaces it); else None."""
     m = re.match(r"my (favou?rite|preferred|usual|go[- ]to) (.+?) (?:is|are)\b", text, re.IGNORECASE)
     return "%s %s" % (m.group(1).lower().replace("favorite", "favourite"), m.group(2).lower()) if m else None
+
+
+def _on(item):
+    """ " on 3 Nov" for a note with a date: where the answer came from."""
+    at = item["ref"].get("at") if isinstance(item.get("ref"), dict) else None
+    return " on %s" % time.strftime("%-d %b", time.localtime(at)) if at else ""
 
 
 def _secret(note):
@@ -136,7 +151,9 @@ class Notes(Skill):
             (r"(?:remember|note|make a note)(?: that)? (.+)", self.remember),
             (r"what did i (?:ask|tell) you to remember|what do you remember|(?:list |read )?my notes",
              lambda m: self.list_notes()),
-            (r"(?:what do you (?:know|remember) about|do you remember) (.+)", self.recall),
+            (r"(?:what do you (?:know|remember) about|do you remember|what do (?:my|your) notes say about|"
+             r"what'?s in (?:my|your) (?:notes|brain|memory) (?:about|on)|check (?:my|your) (?:notes|brain) for) (.+)",
+             self.recall),
             (r"forget (?:about |the note )?(?!.*\breminders?$)(.+)", self.forget),  # "forget the X reminder": todos
             (CASUAL, self.casual),
         ]
@@ -298,9 +315,15 @@ class Notes(Skill):
             if recent else " They're on your screen."))
 
     def recall(self, m):
-        hits = self._find(m.group(1), self._items(projects=True, secrets=True))
+        query = m.group(1).strip()
+        hits = self._find(query, self._items(projects=True, secrets=True))
         if not hits:
-            return False  # maybe a general question: let Claude have it
+            if self._from_brain(query):
+                return
+            if re.search(r"\b(?:remember|notes|brain|memory)\b", m.group(0), re.IGNORECASE):
+                self.say("I don't have anything about %s in my notes." % _you(query))
+                return
+            return False  # "what do you know about black holes": a general question, let Claude have it
         top = hits[0]
         if top["kind"] == "secret":
             return self.secret(top["text"])
@@ -308,7 +331,26 @@ class Notes(Skill):
         self.last = hits[0]
         if any(h["private"] for h in hits):
             self.j.keep_private()
-        self.say("You told me %s." % "; and ".join(_you(h["text"]) for h in hits))
+        self.say("You told me %s." % "; and ".join(_you(h["text"]) + _on(h) for h in hits))
+
+    def _from_brain(self, query):
+        """Say what the mind map (brain/) has on `query` ("Rahul", "the supervisor project"), naming the note it
+        came from, and show all of it. False when no note is about it."""
+        try:
+            mind = Mind(embed=self.j.intents.embed if self.j.intents else None)
+            note = mind.find(query)
+            facts = [f for f in mind.facts(note) if not f.startswith("From Notepad")] if note else []
+        except Exception as e:
+            print("[brain] recall failed: %r" % e)
+            return False
+        if not facts:
+            return False
+        self.j.show({"title": note.name, "text": "\n".join("- " + f for f in facts) +
+                     "\n\nFrom brain/%s/%s.md" % (note.kind, note.name)})
+        source = "Your Notepad note %s says" % note.name if note.kind == "notepad" else \
+            "From my notes on %s" % note.name
+        self.say("%s: %s." % (source, "; ".join(f.rstrip(".") for f in facts[:2])))
+        return True
 
     def answer(self, text):
         """A question about your own things that a note answers ("where did I park" -> "my car is on level 2"):
@@ -322,7 +364,7 @@ class Notes(Skill):
         item = self.last = next(i for i in items if i["text"] == best)
         if item["private"]:
             self.j.keep_private()
-        self.say("You told me %s." % _you(item["text"]))
+        self.say("You told me %s." % (_you(item["text"]) + _on(item)))
         return True
 
     def secret(self, name):
@@ -411,16 +453,28 @@ class Notes(Skill):
         """The few things you've told JARVIS that matter for `text`, as a line for Claude ("" if none).
         Private ones and secrets are never in it."""
         items = [i for i in self._items(projects=True) if not i["private"]]
-        if not items:
+        vecs = self._vectors([text] + [i["text"] for i in items]) if items else None
+        hits = []
+        if vecs is not None:
+            scores = vecs[1:] @ vecs[0]
+            hits = [items[i] for i in scores.argsort()[::-1][:3] if scores[i] >= RELEVANT]
+        said = "What %s told JARVIS before that may matter here: %s." % (
+            self.j.settings.get("user_name") or "the user", "; ".join("\"%s\"" % h["text"] for h in hits)) if hits else ""
+        return " ".join(x for x in (said, self._brain_for_claude(text)) if x)
+
+    @staticmethod
+    def _brain_for_claude(text):
+        """What the mind map says about the people and projects `text` names, with the note each line came from.
+        Only notes named in the question; never Notepad tabs or the raw/ words (they can hold anything)."""
+        try:
+            mind = Mind()
+            named = [n for n in mind.mentioned(text) if n.kind in ("people", "projects", "meetings", "groups")][:2]
+            parts = ["from its note on %s: %s" % (n.name, "; ".join(mind.facts(n)[:5])) for n in named]
+        except Exception as e:
+            print("[brain] nothing for Claude: %r" % e)
             return ""
-        vecs = self._vectors([text] + [i["text"] for i in items])
-        if vecs is None:
-            return ""
-        scores = vecs[1:] @ vecs[0]
-        hits = [items[i] for i in scores.argsort()[::-1][:3] if scores[i] >= RELEVANT]
-        return "What %s told JARVIS before that may matter here: %s" % (
-            self.j.settings.get("user_name") or "the user", "; ".join(
-                "\"%s\"" % h["text"] for h in hits)) if hits else ""
+        return ("JARVIS's notes (say where a fact came from; if they don't answer it, say so): %s." %
+                " | ".join(parts))[:900] if parts else ""
 
     # --- changing and forgetting ---
 
