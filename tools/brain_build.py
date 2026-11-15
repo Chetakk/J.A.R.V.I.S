@@ -225,6 +225,7 @@ def google_people(people, link):
 
 LINKED = re.compile(r"\[\[([^\]|]+)")
 HOUR = 3.6e6
+TOGETHER = 5 * HOUR  # an app links to a project only after this long used together (Claude Code + Jarvis: 21.7h)
 WORK_AND_OWN = ("Biztel work", "Personal")  # the two areas under the top Projects node
 OUTCOMES = os.path.expanduser("~/.local/share/jarvis/outcomes.jsonl")
 LOCAL = re.compile(r"^(?:\d{1,3}(?:\.\d{1,3}){3}|localhost)(?::\d+)?$")  # 127.0.0.1: test servers
@@ -265,16 +266,6 @@ def spaced(name):
     """A chat group's name with its punctuation as spaces, so its words link: "Annotation-Avtec(Hub,sleeve)"."""
     return re.sub(r"[-_(),.]+", " ", name)
 
-
-def readme(path):
-    """The start of a project's README, to see which other projects it names."""
-    for name in ("README.md", "readme.md", "README"):
-        try:
-            with open(os.path.join(path, name), errors="replace") as f:
-                return f.read(4000)
-        except OSError:
-            pass
-    return ""
 
 
 def together_with(state):
@@ -388,9 +379,6 @@ def main(argv):
             lines.append("- Files last changed %s" % day(touched))
         if p.name in family_of:
             lines.append("- Part of [[%s]]" % family_of[p.name])
-        related = sorted(set(LINKED.findall(link(readme(p.path)))) - {name, family_of.get(p.name)})
-        if related:
-            lines.append("- Its README mentions %s" % ", ".join("[[%s]]" % n for n in related))
         lines += [""] + (["## Open"] + pending[name] if pending.get(name) else [])
         mind.write("projects", name, {"folder": p.path, "aliases": sorted(set(names[name]) - {name}),
                                       "about": p.summary or p.title}, lines,
@@ -408,7 +396,7 @@ def main(argv):
         lines = ["- %sh in all, %sh in the last 7 days, last on %s" % (hours(total), hours(recent), day(last / 1000)),
                  "- One of your [[Apps]]"]
         with_ = folder_hours if label == "VS Code" else together.get(label, {})
-        on = sorted(((ms, by_folder[f]) for f, ms in with_.items() if f in by_folder and ms >= HOUR), reverse=True)
+        on = sorted(((ms, by_folder[f]) for f, ms in with_.items() if f in by_folder and ms >= TOGETHER), reverse=True)
         if on:
             lines.append("- %s %s" % ("Projects open in it:" if label == "VS Code" else "Used while working on",
                                       ", ".join("[[%s]] (%sh)" % (n, hours(ms)) for ms, n in on[:8])))
@@ -428,7 +416,7 @@ def main(argv):
     for area, about in (cfg.get("areas") or {}).items():
         mind.write("projects", area, {"type": "area", "about": about},
                    [about] + (["- Part of [[Projects]]"] if area in WORK_AND_OWN else []), folder=area)
-    mind.write("projects", "Projects", {"type": "area"}, ["All your projects: [[Biztel work]] and [[Personal]]."])
+    mind.write("projects", "Projects", {"type": "area"}, ["All your projects: Biztel work and Personal."])
     mind.write("people", "People", {"type": "area"},
                ["Everyone JARVIS found in your Calendar, Gmail and Chat.", "- Through [[Biztel work]]"])
     mind.write("apps", "Apps", {"type": "area"},
@@ -453,11 +441,12 @@ def main(argv):
     for name, g in groups.items():
         lines = ["- People talking: %s" % (", ".join("[[%s]]" % title(n) for n in sorted(g["people"])) or "nobody else"),
                  "- Last message %s" % day(g["last"])]
-        if g["projects"]:
-            lines.append("- Mentions %s" % ", ".join("[[%s]]" % n for n in sorted(g["projects"])))
         about = sorted(set(LINKED.findall(link(spaced(name)))))
         if about:
             lines.append("- About %s" % ", ".join("[[%s]]" % n for n in about))
+        talked = sorted(set(g["projects"]) - set(about))
+        if talked:
+            lines.append("- Talked about %s" % ", ".join("[[%s]]" % n for n in talked))
         mind.write("groups", called[name], {}, lines)
 
     for p in people.all():
@@ -467,7 +456,7 @@ def main(argv):
             for n, c in p["meetings"].most_common(8):
                 held = "%d time%s, last %s" % (c, "" if c == 1 else "s", day(p["last_meeting"][n])) if c else "not held yet"
                 ahead = p["next_meeting"].get(n)
-                lines.append("- [[%s]]: %s%s" % (called[n], held, ", next %s" % time.strftime(
+                lines.append("- %s: %s%s" % (called[n], held, ", next %s" % time.strftime(
                     "%Y-%m-%d %H:%M", time.localtime(ahead)) if ahead else ""))
         if p["mails"]:
             lines.append("## Mail to you")
@@ -480,11 +469,7 @@ def main(argv):
             if p["dm"]:
                 lines.append("- Direct messages, last %s" % day(p["dm"]))
             if p["groups"]:
-                lines.append("- In %s" % ", ".join("[[%s]]" % called[g] for g in sorted(p["groups"])))
-        for g in p["groups"]:  # a group or meeting named after a project ("Annotation-Avtec(Hub,sleeve)")
-            p["projects"] |= set(LINKED.findall(link(spaced(g))))
-        for n in p["meetings"]:
-            p["projects"] |= set(LINKED.findall(link(n)))
+                lines.append("- In %s" % ", ".join(called[g] for g in sorted(p["groups"])))
         if p["projects"]:
             lines += ["## Projects", "- " + ", ".join("[[%s]]" % n for n in sorted(p["projects"]))]
         lines.insert(0, "- One of the [[People]]")
