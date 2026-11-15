@@ -22,7 +22,8 @@ LINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 FRONT = re.compile(r"\A---\n(.*?)\n---\n?", re.S)
 FILLER = re.compile(r"\b(?:the|my|a|an|that|this|thing|stuff|one|project|app)\b", re.I)
 MADE = ".made"  # Obsidian skips dot files
-RAW_SEEN = ".raw.json"  # the notes raw/ showed last time, to log what was added or forgotten
+RAW_SEEN = ".raw.json"
+RAW_HUB = "What you told me"  # raw/'s hub note (tools/brain_build.py HUBS): kept when the day files are rewritten  # the notes raw/ showed last time, to log what was added or forgotten
 NOT_TOPICS = {"raw"}  # day files of things you said: not something a question is "about"
 DATE = re.compile(r"\b(20\d\d)-(\d\d)-(\d\d)\b")
 BAD = re.compile(r'[\\/:*?"<>|#^\[\]]+')  # not allowed in a file name or a [[link]]
@@ -128,11 +129,12 @@ class Mind:
                 "- %s %s" % (time.strftime("%H:%M", time.localtime(n.get("at") or 0)), line))
         os.makedirs(folder, exist_ok=True)
         for f in os.listdir(folder):
-            if f.endswith(".md") and f[:-3] not in days:
+            if f.endswith(".md") and f[:-3] not in days and f != RAW_HUB + ".md":
                 os.remove(os.path.join(folder, f))  # every note of that day was forgotten
         for d, lines in days.items():
             text = "---\ntype: raw\n---\nWhat you told JARVIS to remember on %s, as you said it. Change it by voice " \
-                   "(\"forget ...\"), not here: this file is rewritten from JARVIS's notes.\n\n%s\n" % (d, "\n".join(lines))
+                   "(\"forget ...\"), not here: this file is rewritten from JARVIS's notes.\n\n- Part of [[%s]]\n\n%s\n" % (
+                d, RAW_HUB, "\n".join(lines))
             path = os.path.join(folder, d + ".md")
             old = open(path).read() if os.path.exists(path) else None
             if old != text:

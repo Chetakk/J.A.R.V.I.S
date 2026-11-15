@@ -403,6 +403,24 @@ def learning(mind):
     print("[brain] learning: %d groups, %d playlists and problem sets" % (len(groups), len(sources)))
 
 
+HUBS = {  # the centre of the map: Brain.md links once to each of these, and each holds its own notes
+    "projects": ("Projects", None), "people": ("People", None), "apps": ("Apps", None), "learning": ("Learning", None),
+    "groups": ("Chat groups", "The Google Chat groups you were active in lately."),
+    "meetings": ("Meetings", "Meetings with other people, from your Calendar."),
+    "notepad": ("Notepad notes", "Your Notepad tabs (ProducTVT's Notes page)."),
+    "raw": ("What you told me", "Everything you told JARVIS to remember, day by day, word for word."),
+}
+
+
+def hubs(mind):
+    """Brain.md at the vault's top, linked to one hub per section; the sections' own hub notes."""
+    for kind, (name, about) in HUBS.items():
+        if about:
+            mind.write(kind, name, {"type": "area"}, [about])
+    mind.write("", "Brain", {"type": "brain"}, ["JARVIS's memory of your world. Each part:", ""] +
+               ["- [[%s]]" % name for name, _ in HUBS.values()])
+
+
 def notepad(mind, projects, people):
     """Each Notepad tab (ProducTVT's Note table, ~/Projects/Notepad) as brain/notepad/<title>.md, linked to the
     projects and people it names. The vault copy follows the tab: renamed, changed or closed there, the same here."""
@@ -430,7 +448,8 @@ def notepad(mind, projects, people):
         if score >= 0.65:
             named.add(best)
         named = sorted(named)
-        lines = ["*From Notepad, updated %s. Edit it there: changes made here aren't sent back.*" % t["at"][:16], ""]
+        lines = ["*From Notepad, updated %s. Edit it there: changes made here aren't sent back.*" % t["at"][:16],
+                 "- One of your [[Notepad notes]]", ""]
         if named:
             lines += ["Mentions " + ", ".join("[[%s]]" % n for n in named), ""]
         lines += [link(line) for line in text.splitlines()]
@@ -498,8 +517,7 @@ def main(argv):
         touched = p.touched()
         if touched:
             lines.append("- Files last changed %s" % day(touched))
-        if p.name in family_of:
-            lines.append("- Part of [[%s]]" % family_of[p.name])
+        lines.append("- Part of [[%s]]" % family_of.get(p.name, "Projects"))  # in no family: straight under Projects
         lines += [""] + (["## Open"] + pending[name] if pending.get(name) else [])
         mind.write("projects", name, {"folder": p.path, "aliases": sorted(set(names[name]) - {name}),
                                       "about": p.summary or p.title}, lines,
@@ -556,7 +574,7 @@ def main(argv):
         dates = sorted(m["dates"])
         past = [d for d in dates if d <= time.time()]
         ahead = [d for d in dates if d > time.time()]
-        lines = ["- With %s" % ", ".join("[[%s]]" % title(n) for n in sorted(m["people"])),
+        lines = ["- One of your [[Meetings]]", "- With %s" % ", ".join("[[%s]]" % title(n) for n in sorted(m["people"])),
                  "- %d time%s in the last %d days, last on %s" % (len(past), "" if len(past) == 1 else "s", DAYS_BACK,
                                                                   day(past[-1])) if past else "- Not held yet",
                  "- Next: %s" % day(ahead[0]) if ahead else "- Nothing booked in the next %d days" % DAYS_AHEAD]
@@ -567,7 +585,7 @@ def main(argv):
 
     for name, g in groups.items():
         lines = ["- People talking: %s" % (", ".join("[[%s]]" % title(n) for n in sorted(g["people"])) or "nobody else"),
-                 "- Last message %s" % day(g["last"])]
+                 "- Last message %s" % day(g["last"]), "- One of your [[Chat groups]]"]
         about = sorted(set(LINKED.findall(link(spaced(name)))))
         if about:
             lines.append("- About %s" % ", ".join("[[%s]]" % n for n in about))
@@ -605,6 +623,7 @@ def main(argv):
 
     notepad(mind, names, people)
     learning(mind)
+    hubs(mind)
     counts = collections.Counter(n.kind for n in mind.notes())
     summary = ", ".join("%d %s" % (c, k) for k, c in sorted(counts.items()))
     mind.log("rebuilt the map%s: %s" % (" (no Google)" if "--local" in argv else "", summary))
