@@ -225,6 +225,31 @@ def google_people(people, link):
 
 LINKED = re.compile(r"\[\[([^\]|]+)")
 HOUR = 3.6e6
+WORK_AND_OWN = ("Biztel work", "Personal")  # the two areas under the top Projects node
+OUTCOMES = os.path.expanduser("~/.local/share/jarvis/outcomes.jsonl")
+LOCAL = re.compile(r"^(?:\d{1,3}(?:\.\d{1,3}){3}|localhost)(?::\d+)?$")  # 127.0.0.1: test servers
+# an installed app's name -> what the day tracker calls it, so both land on one note
+SHORT = {"Firefox Web Browser": "Firefox", "Google Chrome": "Google Chrome", "Visual Studio Code": "VS Code",
+         "GNOME System Monitor": "System Monitor"}
+
+
+def jarvis_opened():
+    """{key: (app name, times)} for apps you opened by asking JARVIS ("open cheese"), from its outcome log."""
+    from system.apps import Apps
+    apps, out = Apps(), {}
+    try:
+        with open(OUTCOMES) as f:
+            rows = [json.loads(line) for line in f if line.strip()]
+    except (OSError, ValueError):
+        return {}
+    for r in rows:
+        m = re.match(r"^open (?:the )?(.+?)(?: app)?$", r.get("phrase") or "", re.I)
+        app = apps.find(m.group(1)) if m else None
+        if app:
+            short = SHORT.get(app["name"], app["name"])
+            name, n = out.get(key(short), (short, 0))
+            out[key(short)] = (name, n + 1)
+    return out
 
 
 def load_yaml(path):
@@ -362,8 +387,13 @@ def main(argv):
         mind.write("projects", name, {"folder": p.path, "aliases": sorted(set(names[name]) - {name}),
                                       "about": p.summary or p.title}, lines)
 
+    opened = jarvis_opened()
     for label, (total, recent, last) in used.items():
-        if not label or label.startswith("VS Code ·") or total < 0.5 * 3.6e6:
+        if not label or label.startswith("VS Code ·") or total < 0.5 * 3.6e6 or LOCAL.match(label):
+            if LOCAL.match(label or "-"):
+                gone = mind.note(label)
+                if gone and gone.kind == "apps":
+                    mind.forget(gone.path)  # your own computer's test servers, not an app or a site
             continue
         name = label.split(" · ")[0] if " · " in label and "YouTube" in label else label
         lines = ["- %sh in all, %sh in the last 7 days, last on %s" % (hours(total), hours(recent), day(last / 1000)),
@@ -373,7 +403,13 @@ def main(argv):
         if on:
             lines.append("- %s %s" % ("Projects open in it:" if label == "VS Code" else "Used while working on",
                                       ", ".join("[[%s]] (%sh)" % (n, hours(ms)) for ms, n in on[:8])))
+        times = opened.pop(key(label), None)
+        if times:
+            lines.append("- Opened through JARVIS %d time%s" % (times[1], "" if times[1] == 1 else "s"))
         mind.write("apps", label, {"kind": "site" if "." in name else "app"}, lines)
+    for app, n in opened.values():  # opened through JARVIS but not in the day tracker
+        mind.write("apps", app, {"kind": "app"}, ["- Opened through JARVIS %d time%s" % (n, "" if n == 1 else "s"),
+                                                 "- One of your [[Apps]]"])
 
     for fam, c in families.items():
         members = [by_folder[f] for f in c.get("projects") or [] if f in by_folder]
@@ -381,7 +417,8 @@ def main(argv):
         lines.append("- %d project%s link here" % (len(members), "" if len(members) == 1 else "s"))
         mind.write("families", fam, {"aliases": c.get("words") or []}, lines)
     for area, about in (cfg.get("areas") or {}).items():
-        mind.write("areas", area, {"about": about}, [about])
+        mind.write("areas", area, {"about": about}, [about] + (["- Part of [[Projects]]"] if area in WORK_AND_OWN else []))
+    mind.write("areas", "Projects", {}, ["All your projects: [[Biztel work]] and [[Personal]]."])
     mind.write("areas", "People", {}, ["Everyone JARVIS found in your Calendar, Gmail and Chat.", "- Through [[Biztel work]]"])
     mind.write("areas", "Apps", {}, ["Apps and sites you used for half an hour or more (day tracker)."])
 
