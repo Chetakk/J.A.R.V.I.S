@@ -28,7 +28,7 @@ def playing():
         app, binary = field(r"application\.name"), field(r"application\.process\.binary")
         # module-loopback streams are the share script's own wiring, not apps
         if "Corked: yes" in block or "module-" in block.split("Driver: ")[-1][:20] or not (app or binary) \
-                or any(n in (app + binary).lower() for n in NOT_APPS):
+                or binary.lower() in NOT_APPS:  # exact: "paplay" is someone's sound, "aplay" is JARVIS's voice
             continue
         found.append((block.split()[0], app or binary, binary, field(r"media\.name")))
     return found
