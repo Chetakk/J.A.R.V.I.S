@@ -395,11 +395,17 @@ def main(argv):
         name = label.split(" · ")[0] if " · " in label and "YouTube" in label else label
         lines = ["- %sh in all, %sh in the last 7 days, last on %s" % (hours(total), hours(recent), day(last / 1000)),
                  "- One of your [[Apps]]"]
-        with_ = folder_hours if label == "VS Code" else together.get(label, {})
-        on = sorted(((ms, by_folder[f]) for f, ms in with_.items() if f in by_folder and ms >= TOGETHER), reverse=True)
-        if on:
-            lines.append("- %s %s" % ("Projects open in it:" if label == "VS Code" else "Used while working on",
-                                      ", ".join("[[%s]] (%sh)" % (n, hours(ms)) for ms, n in on[:8])))
+        if label == "VS Code":  # every project is edited in it: hours in words, no links
+            on = sorted(((ms, by_folder[f]) for f, ms in folder_hours.items() if f in by_folder and ms >= HOUR),
+                        reverse=True)
+            if on:
+                lines.append("- Projects open in it: %s" % ", ".join("%s (%sh)" % (n, hours(ms)) for ms, n in on[:8]))
+        else:
+            on = sorted(((ms, by_folder[f]) for f, ms in together.get(label, {}).items()
+                         if f in by_folder and ms >= TOGETHER), reverse=True)
+            if on:
+                lines.append("- Used while working on %s" % ", ".join(
+                    "[[%s]] (%sh)" % (n, hours(ms)) for ms, n in on[:8]))
         times = opened.pop(key(label), None)
         if times:
             lines.append("- Opened through JARVIS %d time%s" % (times[1], "" if times[1] == 1 else "s"))
