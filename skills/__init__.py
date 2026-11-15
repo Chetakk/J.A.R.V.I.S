@@ -15,6 +15,7 @@ calendar" is Google's once connected), the to-dos ("add this email to my to-dos"
 """
 from skills.browser_tabs import BrowserTabs
 from skills.audio import Audio
+from skills.share_audio import ShareAudio
 from skills.briefing import Briefing
 from skills.cards import Cards
 from skills.checks import Checks
@@ -77,7 +78,7 @@ ORDER = [
     ("learning", Learning), ("status", Status), ("tasks", Tasks), ("dashboard", Dashboard), ("briefing", Briefing), ("linked", Linked), ("checks", Checks),
     ("daytracker", DayTracker), ("todos", Todos), ("phone", Phone), ("studybuddy", StudyBuddy), ("videos", Videos),
     ("network", Network), ("install", Install), ("troubleshoot", Troubleshoot), ("documents", Documents), ("web", Web), ("lookup", Lookup), ("projects", Projects), ("screen", Screen),
-    ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
+    ("share_audio", ShareAudio), ("browser_tabs", BrowserTabs), ("media", Media), ("audio", Audio), ("display", Display), ("copy_between", CopyBetween), ("clipboard", Clipboard),
     ("notes", Notes), ("organise", Organise), ("files", Files),
     ("nano", Nano), ("layouts", Layouts), ("controls", Controls), ("windows", Windows), ("dev", Dev),
 ]
