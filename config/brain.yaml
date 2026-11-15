@@ -1,0 +1,46 @@
+# How JARVIS's mind map (brain/, built by tools/brain_build.py) groups your projects.
+# A family is a parent note its projects link to; `in:` puts a family inside another family or an area.
+# `words:` are names in chat groups, meetings and mail that mean this family ("Annotation-Avtec(Hub,sleeve)").
+# Projects are ~/Projects folder names. A project in no family stays on its own in the graph.
+
+areas:
+  Biztel work: "Everything for BiztelAI: the AI Supervisor stations, the platform, the tools around them."
+  Personal: "Your own projects and tools."
+
+families:
+  AI Supervisor:
+    in: Biztel work
+    words: [ai supervisor, supervisor]
+    projects: [AI-Supervisior-fronend, Demo-screw, Oring]
+  Avtec:
+    in: AI Supervisor
+    words: [avtec]
+    projects: [avtec-hs, avtec-circlip, circlip-line-2, hub-sleeve-annotations]
+  UPE:
+    in: AI Supervisor
+    words: [upe]
+    projects: [UPE-Stations, UPE-blockline]
+  Biztel Platform:
+    in: Biztel work
+    words: [vision platform, biztel platform, biztelai platform]
+    projects: [BiztelAI Platform, biztel-module-camera, biztel-module-seg-inspection, biztel-project-builder, vertex-camera]
+  Training and annotation:
+    in: Biztel work
+    words: [annotation, cvat]
+    projects: [Auto-Training, extract-frames, SVAT]
+  AI Agents:
+    in: Biztel work
+    words: [plant intelligence]
+    projects: [AI-Process-Engineer, Plant Intelligence System]
+  Stellantis:
+    in: Biztel work
+    words: [stellantis, crankshaft]
+    projects: [Crowning-qc]
+  Team tools:
+    in: Biztel work
+    words: []
+    projects: [ProductVT, biztel-video-editor]
+  Personal projects:
+    in: Personal
+    words: []
+    projects: [J.A.R.V.I.S, study-budd, day-tracker, Notepad, Chetakk]

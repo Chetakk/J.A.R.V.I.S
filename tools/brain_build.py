@@ -27,6 +27,7 @@ from core.store import load_json  # noqa: E402
 DAYS_BACK, DAYS_AHEAD = 30, 14
 HUB = os.environ.get("DAY_TRACKER_URL", "http://localhost:7313")
 NOTES = os.path.expanduser("~/.local/share/jarvis/notes.json")
+CONFIG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "brain.yaml")
 NOTEPAD = os.path.expanduser("~/Projects/Notepad")  # the Notepad app; its notes_db.py reads ProducTVT's Note table
 BOT = re.compile(r"no-?reply|do-?not-?reply|notifications?@|mailer-daemon|calendar-notification|drive-shares|"
                  r"@(?:\w+\.)*(?:google|github|slack|linkedin|zoom)\.com$|@docs\.google\.com", re.I)
@@ -223,6 +224,46 @@ def google_people(people, link):
 
 
 LINKED = re.compile(r"\[\[([^\]|]+)")
+HOUR = 3.6e6
+
+
+def load_yaml(path):
+    import yaml
+    try:
+        with open(path) as f:
+            return yaml.safe_load(f) or {}
+    except OSError:
+        return {}
+
+
+def spaced(name):
+    """A chat group's name with its punctuation as spaces, so its words link: "Annotation-Avtec(Hub,sleeve)"."""
+    return re.sub(r"[-_(),.]+", " ", name)
+
+
+def readme(path):
+    """The start of a project's README, to see which other projects it names."""
+    for name in ("README.md", "readme.md", "README"):
+        try:
+            with open(os.path.join(path, name), errors="replace") as f:
+                return f.read(4000)
+        except OSError:
+            pass
+    return ""
+
+
+def together_with(state):
+    """{app: {project folder: ms}}: time an app was in use in the same day-tracker session as a VS Code folder
+    (Claude Code alongside J.A.R.V.I.S, Firefox alongside Plant Intelligence System)."""
+    out = collections.defaultdict(lambda: collections.defaultdict(float))
+    for e in state.get("autoEntries") or []:
+        parts = e.get("parts") or {}
+        folders = {k[len("VS Code · "):]: ms for k, ms in parts.items() if k.startswith("VS Code · ")}
+        for app, ms in parts.items():
+            if app and not app.startswith("VS Code"):
+                for f, fms in folders.items():
+                    out[app][f] += min(ms, fms)
+    return out
 
 
 def notepad(mind, projects, people):
@@ -273,7 +314,11 @@ def main(argv):
     names = {}
     for p in projects:
         names[note_name(p)] = [a for a in [p.name, p.title] + p.aliases if a]
-    link = linker({n: [w for w in ws if w.lower() not in LOOSE] for n, ws in names.items() if n.lower() not in LOOSE})
+    cfg = load_yaml(CONFIG)
+    families = cfg.get("families") or {}
+    family_of = {f: fam for fam, c in families.items() for f in c.get("projects") or []}
+    link = linker(dict({n: [w for w in ws if w.lower() not in LOOSE] for n, ws in names.items() if n.lower() not in LOOSE},
+                       **{fam: c.get("words") or [] for fam, c in families.items()}))
     state = tracker()
     used = usage(state)
     people = People()
@@ -295,6 +340,9 @@ def main(argv):
         for n in set(LINKED.findall(link(named or n_.get("text") or ""))):
             pending[n].append("- %s (note, %s)" % (n_.get("text"), day(n_.get("at") or 0)))
 
+    by_folder = {p.name: note_name(p) for p in projects}
+    folder_hours = {label[len("VS Code · "):]: ms for label, (ms, _, _) in used.items() if label.startswith("VS Code · ")}
+    together = together_with(state)
     for p in projects:
         name = note_name(p)
         total, recent, last = used.get("VS Code · " + p.name, (0, 0, 0))
@@ -305,6 +353,11 @@ def main(argv):
         touched = p.touched()
         if touched:
             lines.append("- Files last changed %s" % day(touched))
+        if p.name in family_of:
+            lines.append("- Part of [[%s]]" % family_of[p.name])
+        related = sorted(set(LINKED.findall(link(readme(p.path)))) - {name, family_of.get(p.name)})
+        if related:
+            lines.append("- Its README mentions %s" % ", ".join("[[%s]]" % n for n in related))
         lines += [""] + (["## Open"] + pending[name] if pending.get(name) else [])
         mind.write("projects", name, {"folder": p.path, "aliases": sorted(set(names[name]) - {name}),
                                       "about": p.summary or p.title}, lines)
@@ -313,9 +366,24 @@ def main(argv):
         if not label or label.startswith("VS Code ·") or total < 0.5 * 3.6e6:
             continue
         name = label.split(" · ")[0] if " · " in label and "YouTube" in label else label
-        mind.write("apps", label, {"kind": "site" if "." in name else "app"},
-                   ["- %sh in all, %sh in the last 7 days, last on %s" % (hours(total), hours(recent),
-                                                                          day(last / 1000))])
+        lines = ["- %sh in all, %sh in the last 7 days, last on %s" % (hours(total), hours(recent), day(last / 1000)),
+                 "- One of your [[Apps]]"]
+        with_ = folder_hours if label == "VS Code" else together.get(label, {})
+        on = sorted(((ms, by_folder[f]) for f, ms in with_.items() if f in by_folder and ms >= HOUR), reverse=True)
+        if on:
+            lines.append("- %s %s" % ("Projects open in it:" if label == "VS Code" else "Used while working on",
+                                      ", ".join("[[%s]] (%sh)" % (n, hours(ms)) for ms, n in on[:8])))
+        mind.write("apps", label, {"kind": "site" if "." in name else "app"}, lines)
+
+    for fam, c in families.items():
+        members = [by_folder[f] for f in c.get("projects") or [] if f in by_folder]
+        lines = ["- Part of [[%s]]" % c["in"]] if c.get("in") else []
+        lines.append("- %d project%s link here" % (len(members), "" if len(members) == 1 else "s"))
+        mind.write("families", fam, {"aliases": c.get("words") or []}, lines)
+    for area, about in (cfg.get("areas") or {}).items():
+        mind.write("areas", area, {"about": about}, [about])
+    mind.write("areas", "People", {}, ["Everyone JARVIS found in your Calendar, Gmail and Chat.", "- Through [[Biztel work]]"])
+    mind.write("areas", "Apps", {}, ["Apps and sites you used for half an hour or more (day tracker)."])
 
     for name, m in meetings.items():
         dates = sorted(m["dates"])
@@ -335,6 +403,9 @@ def main(argv):
                  "- Last message %s" % day(g["last"])]
         if g["projects"]:
             lines.append("- Mentions %s" % ", ".join("[[%s]]" % n for n in sorted(g["projects"])))
+        about = sorted(set(LINKED.findall(link(spaced(name)))))
+        if about:
+            lines.append("- About %s" % ", ".join("[[%s]]" % n for n in about))
         mind.write("groups", called[name], {}, lines)
 
     for p in people.all():
@@ -358,8 +429,13 @@ def main(argv):
                 lines.append("- Direct messages, last %s" % day(p["dm"]))
             if p["groups"]:
                 lines.append("- In %s" % ", ".join("[[%s]]" % called[g] for g in sorted(p["groups"])))
+        for g in p["groups"]:  # a group or meeting named after a project ("Annotation-Avtec(Hub,sleeve)")
+            p["projects"] |= set(LINKED.findall(link(spaced(g))))
+        for n in p["meetings"]:
+            p["projects"] |= set(LINKED.findall(link(n)))
         if p["projects"]:
             lines += ["## Projects", "- " + ", ".join("[[%s]]" % n for n in sorted(p["projects"]))]
+        lines.insert(0, "- One of the [[People]]")
         mind.write("people", p["name"], {"email": p["email"], "seen_in": sorted(p["from"])}, lines)
 
     notepad(mind, names, people)
