@@ -26,7 +26,9 @@ def playing():
     for block in re.split(r"^Sink Input #", out, flags=re.M)[1:]:
         field = lambda k: (re.search(r'%s = "([^"]*)"' % k, block) or [None, ""])[1]
         app, binary = field(r"application\.name"), field(r"application\.process\.binary")
-        if "Corked: yes" in block or any(n in (app + binary).lower() for n in NOT_APPS):
+        # module-loopback streams are the share script's own wiring, not apps
+        if "Corked: yes" in block or "module-" in block.split("Driver: ")[-1][:20] or not (app or binary) \
+                or any(n in (app + binary).lower() for n in NOT_APPS):
             continue
         found.append((block.split()[0], app or binary, binary, field(r"media\.name")))
     return found
