@@ -418,7 +418,7 @@ def main(argv):
                    [about] + (["- Part of [[Projects]]"] if area in WORK_AND_OWN else []), folder=area)
     mind.write("projects", "Projects", {"type": "area"}, ["All your projects: Biztel work and Personal."])
     mind.write("people", "People", {"type": "area"},
-               ["Everyone JARVIS found in your Calendar, Gmail and Chat.", "- Through [[Biztel work]]"])
+               ["Everyone JARVIS found in your Calendar, Gmail and Chat (your work account)."])
     mind.write("apps", "Apps", {"type": "area"},
                ["Apps and sites you used for half an hour or more, and ones you opened through JARVIS."])
     for n in mind.notes():  # the old flat areas/ and families/ folders (2a10a5c): their notes now sit with projects
@@ -460,7 +460,7 @@ def main(argv):
                     "%Y-%m-%d %H:%M", time.localtime(ahead)) if ahead else ""))
         if p["mails"]:
             lines.append("## Mail to you")
-            lines += ["- %s: %s" % (day(at), link(subj.replace("[[", "").replace("]]", "")))
+            lines += ["- %s: %s" % (day(at), subj.replace("[[", "").replace("]]", ""))  # words only: people don't link to projects
                       for at, subj in sorted(p["mails"], reverse=True)[:6]]
             for _, subj in p["mails"]:
                 p["projects"] |= set(LINKED.findall(link(subj)))
@@ -471,7 +471,8 @@ def main(argv):
             if p["groups"]:
                 lines.append("- In %s" % ", ".join(called[g] for g in sorted(p["groups"])))
         if p["projects"]:
-            lines += ["## Projects", "- " + ", ".join("[[%s]]" % n for n in sorted(p["projects"]))]
+            # named in words, not linked: a person links only to People, chat groups and meetings (your pick)
+            lines += ["## Projects they wrote about", "- " + ", ".join(sorted(p["projects"]))]
         lines.insert(0, "- One of the [[People]]")
         mind.write("people", p["name"], {"email": p["email"], "seen_in": sorted(p["from"])}, lines)
 
