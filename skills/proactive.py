@@ -44,6 +44,7 @@ POPUP = r"(?:alerts?|heads[- ]?ups?|warnings?|notifications?|messages?|pop-?ups?
 SOME = r"(?:the |my |your |these |those |this |that |all )?"
 ALERTS_FILE = os.path.expanduser("~/.local/share/jarvis/alerts.json")
 HELD_FILE = os.path.expanduser("~/.local/share/jarvis/held.json")  # held heads-ups survive a shutdown or crash
+NOT_LISTED = ("health", "phone")  # mic/speaker changes and phone calls/texts: seen live as pop-ups, not kept
 KEEP, LISTED = 200, 12  # alerts kept on disk; rows on the "show my alerts" card
 GLYPH = {"mail": "✉", "calendar": "◷", "meeting": "◷", "share": "⇪", "chat": "#", "crash": "!", "job": "✓"}
 GENERIC = {"it", "this", "that", "this one", "that one", "the command", "this command", "my command", "the job",
@@ -127,8 +128,9 @@ class Proactive(Skill):
     def note(self, kind, line, why, card=None):
         """Remember something JARVIS said by itself, why, and its card (it's said and shown elsewhere), on disk."""
         entry = {"id": uuid.uuid4().hex[:8], "at": time.time(), "kind": kind, "line": line, "why": why,
-                 "card": card, "read": kind in ("health:mic", "health:speaker") or
-                 (kind == "phone" and line.endswith(" is calling."))}  # seen live as a pop-up: never unread
+                 "card": card, "read": False}
+        if kind.split(":")[0] in NOT_LISTED:
+            return entry
         with self.lock:
             self.log.append(entry)
             self._save()
@@ -474,7 +476,8 @@ def _load():
     try:
         with open(ALERTS_FILE) as f:
             saved = json.load(f)
-        return [e for e in saved if isinstance(e, dict) and e.get("id") and e.get("line")][-KEEP:]
+        return [e for e in saved if isinstance(e, dict) and e.get("id") and e.get("line")
+                and str(e.get("kind", "")).split(":")[0] not in NOT_LISTED][-KEEP:]
     except (OSError, ValueError):
         return []
 
