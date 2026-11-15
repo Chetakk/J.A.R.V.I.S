@@ -342,6 +342,14 @@ def main(argv):
     cfg = load_yaml(CONFIG)
     families = cfg.get("families") or {}
     family_of = {f: fam for fam, c in families.items() for f in c.get("projects") or []}
+
+    def chain(fam):
+        """"Avtec" -> "Biztel work/AI Supervisor/Avtec": the folders a family's notes sit in."""
+        path, seen = [fam], {fam}
+        while path[0] in families and families[path[0]].get("in") and families[path[0]]["in"] not in seen:
+            path.insert(0, families[path[0]]["in"])
+            seen.add(path[0])
+        return "/".join(path)
     link = linker(dict({n: [w for w in ws if w.lower() not in LOOSE] for n, ws in names.items() if n.lower() not in LOOSE},
                        **{fam: c.get("words") or [] for fam, c in families.items()}))
     state = tracker()
@@ -385,7 +393,8 @@ def main(argv):
             lines.append("- Its README mentions %s" % ", ".join("[[%s]]" % n for n in related))
         lines += [""] + (["## Open"] + pending[name] if pending.get(name) else [])
         mind.write("projects", name, {"folder": p.path, "aliases": sorted(set(names[name]) - {name}),
-                                      "about": p.summary or p.title}, lines)
+                                      "about": p.summary or p.title}, lines,
+                   folder=chain(family_of[p.name]) if p.name in family_of else "")
 
     opened = jarvis_opened()
     for label, (total, recent, last) in used.items():
@@ -415,12 +424,18 @@ def main(argv):
         members = [by_folder[f] for f in c.get("projects") or [] if f in by_folder]
         lines = ["- Part of [[%s]]" % c["in"]] if c.get("in") else []
         lines.append("- %d project%s link here" % (len(members), "" if len(members) == 1 else "s"))
-        mind.write("families", fam, {"aliases": c.get("words") or []}, lines)
+        mind.write("projects", fam, {"type": "family", "aliases": c.get("words") or []}, lines, folder=chain(fam))
     for area, about in (cfg.get("areas") or {}).items():
-        mind.write("areas", area, {"about": about}, [about] + (["- Part of [[Projects]]"] if area in WORK_AND_OWN else []))
-    mind.write("areas", "Projects", {}, ["All your projects: [[Biztel work]] and [[Personal]]."])
-    mind.write("areas", "People", {}, ["Everyone JARVIS found in your Calendar, Gmail and Chat.", "- Through [[Biztel work]]"])
-    mind.write("areas", "Apps", {}, ["Apps and sites you used for half an hour or more (day tracker)."])
+        mind.write("projects", area, {"type": "area", "about": about},
+                   [about] + (["- Part of [[Projects]]"] if area in WORK_AND_OWN else []), folder=area)
+    mind.write("projects", "Projects", {"type": "area"}, ["All your projects: [[Biztel work]] and [[Personal]]."])
+    mind.write("people", "People", {"type": "area"},
+               ["Everyone JARVIS found in your Calendar, Gmail and Chat.", "- Through [[Biztel work]]"])
+    mind.write("apps", "Apps", {"type": "area"},
+               ["Apps and sites you used for half an hour or more, and ones you opened through JARVIS."])
+    for n in mind.notes():  # the old flat areas/ and families/ folders (2a10a5c): their notes now sit with projects
+        if n.kind in ("areas", "families"):
+            mind.forget(n.path)
 
     for name, m in meetings.items():
         dates = sorted(m["dates"])

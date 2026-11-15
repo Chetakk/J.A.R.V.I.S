@@ -58,13 +58,24 @@ class Mind:
 
     # --- writing ---
 
-    def write(self, kind, name, meta=None, lines=()):
-        """Create or update brain/<kind>/<name>.md: JARVIS's keys merged into the frontmatter, its block replaced."""
-        path = os.path.join(self.root, kind, title(name) + ".md")
+    def write(self, kind, name, meta=None, lines=(), folder=""):
+        """Create or update brain/<kind>/<folder>/<name>.md: JARVIS's keys merged into the frontmatter, its block
+        replaced. A note of that name elsewhere under <kind> is moved here first, with whatever you wrote in it."""
+        base = title(name) + ".md"
+        path = os.path.join(self.root, kind, *[title(f) for f in folder.split("/") if f], base)
         made = self._made()
         rel = os.path.relpath(path, self.root)
-        if rel in made and not os.path.exists(path):
-            return None  # you deleted it: JARVIS doesn't bring it back
+        if not os.path.exists(path):
+            old = next((os.path.join(d, base) for d, _, files in os.walk(os.path.join(self.root, kind))
+                        if base in files), None)
+            if old:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                os.replace(old, path)
+                made = (made - {os.path.relpath(old, self.root)}) | {rel}
+                self._save_made(made)
+                _prune(os.path.dirname(old), os.path.join(self.root, kind))
+            elif any(m.split(os.sep)[0] == kind and os.path.basename(m) == base for m in made):
+                return None  # you deleted it: JARVIS doesn't bring it back
         old_meta, before, after = {}, "", ""
         if os.path.exists(path):
             with open(path) as f:
@@ -183,7 +194,10 @@ class Mind:
         rel = os.path.relpath(path, self.root)
         if os.path.exists(path):
             os.remove(path)
-        made = self._made() - {rel}
+        self._save_made(self._made() - {rel})
+        _prune(os.path.dirname(path), self.root)
+
+    def _save_made(self, made):
         with open(os.path.join(self.root, MADE), "w") as f:
             f.writelines(r + "\n" for r in sorted(made))
 
@@ -198,17 +212,19 @@ class Mind:
     # --- reading ---
 
     def notes(self):
+        """Every note; its kind is the top folder (people, projects, ...), whatever folders it sits in below that."""
         out = []
         for kind in sorted(os.listdir(self.root)) if os.path.isdir(self.root) else []:
-            folder = os.path.join(self.root, kind)
-            if kind.startswith(".") or not os.path.isdir(folder):
+            if kind.startswith(".") or not os.path.isdir(os.path.join(self.root, kind)):
                 continue
-            for f in sorted(os.listdir(folder)):
-                if f.endswith(".md"):
-                    path = os.path.join(folder, f)
-                    with open(path) as fh:
-                        meta, body = _split(fh.read())
-                    out.append(Note(path, kind, f[:-3], meta, body))
+            for d, dirs, files in sorted(os.walk(os.path.join(self.root, kind))):
+                dirs[:] = [x for x in dirs if not x.startswith(".")]
+                for f in sorted(files):
+                    if f.endswith(".md"):
+                        path = os.path.join(d, f)
+                        with open(path) as fh:
+                            meta, body = _split(fh.read())
+                        out.append(Note(path, kind, f[:-3], meta, body))
         return out
 
     def note(self, name, notes=None):
@@ -225,8 +241,16 @@ class Mind:
         want = self.embed([FILLER.sub(" ", text).strip() or text])[0]
         scored = sorted(((float((self._vector(n) @ want).max()), i) for i, n in enumerate(notes)), reverse=True)
         best, runner = scored[0], scored[1] if len(scored) > 1 else (0, None)
-        # shortcut: one cutoff for every kind of note; tune on real questions once recall is wired in
-        return notes[best[1]] if best[0] >= cutoff and best[0] - runner[0] >= 0.04 else None
+        if best[0] < cutoff:
+            return None
+        if best[0] - runner[0] >= 0.04:
+            return notes[best[1]]
+        # a tie between a family and one of its own projects ("supervisor"): the family
+        a, b = notes[best[1]], notes[runner[1]]
+        for fam, member in ((a, b), (b, a)):
+            if fam.meta.get("type") == "family" and key(fam.name) in {key(x) for x in member.links}:
+                return fam
+        return None  # shortcut: one cutoff for every kind of note; tune on real questions
 
     def around(self, name, notes=None):
         """The notes linked to or from `name`'s note, one step away."""
@@ -259,6 +283,16 @@ class Mind:
             cached = (mtime, self.embed(rows))  # each name and the summary on its own: the best one counts
             self._vecs[note.path] = cached
         return cached[1]
+
+
+def _prune(folder, stop):
+    """Remove folders left empty by a move, up to (not including) `stop`."""
+    while os.path.abspath(folder).startswith(os.path.abspath(stop) + os.sep):
+        try:
+            os.rmdir(folder)
+        except OSError:
+            return
+        folder = os.path.dirname(folder)
 
 
 def _split(text):
@@ -317,6 +351,13 @@ if __name__ == "__main__":  # self-check on a throwaway vault
     assert "remembered: demo moved" in diary and "pin" not in diary, diary
     assert m.facts(m.note("Rahul K")) == ["Meets you on AI Supervisor"], m.facts(m.note("Rahul K"))
     assert [n.name for n in m.mentioned("what's up with rahul k today")] == ["Rahul K"]
+    with open(m.note("supervisor").path, "a") as f:
+        f.write("mine\n")
+    moved = m.write("projects", "AI Supervisor", {}, ["x"], folder="Biztel work/AI Supervisor")
+    assert moved.endswith("projects/Biztel work/AI Supervisor/AI Supervisor.md") and "mine" in open(moved).read()
+    assert len([n for n in m.notes() if n.name == "AI Supervisor"]) == 1 and m.note("supervisor").kind == "projects"
+    m.write("projects", "AI Supervisor", {}, ["x"])  # back to the top: the empty folders go
+    assert not os.path.exists(os.path.join(root, "projects", "Biztel work"))
     os.remove(m.note("supervisor").path)
     assert m.write("projects", "AI Supervisor", {}, ["back?"]) is None and not m.note("supervisor")
     print("ok")
