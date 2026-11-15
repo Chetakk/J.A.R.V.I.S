@@ -533,7 +533,7 @@ def main(argv):
             continue
         name = label.split(" · ")[0] if " · " in label and "YouTube" in label else label
         lines = ["- %sh in all, %sh in the last 7 days, last on %s" % (hours(total), hours(recent), day(last / 1000)),
-                 "- One of your [[Apps]]"] + (["- What you study in: [[Learning]]"] if "study account" in label else [])
+                 "- One of your [[Apps]]"]
         if label == "VS Code":  # every project is edited in it: hours in words, no links
             on = sorted(((ms, by_folder[f]) for f, ms in folder_hours.items() if f in by_folder and ms >= HOUR),
                         reverse=True)
