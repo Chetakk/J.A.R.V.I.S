@@ -5,3 +5,6 @@ venv/
 *.log
 .env
 node_modules/
+
+# JARVIS mind map vault: real people, mail subjects, meetings. Never commit.
+brain/
