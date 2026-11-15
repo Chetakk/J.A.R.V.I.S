@@ -626,7 +626,14 @@ def main(argv):
     hubs(mind)
     counts = collections.Counter(n.kind for n in mind.notes())
     summary = ", ".join("%d %s" % (c, k) for k, c in sorted(counts.items()))
-    mind.log("rebuilt the map%s: %s" % (" (no Google)" if "--local" in argv else "", summary))
+    line = "rebuilt the map%s: %s" % (" (no Google)" if "--local" in argv else "", summary)
+    try:
+        with open(os.path.join(mind.root, "log.md")) as f:
+            last = [x for x in f if " rebuilt the map" in x][-1:]
+    except OSError:
+        last = []
+    if not last or not last[0].rstrip().endswith(line):  # every 30 min (jarvis-brain.timer): only when it changed
+        mind.log(line)
     print("[brain] %s in %s" % (summary, mind.root))
 
 
