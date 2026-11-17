@@ -2,6 +2,7 @@
 duplicates. Nothing is ever overwritten or deleted for good, guesses are checked with you first, and
 "undo that" puts it all back."""
 import os
+import shlex
 
 import pytest
 
@@ -60,36 +61,19 @@ def test_move_a_file_to_a_folder(jv):
     assert exists("Downloads/resume.pdf")
 
 
-def test_trash_asks_first_and_undo_restores(jv):
+def test_delete_goes_to_your_terminal(jv):
     make("Downloads/old.txt", "old stuff")
-    jv.do("delete old.txt", "yes")
-    assert jv.questions == ["Put old.txt in the Trash?"]
-    assert not exists("Downloads/old.txt") and exists(".local/share/Trash/files/old.txt")
-    jv.do("undo that")
-    assert read("Downloads/old.txt") == "old stuff"
+    jv.do("delete old.txt")
+    assert jv.manual == [("gio trash -- %s/Downloads/old.txt" % H, "deleting is yours to run")]
+    assert not jv.questions and exists("Downloads/old.txt") and not jv.trashed  # JARVIS deletes nothing itself
+    assert jv.says("in your terminal")
 
 
-@pytest.mark.parametrize("answers", [("no",), ()])
-def test_trash_without_a_yes_keeps_it(jv, answers):
-    make("Downloads/old.txt")
-    jv.do("delete old.txt", *answers)
-    assert exists("Downloads/old.txt") and not jv.trashed
-
-
-def test_trashing_a_folder_says_everything_in_it_goes(jv):
+def test_deleting_a_folder_says_everything_in_it_goes(jv):
     make("Documents/Old Stuff/a.txt")
-    jv.do("delete ~/Documents/Old Stuff", "no")
-    assert jv.questions == ["Put the Old Stuff folder and everything in it in the Trash?"]
-    assert exists("Documents/Old Stuff/a.txt")
-
-
-def test_a_folder_by_name_goes_to_the_trash_after_a_yes(jv):
-    make("Documents/Old Stuff/a.txt")
-    jv.do("delete the old stuff folder", "yes")
-    assert jv.questions == ["Put the Old Stuff folder and everything in it in the Trash?"]
-    assert not exists("Documents/Old Stuff") and exists(".local/share/Trash/files/Old Stuff/a.txt")
-    jv.do("undo that")
-    assert exists("Documents/Old Stuff/a.txt")
+    jv.do("delete the old stuff folder")
+    assert jv.manual[0][0] == "gio trash -- '%s/Documents/Old Stuff'" % H
+    assert jv.says("the Old Stuff folder and everything in it") and exists("Documents/Old Stuff/a.txt")
 
 
 @pytest.mark.parametrize("said", ["move the projects folder to documents", "delete the downloads folder",
@@ -101,6 +85,7 @@ def test_your_main_folders_are_never_moved_or_trashed(jv, said):
     jv.do(said, "yes")
     assert jv.says("one of your main folders")
     assert exists("Projects/x.txt") and exists("Downloads/y.txt") and exists("Documents/z.txt") and not jv.trashed
+    assert not jv.manual
 
 
 def test_copy_a_file_to_a_folder_and_undo(jv):
@@ -183,21 +168,21 @@ def test_move_all_pdfs_in_downloads_and_undo(jv):
     assert exists("Downloads/a.pdf") and exists("Downloads/Docs/b.pdf") and not exists("Documents/a.pdf")
 
 
-def test_delete_all_zips_declined_trashes_nothing(jv):
+def test_delete_all_zips_goes_to_your_terminal(jv):
     make("Downloads/a.zip")
     make("Downloads/b.zip")
-    jv.do("delete all zips in downloads", "no")
-    assert jv.questions == ["Put 2 zips from Downloads in the Trash?"]
-    assert exists("Downloads/a.zip") and not jv.trashed
+    jv.do("delete all zips in downloads")
+    command = jv.manual[0][0]
+    assert command.startswith("gio trash -- ") and "/Downloads/a.zip" in command and "/Downloads/b.zip" in command
+    assert exists("Downloads/a.zip") and not jv.trashed and jv.says("2 zips")
 
 
 def test_delete_the_second_one_can_be_a_folder(jv):
     make("Documents/Alpha/x.txt")
     make("Documents/Beta/y.txt")
     jv.do("what's in documents")
-    jv.do("delete the second one", "yes")
-    assert jv.questions == ["Put the Beta folder and everything in it in the Trash?"]
-    assert not exists("Documents/Beta") and exists("Documents/Alpha")
+    jv.do("delete the second one")
+    assert jv.manual[0][0] == "gio trash -- %s/Documents/Beta" % H and exists("Documents/Beta")
 
 
 def test_tidy_downloads(jv):
@@ -223,26 +208,20 @@ def test_duplicates_keep_the_original(jv):
     make("Downloads/photo (1).jpg", "same picture")
     make("Downloads/Images/photo copy.jpg", "same picture")
     make("Downloads/other.jpg", "different")
-    jv.do("find duplicates in my downloads", "yes")
-    assert exists("Downloads/photo.jpg") and exists("Downloads/other.jpg")
-    assert not exists("Downloads/photo (1).jpg") and not exists("Downloads/Images/photo copy.jpg")
-    assert jv.says("Put 2 copies in the Trash")
+    jv.do("find duplicates in my downloads")
+    words = shlex.split(jv.manual[0][0])
+    assert words[:3] == ["gio", "trash", "--"]
+    assert sorted(words[3:]) == [H + "/Downloads/Images/photo copy.jpg", H + "/Downloads/photo (1).jpg"]
+    assert jv.says("the 2 extra copies")
 
 
 def test_never_a_permanent_delete(jv):
     make("Downloads/old.txt")
-    jv.do("delete old.txt", "yes")
-    assert not jv.shell.ran(r"^rm |shred|unlink")
+    jv.do("delete old.txt")
+    assert not jv.shell.ran(r"^rm |shred|unlink") and not any(c.startswith("rm ") for c, _ in jv.manual)
 
 
 # --- failure cases ---
-
-def test_the_trash_refusing_is_said_and_the_file_stays(jv):
-    make("Downloads/old.txt")
-    jv.trash_fails = True
-    jv.do("delete old.txt", "yes")
-    assert jv.says("I couldn't")
-    assert exists("Downloads/old.txt") and not jv.says("It's in the Trash")
 
 
 def test_undo_after_the_file_changed_since_leaves_it(jv):

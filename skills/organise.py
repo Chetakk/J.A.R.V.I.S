@@ -3,13 +3,15 @@
 shows), "create ai supervisor" (right after opening a folder), "move all pdfs in downloads to documents", "delete old.txt" (to the Trash), "tidy my downloads", "find duplicate files in
 downloads". Everything goes through system/fileops.py: nothing is overwritten or deleted for good, and "undo that"
 puts it all back. JARVIS asks first whenever it had to work out which file you meant, and before anything that
-touches more than one file or puts something in the Trash."""
+touches more than one file. Deleting is yours: "gio trash" is pre-typed in the JARVIS terminal for you to run."""
 import collections
 import hashlib
 import os
 import re
+import shlex
 import shutil
 
+from core import verify
 from skills import files
 from skills.base import Skill
 from skills.documents import sounds_like_file, sure
@@ -42,7 +44,7 @@ class Organise(Skill):
                "copy <file> to <folder>", "duplicate <file>", "move <file> here", "move all pdfs in downloads to documents")
     gives = "files changed, logged"
     permission = "confirm"
-    asks = "before the Trash, several files, or a file it had to work out"
+    asks = "before several files, or a file it had to work out; deleting goes to your terminal"
     checks = "nothing overwritten or deleted for good; undo that puts it back"
 
     def patterns(self):
@@ -112,6 +114,13 @@ class Organise(Skill):
         moved = [s for s in batch.steps if s["op"] != "mkdir"]
         self.say(said + " Say undo to put %s back." % ("them" if len(moved) > 1 else "it"))
 
+    def _hand_over(self, paths, what):
+        """Deleting is yours to run: `gio trash` pre-typed in the JARVIS terminal (still the Trash, never rm)."""
+        command = "gio trash -- " + " ".join(shlex.quote(p) for p in paths)
+        self.j.executor.terminal.send(command, "deleting is yours to run")
+        verify.handed_over(command)
+        self.say("I've put the command to trash %s in your terminal. Press Enter there to do it." % what)
+
     def _undo(self, batch):
         failed = batch.undo()
         self.say("Put back." if not failed else "Mostly put back, but %d had changed since, so I left %s."
@@ -178,9 +187,10 @@ class Organise(Skill):
                                        for h in hits[:30]) + ("\n\n…and %d more" % (len(hits) - 30)
                                                               if len(hits) > 30 else "")})
         n = "%d %s" % (len(hits), what) if len(hits) > 1 else os.path.basename(hits[0])
+        if trash:
+            return self._hand_over(hits, n)
         copy = verb == "copy"
-        question = "Put %s from %s in the Trash?" % (n, _where(folder)) if trash else "%s %s from %s to %s?" % (
-            "Copy" if copy else "Move", n, _where(folder), _where(target))
+        question = "%s %s from %s to %s?" % ("Copy" if copy else "Move", n, _where(folder), _where(target))
         if not self.j.ask(question):
             self.say(["Okay, left them.",
                       "Fair enough, they're staying put.", "Alright, they stay where they are."])
@@ -191,14 +201,11 @@ class Organise(Skill):
         failed = 0
         for h in hits:
             try:
-                if trash:
-                    batch.trash(h)
-                else:
-                    (batch.copy if copy else batch.move)(h, os.path.join(target, os.path.basename(h)))
+                (batch.copy if copy else batch.move)(h, os.path.join(target, os.path.basename(h)))
             except (FileError, OSError, shutil.Error):
                 failed += 1
         done = len(hits) - failed
-        self._done(batch, "%s %d.%s" % ("Put in the Trash:" if trash else "Copied" if copy else "Moved", done,
+        self._done(batch, "%s %d.%s" % ("Copied" if copy else "Moved", done,
                                         " %d couldn't be." % failed if failed else ""))
 
     def rename(self, m):
@@ -326,17 +333,7 @@ class Organise(Skill):
         path = got[0]
         what = "the %s folder and everything in it" % os.path.basename(path) if os.path.isdir(path) else \
             os.path.basename(path)
-        if not self.j.ask("Put %s in the Trash?" % what):
-            self.say(["Okay, kept it.",
-                      "Kept.", "Alright, it stays."])
-            return
-        batch = Batch("trash")
-        try:
-            batch.trash(path)
-        except (FileError, OSError) as e:
-            self.say("I couldn't: %s." % e)
-            return
-        self._done(batch, "It's in the Trash.")
+        self._hand_over([path], what)
 
     # --- many files -----------------------------------------------------------------------------------------
 
@@ -395,21 +392,9 @@ class Organise(Skill):
                          g[0].replace(folder + "/", ""), ", ".join(p.replace(folder + "/", "") for p in g[1:]))
                                        for g in groups[:20]) + "\n\n%d extra copies, %s." % (len(extra),
                                                                                          _size(wasted))})
-        if not self.j.ask("%d file%s %s copies, taking %s. Put the extra copies in the Trash? I'll keep one of each."
-                          % (len(groups), "" if len(groups) == 1 else "s", "has" if len(groups) == 1 else "have",
-                             _size(wasted))):
-            self.say(["Okay, left them.",
-                      "Fair enough, they're staying put.", "Alright, they stay where they are."])
-            return
-        batch = Batch("duplicates in " + folder)
-        failed = 0
-        for p in extra:
-            try:
-                batch.trash(p)
-            except (FileError, OSError):
-                failed += 1
-        self._done(batch, "Put %d copies in the Trash%s." % (len(extra) - failed,
-                                                              ", %d wouldn't go" % failed if failed else ""))
+        self.say("%d file%s %s copies, taking %s. I'll keep one of each." % (
+            len(groups), "" if len(groups) == 1 else "s", "has" if len(groups) == 1 else "have", _size(wasted)))
+        self._hand_over(extra, "the %d extra copies" % len(extra))
 
 
 def find_duplicates(folder):
