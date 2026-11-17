@@ -73,7 +73,7 @@ class Cards(Skill):
              r"what does (?:it|the card) say", self.read),
             (r"copy (?:that|it|this|the card)(?: to (?:the |my )?clipboard)?", self.copy),
             (r"save (?:that|it|this|the card)(?: card)?(?: for later| as a file| as a note)?", self.save),
-            (r"(?:show |go back to )?(?:me )?(?:the )?(?:previous|last|earlier) card|back a card",
+            (r"(?:show |go back to )?(?:me )?(?:the )?(?:previous|earlier) card|back a card",
              lambda m: self.step(-1)),
             (r"(?:show )?(?:me )?(?:the )?next card", lambda m: self.step(1)),
             (r"pin (?:it|that|this|the card)", self.pin),
@@ -84,8 +84,8 @@ class Cards(Skill):
              self.close_all),
             (r"(?:close|hide|clear|dismiss|remove|get rid of) (?:the |my |this |that )?(?P<name>[\w' -]*?) ?card",
              self.close_named),
-            (r"(?:show |open |bring back |bring up )?(?:me )?(?:the |my )?(?:most )?(?:recent|latest|newest) card(?: again)?",
-             lambda m: self.j.ui.show_card() if self.j.ui else False),  # the newest one again, like "show the card"
+            (r"(?:show |open |bring back |bring up )?(?:me )?(?:the |my )?(?:most )?(?:recent|latest|newest|last) card(?: again)?",
+             self.newest),
             (r"(?:show|open|bring back|bring up) (?:me )?(?:the |my |that )?(?P<name>[\w' -]+?) card(?: again)?",
              self.show_named),
             # "our"/"my": Whisper often hears "set a timer" as "set our timer".
@@ -264,6 +264,12 @@ class Cards(Skill):
         else:
             ui.use_card(card)
             ui.close_card()  # the one just used
+
+    def newest(self, m):
+        """"Show the last card": the newest one again, like "show the card"."""
+        if not self.j.ui:
+            return False
+        self.j.ui.show_card()
 
     def show_named(self, m):
         """"Show the weather card": the newest card from the recent ones whose title (or id) has that name."""

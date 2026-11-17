@@ -795,7 +795,7 @@
 "pin that": "card:pin"
 "unpin everything": "card:unpin"
 "previous card": "card:step"
-"show the last card": "card:step"
+"show the last card": "card:newest"
 "next card": "card:step"
 "show the next card": "card:step"
 "stop": "skill:stop"
@@ -1389,7 +1389,7 @@
 "i want to keep that, save it": card:save
 "save what's on screen": card:save
 "hold on to that, save it": card:save
-"show the last card again": card:step
+"show the last card again": card:newest
 "back to the card before this one": card:step
 "show me the card before": card:step
 "i missed it, go back a card": card:step
