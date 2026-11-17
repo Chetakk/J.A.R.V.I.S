@@ -6,7 +6,9 @@ import time
 
 from gi.repository import Gio, GLib
 
+from skills.media import playing_player
 from skills.weather import FORECAST, SKY, _get
+from voice.listen import active_window_class, active_window_title
 
 WEATHER_EVERY, REMINDERS_EVERY, TICK = 1800, 60, 3  # seconds; TICK: a dismissed notification leaves the bar soon
 COUNT = "imports.ui.main.messageTray.getSources().reduce((n,s)=>n+s.notifications.length,0)"
@@ -28,6 +30,54 @@ def tips(skills):
     return [p for s in skills for p in s.phrases if not re.search(r"[<(]", p) and " " in p]
 
 
+# Which "Try saying" group each skill's phrases belong to (by class name); a skill not named here is general.
+KINDS = {"work": {"Dev", "Projects", "Gmail", "Calendar", "GoogleChat", "Drive", "People", "Files", "Organise",
+                  "Layouts", "Windows", "Clipboard", "ClipboardHistory", "CopyBetween", "Tasks", "Wrap", "WhereWasI",
+                  "Controls", "Dictation", "Nano", "Notes", "Linked"},
+         "study": {"Reading", "Lookup", "Maths", "Notes", "FocusMode", "Documents", "Linked"},
+         "leisure": {"Media", "Videos", "Audio", "ShareAudio", "BrowserTabs", "Web"},
+         "phone": {"Phone", "Notifications"},
+         "fixit": {"Troubleshoot", "SlowComputer", "Frozen", "Network", "Display", "Install", "Screen"}}
+SIMILAR = {"work": "study", "study": "work", "leisure": "phone", "phone": "leisure", "fixit": "work"}
+# What the focused window says you're doing: (kind, WM_CLASS words, title words), first match wins.
+DOING = [("study", r"evince|okular|zathura", r"study ?buddy|lecture|course|udemy|coursera|nptel|tutorial|\.pdf\b"),
+         ("work", r"^code$|terminal|tilix|kitty|alacritty|obsidian|libreoffice",
+          r"gmail|google (?:drive|docs|sheets|slides|calendar|chat|meet)|github|jira|visual studio code"),
+         ("leisure", r"spotify|vlc|mpv|totem|vesktop|discord",
+          r"youtube|netflix|prime video|hotstar|jiocinema|spotify|twitch"),
+         ("phone", r"scrcpy", r"gsconnect"),
+         ("fixit", r"gnome-system-monitor|gnome-control-center|synaptic", r"system monitor|settings"),
+         ("leisure", r"chrom|firefox|brave", r"")]  # any other browsing
+
+
+def doing(window_class, title, playing):
+    """The kind of thing you're doing now, from the focused window ("" when it doesn't say): music playing
+    behind an unknown window counts as leisure. playing() is only asked then (it runs gdbus)."""
+    cls, title = " ".join(window_class).lower(), title.lower()
+    for kind, classes, titles in DOING:
+        if (titles and re.search(titles, title)) or re.search(classes, cls):
+            return kind
+    return "leisure" if playing() else ""
+
+
+def tip_mix(skills):
+    """{kind: tips} with every kind's tips in a 2-1-1 pattern (2 of the kind, 1 similar, 1 general), and "" for
+    general alone. A cycled list, so the dashboard's every-30-s turn and the bar's random pick both keep the mix."""
+    general = tips(s for s in skills if not any(type(s).__name__ in names for names in KINDS.values()))
+    pools = {k: tips(s for s in skills if type(s).__name__ in names) for k, names in KINDS.items()}
+    mix = {"": general}
+    for kind, own in pools.items():
+        similar = pools[SIMILAR[kind]]
+        if not own:
+            mix[kind] = general
+            continue
+        rounds = max(-(-len(own) // 2), len(similar), len(general))  # every tip comes up at least once
+        mix[kind] = [p for i in range(rounds) for p in (own[2 * i % len(own)], own[(2 * i + 1) % len(own)],
+                                                         similar and similar[i % len(similar)],
+                                                         general and general[i % len(general)]) if p]
+    return mix
+
+
 def next_reminder(reminders, now):
     """"9:30 standup" for the soonest reminder in the next 12 hours (short: the bar has little room), else ""."""
     soon = sorted((r for r in reminders if now < r["at"] / 1000 < now + 12 * 3600), key=lambda r: r["at"])
@@ -40,7 +90,8 @@ def next_reminder(reminders, now):
 def feed(jarvis):
     """Runs on its own thread for good, handing jarvis.ui a fresh copy every TICK seconds."""
     s = jarvis.skills
-    extras, weather_at, reminders_at = {"tips": tips(s.all)}, 0.0, 0.0
+    mix = tip_mix(s.all)
+    extras, weather_at, reminders_at = {"tips": mix[""]}, 0.0, 0.0
     try:
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
     except GLib.Error:
@@ -63,6 +114,7 @@ def feed(jarvis):
                 extras["next"] = next_reminder(s.todos._list("reminders"), now)
             except Exception:  # the day tracker isn't running (HubDown) or answered oddly: no reminder line
                 extras["next"] = ""
+        extras["tips"] = mix[doing(active_window_class(), active_window_title(), playing_player)]
         extras["unread"] = tray_count(bus)
         extras["alerts"] = s.proactive.unread()  # JARVIS's own, unread: the full bar's button for "show my alerts"
         jarvis.ui.set_extras(dict(extras))
