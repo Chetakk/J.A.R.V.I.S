@@ -55,6 +55,11 @@ class Ears:
         # A second opinion on each wake-up from the same Whisper (never a second model: RAM): shows, other people and
         # Hindi talk set the wake model off about 3 times in 10, and Whisper with the names hint heard the name in none
         self.checker = self.whisper if cfg.get("name_check") else None
+        # Parakeet takes no hints, so names it never learned are put back by how they sound (voice/names.py)
+        self.name_fix = None
+        if not self.whisper and cfg.get("name_fix", True):
+            from voice.names import Names
+            self.name_fix = Names()
         self.names = []
         self.server = os.path.expanduser(cfg.get("parakeet_bin", JARVIS + "/whisper.cpp/build/bin/parakeet-serve"))
         self.model = os.path.expanduser(cfg.get("parakeet_model", JARVIS + "/models/parakeet/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"))
@@ -244,6 +249,8 @@ class Ears:
 
     def _words(self, pcm, prefix=""):
         text, confidence = self._hear(pcm)
+        if self.name_fix:
+            text = self.name_fix.fix(text)
         self.recent.append((text, confidence))
         return "%s%s" % (prefix, text) if text else prefix.rstrip(", ")
 
