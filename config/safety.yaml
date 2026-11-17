@@ -8,13 +8,19 @@
 # An entry ending in " $" matches only that exact command, no extra arguments.
 # Anything not listed is treated as "confirm".
 # A built-in blocklist in core/safety.py always forces dangerous commands
-# (rm, sudo, dd, redirects with >, ...) to manual, whatever this file says.
+# (rm, sudo, dd, redirects with >, ...) to manual, whatever this file says,
+# except an exact auto entry (" $"): that one whole command, word for word, runs.
+# Hidden sub-commands ($(...), `...`) and redirects stay manual even then.
 
 auto:
   - jarvis              # tools/jarvis: say / show a card / do a JARVIS phrase
   - xdg-open
   - npm --prefix /home/biztelai/Projects/study-budd run dev $ # Study Buddy (run_study_buddy)
   - curl -s -o /dev/null http://127.0.0.1:7314 $            # is Study Buddy already up
+  - python3 ~/Projects/Notepad/notepad.py $                 # your Notepad app (open_text_editor)
+  - systemctl --user start --no-block contrib-sync.service $ # mirror work GitHub contributions (contrib_sync)
+  - upower --dump                                           # read-only: mouse/keyboard battery
+  - xdotool getactivewindow getwindowname $                 # read-only: the focused window's title
   - google-chrome
   - firefox
   - code
@@ -92,6 +98,9 @@ auto:
   # Only these desktop settings change without asking (any other gsettings change asks):
   - gsettings get
   - gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled
+  - gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-automatic
+  - gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-from
+  - gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-to
   - gsettings set org.gnome.desktop.interface gtk-theme
   - gsettings set org.gnome.desktop.interface color-scheme
   - gsettings set org.gnome.desktop.interface text-scaling-factor

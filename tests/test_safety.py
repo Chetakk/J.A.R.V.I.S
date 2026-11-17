@@ -150,6 +150,20 @@ def test_safe_forms_still_run_by_themselves(gate, command):
     assert gate.classify(command)[0] == AUTO
 
 
+def test_an_exact_entry_lets_that_one_blocked_command_run(gate):
+    assert gate.classify("python3 ~/Projects/Notepad/notepad.py")[0] == AUTO  # exact in safety.yaml
+
+
+@pytest.mark.parametrize("command", [
+    "python3 ~/Projects/Notepad/notepad.py -c x", "python3 ~/Projects/Notepad/notepad.py; rm -rf ~",
+    "python3 ~/Projects/Notepad/notepad.py $(rm x)", "python3 ~/Projects/Notepad/notepad.py > f",
+    "PYTHONPATH=. python3 ~/Projects/Notepad/notepad.py", "./python3 ~/Projects/Notepad/notepad.py",
+    "systemctl --user stop contrib-sync.service",
+])
+def test_anything_beyond_the_exact_entry_stays_blocked(gate, command):
+    assert gate.classify(command)[0] == MANUAL
+
+
 def test_chained_commands_with_cd_are_safe_and_not_missing(gate):
     # `cd` is a builtin: no program file for the executor to find, and nothing to ask about.
     from core.executor import BUILTINS

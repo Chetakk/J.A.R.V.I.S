@@ -156,6 +156,8 @@ class Safety:
         folder = os.path.dirname(os.path.expanduser(words[0]))  # before git's words are rewritten
         if "$" in prog:
             return MANUAL, "the program name is hidden in a variable"
+        if self.exact.get((prog,) + tuple(words[1:])) == AUTO and not folder and not assigns:
+            return AUTO, "it is on the safe list"  # that whole command, word for word, was okayed in safety.yaml
         if prog in HARD_MANUAL or prog.startswith(HARD_MANUAL_PREFIXES):
             return MANUAL, "%s can change or delete things on your system" % prog
         if prog == "find" and (FIND_DANGEROUS.intersection(words) or any(w.startswith("-fprint") for w in words)):
