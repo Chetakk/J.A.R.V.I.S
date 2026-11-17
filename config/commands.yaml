@@ -609,11 +609,11 @@ commands:
 
   - name: gpu_usage
     say: [what is my gpu usage, gpu usage, gpu load]
-    run: echo $(( $(cat /sys/devices/gpu.0/load) / 10 ))  # the Jetson gives per mille
+    run: awk '{print int($1 / 10)}' /sys/devices/gpu.0/load  # the Jetson gives per mille; no $(...), it goes to your terminal
     reply: The GPU is at {output} percent.
     output: true
 
   - name: list_projects
     say: [show my projects, show projects, list my projects, list projects]
-    run: jarvis show "Projects" "$(ls -1 /home/biztelai/Projects | sed 's/^/- /')"
+    run: ls -1 /home/biztelai/Projects | awk '{print "- " $0}' | jarvis show "Projects"  # card text on stdin: no $(...)
     reply: ["Here are your projects, they're on the card", "Your Projects folder is on the card"]
