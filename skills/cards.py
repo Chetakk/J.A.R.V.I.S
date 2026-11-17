@@ -84,6 +84,8 @@ class Cards(Skill):
              self.close_all),
             (r"(?:close|hide|clear|dismiss|remove|get rid of) (?:the |my |this |that )?(?P<name>[\w' -]*?) ?card",
              self.close_named),
+            (r"(?:show|open|bring back|bring up) (?:me )?(?:the |my |that )?(?P<name>[\w' -]+?) card(?: again)?",
+             self.show_named),
             # "our"/"my": Whisper often hears "set a timer" as "set our timer".
             (r"(?:set(?: up)? |start )?(?:a |an |the |my |our |one )?(?:timer|countdown) (?:for )?%s(?: for (.+))?"
              % _AMOUNT, self.timer),
@@ -260,6 +262,18 @@ class Cards(Skill):
         else:
             ui.use_card(card)
             ui.close_card()  # the one just used
+
+    def show_named(self, m):
+        """"Show the weather card": the newest card from the recent ones whose title (or id) has that name."""
+        name, ui = m.group("name").lower().strip(), self.j.ui
+        if not ui:
+            return False
+        card = next((c for c in reversed(list(ui.card.history))
+                     if name in (c.get("title") or "").lower() or name == c.get("id")), None)
+        if not card:
+            self.say("I haven't shown a %s card lately." % name)
+            return
+        ui.show_card(card)
 
     def unpin(self, m):
         if not self.j.ui:
