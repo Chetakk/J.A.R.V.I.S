@@ -84,6 +84,8 @@ class Cards(Skill):
              self.close_all),
             (r"(?:close|hide|clear|dismiss|remove|get rid of) (?:the |my |this |that )?(?P<name>[\w' -]*?) ?card",
              self.close_named),
+            (r"(?:show |open |bring back |bring up )?(?:me )?(?:the |my )?(?:most )?(?:recent|latest|newest) card(?: again)?",
+             lambda m: self.j.ui.show_card() if self.j.ui else False),  # the newest one again, like "show the card"
             (r"(?:show|open|bring back|bring up) (?:me )?(?:the |my |that )?(?P<name>[\w' -]+?) card(?: again)?",
              self.show_named),
             # "our"/"my": Whisper often hears "set a timer" as "set our timer".
