@@ -33,9 +33,7 @@ from voice.stt import MIN_PEAK, RATE  # noqa: E402
 
 DATA = os.path.expanduser("~/.local/share/jarvis/speech-test")
 LINES = os.path.join(HERE, "tests", "speech_commands.yaml")
-NAMES = os.path.join(DATA, "names.yaml")
 PARTS = (("commands", "Read each line the way you'd say it to JARVIS."),
-         ("names", "Commands with names in them: say each name the way you normally would."),
          ("wake", "Now just the name, however each line says."),
          ("noise", "Last part: things JARVIS should ignore. Do what each line says."))
 # Sent per request, so the running server needn't restart. hint: False = commands get only the names as a hint.
@@ -67,10 +65,7 @@ NUMBERS = {"2": "two", "4th": "fourth", "5": "five", "10": "ten", "40": "forty",
 def items():
     with open(LINES, encoding="utf-8") as f:
         lines = yaml.safe_load(f)
-    if os.path.exists(NAMES):  # your contacts' names: kept with the recordings, never in this public repo
-        with open(NAMES, encoding="utf-8") as f:
-            lines["names"] = yaml.safe_load(f)
-    return [(part, "%s-%02d" % (part, i), line) for part, _ in PARTS for i, line in enumerate(lines.get(part) or (), 1)]
+    return [(part, "%s-%02d" % (part, i), line) for part, _ in PARTS for i, line in enumerate(lines[part], 1)]
 
 
 def path(clip):
@@ -119,7 +114,7 @@ def take(clip, seconds):
 
 def problem(part, line, seg):
     """Why this take should be redone, if it should. Never judged on what Whisper made of it: that's the test."""
-    if part not in ("commands", "names"):
+    if part != "commands":
         return ""
     if np.abs(seg).max() * 32767 < MIN_PEAK:
         return "That was very quiet."
@@ -242,7 +237,7 @@ def score():
             row = {"part": part, "clip": clip, "said": said, "heard": text, "sure": sure, "blank": blank}
             if part == "wake":
                 row["ok"] = bool(split_name(text, names)[0])
-            elif part in ("commands", "names"):
+            elif part == "commands":
                 want = split_name(said, names)[1] if named_line else said
                 if named_line:
                     woke, _ = split_name(text, names)
@@ -288,12 +283,12 @@ def score_ears():
         said = re.sub(r"\s*\(.*\)$", "", line)
         named_line = part == "wake" or bool(split_name(said, names)[0])
         began = time.time()
-        text = ears.transcribe(pcm, command=part in ("commands", "names") and not named_line)
+        text = ears.transcribe(pcm, command=part == "commands" and not named_line)
         spent.append(time.time() - began)
         row = {"part": part, "clip": clip, "said": said, "heard": text, "sure": ears.recent[-1][1] if ears.recent else 0.0}
         if part == "wake":
             row["ok"] = bool(split_name(text, names)[0])
-        elif part in ("commands", "names"):
+        elif part == "commands":
             want = split_name(said, names)[1] if named_line else said
             if named_line:
                 row["woke"], text = split_name(text, names)
@@ -322,12 +317,6 @@ def report(setting, rows, spent, cuts=(-1.0, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3)
         print("  word errors   %.1f%%" % (100.0 * sum(r["errors"] for r in cmds) / max(sum(r["words"] for r in cmds), 1)))
         print("  right action  %d/%d" % (sum(r["same"] for r in cmds), len(cmds)))
         for r in cmds:
-            if not r["same"]:
-                print("    said %-44r heard %-44r  %.2f" % (r["want"], r["heard"], r["sure"]))
-    named = [r for r in rows if r["part"] == "names"]
-    if named:
-        print("  names right   %d/%d" % (sum(r["same"] for r in named), len(named)))
-        for r in named:
             if not r["same"]:
                 print("    said %-44r heard %-44r  %.2f" % (r["want"], r["heard"], r["sure"]))
     if wake:

@@ -349,7 +349,8 @@ class Cards(Skill):
 
         if self.j.ui:  # the ring counts down by itself (ui/blocks.py ```countdown): shown once, not every second
             self.j.ui.set_timer(card_id, what, end)
-            self.j.ui.show_card({"id": card_id, "title": name, "choices": [{"label": "Cancel", "do": "cancel the timer"}],
+            self.j.ui.show_card({"id": card_id, "title": name, "stay": True,  # up for the whole countdown, then till you close it
+                                 "choices": [{"label": "Cancel", "do": "cancel the timer"}],
                                  "text": "```countdown\nend: %.0f\ntotal: %.0f\nlabel: %s\n```" % (
                                      end, seconds, _spoken(seconds))})
 
@@ -362,7 +363,7 @@ class Cards(Skill):
             if stop.is_set():
                 return
             if self.j.ui:
-                self.j.ui.show_card({"id": card_id, "title": name, "text": "```countdown\nend: %.0f\ntotal: %.0f\n"
+                self.j.ui.show_card({"id": card_id, "title": name, "stay": True, "text": "```countdown\nend: %.0f\ntotal: %.0f\n"
                                      "label: %s is up\n```" % (end, seconds, name)})
             line = "Your %s is done." % name.lower() if what else "Time's up!"
             self.j.skills.proactive.note("timer", line, "You set a timer for %s at %s." % (
