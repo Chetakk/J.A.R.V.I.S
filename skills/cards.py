@@ -50,6 +50,7 @@ class Cards(Skill):
 
     def __init__(self, jarvis):
         self.timers = {}  # id -> threading.Event that cancels it
+        self.timer_cards = {}  # id -> its card, for "show my timer"
         self._ids = itertools.count(1)
         super().__init__(jarvis)
 
@@ -88,6 +89,9 @@ class Cards(Skill):
              % _AMOUNT, self.timer),
             (r"%s timer(?: for (.+))?" % _AMOUNT.replace(r"\s*(seconds?", r"[\s-]*(seconds?"), self.timer),
             (r"(?:cancel|stop|clear) (?:the |my |all )?(?:timers?|countdowns?)", self.cancel_timers),
+            # "show timer", "show me timer which is going on": before the guess took it for "set a timer"
+            (r"(?:show|open|bring back|where'?s|where is) (?:me )?(?:the |my |a |that )?(?:timers?|countdowns?)"
+             r"(?: (?:which|that|thats|that's|is|going|running|again|now|card)\b.*)?", self.show_timers),
         ]
 
     # --- the card on screen ---
@@ -349,15 +353,16 @@ class Cards(Skill):
 
         if self.j.ui:  # the ring counts down by itself (ui/blocks.py ```countdown): shown once, not every second
             self.j.ui.set_timer(card_id, what, end)
-            self.j.ui.show_card({"id": card_id, "title": name, "stay": True,  # up for the whole countdown, then till you close it
+            self.j.ui.show_card(self.timer_cards.setdefault(card_id, {"id": card_id, "title": name, "stay": True,  # up for the whole countdown, then till you close it
                                  "choices": [{"label": "Cancel", "do": "cancel the timer"}],
                                  "text": "```countdown\nend: %.0f\ntotal: %.0f\nlabel: %s\n```" % (
-                                     end, seconds, _spoken(seconds))})
+                                     end, seconds, _spoken(seconds))}))
 
         def loop():
             while not stop.is_set() and end - time.time() > 0:
                 stop.wait(min(30.0, max(0.05, end - time.time())))
             self.timers.pop(card_id, None)
+            self.timer_cards.pop(card_id, None)
             if self.j.ui:
                 self.j.ui.set_timer(card_id, what)
             if stop.is_set():
@@ -371,6 +376,13 @@ class Cards(Skill):
             self.j.inbox.put(("say", line))
 
         threading.Thread(target=loop, daemon=True).start()
+
+    def show_timers(self, m):
+        if not self.timer_cards:
+            self.say("There's no timer running.")
+            return
+        for card in list(self.timer_cards.values()):
+            self.j.ui.show_card(card)
 
     def cancel_timers(self, m):
         if not self.timers:
