@@ -30,14 +30,20 @@ def tips(skills):
     return [p for s in skills for p in s.phrases if not re.search(r"[<(]", p) and " " in p]
 
 
-# Which "Try saying" group each skill's phrases belong to (by class name); a skill not named here is general.
+# Which "Try saying" groups each skill's phrases belong to (by class name); a skill may be in several. General is
+# every skill not in another group, plus the ones named under "general" (useful anywhere, though they have a group).
 KINDS = {"work": {"Dev", "Projects", "Gmail", "Calendar", "GoogleChat", "Drive", "People", "Files", "Organise",
                   "Layouts", "Windows", "Clipboard", "ClipboardHistory", "CopyBetween", "Tasks", "Wrap", "WhereWasI",
-                  "Controls", "Dictation", "Nano", "Notes", "Linked"},
-         "study": {"Reading", "Lookup", "Maths", "Notes", "FocusMode", "Documents", "Linked"},
-         "leisure": {"Media", "Videos", "Audio", "ShareAudio", "BrowserTabs", "Web"},
-         "phone": {"Phone", "Notifications"},
-         "fixit": {"Troubleshoot", "SlowComputer", "Frozen", "Network", "Display", "Install", "Screen"}}
+                  "Controls", "Dictation", "Nano", "Notes", "Linked", "FocusMode", "Notifications", "Documents",
+                  "Web", "Lookup"},
+         "study": {"Reading", "Lookup", "Maths", "Notes", "FocusMode", "Documents", "Linked", "Videos", "Web",
+                   "Media", "Drive", "Files", "Clipboard"},
+         "leisure": {"Media", "Videos", "Audio", "ShareAudio", "BrowserTabs", "Web", "Lookup"},
+         "phone": {"Phone", "Notifications", "People"},
+         "fixit": {"Troubleshoot", "SlowComputer", "Frozen", "Network", "Display", "Install", "Screen", "Audio",
+                   "Projects"},
+         "general": {"Media", "Maths", "Lookup", "Notes", "Clipboard", "Screen", "Windows", "FocusMode",
+                     "Notifications", "Calendar", "Gmail", "Web"}}
 SIMILAR = {"work": "study", "study": "work", "leisure": "phone", "phone": "leisure", "fixit": "work"}
 # What the focused window says you're doing: (kind, WM_CLASS words, title words), first match wins.
 DOING = [("study", r"evince|okular|zathura", r"study ?buddy|lecture|course|udemy|coursera|nptel|tutorial|\.pdf\b"),
@@ -63,8 +69,10 @@ def doing(window_class, title, playing):
 def tip_mix(skills):
     """{kind: tips} with every kind's tips in a 2-1-1 pattern (2 of the kind, 1 similar, 1 general), and "" for
     general alone. A cycled list, so the dashboard's every-30-s turn and the bar's random pick both keep the mix."""
-    general = tips(s for s in skills if not any(type(s).__name__ in names for names in KINDS.values()))
     pools = {k: tips(s for s in skills if type(s).__name__ in names) for k, names in KINDS.items()}
+    general = tips(s for s in skills if type(s).__name__ in KINDS["general"] or
+                   not any(type(s).__name__ in names for names in KINDS.values()))
+    del pools["general"]
     mix = {"": general}
     for kind, own in pools.items():
         similar = pools[SIMILAR[kind]]
