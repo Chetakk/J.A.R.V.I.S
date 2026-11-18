@@ -40,6 +40,15 @@ def _names_regex(names):
     return r"(?:%s)(?![a-z])" % "|".join(sorted(alts, key=len, reverse=True))
 
 
+# Speech often drops the apostrophe ("whats new on drive"), and skill phrases mostly need it; "whats app" stays WhatsApp.
+_NO_APOSTROPHE = re.compile(r"\b(?:whats(?! ?app\b)|wheres|whos|hows|thats|theres|dont|doesnt|didnt|isnt|arent|cant|"
+                            r"wont|youre)\b", re.IGNORECASE)
+
+
+def _apostrophe(w):
+    return w[:-2] + "'re" if w.lower() == "youre" else w[:-1] + "'" + w[-1]
+
+
 def clean(text, names=("jarvis",), heard_as=()):
     """Strip the assistant's name, politeness and punctuation; keeps the original case.
     heard_as: what speech recognition writes instead of a name ("asset" for "EV"); only taken off the very start,
@@ -62,6 +71,7 @@ def clean(text, names=("jarvis",), heard_as=()):
     text = re.sub(r"^(?:%s[\s,.!]+)?(?:%s(?!%s)[\s,.!?]*)?(?:(?:can|could|would|will) you\s+)?(?:please\s+)?"
                   % (_GREETING, name, NAME_AS_THING), "", text, flags=re.IGNORECASE)
     text = _TRAILING_FILLER.sub("", text)
+    text = _NO_APOSTROPHE.sub(lambda m: _apostrophe(m.group(0)), text)
     return re.sub(r"\s+", " ", text).strip()
 
 
