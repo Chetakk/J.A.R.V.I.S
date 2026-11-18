@@ -26,7 +26,7 @@ BROWSERS = {"google-chrome", "google-chrome-stable", "chrome", "chromium", "chro
 # Launcher -> the process it really runs as, where they differ.
 PROCESS = {"libreoffice": "soffice.bin", "remmina-file-wrapper": "remmina", "google-chrome-stable": "chrome",
            "google-chrome": "chrome", "nautilus": "nautilus", "gnome-control-center": "gnome-control-c"}
-OPEN = re.compile(r"^(?:open|launch|start|run|play|bring up|fire up|show me) (?:up )?(?:the |my )?(.+?)(?: app)?$",
+OPEN = re.compile(r"^(?:open|launch|start|run|play|bring up|fire up|pull up|load up|show me) (?:up )?(?:the |my )?(.+?)(?: app)?$",
                   re.IGNORECASE)
 CLOSE = re.compile(r"^(?:there(?:'s| is) )?(?:close|quit|exit|kill|shut(?: down)?) (?:the |my )?(.+?)(?: app)?(?: down)?$", re.IGNORECASE)
 
