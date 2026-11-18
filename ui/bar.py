@@ -329,6 +329,10 @@ class Bar:
         if who == "you" or mood:
             self.mood, self._mood_seen, self.mood_by = mood, None, who
 
+    def won(self):
+        """Something you asked for worked: the confident look, with shades."""
+        self.mood, self._mood_seen, self.mood_by = "confident", None, "jarvis"
+
     def _mood_now(self, t):
         """(mood, strength): the mood shows for MOOD_SECS once the eyes are up, fading in and out."""
         if not self.mood or self._state() != "idle" or self.mode == "hidden":

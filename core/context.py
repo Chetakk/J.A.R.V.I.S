@@ -59,12 +59,15 @@ class Context:
         self.value = None  # the name or number in it, if any ("firefox", "40")
         self.at = 0.0
         self.choice = None  # (options, picked) from the last "X, or Y?"
+        self.on_done = None  # called each time something you asked for worked
 
     def done(self, text, value=None):
         if value is None:
             m = NAMED.match(text) or ADDED.match(text)
             value = m and m.group(1)
         self.text, self.value, self.at = text, value, time.time()
+        if self.on_done:
+            self.on_done()
 
     def forget(self):
         """Talk that wasn't an action: "keep going" after it isn't about the volume from before."""

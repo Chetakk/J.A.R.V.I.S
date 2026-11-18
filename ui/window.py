@@ -172,7 +172,7 @@ def eye_look(layers, r, t, beat):
     drooping and wobbling with a sweat drop, squeezed pressed thin and fidgety, sleepy half shut with z's; and asleep
     (voice off): closed ‿ ‿ breathing slowly."""
     L = dict(dx=0.0, dy=0.0, ew=1.0, eh=1.0, gap=1.0, bright=1.0, inner=0.0, outer=0.0, up=0.0, down=0.0, tilt=0.0,
-             phones=0.0, drop=0.0, zz=0.0, notes=0.0)
+             phones=0.0, drop=0.0, zz=0.0, notes=0.0, shades=0.0)
     lift = [0.0, 0.0]
     roam = 1 - min(1.0, sum(k for mood, k, _s in layers if mood == "watching"))  # watching the pointer: no darting
     for mood, k, style in layers:
@@ -188,6 +188,11 @@ def eye_look(layers, r, t, beat):
         elif mood == "angry":
             L["dx"] += r * 0.02 * math.sin(t * 45) * k
             L["inner"] += 0.55 * k
+        elif mood == "confident":  # a job done: shades slide down, head cocked a little, a slow cool nod
+            L["shades"] = max(L["shades"], k)
+            L["tilt"] += 0.09 * k
+            L["dy"] += r * 0.025 * math.sin(t * 1.6) * k
+            L["outer"] += 0.2 * k
         elif mood == "stressed":
             L["dx"] += r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k * roam
             L["eh"] *= 1 - 0.3 * k
@@ -634,6 +639,42 @@ class UI:
                     cr.arc(x + side * r * 0.03, y, r * 0.21 * 0.68, math.pi * start, math.pi * (start + 0.76))
                     cr.stroke()
             cr.set_line_cap(cairo.LINE_CAP_BUTT)
+        if L["shades"] > 0.01:  # sunglasses dropping in from above: dark lenses, a bridge, arms, a glint sweeping across
+            s = L["shades"]
+            sy, lw, lh = mid + r * 0.01 - (1 - s) * r * 0.45, r * 0.44, r * 0.38  # big enough to hide the eyes
+            cr.set_line_width(r * 0.05)
+            cr.set_source_rgba(1, 1, 1, 0.9 * s)
+            cr.move_to(cx - gap + lw / 2, sy - lh * 0.25)
+            cr.line_to(cx + gap - lw / 2, sy - lh * 0.25)
+            for side in (-1, 1):
+                cr.move_to(cx + side * (gap + lw / 2), sy - lh * 0.3)
+                cr.line_to(cx + side * r * 0.7, sy - lh * 0.45)
+            cr.stroke()
+            for side in (-1, 1):
+                x = cx + side * gap
+                cr.move_to(x - lw / 2, sy - lh / 2)  # flat top, rounded bottom: the classic shape
+                cr.line_to(x + lw / 2, sy - lh / 2)
+                cr.curve_to(x + lw / 2, sy + lh * 0.4, x + lw * 0.2, sy + lh / 2, x, sy + lh / 2)
+                cr.curve_to(x - lw * 0.2, sy + lh / 2, x - lw / 2, sy + lh * 0.4, x - lw / 2, sy - lh / 2)
+                cr.close_path()
+                cr.set_source_rgba(0.04, 0.05, 0.09, 0.92 * s)
+                cr.fill_preserve()
+                cr.set_source_rgba(1, 1, 1, 0.9 * s)
+                cr.stroke()
+                p = (t % 2.6) / 0.7  # the glint: one sweep, then a pause
+                if p < 1:
+                    cr.save()
+                    cr.rectangle(x - lw / 2, sy - lh / 2, lw, lh)
+                    cr.clip()
+                    gx = x - lw * 0.8 + p * lw * 1.6
+                    cr.move_to(gx, sy - lh / 2)
+                    cr.line_to(gx + lw * 0.14, sy - lh / 2)
+                    cr.line_to(gx - lw * 0.06, sy + lh / 2)
+                    cr.line_to(gx - lw * 0.2, sy + lh / 2)
+                    cr.close_path()
+                    cr.set_source_rgba(1, 1, 1, 0.6 * s * math.sin(math.pi * p))
+                    cr.fill()
+                    cr.restore()
         if L["tilt"]:
             cr.restore()
         if L["notes"] > 0.01:  # little notes drifting up
