@@ -38,18 +38,22 @@ FOLLOW = 2.0  # seconds the idle eyes keep watching the pointer after it stops
 GAZE_W = 14.0  # the eyes' spring: they ease in and out and settle in about a third of a second, never overshooting
 LAZY = {"sleepy", "hot"}  # drowsy moods: the eyes follow the pointer too, but slowly and only part of the way
 LAZY_W, LAZY_REACH = 3.0, 0.4  # their spring (settles in about 1.5 s) and how far they turn
-MOOD_SECS = 5.0  # how long the idle eyes show a mood
+MOOD_SECS = 12.0  # how long the eyes show a talk mood
 DANCES = ("hop", "nod", "groove", "seesaw", "pulse")  # dance moves, one at random at a time (ui/window.py draws them)
 SWAYS = ("smile", "notes")  # moves for slow, relaxed music, rotated the same way
 STYLE_SECS = (30, 90)  # a move is kept at least this long, then swapped for another at a random moment
 MOVING = {"dance", "sway", "hot", "squeezed"}  # moods from music or the computer that move all the time
 # (mood, who said it, words that bring it on), first match wins. Two failures in two minutes: stressed, not sad.
 MOODS = (
-    ("happy", "you", r"\b(thanks?|thank you|good (job|boy)|well done|great job|awesome|love you|you'?re the best|nice one)\b"),
-    ("angry", "you", r"\b(stupid|idiot|useless|dumb|shut up|hate you|annoying)\b"),
-    ("sad", "you", r"\b(i'?m (so |really |very )?(sad|upset|lonely|down)|bad day)\b"),
+    ("happy", "you", r"\b(thanks?|thank you|thx|cheers|appreciate it|good (job|boy|work)|well done|great (job|work)|"
+                     r"awesome|amazing|brilliant|perfect|excellent|nice( one| work)?|cool|love you|"
+                     r"you'?re (the best|amazing|awesome|a star)|good (morning|night))\b"),
+    ("angry", "you", r"\b(stupid|idiot|useless|dumb|shut up|hate you|annoy(ing|ed)|wrong again|not again|come on|ugh+|"
+                     r"terrible|rubbish|you never listen)\b"),
+    ("sad", "you", r"\b(i'?m (so |really |very |a bit |feeling )?(sad|upset|lonely|down|tired|exhausted|stressed|sick|"
+                   r"not (well|okay|ok|good))|i feel (sad|bad|low|down)|feeling (low|down|sad)|(bad|rough|long) day)\b"),
     ("sad", "jarvis", r"^sorry\b|^i (couldn'?t|can'?t)\b|didn'?t (work|take)|went wrong|\bfailed\b"),
-    ("happy", "jarvis", r"\b(you'?re welcome|my pleasure|glad)\b"),
+    ("happy", "jarvis", r"\b(you'?re welcome|my pleasure|glad|anytime|happy to help)\b"),
 )
 TALK_LINES = {("happy", "you"): "Anytime", ("happy", "jarvis"): "Happy to help", ("angry", "you"): "…noted",
               ("sad", "you"): "I'm here for you", ("sad", "jarvis"): "Sorry about that",
