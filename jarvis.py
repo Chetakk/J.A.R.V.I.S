@@ -322,6 +322,8 @@ class Jarvis:
             self.chat("heard", ("heard \u201c%s\u201d  \u2192 %s" % (text, outcome)) if text else "\u2026 %s" % outcome)
             if self.ui and outcome.startswith(("ignored", "skipped", "couldn't")):
                 self.ui.count_ignored()
+        if self.ui and outcome.startswith("done"):  # "Jarvis, thanks" ends listening and never reaches the chat
+            self.ui.feel(text)
 
     def understood(self, what):
         """What your words were taken to mean, for the voice bar."""
