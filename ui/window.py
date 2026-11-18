@@ -564,7 +564,10 @@ class UI:
                 cr.set_source_rgba(1, 1, 1, alpha)
                 cr.set_line_width(1.5)
                 cr.stroke()
-            self._core(cr, cx, cy, r * (0.18 + 0.07 * abs(math.sin(t * 9)) + 0.03 * math.sin(t * 23)), 0.95)
+            if self.bar.layers:  # a talk mood: its eyes inside the wave instead of the core
+                self._pet_eyes(cr, cx, cy, r * 0.72, 1.0, 0.85 + 0.15 * abs(math.sin(t * 9)), t=t, layers=self.bar.layers)
+            else:
+                self._core(cr, cx, cy, r * (0.18 + 0.07 * abs(math.sin(t * 9)) + 0.03 * math.sin(t * 23)), 0.95)
         elif s == "off":
             # JARVIS's voice off: the eyes are shut, asleep, breathing.
             self._pet_eyes(cr, cx, cy, r, 1.0, 1.0, t=t, layers=[("asleep", 1.0, None)])

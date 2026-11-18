@@ -335,7 +335,7 @@ class Bar:
 
     def _mood_now(self, t):
         """(mood, strength): the mood shows for MOOD_SECS once the eyes are up, fading in and out."""
-        if not self.mood or self._state() != "idle" or self.mode == "hidden":
+        if not self.mood or self._state() not in ("idle", "speaking") or self.mode == "hidden":
             return None, 0.0
         self._mood_seen = self._mood_seen or t
         age = t - self._mood_seen
@@ -557,6 +557,9 @@ class Bar:
                 self.layers = self.layers + [("watching", self._watch_k, None)]
             lively = (fps or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING
                       or 0 < self._ambient_k < 1 or 0 < self._sleep_k < 1 or t - self._style_at < 0.7)
+        elif state == "speaking" and self.mode != "hidden":  # a talk mood shows in the eyes inside the sound wave
+            talk = self._mood_now(t)
+            self.layers = [(talk[0], talk[1], None)] if talk[0] else []
         # Asleep or voice off, the eyes still breathe: the slow frame rate.
         every = 16 if lively and fps == 60 else 33 if busy or lively else BREATH if idle or state == "off" else None
         if every == self._every:
