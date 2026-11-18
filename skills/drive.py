@@ -70,7 +70,7 @@ class Drive(GoogleSkill):
              r"week)?|(?:show |list )?(?:me )?(?:the )?(?:files|docs|documents|sheets|things) (?:people |anyone )?shared "
              r"with me(?: lately| recently| today| this week)?|(?:did|has) (?:anyone|anybody|someone) shared? (?:anything|"
              r"a doc|a file|a sheet|a document)(?: with me)?(?: lately| recently| today)?|(?:show |list )?(?:me )?(?:my |the )?"
-             r"(?:recent|recently|latest|new|newly) shared (?:files|docs|documents|sheets|things)|(?:what(?:'s| is)|(?:is there )?"
+             r"(?:recent|recently|latest|new|newly) shared (?:files|docs|documents|sheets|things)|(?:check |see |tell me )?(?:what(?:'?s| is)|(?:is there )?"
              r"anything) new (?:on|in) (?:my |the |google )?drive(?: lately| recently| today| this week)?", self.shared),
             (r"open (?:what|whatever|the (?:doc|file|sheet|document|thing|one)(?: that)?) (.+?) (?:just )?shared(?: with "
              r"me)?|open (?:the )?(?:last |latest |newest |most recent |new )?(?:doc |file |sheet |document |thing |one )?"
