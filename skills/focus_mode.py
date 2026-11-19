@@ -144,10 +144,7 @@ class FocusMode(Skill):
                               "Focus time's over. Nice work.")
             self.j.skills.proactive.note("focus", line, "The focus session you started ended at %s."
                                          % time.strftime("%H:%M"))
-            n = self._came_in()
-            if n:
-                line += " %d notification%s came in, say read my notifications." % (n, "" if n == 1 else "s")
-            self.j.inbox.put(("say", line))
+            self.j.inbox.put(("say", line + self._missed_line()))
             if self.pomodoro:
                 self.pomodoro = False
                 t = threading.Timer(BREAK * 60, lambda: self.focusing() or self.j.inbox.put(
@@ -156,21 +153,33 @@ class FocusMode(Skill):
                 t.start()
 
     def _came_in(self):
+        """Notifications since focus began; None if they weren't being watched (then it can't be said)."""
         w = getattr(self.j.skills.notifications, "watcher", None)
         try:
-            return len(w.recent(self.since)) if w and self.since and w.running() else 0
+            return len(w.recent(self.since)) if w and self.since and w.running() else None
         except Exception:  # the count is a nicety; the end of focus must still be said
-            return 0
+            return None
+
+    def _missed_line(self):
+        """Said after focus / a meeting ends: how many notifications came in, or that nothing did. Held heads-ups
+        are told by proactive.watch right after, so with any of those it doesn't say nothing was missed."""
+        n = self._came_in()
+        if n:
+            return " %d notification%s came in, say read my notifications." % (n, "" if n == 1 else "s")
+        if n == 0 and not self.j.skills.proactive.held:
+            return " You didn't miss anything."
+        return ""
 
     def end_focus(self):
         if not self.focusing():
             self.say("You weren't in focus mode.")
             return
+        missed = self._missed_line()
         self._clear_focus()
-        self.say(["Focus mode off.",
+        self.say([s + missed for s in ["Focus mode off.",
                   "Focus mode off. Well earned.",
                   "That's focus done. Take a breather.", "Focus is over. Nicely done.",
-                  "Focus mode off. Back to normal."])
+                  "Focus mode off. Back to normal."]])
 
     def _clear_focus(self):
         if self.ending and self.j.ui:  # meeting mode: its card stays up until now
