@@ -186,7 +186,8 @@ def eye_look(layers, r, t, beat):
     drooping and wobbling with a sweat drop, squeezed pressed thin and fidgety, sleepy half shut with z's; and asleep
     (voice off): closed ‿ ‿ breathing slowly."""
     L = dict(dx=0.0, dy=0.0, ew=1.0, eh=1.0, gap=1.0, bright=1.0, inner=0.0, outer=0.0, up=0.0, down=0.0, tilt=0.0,
-             phones=0.0, drop=0.0, zz=0.0, notes=0.0, shades=0.0, wink=0.0, heart=0.0, sparkle=0.0, peek=0.0)
+             phones=0.0, drop=0.0, zz=0.0, notes=0.0, shades=0.0, wink=0.0, heart=0.0, sparkle=0.0, peek=0.0,
+             band=0.0, swirl=0.0, coffee=0.0, worry=0.0)
     lift = [0.0, 0.0]
     roam = 1 - min(1.0, sum(k for mood, k, _s in layers if mood == "watching"))  # watching the pointer: no darting
     for mood, k, style in layers:
@@ -240,6 +241,30 @@ def eye_look(layers, r, t, beat):
             jolt = _bump(style, 0.72, 0.9)
             L["eh"] *= (1 - 0.85 * sink * k) * (1 + 0.35 * jolt * k)
             L["dy"] += r * (0.05 * sink - 0.04 * jolt) * k
+        elif mood == "concerned":  # you've worked too long: wide eyes looking up at you under worried brows
+            L["worry"] = max(L["worry"], k)
+            L["eh"] *= 1 + 0.1 * k
+            L["tilt"] += 0.1 * k
+            L["dy"] -= r * (0.03 + 0.04 * _bump(t % 6 / 6, 0.7, 1.0)) * k
+        elif mood == "hustle":  # on a roll: headband on, eyes set, a quick nod at each request (style: secs since)
+            L["band"] = max(L["band"], k)
+            L["eh"] *= 1 - 0.2 * k
+            L["inner"] += 0.35 * k
+            L["dy"] += r * 0.08 * _bump(style or 9.0, 0, 0.5) * k
+        elif mood == "worn":  # worn out: droopy, uneven, swirly eyes; shakes it off at the end (style: secs left)
+            left = 9.0 if style is None else style
+            L["swirl"] = max(L["swirl"], k * max(0.0, min(1.0, (left - 0.4) / 1.0)))
+            L["outer"] += 0.4 * k
+            L["eh"] *= 1 - 0.3 * k
+            L["dy"] += r * 0.04 * k
+            lift[0] += r * 0.05 * k
+            L["dx"] += r * 0.08 * math.sin(t * 40) * _bump(left, 0.0, 1.6) * k
+        elif mood == "late":  # working past midnight: half-shut eyes and a steaming coffee
+            L["dy"] += r * 0.03 * k
+            L["inner"] += 0.45 * k
+            L["outer"] += 0.45 * k
+            L["bright"] *= 1 - 0.15 * k
+            L["coffee"] = max(L["coffee"], k)
         elif mood == "stressed":
             L["dx"] += r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k * roam
             L["eh"] *= 1 - 0.3 * k
@@ -662,7 +687,7 @@ class UI:
             x, cy = cx + side * gap, mid + L["lift"][(side + 1) // 2]
             up_s = min(1.0, up + (L["wink"] if side == 1 else 0.0))  # the wink closes the right eye only
             # the pills fade, and flatten, as ^ ^ or ‿ ‿ (or hearts) come in: eyes closing into them
-            shape = max(0.0, 1 - up_s - down) * (1 - L["heart"])
+            shape = max(0.0, 1 - up_s - down) * (1 - L["heart"]) * (1 - L["swirl"])
             eh = eh0 * (1 - 0.75 * min(1.0, up_s + down))
             glow = cairo.RadialGradient(x, cy, 0, x, cy, r * 0.42)
             glow.add_color_stop_rgba(0, 1, 1, 1, 0.28 * bright)
@@ -692,6 +717,24 @@ class UI:
                     cr.arc(x + side * r * 0.03, y, r * 0.21 * 0.68, math.pi * start, math.pi * (start + 0.76))
                     cr.stroke()
             cr.set_line_cap(cairo.LINE_CAP_BUTT)
+            if L["worry"] > 0.01:  # a worried brow over each eye, its inner end raised
+                by = cy - eh0 / 2 - r * 0.1
+                cr.set_line_cap(cairo.LINE_CAP_ROUND)
+                cr.set_line_width(r * 0.06)
+                cr.move_to(x + side * ew * 0.9, by + r * 0.03)
+                cr.curve_to(x + side * ew * 0.3, by - r * 0.01, x - side * ew * 0.3, by - r * 0.05, x - side * ew * 0.8,
+                            by - r * 0.1)
+                cr.set_source_rgba(1, 1, 1, 0.9 * bright * L["worry"])
+                cr.stroke()
+                cr.set_line_cap(cairo.LINE_CAP_BUTT)
+            if L["swirl"] > 0.01:  # @ @: a spiral turning in each eye
+                cr.set_line_width(r * 0.05)
+                for i in range(49):
+                    a = i / 48 * 5 * math.pi
+                    rr = r * 0.17 * i / 48
+                    (cr.line_to if i else cr.move_to)(x + rr * math.cos(a + t * 4 * side), cy + rr * math.sin(a + t * 4 * side))
+                cr.set_source_rgba(1, 1, 1, 0.9 * bright * L["swirl"])
+                cr.stroke()
             if L["heart"] > 0.01:  # ♥ eyes, beating
                 hs = r * 0.19 * (1 + 0.12 * abs(math.sin(t * 7))) * (0.6 + 0.4 * L["heart"])
                 cr.move_to(x, cy + hs * 0.9)
@@ -709,6 +752,22 @@ class UI:
                 cr.close_path()
                 cr.set_source_rgba(1, 1, 1, 0.95 * L["sparkle"])
                 cr.fill()
+        if L["band"] > 0.01:  # a headband across the top, its knot's tails flapping on the right
+            by = mid - r * 0.36
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.set_line_width(r * 0.11)
+            cr.set_source_rgba(1, 1, 1, 0.8 * L["band"])
+            cr.move_to(cx - r * 0.72, by + r * 0.06)
+            cr.curve_to(cx - r * 0.3, by - r * 0.05, cx + r * 0.3, by - r * 0.05, cx + r * 0.72, by + r * 0.06)
+            cr.stroke()
+            cr.set_line_width(r * 0.06)
+            for n, (dx, dy) in enumerate(((0.3, 0.12), (0.22, 0.28))):
+                wave = r * 0.05 * math.sin(t * 9 + n * 1.3)
+                cr.move_to(cx + r * 0.6, by + r * 0.04)
+                cr.curve_to(cx + r * (0.6 + dx * 0.5), by + r * dy * 0.4 + wave, cx + r * (0.6 + dx * 0.8),
+                            by + r * dy * 0.8 - wave, cx + r * (0.6 + dx), by + r * dy + wave)
+                cr.stroke()
+            cr.set_line_cap(cairo.LINE_CAP_BUTT)
         if L["shades"] > 0.01:  # sunglasses dropping in from above: dark lenses, a bridge, arms, a glint sweeping across
             s = L["shades"]
             sy, lw, lh = mid + r * 0.01 - (1 - s) * r * 0.45, r * 0.44, r * 0.38  # big enough to hide the eyes
@@ -765,6 +824,23 @@ class UI:
                 cr.move_to(base_x + r * (0.32 + 0.2 * p), base_y - r * (0.22 + 0.4 * p))
                 cr.show_text("z")
             cr.new_path()
+        if L["coffee"] > 0.01:  # a coffee cup at the bottom right, steam curling up
+            c, ux, uy = L["coffee"], base_x + r * 0.42, base_y + r * 0.28
+            from ui.blocks import _round_rect as rrect
+            rrect(cr, ux, uy, r * 0.22, r * 0.2, r * 0.05)
+            cr.set_source_rgba(1, 1, 1, 0.85 * c)
+            cr.fill()
+            cr.set_line_width(r * 0.04)
+            cr.arc(ux + r * 0.22, uy + r * 0.09, r * 0.055, -math.pi / 2, math.pi / 2)
+            cr.stroke()
+            for n in range(2):
+                p = (t / 2.0 + n * 0.5) % 1
+                sx = ux + r * (0.06 + 0.1 * n)
+                cr.move_to(sx, uy - r * 0.03)
+                cr.curve_to(sx + r * 0.05, uy - r * 0.08, sx - r * 0.05, uy - r * 0.13, sx + r * 0.02 * math.sin(t * 3 + n),
+                            uy - r * (0.12 + 0.08 * p))
+                cr.set_source_rgba(1, 1, 1, 0.6 * c * (1 - p))
+                cr.stroke()
         if L["drop"] > 0.01:  # a sweat drop sliding down the side
             p = t % 1.6 / 1.6
             x, y, s = drop_x, drop_y + r * 0.25 * p, r * 0.09

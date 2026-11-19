@@ -122,7 +122,8 @@ def feed(jarvis):
                 extras["next"] = next_reminder(s.todos._list("reminders"), now)
             except Exception:  # the day tracker isn't running (HubDown) or answered oddly: no reminder line
                 extras["next"] = ""
-        extras["tips"] = mix[doing(active_window_class(), active_window_title(), playing_player)]
+        extras["doing"] = doing(active_window_class(), active_window_title(), playing_player)  # the bar's work moods too
+        extras["tips"] = mix[extras["doing"]]
         extras["unread"] = tray_count(bus)
         extras["alerts"] = s.proactive.unread()  # JARVIS's own, unread: the full bar's button for "show my alerts"
         jarvis.ui.set_extras(dict(extras))

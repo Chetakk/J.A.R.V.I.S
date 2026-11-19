@@ -44,10 +44,15 @@ SHADES_EVERY, SHADES_FOR = (180, 480), (20, 60)  # the idle face puts its shades
 TRICKS = {"wink": 0.9, "yawn": 3.0, "look": 4.0, "heart": 3.5, "sparkle": 3.0, "peek": 4.5}
 LONG_TRICKS = {"bored": 5.0, "dozing": 6.0}  # only after LONG_IDLE s with nothing said or done
 TRICK_EVERY, LONG_IDLE = (40, 120), 600
+# How hard you and JARVIS are working: a work or study window in focus this long with no BREAK away from one is
+# "concerned"; HUSTLE_N requests within HUSTLE_SECS is "hustle"; after a hustle, or a Claude run over CLAUDE_LONG,
+# JARVIS is "worn" for WORN_SECS; a work window between midnight and 6 am is "late".
+WORK_LONG, BREAK, HUSTLE_N, HUSTLE_SECS, CLAUDE_LONG, WORN_SECS = 5400, 300, 8, 300, 300, 60
+WORKING = ("work", "study")
 DANCES = ("hop", "nod", "groove", "seesaw", "pulse")  # dance moves, one at random at a time (ui/window.py draws them)
 SWAYS = ("smile", "notes")  # moves for slow, relaxed music, rotated the same way
 STYLE_SECS = (30, 90)  # a move is kept at least this long, then swapped for another at a random moment
-MOVING = {"dance", "sway", "hot", "squeezed"}  # moods from music or the computer that move all the time
+MOVING = {"dance", "sway", "hot", "squeezed", "concerned", "hustle", "worn", "late"}  # moods from music or the computer that move all the time
 # (mood, who said it, words that bring it on), first match wins. Two failures in two minutes: stressed, not sad.
 MOODS = (
     ("happy", "you", r"\b(thanks?|thank you|thx|cheers|appreciate it|good (job|boy|work)|well done|great (job|work)|"
@@ -152,7 +157,7 @@ def _fade(at, span):
     return min(1.0, at / 0.3, (span - at) / 0.3)
 
 
-def idle_line(mood, by, music, body, extras, t, mic_off):
+def idle_line(mood, by, music, body, extras, t, mic_off, work=""):
     """(words, alpha) for the idle compact bar: one line, never crowded. A talk mood's line shows while it lasts; a
     lasting mood's (music, the computer) takes turns with the plain line every ROTATE s. The plain line is an extra
     (pick_extra), fading across when it changes; Ready (Mic off with the mic off) only when there are none."""
@@ -161,7 +166,9 @@ def idle_line(mood, by, music, body, extras, t, mic_off):
     cpu = "GPU %d%%" % body.gpu if body.gpu > body.cpu else "CPU %d%%" % body.cpu
     line = {"dance": "♪ " + (music.track or "%d bpm" % music.bpm), "sway": "♪ " + (music.track or "Easy listening"),
             "hot": "Running hot · %d°C" % body.hottest, "straining": "Working hard · " + cpu, "busy": "Busy · " + cpu,
-            "squeezed": "Low on memory · %d%% free" % (body.free * 100), "sleepy": "It's late"}.get(mood)
+            "squeezed": "Low on memory · %d%% free" % (body.free * 100), "sleepy": "It's late",
+            "concerned": work, "hustle": work, "worn": "Phew. Catching my breath",
+            "late": "Working late · don't forget to sleep"}.get(mood)
     at = t % EXTRA_SECS
     if line and at < ROTATE:
         return line, _fade(at, ROTATE)
@@ -275,6 +282,9 @@ class Bar:
         self._shades_on = self._shades_off = 0.0  # the random shades' next spell (picked on the first frame)
         self._trick, self._trick_at, self._trick_end = None, 0.0, 0.0  # the idle trick going on, or the next one's time
         self._idle_since = time.time()
+        self._work_since = self._away_since = self._claude_from = None  # for "concerned" and "worn"
+        self._asks, self._hustling, self._worn_until = [], False, 0.0  # when you asked things lately, for "hustle"
+        GLib.timeout_add_seconds(5, self._track_work)
         self._glow_now, self._drawn_t = None, 0.0  # the glow eases to each state's strength
         self._seen_state, self._prev_state, self._state_at = "idle", None, 0.0  # for fading the rim comet
         GLib.timeout_add_seconds(5, self.body.check)
@@ -314,6 +324,7 @@ class Bar:
 
     def heard(self, text):
         if text:
+            self._asks.append(time.time())
             self._feel("you", text)
             self.words, self.understood, self.reply = text, "", ""
             self._words_at = time.time()
@@ -350,7 +361,8 @@ class Bar:
 
     def _ambience(self, t):
         """(mood, strength) from the music, else the computer: the old one fades out before the new one fades in."""
-        aim = self.music.kind or self.body.mood
+        pc = self.body.mood  # the computer's: hot, busy and the like beat the work moods; sleepy comes after them
+        aim = self.music.kind or (pc if pc != "sleepy" else None) or self._work_mood(t) or pc
         dt, self._ambient_t = min(0.2, t - (self._ambient_t or t)), t
         if aim != self._ambient:
             self._ambient_k -= dt / 0.4
@@ -382,7 +394,9 @@ class Bar:
             w = _smooth((t - self._style_at) / 0.6) if self._old_style and mood in ("dance", "sway") else 1.0
             if w < 1:
                 layers.append((mood, k * (1 - w), self._old_style))
-            layers.append((mood, k * w, self.style))
+            # hustle nods on each request: it gets the seconds since the last one; worn, the seconds it has left
+            style = {"hustle": t - (self._asks or [0])[-1], "worn": self._worn_until - t}.get(mood, self.style)
+            layers.append((mood, k * w, style))
         if talk[0]:
             layers.append((talk[0], talk[1], None))
         shades = self._shades_k(t) * (1 - talk[1])  # now and then the idle face just wears its shades
@@ -422,6 +436,41 @@ class Bar:
             return None
         dur = {**TRICKS, **LONG_TRICKS}[self._trick]
         return self._trick, max(0.0, 1 - (self._trick_end - t) / dur)
+
+    def _track_work(self):
+        """Every 5 s: how long a work window has been in focus, and whether JARVIS has just come out of a hustle or a
+        long Claude run (then it's worn for a bit)."""
+        now = time.time()
+        if self.ui.extras.get("doing") in WORKING:
+            self._work_since, self._away_since = self._work_since or now, None
+        else:
+            self._away_since = self._away_since or now
+            if now - self._away_since >= BREAK:
+                self._work_since = None
+        self._asks = [a for a in self._asks if now - a < HUSTLE_SECS]
+        hustle = len(self._asks) >= HUSTLE_N
+        claude = self.ui._claude_since
+        if (self._hustling and not hustle) or (not claude and self._claude_from and now - self._claude_from >= CLAUDE_LONG):
+            self._worn_until = now + WORN_SECS
+        self._hustling, self._claude_from = hustle, claude
+        return True  # keep the GLib timer going
+
+    def _work_mood(self, t):
+        if t < self._worn_until:
+            return "worn"
+        if self._hustling:
+            return "hustle"
+        if self._work_since and t - self._work_since >= WORK_LONG:
+            return "concerned"
+        if self.ui.extras.get("doing") in WORKING and 0 <= time.localtime(t).tm_hour < 6:
+            return "late"
+        return None
+
+    def _work_line(self, t):
+        if self._hustling:
+            return "On a roll · %d done" % len(self._asks)
+        h, m = divmod(int(t - (self._work_since or t)) // 60, 60)
+        return "%s straight · time for a break?" % ("%d h" % h + (" %d min" % m if m else ""))
 
     def gaze_from(self, ox, oy):
         """The idle eyes' gaze for an orb drawn at (ox, oy) on screen (the dashboard's): towards the pointer while it
@@ -939,7 +988,7 @@ class Bar:
             if mood in ("dance", "sway") and self._song_on_card():
                 mood = None  # the card says what's playing: the bar says something else
             return idle_line(mood if k > 0.5 else None, self.mood_by, self.music, self.body, self.ui.extras, t,
-                             self.ui.mutes["mic"])
+                             self.ui.mutes["mic"], self._work_line(t))
         return {"thinking": self.words, "speaking": self.reply}.get(state) or LABELS.get(state, state), 1.0
 
     def _right_items(self, cr, t):
