@@ -40,6 +40,10 @@ LAZY = {"sleepy", "hot"}  # drowsy moods: the eyes follow the pointer too, but s
 LAZY_W, LAZY_REACH = 3.0, 0.4  # their spring (settles in about 1.5 s) and how far they turn
 MOOD_SECS = 60.0  # how long the eyes show a talk mood
 SHADES_EVERY, SHADES_FOR = (180, 480), (20, 60)  # the idle face puts its shades on every 3-8 min, for 20-60 s
+# Little things the idle face does now and then (ui/window.py draws them), and how long each takes, in seconds.
+TRICKS = {"wink": 0.9, "yawn": 3.0, "look": 4.0, "heart": 3.5, "sparkle": 3.0, "peek": 4.5}
+LONG_TRICKS = {"bored": 5.0, "dozing": 6.0}  # only after LONG_IDLE s with nothing said or done
+TRICK_EVERY, LONG_IDLE = (40, 120), 600
 DANCES = ("hop", "nod", "groove", "seesaw", "pulse")  # dance moves, one at random at a time (ui/window.py draws them)
 SWAYS = ("smile", "notes")  # moves for slow, relaxed music, rotated the same way
 STYLE_SECS = (30, 90)  # a move is kept at least this long, then swapped for another at a random moment
@@ -269,6 +273,8 @@ class Bar:
         self._old_style, self._style_at = None, 0.0  # the move before it and when it changed: they cross-fade
         self.layers, self._sleep_k, self._blend_t = [], 0.0, 0.0  # the looks the eyes show; how far asleep
         self._shades_on = self._shades_off = 0.0  # the random shades' next spell (picked on the first frame)
+        self._trick, self._trick_at, self._trick_end = None, 0.0, 0.0  # the idle trick going on, or the next one's time
+        self._idle_since = time.time()
         self._glow_now, self._drawn_t = None, 0.0  # the glow eases to each state's strength
         self._seen_state, self._prev_state, self._state_at = "idle", None, 0.0  # for fading the rim comet
         GLib.timeout_add_seconds(5, self.body.check)
@@ -382,6 +388,9 @@ class Bar:
         shades = self._shades_k(t) * (1 - talk[1])  # now and then the idle face just wears its shades
         if shades:
             layers.append(("confident", shades, None))
+        trick = self._trick_now(t)
+        if trick and not talk[0]:
+            layers.append((trick[0], 1.0, trick[1]))
         awake = 1 - _smooth(self._sleep_k)
         layers = [(m, s * awake, style) for m, s, style in layers]
         if self._sleep_k > 0:
@@ -394,6 +403,25 @@ class Bar:
             self._shades_on = t + random.uniform(*SHADES_EVERY)
             self._shades_off = self._shades_on + random.uniform(*SHADES_FOR)
         return _smooth(min((t - self._shades_on) / 0.4, (self._shades_off - t) / 0.5))
+
+    def _trick_now(self, t):
+        """(trick, progress 0..1) while one is going on, else None. One at a time, every TRICK_EVERY s; bored and
+        dozing join in once nothing has been said or done for LONG_IDLE s."""
+        if self._trick and t > self._trick_end:
+            self._trick = None
+        if not self._trick and t > self._trick_end:
+            if not self._trick_at:
+                self._trick_at = t + random.uniform(*TRICK_EVERY)
+            elif t >= self._trick_at:
+                pool = dict(TRICKS)
+                if t - max(self._idle_since, self._words_at) >= LONG_IDLE:
+                    pool.update(LONG_TRICKS)
+                self._trick = random.choice(list(pool) + list(LONG_TRICKS.keys() & pool.keys()))  # long ones 2x
+                self._trick_end, self._trick_at = t + pool[self._trick], 0.0
+        if not self._trick:
+            return None
+        dur = {**TRICKS, **LONG_TRICKS}[self._trick]
+        return self._trick, max(0.0, 1 - (self._trick_end - t) / dur)
 
     def gaze_from(self, ox, oy):
         """The idle eyes' gaze for an orb drawn at (ox, oy) on screen (the dashboard's): towards the pointer while it
@@ -556,6 +584,8 @@ class Bar:
         idle = self.mode != "hidden" and state == "idle"
         self.music.want = idle  # a mute doesn't touch the eyes: they stay awake and animated
         self.feeling, lively, fps = (None, 0.0), False, 0  # no feeling while the eyes are busy: no old mood shows
+        if not idle:
+            self._idle_since = t
         if idle:  # the eyes: they blink, watch the pointer and show moods (a talk mood over the rest)
             talk, around = self._mood_now(t), self._ambience(t)
             self.feeling = talk if talk[0] else around
@@ -565,7 +595,7 @@ class Bar:
                 self.layers = self.layers + [("watching", self._watch_k, None)]
             lively = (fps or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING
                       or 0 < self._ambient_k < 1 or 0 < self._sleep_k < 1 or t - self._style_at < 0.7
-                      or self._shades_on <= t <= self._shades_off)
+                      or self._shades_on <= t <= self._shades_off or bool(self._trick))
         elif state == "speaking" and self.mode != "hidden":  # a talk mood shows in the eyes inside the sound wave
             talk = self._mood_now(t)
             self.layers = [(talk[0], talk[1], None)] if talk[0] else []

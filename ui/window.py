@@ -163,6 +163,20 @@ def _clear(cr):
     cr.set_operator(cairo.OPERATOR_OVER)
 
 
+def _bump(p, a, b):
+    """0 -> 1 -> 0 as p goes from a to b; 0 outside."""
+    q = (p - a) / (b - a)
+    return math.sin(math.pi * q) if 0 < q < 1 else 0.0
+
+
+def _ease(x):
+    x = max(0.0, min(1.0, x))
+    return x * x * (3 - 2 * x)
+
+
+PEEK = ((0, 0), (0.25, 1), (0.5, 1), (0.62, 0.5), (0.8, 0.5), (1, 0))  # how far off to the side, over the peek
+
+
 def eye_look(layers, r, t, beat):
     """The idle eyes' look for `layers` [(mood, strength 0..1, style)], as numbers that blend: moves and sizes add
     up, scales multiply, so any mix (one dance move fading into the next, a talk mood over the music, falling
@@ -172,7 +186,7 @@ def eye_look(layers, r, t, beat):
     drooping and wobbling with a sweat drop, squeezed pressed thin and fidgety, sleepy half shut with z's; and asleep
     (voice off): closed ‿ ‿ breathing slowly."""
     L = dict(dx=0.0, dy=0.0, ew=1.0, eh=1.0, gap=1.0, bright=1.0, inner=0.0, outer=0.0, up=0.0, down=0.0, tilt=0.0,
-             phones=0.0, drop=0.0, zz=0.0, notes=0.0, shades=0.0)
+             phones=0.0, drop=0.0, zz=0.0, notes=0.0, shades=0.0, wink=0.0, heart=0.0, sparkle=0.0, peek=0.0)
     lift = [0.0, 0.0]
     roam = 1 - min(1.0, sum(k for mood, k, _s in layers if mood == "watching"))  # watching the pointer: no darting
     for mood, k, style in layers:
@@ -193,6 +207,39 @@ def eye_look(layers, r, t, beat):
             L["tilt"] += 0.09 * k
             L["dy"] += r * 0.025 * math.sin(t * 1.6) * k
             L["outer"] += 0.2 * k
+        elif mood == "wink":  # the idle tricks get their progress 0..1 as `style`
+            L["wink"] = max(L["wink"], k * min(1.0, 3 * _bump(style, 0, 1)))
+        elif mood == "yawn":  # squeezing shut while stretching tall, then a slow blink
+            a = _bump(style, 0.0, 0.7)
+            L["eh"] *= (1 + 0.6 * a * k) * (1 - 0.9 * _bump(style, 0.75, 1.0) * k)
+            L["ew"] *= 1 - 0.15 * a * k
+            L["up"] += k * min(1.0, 1.6 * _bump(style, 0.15, 0.7))
+            L["dy"] -= r * 0.05 * a * k
+        elif mood == "look":  # wandering to each corner and back, curious
+            e = _ease(min(style / 0.15, (1 - style) / 0.15)) * k * roam
+            L["dx"] += r * 0.14 * math.sin(2 * math.pi * style) * e
+            L["dy"] -= r * 0.08 * math.sin(4 * math.pi * style) * e
+        elif mood == "bored":  # lids half down, the eyes rolling up and over once
+            e = _ease(min(style / 0.2, (1 - style) / 0.2)) * k
+            L["inner"] += 0.45 * e
+            L["outer"] += 0.45 * e
+            ang, roll = math.pi * max(0.0, min(1.0, (style - 0.35) / 0.4)), _bump(style, 0.35, 0.75) * k
+            L["dx"] += r * 0.07 * math.cos(ang) * roll
+            L["dy"] -= r * 0.08 * math.sin(ang) * k
+        elif mood == "heart":
+            L["heart"] = max(L["heart"], k * min(1.0, 4 * _bump(style, 0, 1)))
+        elif mood == "sparkle":
+            L["sparkle"] = max(L["sparkle"], k * min(1.0, 3 * _bump(style, 0, 1)))
+        elif mood == "peek":  # sliding off the side, peeking back in with one eye, then home
+            i = next(n for n in range(1, len(PEEK)) if style <= PEEK[n][0])
+            (a0, f0), (a1, f1) = PEEK[i - 1], PEEK[i]
+            L["dx"] += r * 1.4 * (f0 + (f1 - f0) * _ease((style - a0) / (a1 - a0))) * k
+            L["peek"] = max(L["peek"], k)
+        elif mood == "dozing":  # slowly drooping shut, then jolting awake
+            sink = _ease(style / 0.7) if style < 0.72 else 0.0
+            jolt = _bump(style, 0.72, 0.9)
+            L["eh"] *= (1 - 0.85 * sink * k) * (1 + 0.35 * jolt * k)
+            L["dy"] += r * (0.05 * sink - 0.04 * jolt) * k
         elif mood == "stressed":
             L["dx"] += r * 0.06 * math.sin(t * 7) * math.sin(t * 2.3) * k * roam
             L["eh"] *= 1 - 0.3 * k
@@ -588,8 +635,11 @@ class UI:
         drop_x, drop_y, base_x, base_y = cx + r * 0.55, cy - r * 0.42, cx, cy
         cx, cy = cx + L["dx"], cy + L["dy"]
         inner, outer, up, down = L["inner"], L["outer"], L["up"], L["down"]
-        shape = max(0.0, 1 - up - down)  # the pills fade, and flatten, as ^ ^ or ‿ ‿ come in: eyes closing into them
-        eh *= 1 - 0.75 * min(1.0, up + down)
+        eh0 = eh
+        if L["peek"] > 0.01:  # peeking: the eyes vanish past the orb's edge
+            cr.save()
+            cr.arc(base_x, base_y, r * 0.93, 0, 2 * math.pi)
+            cr.clip()
         if L["tilt"]:
             cr.save()
             cr.translate(cx, cy)
@@ -610,6 +660,10 @@ class UI:
                 cr.fill()
         for side in (-1, 1):
             x, cy = cx + side * gap, mid + L["lift"][(side + 1) // 2]
+            up_s = min(1.0, up + (L["wink"] if side == 1 else 0.0))  # the wink closes the right eye only
+            # the pills fade, and flatten, as ^ ^ or ‿ ‿ (or hearts) come in: eyes closing into them
+            shape = max(0.0, 1 - up_s - down) * (1 - L["heart"])
+            eh = eh0 * (1 - 0.75 * min(1.0, up_s + down))
             glow = cairo.RadialGradient(x, cy, 0, x, cy, r * 0.42)
             glow.add_color_stop_rgba(0, 1, 1, 1, 0.28 * bright)
             glow.add_color_stop_rgba(1, 1, 1, 1, 0)
@@ -632,12 +686,29 @@ class UI:
                 cr.restore()
             cr.set_line_cap(cairo.LINE_CAP_ROUND)
             cr.set_line_width(r * 0.21 * 0.6)
-            for weight, start, y in ((up, 1.12, cy + r * 0.06), (down, 0.12, cy - r * 0.05)):  # ^ ^ and ‿ ‿
+            for weight, start, y in ((up_s, 1.12, cy + r * 0.06), (down, 0.12, cy - r * 0.05)):  # ^ ^ and ‿ ‿
                 if weight > 0.01:
                     cr.set_source_rgba(1, 1, 1, 0.95 * bright * min(1.0, weight))
                     cr.arc(x + side * r * 0.03, y, r * 0.21 * 0.68, math.pi * start, math.pi * (start + 0.76))
                     cr.stroke()
             cr.set_line_cap(cairo.LINE_CAP_BUTT)
+            if L["heart"] > 0.01:  # ♥ eyes, beating
+                hs = r * 0.19 * (1 + 0.12 * abs(math.sin(t * 7))) * (0.6 + 0.4 * L["heart"])
+                cr.move_to(x, cy + hs * 0.9)
+                cr.curve_to(x - hs * 1.3, cy + hs * 0.1, x - hs * 0.8, cy - hs, x, cy - hs * 0.35)
+                cr.curve_to(x + hs * 0.8, cy - hs, x + hs * 1.3, cy + hs * 0.1, x, cy + hs * 0.9)
+                cr.set_source_rgba(1, 1, 1, 0.95 * bright * L["heart"])
+                cr.fill()
+            if L["sparkle"] > 0.01:  # a ✦ twinkling at each eye's top corner
+                ss = r * 0.17 * L["sparkle"] * (0.6 + 0.4 * math.sin(t * 9 + side))
+                sx, sy0 = x + ew * 0.55, cy - eh0 * 0.45
+                for i in range(8):
+                    a = i * math.pi / 4 + t * 1.5
+                    (cr.line_to if i else cr.move_to)(sx + ss * (1 if i % 2 == 0 else 0.28) * math.cos(a),
+                                                      sy0 + ss * (1 if i % 2 == 0 else 0.28) * math.sin(a))
+                cr.close_path()
+                cr.set_source_rgba(1, 1, 1, 0.95 * L["sparkle"])
+                cr.fill()
         if L["shades"] > 0.01:  # sunglasses dropping in from above: dark lenses, a bridge, arms, a glint sweeping across
             s = L["shades"]
             sy, lw, lh = mid + r * 0.01 - (1 - s) * r * 0.45, r * 0.44, r * 0.38  # big enough to hide the eyes
@@ -702,6 +773,8 @@ class UI:
             cr.curve_to(x - s, y + s, x - s, y - s * 0.4, x, y - s * 1.6)
             cr.set_source_rgba(1, 1, 1, 0.75 * L["drop"] * (1 - 0.6 * p))
             cr.fill()
+        if L["peek"] > 0.01:
+            cr.restore()
 
     @staticmethod
     def _core(cr, cx, cy, radius, alpha):
