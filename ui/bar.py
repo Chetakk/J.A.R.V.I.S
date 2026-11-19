@@ -39,6 +39,7 @@ GAZE_W = 14.0  # the eyes' spring: they ease in and out and settle in about a th
 LAZY = {"sleepy", "hot"}  # drowsy moods: the eyes follow the pointer too, but slowly and only part of the way
 LAZY_W, LAZY_REACH = 3.0, 0.4  # their spring (settles in about 1.5 s) and how far they turn
 MOOD_SECS = 60.0  # how long the eyes show a talk mood
+SHADES_EVERY, SHADES_FOR = (180, 480), (20, 60)  # the idle face puts its shades on every 3-8 min, for 20-60 s
 DANCES = ("hop", "nod", "groove", "seesaw", "pulse")  # dance moves, one at random at a time (ui/window.py draws them)
 SWAYS = ("smile", "notes")  # moves for slow, relaxed music, rotated the same way
 STYLE_SECS = (30, 90)  # a move is kept at least this long, then swapped for another at a random moment
@@ -267,6 +268,7 @@ class Bar:
         self.style, self._style_until, self._style_beat = None, 0.0, 0  # the dance or sway move, and till when
         self._old_style, self._style_at = None, 0.0  # the move before it and when it changed: they cross-fade
         self.layers, self._sleep_k, self._blend_t = [], 0.0, 0.0  # the looks the eyes show; how far asleep
+        self._shades_on = self._shades_off = 0.0  # the random shades' next spell (picked on the first frame)
         self._glow_now, self._drawn_t = None, 0.0  # the glow eases to each state's strength
         self._seen_state, self._prev_state, self._state_at = "idle", None, 0.0  # for fading the rim comet
         GLib.timeout_add_seconds(5, self.body.check)
@@ -382,11 +384,21 @@ class Bar:
             layers.append((mood, k * w, self.style))
         if talk[0]:
             layers.append((talk[0], talk[1], None))
+        shades = self._shades_k(t) * (1 - talk[1])  # now and then the idle face just wears its shades
+        if shades:
+            layers.append(("confident", shades, None))
         awake = 1 - _smooth(self._sleep_k)
         layers = [(m, s * awake, style) for m, s, style in layers]
         if self._sleep_k > 0:
             layers.append(("asleep", _smooth(self._sleep_k), None))
         return layers
+
+    def _shades_k(self, t):
+        """0..1: how far the random shades are on, fading in and out; the next spell is picked when one ends."""
+        if t > self._shades_off:
+            self._shades_on = t + random.uniform(*SHADES_EVERY)
+            self._shades_off = self._shades_on + random.uniform(*SHADES_FOR)
+        return _smooth(min((t - self._shades_on) / 0.4, (self._shades_off - t) / 0.5))
 
     def gaze_from(self, ox, oy):
         """The idle eyes' gaze for an orb drawn at (ox, oy) on screen (the dashboard's): towards the pointer while it
@@ -557,7 +569,8 @@ class Bar:
             if self._watch_k > 0.01:  # not a mood: tells the look to hold its own darting still
                 self.layers = self.layers + [("watching", self._watch_k, None)]
             lively = (fps or _eyes(t)[2] or bool(self.mood) or self._ambient in MOVING
-                      or 0 < self._ambient_k < 1 or 0 < self._sleep_k < 1 or t - self._style_at < 0.7)
+                      or 0 < self._ambient_k < 1 or 0 < self._sleep_k < 1 or t - self._style_at < 0.7
+                      or self._shades_on <= t <= self._shades_off)
         elif state == "speaking" and self.mode != "hidden":  # a talk mood shows in the eyes inside the sound wave
             talk = self._mood_now(t)
             self.layers = [(talk[0], talk[1], None)] if talk[0] else []
