@@ -335,10 +335,6 @@ class UI:
         """Your words that never reach the chat ("Jarvis, thanks"): the eyes still react to them."""
         GLib.idle_add(self.bar._feel, "you", text)
 
-    def won(self):
-        """Something you asked for worked: the eyes put on their shades."""
-        GLib.idle_add(self.bar.won)
-
     def forget_request(self):
         """The request being handled turned out private: unsave its lines, back to your words that asked it."""
         GLib.idle_add(self._forget_request)

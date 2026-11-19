@@ -272,7 +272,6 @@ class Jarvis:
         self._guess = None  # (when, what you said, the phrase a match by meaning made of it): "that's not what I said"
         self._correcting = None  # what you said that JARVIS got wrong, while "no, I meant X" is handled
         self.context = Context()  # what JARVIS just did, for "a bit more", "make it 70", "and firefox too"
-        self.context.on_done = lambda: self.ui and self.ui.won()  # a command worked: the eyes look confident
         self._text = ""
         self._splitting = False  # handling the parts of "X and Y" one by one (they aren't split again)
         self.handling_since = None  # when the request being handled started (the watchdog restarts a stuck one)
