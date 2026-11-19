@@ -421,13 +421,19 @@ class Jarvis:
         answer = self._answer(question)
         said = clean(answer, self.names, self.settings.get("heard_as") or ()) if answer else ""  # (no full stop, no name)
         if said and not is_yes(said, question if isinstance(question, str) else question[0]) \
-                and not NO.match(said) and not NOT_YES.search(said) \
-                and (self.registry.match_exact(said) or self.browser.parse(said)
-                     or (self.intents and self.intents.match(said)[0])):
-            self.inbox.put(("again", answer))
-            self.interrupted = True
+                and not NO.match(said) and not NOT_YES.search(said) and self._new_request(said, answer):
             return None
         return answer
+
+    def _new_request(self, said, answer):
+        """True (and `answer` queued to be done next) if `said` is a clear request, not an answer ("Zoom out")."""
+        if not (self.registry.match_exact(said) or self.browser.parse(said)
+                or any(p.match(said) for s in self.skills.all for p, _fn in s.rules)
+                or (self.intents and self.intents.match(said)[0])):
+            return False
+        self.inbox.put(("again", answer))
+        self.interrupted = True
+        return True
 
     def choose(self, question, options):
         """Ask "X, or Y?": the option picked ("the first", "Y", "pause"), or None for "neither"/no answer."""
@@ -448,6 +454,7 @@ class Jarvis:
             hit = [i for i, w in enumerate(words) if re.search(r"\b%s\b" % w, answer) and i < len(options)]
             if len(hit) == 1:
                 return options[hit[0]]
+        self._new_request(answer, answer)  # "Zoom out" to "Power mode, or private mode off?" is done next, not lost
         return None
 
     def _answer(self, question):
