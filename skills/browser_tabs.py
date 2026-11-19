@@ -28,7 +28,8 @@ class BrowserTabs(Skill):
             (r"(?:reload|refresh)(?: the| this)?(?: page| tab)?", lambda m: self.tab("F5", "")),
             (r"scroll (down|up)(?: a bit)?", lambda m: self.tab("Page_Down" if m.group(1) == "down" else "Page_Up", "")),
             (r"scroll to (?:the )?(top|bottom)", lambda m: self.tab("Home" if m.group(1) == "top" else "End", "")),
-            (r"zoom (in|out)", lambda m: self.tab("ctrl+plus" if m.group(1) == "in" else "ctrl+minus", "")),
+            # speech often hears "out" as "our" / "ought" / "outs"; the meaning match then took "zoom our" as zoom in
+            (r"zoom (in|out|our|ought|outs|owt)", lambda m: self.tab("ctrl+plus" if m.group(1) == "in" else "ctrl+minus", "")),
             (r"(?:reset|normal) zoom|zoom (?:to )?normal", lambda m: self.tab("ctrl+0", "")),
             (r"(?:go|switch|move) to the (next|previous|last) tab",
              lambda m: self.tab("ctrl+Tab" if m.group(1) == "next" else "ctrl+shift+Tab", "")),
