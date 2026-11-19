@@ -335,7 +335,8 @@ class Bar:
 
     def _mood_now(self, t):
         """(mood, strength): the mood shows for MOOD_SECS once the eyes are up, fading in and out."""
-        if not self.mood or self._state() not in ("idle", "speaking") or self.mode == "hidden":
+        shown_in = ("idle",) if self.mood == "confident" else ("idle", "speaking")  # the shades: idle face only
+        if not self.mood or self._state() not in shown_in or self.mode == "hidden":
             return None, 0.0
         self._mood_seen = self._mood_seen or t
         age = t - self._mood_seen
