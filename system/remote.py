@@ -5,7 +5,10 @@ account). It only listens on the Tailscale address, never the LAN or the interne
 ~/.local/share/jarvis/remote_key (made on the first start, printed in the log).
 
 Chat: make a Google Chat space named "JARVIS" with only you in it; what you write there is done as a request and
-JARVIS's answers are posted back ("JARVIS: ..."). Works from any browser signed in to Google. Checked every 5 s.
+JARVIS's answers are posted back. Works from any browser signed in to Google. Checked every 5 s. With the space's
+webhook URL in ~/.local/share/jarvis/chat_webhook, posts come from a "JARVIS" app (so the phone notifies you), and
+everything JARVIS says while you're away (screen locked, or 10 min untouched) is posted too; without it they're
+posted as you ("JARVIS: ...") and only answers to Chat requests.
 
 Cards (jarvis.show) go to both: drawn on the page (markdown, tables, buttons that say their phrase), and posted to
 Chat as text with "Reply with: ..." for the buttons. Drawn blocks (weather, rings, orb) and images are left out.
@@ -20,6 +23,7 @@ import subprocess
 import threading
 import re
 import time
+import urllib.request
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -29,6 +33,9 @@ from system import google_account as google
 KEY_FILE = os.path.expanduser("~/.local/share/jarvis/remote_key")
 PREFIX = "JARVIS: "  # marks its own replies in the Chat space (they're posted as you)
 FORWARD_FOR = 120  # seconds after a Chat request that what JARVIS says is posted back
+WEBHOOK_FILE = os.path.expanduser("~/.local/share/jarvis/chat_webhook")
+AWAY_AFTER = 600  # seconds without touching the PC that count as away
+LAST_WEB = [0.0]  # when the page last sent a request: you're on the page, so no Chat notifications meanwhile
 CARDS = deque(maxlen=10)  # (when, card) of the cards shown lately, for the page and Chat
 
 
@@ -153,6 +160,7 @@ def serve(jarvis, port):
             text = (json.loads(self.rfile.read(size) or b"{}").get("text") or "").strip()[:500]
             if text:
                 print("[remote] web: %s" % text)
+                LAST_WEB[0] = time.time()
                 jarvis.inbox.put(("remote", text))
             self._send(200, "application/json", json.dumps({"now": time.time()}).encode())
 
@@ -167,49 +175,91 @@ def serve(jarvis, port):
 
 # --- Google Chat space ---
 
+def webhook():
+    """The JARVIS space's incoming webhook URL (~/.local/share/jarvis/chat_webhook), or None. Posts through it come
+    from a "JARVIS" app, so the Chat app on the phone notifies you; posted as you, it never would."""
+    try:
+        with open(WEBHOOK_FILE) as f:
+            url = f.read().strip()
+        return url if url.startswith("https://chat.googleapis.com/") else None
+    except OSError:
+        return None
+
+
+def post(space, text):
+    url = webhook()
+    if url:
+        req = urllib.request.Request(url, json.dumps({"text": text}).encode(),
+                                     {"Content-Type": "application/json; charset=UTF-8"})
+        urllib.request.urlopen(req, timeout=15).close()
+    elif space:
+        chat = google.api("chat", "v1")
+        google.run(chat.spaces().messages().create(parent=space, body={"text": PREFIX + text}))
+
+
+def away():
+    """Screen locked, or nothing touched for AWAY_AFTER seconds (GNOME): heads-ups go to Chat instead."""
+    def ask(dest, path, method):
+        out = subprocess.run(["gdbus", "call", "--session", "--dest", dest, "--object-path", path, "--method", method],
+                             capture_output=True, text=True, timeout=5).stdout
+        return out
+    try:
+        if "true" in ask("org.gnome.ScreenSaver", "/org/gnome/ScreenSaver", "org.gnome.ScreenSaver.GetActive"):
+            return True
+        idle = re.search(r"(\d+)", ask("org.gnome.Mutter.IdleMonitor", "/org/gnome/Mutter/IdleMonitor/Core",
+                                        "org.gnome.Mutter.IdleMonitor.GetIdletime"))
+        return bool(idle) and int(idle.group(1)) / 1000 >= AWAY_AFTER
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def watch_chat(jarvis, name):
-    """Every 5 s: new messages of yours in the space `name` are requests; replies are posted back."""
-    space, since, forward_until, forwarded = None, None, 0.0, time.time()
+    """Every 5 s: new messages of yours in the space `name` are requests. Posted back there: what JARVIS says for
+    FORWARD_FOR s after one, and, with a webhook, everything it says while you're away (not while you use the page)."""
+    space, since, look_at, forward_until, forwarded = None, None, 0.0, 0.0, time.time()
     while True:
         time.sleep(5)
         try:
-            if not google.connected():
-                continue
-            chat = google.api("chat", "v1")
-            if space is None:
+            if google.connected() and space is None and time.time() >= look_at:
+                chat = google.api("chat", "v1")
                 spaces = google.run(chat.spaces().list(pageSize=200)).get("spaces") or []
-                space = next((s["name"] for s in spaces if (s.get("displayName") or "").lower() == name.lower()), "")
+                space = next((s["name"] for s in spaces if (s.get("displayName") or "").lower() == name.lower()), None)
                 since = google.run(chat.spaces().messages().list(parent=space, pageSize=1, orderBy="createTime desc")
                                    ).get("messages", [{}])[0].get("createTime") if space else None
-                print("[remote] Chat space %s: %s" % (name, space or "not found (make it in Google Chat)"))
-            if not space:
-                time.sleep(295)  # look for it again in 5 minutes
-                space = None
-                continue
-            query = {"parent": space, "pageSize": 20}
-            if since:
-                query["filter"] = 'createTime > "%s"' % since
-            for msg in google.run(chat.spaces().messages().list(**query)).get("messages") or []:
-                since = msg["createTime"]
-                text = (msg.get("text") or "").strip()
-                if text and not text.startswith(PREFIX):
-                    print("[remote] chat: %s" % text)
-                    forwarded = max(forwarded, time.time() - 1)
-                    forward_until = time.time() + FORWARD_FOR
-                    jarvis.inbox.put(("remote", text))
-            if time.time() < forward_until + 5:
-                new = sorted([(at, PREFIX + text) for at, text in said_since(jarvis, forwarded)] +
-                             [(at, PREFIX + chat_text(card)) for at, card in cards_since(forwarded)])
-                if new:
-                    forwarded = new[-1][0]
-                    google.run(chat.spaces().messages().create(parent=space, body={
-                        "text": "\n".join(text for _, text in new)}))
+                look_at = time.time() + 300  # not found: look again in 5 minutes
+                print("[remote] Chat space %s: %s%s" % (name, space or "not found (make it in Google Chat)",
+                                                       ", notifying through its webhook" if webhook() else ""))
+            if space and google.connected():
+                chat = google.api("chat", "v1")
+                query = {"parent": space, "pageSize": 20}
+                if since:
+                    query["filter"] = 'createTime > "%s"' % since
+                for msg in google.run(chat.spaces().messages().list(**query)).get("messages") or []:
+                    since = msg["createTime"]
+                    text = (msg.get("text") or "").strip()
+                    if text and not text.startswith(PREFIX) and (msg.get("sender") or {}).get("type") != "BOT":
+                        print("[remote] chat: %s" % text)
+                        forwarded = max(forwarded, time.time() - 1)
+                        forward_until = time.time() + FORWARD_FOR
+                        jarvis.inbox.put(("remote", text))
         except google.GoogleError as e:
             if "permission" in str(e):
                 print("[remote] Chat: %s" % e)
                 time.sleep(300)
         except Exception as e:  # never let the thread die
             print("[remote] chat failed: %r" % e)
+            time.sleep(30)
+        try:
+            if time.time() < forward_until + 5 or (webhook() and time.time() - LAST_WEB[0] > FORWARD_FOR and away()):
+                new = sorted([(at, text) for at, text in said_since(jarvis, forwarded)] +
+                             [(at, chat_text(card)) for at, card in cards_since(forwarded)])
+                if new:
+                    post(space, "\n".join(text for _, text in new))
+                    forwarded = new[-1][0]
+            else:
+                forwarded = time.time()  # said at the desk: heard, not posted later
+        except Exception as e:
+            print("[remote] posting to Chat failed: %r" % e)
             time.sleep(30)
 
 
