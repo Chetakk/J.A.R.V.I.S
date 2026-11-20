@@ -7,7 +7,10 @@ Today's Google Calendar meetings lead it once Google is connected (skills/google
 
 Also drawn from the same data: "how did I spend my day" (a donut of today's time and the goals as rings), "show my
 week" (a grid of each day's hours over four weeks) and "show my schedule" (today's reminders on a timeline; "show my
-calendar" opens Google Calendar)."""
+calendar" opens Google Calendar).
+
+"catch me up" / "what did I miss": one card of what's new on Google since you last asked (up to a day back): unread
+mail, chat messages, today's meetings and files shared with you on Drive (the phone page's first button)."""
 import datetime
 import time
 
@@ -25,7 +28,8 @@ WHY = ("It's your daily briefing: the first time you were around this morning. S
 class Briefing(Skill):
     group = "briefing"
     does = "The day's briefing from the Day Tracker: reminders, to-dos, yesterday, goals; your day, week and calendar"
-    phrases = ("brief me", "what's my day look like", "turn off the daily briefing",
+    phrases = ("brief me", "catch me up (new mail, chat, today's meetings and Drive files, on one card)",
+               "what's my day look like", "turn off the daily briefing",
                "how did I spend my day (a donut of today's time, goals as rings)",
                "show my week (a grid of hours a day over four weeks)", "show my schedule (today's reminders on a timeline; \"what's on my calendar\" is Google's once connected)")
     gives = "a card and a short spoken line"
@@ -38,6 +42,8 @@ class Briefing(Skill):
 
     def patterns(self):
         return [
+            (r"catch me up|what did i miss(?: today| while i was (?:away|out))?|(?:what'?s|anything) new(?: for me)? on "
+             r"google", lambda m: self.catch_up()),
             (r"how (?:did|have) i spen[dt] (?:my |the )?(?:day|time)(?: today)?|where did (?:my |the )?(?:day|time) go"
              r"(?: today)?|(?:show |what'?s )?(?:me )?(?:my |the )?(?:time|day) (?:breakdown|split|in time)(?: today)?|"
              r"(?:show |what'?s )?(?:me )?(?:my )?time (?:spent )?today", lambda m: self.day_card()),
@@ -67,6 +73,53 @@ class Briefing(Skill):
         self.j.memory.set_pref("briefed", time.strftime("%Y-%m-%d"))
         self.j.show(card)
         self.say(line)
+
+    def catch_up(self):
+        """Unread mail, chat messages, today's meetings and Drive files shared with you, on one card, said in a line."""
+        from system import google_account as google
+        if not google.connected():
+            self.say("Google isn't connected yet. Say connect Google to sign in.")
+            return
+        now, sk = time.time(), self.j.skills
+        since = max(self.j.memory.pref("catch_up_at") or 0, now - 86400)
+        lines, said = [], []
+
+        def part(name, get):
+            try:
+                got_lines, got_said = get()
+            except Exception as e:  # one part failing (a permission, the network) leaves the rest
+                print("[briefing] catch up: %s failed: %r" % (name, e))
+                got_lines, got_said = ["**%s**" % name, "- couldn't check: %s" % e], ""
+            if got_lines:
+                lines.extend(([""] if lines else []) + got_lines)
+            if got_said:
+                said.append(got_said)
+
+        def chat():
+            items = sk.google_chat._messages(sk.google_chat.api("chat", "v1"), since)
+            if not items:
+                return ["**Chat**", "- {ok} Nothing new"], ""
+            self.j.memory.set_pref("chat_read_at", now)
+            last = items[-1]
+            return (["**Chat (%d new)**" % len(items)] + ["- **%s**: %s" % (it["who"], _short(it["text"]))
+                                                          for it in items[-5:]],
+                    "%s, the latest from %s." % ("One chat message" if len(items) == 1 else "%d chat messages" % len(items),
+                                                 last["who"].split()[0]))
+
+        def drive():
+            files = sk.drive._shared_lately(since)
+            if not files:
+                return [], ""
+            return (["**Shared on Drive**"] + ["- %s" % f["name"] for f in files[:5]],
+                    "%s shared with you on Drive." % ("One file" if len(files) == 1 else "%d files" % len(files)))
+
+        part("Email", lambda: sk.gmail.for_briefing() or ([], ""))
+        part("Chat", chat)
+        part("Today", lambda: sk.calendar.for_briefing() or ([], ""))
+        part("Drive", drive)
+        self.j.memory.set_pref("catch_up_at", now)
+        self.j.show({"id": "catch-up", "title": "Catch up", "text": "\n".join(lines) or "{ok} Nothing new"})
+        self.say(" ".join(said) or "Nothing new since you last asked.")
 
     def set_auto(self, m):
         on = not any(w in m.group(0).lower().split() for w in ("off", "stop", "don't", "dont", "no", "never"))
