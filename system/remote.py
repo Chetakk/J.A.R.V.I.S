@@ -115,15 +115,22 @@ def rustdesk(jarvis, restart=False):
 
 
 def away_mode(jarvis, on):
-    """The page's Away button: quiet at home, the screen locked, and every heads-up to Chat (away() is then always
-    true); off again speaks at home. Kept in AWAY_FILE, so it lasts through a restart."""
+    """The page's Away button: quiet at home, every heads-up to Chat (away() is then always true), and the screen
+    kept on (GNOME's blank-after-idle off, so screenshots and RustDesk see the desktop, not a dark or locked screen);
+    off puts the old blank delay back and speaks at home. AWAY_FILE keeps it (and that delay) through a restart."""
+    idle = ("org.gnome.desktop.session", "idle-delay")
     if on:
-        open(AWAY_FILE, "w").close()
+        if not os.path.exists(AWAY_FILE):
+            with open(AWAY_FILE, "w") as f:
+                f.write(_out("gsettings", "get", *idle).split()[-1] if _out("gsettings", "get", *idle) else "300")
+        _out("gsettings", "set", *idle, "0")
         jarvis.inbox.put(("remote", "/mute voice on"))
-        _out("loginctl", "lock-session")
-        jarvis.speaker.say("Away mode on: I'm quiet at home, the screen is locked, and every heads-up goes to Chat.")
+        jarvis.speaker.say("Away mode on: I'm quiet at home, the screen stays on, and every heads-up goes to Chat.")
     else:
         if os.path.exists(AWAY_FILE):
+            with open(AWAY_FILE) as f:
+                before = f.read().strip()
+            _out("gsettings", "set", *idle, before if before.isdigit() else "300")
             os.remove(AWAY_FILE)
         jarvis.inbox.put(("remote", "/mute voice off"))
         jarvis.speaker.say("Away mode off. Welcome back.")
