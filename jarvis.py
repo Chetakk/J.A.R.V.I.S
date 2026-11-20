@@ -1223,6 +1223,7 @@ class Jarvis:
         # A card about the file touched in this same request isn't a new "it"; one that pops up on its own is
         if not self._depth or files.last["at"] < self.asked_at:
             self.shown = (card, time.time())
+        remote.shown(card)  # for the phone page and the Chat space
         if self.ui:
             if card.get("refresh"):
                 self.cards.live(card)  # shows it, then keeps it up to date
