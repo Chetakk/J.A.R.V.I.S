@@ -107,11 +107,23 @@ class Briefing(Skill):
                                                  last["who"].split()[0]))
 
         def drive():
-            files = sk.drive._shared_lately(since)
-            if not files:
-                return [], ""
-            return (["**Shared on Drive**"] + ["- %s" % f["name"] for f in files[:5]],
-                    "%s shared with you on Drive." % ("One file" if len(files) == 1 else "%d files" % len(files)))
+            """Files added to your Drive and files shared with you since `since`; "nothing new" when neither."""
+            from skills.google_common import rfc
+            added = google.run(sk.drive.api("drive", "v3").files().list(
+                q="trashed=false and createdTime > '%s'" % rfc(since), orderBy="createdTime desc", pageSize=10,
+                fields="files(id,name,owners(displayName))")).get("files") or []
+            shared = sk.drive._shared_lately(since)
+            seen, rows = set(), []
+            for f, how in [(f, "shared by %s" % ((f.get("sharingUser") or {}).get("displayName") or "someone"))
+                           for f in shared] + [(f, "added") for f in added]:
+                if f["id"] not in seen:
+                    seen.add(f["id"])
+                    rows.append("- %s · %s" % (f["name"], how))
+            if not rows:
+                return ["**Drive**", "- {ok} Nothing new"], "Nothing new on Drive."
+            return (["**Drive (%d new)**" % len(rows)] + rows[:6],
+                    "%s new on Drive, the latest %s." % ("One file" if len(rows) == 1 else "%d files" % len(rows),
+                                                          rows[0][2:].replace(" · ", ", ")))
 
         part("Email", lambda: sk.gmail.for_briefing() or ([], ""))
         part("Chat", chat)
