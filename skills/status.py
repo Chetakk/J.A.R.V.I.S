@@ -29,7 +29,7 @@ class Status(Skill):
     def patterns(self):
         return [
             (STOP, self.stop),
-            (r"(?:jarvis |system )?status|health check|are you (?:ok|okay|working)|how are you running", self.status),
+            (r"(?:jarvis |system )?status|are you (?:ok|okay|working)|how are you running", self.status),
             (FALSE_WAKE, self.false_wake),
         ]
 

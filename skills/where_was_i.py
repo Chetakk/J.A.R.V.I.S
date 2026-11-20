@@ -23,14 +23,14 @@ class WhereWasI(Skill):
 
     def patterns(self):
         return [
-            (r"where was i|where did i (?:leave|stop) off|catch me up|what did i leave (?:open|running)|"
+            (r"where was i|where did i (?:leave|stop) off|what did i leave (?:open|running)|"
              r"(?:continue|carry on|pick up|start again) (?:from )?where i (?:left|stopped)(?: off)?",
              lambda m: self.where_was_i()),
         ]
 
     def log(self, text):
         """Every request (except asking this) is kept for "where was I"."""
-        if re.match(r"^(?:where was i|where did i (?:leave|stop) off|catch me up|(?:continue|carry on|pick up) "
+        if re.match(r"^(?:where was i|where did i (?:leave|stop) off|(?:continue|carry on|pick up) "
                     r"(?:from )?where i)\b", text, re.IGNORECASE):
             return
         log = (load_json(WHERE_FILE, []) + [[time.time(), text]])[-20:]

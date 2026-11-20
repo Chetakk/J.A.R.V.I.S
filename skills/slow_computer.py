@@ -36,7 +36,7 @@ class SlowComputer(Skill):
 
     def patterns(self):
         return [
-            (r"(?:run a |do a )?(?:pc |system |computer )?health ?check|(?:pc|system|computer)(?:'s)? health|"
+            (r"(?:run a |do a )?(?:pc |system |computer )?health ?check|(?:run a |do a )?(?:pc |system |computer )check|(?:pc|system|computer)(?:'s)? health|"
              r"is (?:the |my )?(?:pc|computer|system|jetson|machine) (?:ok(?:ay)?|fine|alright|all right|healthy|up)",
              lambda m: self.health()),
             (r"what'?s (?:slowing (?:down )?|hogging |using (?:up )?)(?:my |the )?(?:computer|system|jetson|cpu|"
