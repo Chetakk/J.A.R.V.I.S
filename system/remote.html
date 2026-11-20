@@ -1,63 +1,81 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#050505"><title>JARVIS</title>
+<meta name="theme-color" content="#e7e7e5"><title>JARVIS</title>
+<link rel="icon" href="/remote-icon.png"><link rel="apple-touch-icon" href="/remote-icon.png">
 <style>
-:root{--bg:#050505;--glass:rgba(255,255,255,.055);--glass2:rgba(255,255,255,.09);--line:rgba(255,255,255,.11);
---fg:#f2f2f2;--dim:rgba(255,255,255,.5);--ok:#e8e8e8}
+/* Mist: soft grey-white behind frosted white glass, black text; the orb stays a dark glass ball */
+:root{--bg:#e7e7e5;--fg:#16171a;--dim:rgba(22,23,26,.55);--glass:rgba(255,255,255,.5);--gline:rgba(255,255,255,.75);
+--bar:rgba(255,255,255,.45);--chip:rgba(255,255,255,.72);--chipline:rgba(0,0,0,.1);--me:#16171a;--meink:#f4f4f2;
+--field:rgba(255,255,255,.62);--rule:rgba(0,0,0,.08)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{margin:0;color:var(--fg);font:15.5px/1.4 -apple-system,"SF Pro Text","Inter",system-ui,sans-serif;display:flex;
 flex-direction:column;height:100dvh;background:var(--bg);overflow:hidden}
-/* soft white light behind the glass, so the blur has something to show */
-body:before{content:"";position:fixed;inset:-20%;z-index:-1;background:
-radial-gradient(40% 30% at 15% 8%,rgba(255,255,255,.10),transparent 70%),
-radial-gradient(35% 30% at 90% 40%,rgba(255,255,255,.06),transparent 70%),
-radial-gradient(45% 35% at 30% 95%,rgba(255,255,255,.07),transparent 70%),var(--bg)}
-header{display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
-background:rgba(10,10,10,.55);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
-border-bottom:1px solid var(--line)}
-#orb{width:56px;height:56px;flex:none;border-radius:50%;box-shadow:0 0 22px rgba(255,255,255,.10)}
+body:before{content:"";position:fixed;inset:-40px;z-index:-1;filter:blur(18px);background:
+radial-gradient(40% 30% at 20% 15%,#fff,transparent 70%),radial-gradient(45% 35% at 85% 60%,#c9cacc,transparent 70%),
+radial-gradient(50% 30% at 20% 95%,#d9d9d7,transparent 70%),var(--bg)}
+.glass{background:var(--bar);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%)}
+header{display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--gline)}
+#orb{width:56px;height:56px;flex:none;border-radius:50%;background:#0c0c0e;box-shadow:0 4px 18px rgba(0,0,0,.18)}
 .who{display:flex;flex-direction:column;min-width:0}
 .who b{font-weight:600;letter-spacing:.28em;font-size:14px}
 #state{color:var(--dim);font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
-.m{max-width:84%;padding:10px 14px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word;animation:in .25s ease-out}
-.j{background:var(--glass);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:6px;
-backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-.u{background:#f2f2f2;color:#0a0a0a;align-self:flex-end;border-bottom-right-radius:6px}
+.m{flex:none;max-width:84%;padding:10px 14px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word;animation:in .25s ease-out}
+.j,.card{background:var(--glass);border:1px solid var(--gline);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%)}
+.j{align-self:flex-start;border-bottom-left-radius:6px}
+.u{background:var(--me);color:var(--meink);align-self:flex-end;border-bottom-right-radius:6px}
 @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.card{background:var(--glass);border:1px solid var(--line);border-radius:20px;padding:14px 16px;align-self:stretch;
-overflow-x:auto;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);animation:in .25s ease-out}
-.card h3{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.card{flex:none;border-radius:20px;padding:14px 16px;align-self:stretch;overflow-x:auto;animation:in .25s ease-out}
+.card h3{margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
 .card h4{margin:10px 0 4px;font-size:15px;font-weight:600}.card p{margin:4px 0}
 .card ul,.card ol{margin:4px 0;padding-left:20px}.card li{margin:2px 0}
-.card table{border-collapse:collapse;font-size:14px;width:100%}.card td{padding:6px 8px;border-bottom:1px solid var(--line)}
-.card tr:first-child td{color:var(--dim);font-size:12.5px}.card a{color:#fff}.card hr{border:0;border-top:1px solid var(--line)}
-.card code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:5px}
+.card table{border-collapse:collapse;font-size:14px;width:100%;font-variant-numeric:tabular-nums}
+.card td{color:var(--fg);padding:6px 8px;border-bottom:1px solid var(--rule)}
+.card tr:first-child td{color:var(--dim);font-size:12.5px}.card a{color:var(--fg)}.card hr{border:0;border-top:1px solid var(--rule)}
+.card code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:5px}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.btns:empty{display:none}
-.btns button,.quick button{font:inherit;font-size:14px;color:var(--fg);background:var(--glass2);border:1px solid var(--line);
-border-radius:999px;padding:7px 14px}
-.btns button:active,.quick button:active{background:#f2f2f2;color:#0a0a0a}
+button{font:inherit;color:var(--fg);background:var(--chip);border:1px solid var(--chipline);border-radius:999px}
+.btns button{font-size:14px;padding:7px 14px}
+button:active{background:var(--me);color:var(--meink)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
-.ok{background:#fff;box-shadow:0 0 6px #fff}.warn{background:transparent;border:1.5px solid #fff}.bad{background:#555}
-footer{background:rgba(10,10,10,.6);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid var(--line);
-padding:10px 0 calc(12px + env(safe-area-inset-bottom))}
-.quick{display:flex;gap:8px;overflow-x:auto;padding:0 16px 10px;scrollbar-width:none}.quick::-webkit-scrollbar{display:none}
-.quick button{flex:none}
-form{display:flex;gap:8px;padding:0 16px}
-input{flex:1;min-width:0;font:inherit;padding:12px 16px;border-radius:999px;border:1px solid var(--line);background:var(--glass);color:var(--fg);outline:none}
-input:focus{border-color:rgba(255,255,255,.35)}
-form button{flex:none;width:46px;border:0;border-radius:50%;background:#f2f2f2;color:#0a0a0a;font-size:20px;line-height:1}
+.ok{background:var(--fg)}.warn{background:transparent;border:1.5px solid var(--fg)}.bad{background:#9a9a9a}
+footer{border-top:1px solid var(--gline);padding:10px 16px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.answers{display:flex;gap:8px}.answers button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 0;font-size:15px}
+.answers svg{width:17px;height:17px}.answers .pri{background:var(--me);color:var(--meink);border-color:transparent}
+.icons{display:flex;justify-content:space-between}
+.icons button{width:48px;height:48px;display:grid;place-items:center;padding:0}
+.icons button[aria-pressed=true]{background:var(--me);color:var(--meink)}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;font:inherit;padding:12px 16px;border-radius:999px;border:1px solid var(--gline);background:var(--field);color:var(--fg);outline:none}
+input:focus{border-color:rgba(0,0,0,.25)}
+form button{flex:none;width:46px;border:0;background:var(--me);color:var(--meink);display:grid;place-items:center;padding:0}
 </style></head><body>
-<header><canvas id="orb" width="112" height="112"></canvas>
+<header class="glass"><canvas id="orb" width="112" height="112"></canvas>
 <div class="who"><b>J.A.R.V.I.S</b><span id="state">connecting…</span></div></header>
 <div id="log"></div>
-<footer><div class="quick"><button>yes</button><button>no</button><button>stop</button><button>what's on my calendar</button>
-<button>any new emails</button><button>pause music</button><button>lock the screen</button></div>
-<form id="f"><input id="t" placeholder="Ask JARVIS…" autocomplete="off" enterkeyhint="send"><button aria-label="Send">&#x2191;</button></form></footer>
+<footer class="glass">
+<div class="answers">
+<button class="pri" data-say="yes"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Yes</button>
+<button data-say="no"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>No</button>
+<button data-say="stop"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.2"/></svg>Stop</button>
+</div>
+<div class="icons">
+<button data-say="catch me up" aria-label="Catch me up" title="Catch me up"><svg viewBox="0 0 24 24"><path d="M3 13.5h5l1.6 2.5h4.8l1.6-2.5h5"/><path d="M5.5 5h13l2.5 8.5V19H3v-5.5z"/></svg></button>
+<button id="quiet" aria-label="Quiet at home" title="Quiet at home" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+<button data-say="what's on my calendar" aria-label="Calendar" title="Calendar"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg></button>
+<button data-say="what's on my screen" aria-label="What's on my screen" title="What's on my screen"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+<button id="rustdesk" aria-label="Open RustDesk on the PC" title="Open RustDesk on the PC"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/><path d="M10.5 7.5l5 2.2-2.1.7-.8 2.1z" fill="currentColor"/></svg></button>
+</div>
+<form id="f"><input id="t" placeholder="Ask JARVIS…" autocomplete="off" enterkeyhint="send"><button aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></form>
+</footer>
 <script>
 const key=new URLSearchParams(location.search).get("key")||"",log=document.getElementById("log");
 let since=Date.now()/1000;
+// installable as an app: the manifest carries the key (so the app opens straight in); the worker only makes it installable
+{const m=document.createElement("link");m.rel="manifest";m.href="/manifest.webmanifest?key="+encodeURIComponent(key);document.head.appendChild(m)}
+if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 // --- the face: JARVIS's orb from the desktop bar (ui/window.py _paint_orb, eye_look, _pet_eyes), on a canvas ---
 // layers [[mood, strength, style]] come from JARVIS each second; strengths ease here and a trick's progress runs on.
 const face={state:"starting",from:"starting",at:0,layers:{},got:0},cv=document.getElementById("orb"),cx2=cv.getContext("2d");
@@ -217,7 +235,7 @@ requestAnimationFrame(draw);
 // --- chat ---
 function add(text,who){const d=document.createElement("div");d.className="m "+who;d.textContent=text;
 log.appendChild(d);log.scrollTop=log.scrollHeight}
-async function send(text){if(!text.trim())return;add(text,"u");setFace("thinking",null);
+async function send(text,shown){if(!text.trim())return;add(shown||text,"u");setFace("thinking",null);
 try{await fetch("/?key="+encodeURIComponent(key),{method:"POST",body:JSON.stringify({text})})}
 catch(e){add("Couldn't reach JARVIS.","j")}}
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
@@ -245,11 +263,16 @@ for(const ch of c.choices){const b=document.createElement("button"),say=typeof c
 b.textContent=typeof ch=="string"?ch:ch.label;b.onclick=()=>send(say);d.lastChild.appendChild(b)}
 log.scrollTop=log.scrollHeight}
 document.getElementById("f").onsubmit=e=>{e.preventDefault();const t=document.getElementById("t");send(t.value);t.value=""};
-document.querySelectorAll(".quick button").forEach(b=>b.onclick=()=>send(b.textContent));
+document.querySelectorAll("[data-say]").forEach(b=>b.onclick=()=>send(b.dataset.say));
+const quiet=document.getElementById("quiet");
+quiet.onclick=()=>{const on=quiet.getAttribute("aria-pressed")!=="true";quiet.setAttribute("aria-pressed",on);
+send(on?"/mute voice on":"/mute voice off",on?"Quiet at home":"Speak at home again")};
+document.getElementById("rustdesk").onclick=async()=>{add("Open RustDesk on the PC","u");setFace("thinking",null);
+try{await fetch("/rustdesk?key="+encodeURIComponent(key),{method:"POST"})}catch(e){add("Couldn't reach JARVIS.","j")}};
 async function poll(){try{const r=await(await fetch("/log?key="+encodeURIComponent(key)+"&since="+since)).json();
 const items=r.said.map(([at,t])=>[at,()=>add(t,"j")]).concat(r.cards.map(([at,c])=>[at,()=>card(c)]));
 items.sort((a,b)=>a[0]-b[0]);for(const [at,show] of items){show();since=Math.max(since,at)}
-setFace(r.state||"idle",r.layers)}catch(e){setFace("offline",null)}
+setFace(r.state||"idle",r.layers);quiet.setAttribute("aria-pressed",!!r.quiet)}catch(e){setFace("offline",null)}
 setTimeout(poll,1000)}
 poll();
 </script></body></html>

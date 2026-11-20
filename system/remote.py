@@ -37,6 +37,8 @@ WEBHOOK_FILE = os.path.expanduser("~/.local/share/jarvis/chat_webhook")
 AWAY_AFTER = 600  # seconds without touching the PC that count as away
 LAST_WEB = [0.0]  # when the page last sent a request: you're on the page, so no Chat notifications meanwhile
 PAGE_FILE = os.path.join(os.path.dirname(__file__), "remote.html")  # read on each load: edits show on a refresh
+PUBLIC = {"/remote-icon.png": ("image/png", "remote-icon.png"),
+          "/sw.js": ("text/javascript", "remote-sw.js")}
 CARDS = deque(maxlen=10)  # (when, card) of the cards shown lately, for the page and Chat
 
 
@@ -72,6 +74,39 @@ def face(jarvis):
     layers = [(m, round(k, 3), style if isinstance(style, (str, int, float)) else None)
               for m, k, style in (getattr(getattr(ui, "bar", None), "layers", None) or []) if m and m != "watching"]
     return {"state": state, "layers": layers}
+
+
+def _out(*cmd):
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        return proc.stdout.strip() if proc.returncode == 0 else ""
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def rustdesk(jarvis):
+    """The page's screen button: RustDesk running in service mode on this PC (the root service, and its server in
+    your session, which is what lets you connect from the phone without anyone at the PC), its window open, said."""
+    def serving():
+        return _out("systemctl", "is-active", "rustdesk") == "active" and bool(_out("pgrep", "-f", "rustdesk --server"))
+    started = False
+    if not serving():
+        # root's service: allowed without a password only by the sudoers rule tools/remote_setup.sh adds
+        _out("sudo", "-n", "systemctl", "restart", "rustdesk")
+        for _ in range(10):
+            if serving():
+                break
+            time.sleep(1)
+        started = serving()
+        if not started:
+            jarvis.speaker.say("RustDesk's service isn't running, and starting it needs your password. Run "
+                               "tools/remote_setup.sh once on the PC, and I can start it myself after that.")
+            return
+    subprocess.Popen(["rustdesk"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    rid = (_out("rustdesk", "--get-id").splitlines() or [""])[-1]
+    rid = rid if rid.isdigit() else "unknown"
+    jarvis.speaker.say("I started RustDesk in service mode and opened it on the PC. Its ID is %s." % rid if started else
+                       "RustDesk is already running in service mode. I've opened it on the PC. Its ID is %s." % rid)
 
 
 def cards_since(since):
@@ -152,7 +187,19 @@ def serve(jarvis, port):
 
         def do_GET(self):
             url = urlparse(self.path)
+            if url.path in PUBLIC:  # the app's icon and service worker: nothing private, fetched without the key
+                kind, name = PUBLIC[url.path]
+                with open(os.path.join(os.path.dirname(__file__), name), "rb") as f:
+                    self._send(200, kind, f.read())
+                return
             if not self._allowed():
+                return
+            if url.path == "/manifest.webmanifest":  # installs it as an app: opens on its own, with the key
+                self._send(200, "application/manifest+json", json.dumps({
+                    "name": "JARVIS", "short_name": "JARVIS", "start_url": "/?key=" + secret, "scope": "/",
+                    "display": "standalone", "background_color": "#e7e7e5", "theme_color": "#e7e7e5",
+                    "icons": [{"src": "/remote-icon.png", "sizes": "512x512", "type": "image/png",
+                               "purpose": "any maskable"}]}).encode())
                 return
             if url.path == "/":
                 with open(PAGE_FILE, "rb") as f:
@@ -161,12 +208,17 @@ def serve(jarvis, port):
                 since = float(parse_qs(url.query).get("since", ["0"])[0] or 0)
                 self._send(200, "application/json", json.dumps(
                     {"said": said_since(jarvis, since), "cards": cards_since(since), "now": time.time(),
-                     **face(jarvis)}).encode())
+                     "quiet": bool(jarvis.speaker.muted), **face(jarvis)}).encode())
+
             else:
                 self._send(404, "text/plain", b"Not here.")
 
         def do_POST(self):
             if not self._allowed():
+                return
+            if urlparse(self.path).path == "/rustdesk":
+                threading.Thread(target=rustdesk, args=(jarvis,), daemon=True).start()
+                self._send(200, "application/json", b"{}")
                 return
             size = min(int(self.headers.get("Content-Length") or 0), 2000)
             text = (json.loads(self.rfile.read(size) or b"{}").get("text") or "").strip()[:500]
