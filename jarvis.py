@@ -32,7 +32,7 @@ except ImportError:
     pass
 
 from core import context, learned, misslog, numbers, outcomes, persona, teaching, undo, verify
-from system import apps, audio, calls, desktop, watchdog
+from system import apps, audio, calls, desktop, remote, watchdog
 from system.browser import Browser
 from claude.bridge import WORKSPACE, Claude, ClaudeError, Stopped, open_in_vscode
 from core.executor import Executor
@@ -462,7 +462,7 @@ class Jarvis:
         self.asking = question if isinstance(question, str) else question[0]
         self.speaker.say(question)
         self.follow_up()  # "yes" without saying the name first
-        timeout = self.settings.get("confirm_timeout", 8)
+        timeout = self.settings.get("confirm_timeout", 8) if self.source != "remote" else 90  # typed on a phone, or Chat every 5 s
         sys.stdout.write("  [yes/no, typed or spoken] (%ds) > " % timeout)
         sys.stdout.flush()
         deferred = []  # reminders and heads-ups that arrive mid-question wait until it's answered
@@ -490,7 +490,7 @@ class Jarvis:
                 self.inbox.put(item)
         if kind in ("voice", "follow"):
             print(answer)
-        if kind in ("text", "voice", "follow"):
+        if kind in ("text", "voice", "follow", "remote"):
             self.chat("you", answer)
             return answer
         return None
@@ -1124,7 +1124,7 @@ class Jarvis:
     def _about(self):
         """The line that tells Claude who is asking, how, and how much it's been used today."""
         user = self.settings.get("user_name") or "the user"
-        how = "typed" if self.source == "text" else "by voice"
+        how = "typed" if self.source in ("text", "remote") else "by voice"
         uses = sorted((self.memory.data.get("uses") or {}).items(), key=lambda kv: -kv[1])[:5]
         usage = self.claude.usage_today()
         parts = ["%s asking for %s, %s" % (self.name, user, how), time.strftime("%a %-d %b, %-I:%M %p")]
@@ -1963,6 +1963,7 @@ def main():
                          daemon=True).start()
     threading.Thread(target=watch, args=(jarvis,), daemon=True).start()
     threading.Thread(target=teach, args=(jarvis,), daemon=True).start()
+    remote.start(jarvis)  # the Tailscale web page and the Google Chat space (system/remote.py)
     print("Type /help for commands.")
     if (jarvis.settings.get("wake_word") or {}).get("engine") == "ears":
         from voice.ears import Ears  # (only loaded when it's the one in use)
