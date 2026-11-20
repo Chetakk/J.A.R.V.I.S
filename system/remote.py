@@ -16,6 +16,7 @@ Chat as text with "Reply with: ..." for the buttons. Drawn blocks (weather, ring
 Requests come in as kind "remote" (yes/no questions wait longer for them, jarvis._answer). Settings: remote: web,
 port, chat_space."""
 import hmac
+import io
 import json
 import os
 import secrets
@@ -39,6 +40,9 @@ LAST_WEB = [0.0]  # when the page last sent a request: you're on the page, so no
 PAGE_FILE = os.path.join(os.path.dirname(__file__), "remote.html")  # read on each load: edits show on a refresh
 PUBLIC = {"/remote-icon.png": ("image/png", "remote-icon.png"),
           "/sw.js": ("text/javascript", "remote-sw.js")}
+AWAY_FILE = os.path.expanduser("~/.local/share/jarvis/away_mode")
+DAILY_AT = 9  # hour of the morning health line in Chat
+RUN_DIR = os.path.expanduser("~/.local/share/jarvis")
 CARDS = deque(maxlen=10)  # (when, card) of the cards shown lately, for the page and Chat
 
 
@@ -84,13 +88,13 @@ def _out(*cmd):
         return ""
 
 
-def rustdesk(jarvis):
+def rustdesk(jarvis, restart=False):
     """The page's screen button: RustDesk running in service mode on this PC (the root service, and its server in
     your session, which is what lets you connect from the phone without anyone at the PC), its window open, said."""
     def serving():
         return _out("systemctl", "is-active", "rustdesk") == "active" and bool(_out("pgrep", "-f", "rustdesk --server"))
     started = False
-    if not serving():
+    if restart or not serving():  # (Fix it: restart it even when it looks up, as it may be stuck)
         # root's service: allowed without a password only by the sudoers rule tools/remote_setup.sh adds
         _out("sudo", "-n", "systemctl", "restart", "rustdesk")
         for _ in range(10):
@@ -105,8 +109,50 @@ def rustdesk(jarvis):
     subprocess.Popen(["rustdesk"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     rid = (_out("rustdesk", "--get-id").splitlines() or [""])[-1]
     rid = rid if rid.isdigit() else "unknown"
-    jarvis.speaker.say("I started RustDesk in service mode and opened it on the PC. Its ID is %s." % rid if started else
+    jarvis.speaker.say("I %s RustDesk in service mode and opened it on the PC. Its ID is %s." % (
+        "restarted" if restart else "started", rid) if started else
                        "RustDesk is already running in service mode. I've opened it on the PC. Its ID is %s." % rid)
+
+
+def away_mode(jarvis, on):
+    """The page's Away button: quiet at home, the screen locked, and every heads-up to Chat (away() is then always
+    true); off again speaks at home. Kept in AWAY_FILE, so it lasts through a restart."""
+    if on:
+        open(AWAY_FILE, "w").close()
+        jarvis.inbox.put(("remote", "/mute voice on"))
+        _out("loginctl", "lock-session")
+        jarvis.speaker.say("Away mode on: I'm quiet at home, the screen is locked, and every heads-up goes to Chat.")
+    else:
+        if os.path.exists(AWAY_FILE):
+            os.remove(AWAY_FILE)
+        jarvis.inbox.put(("remote", "/mute voice off"))
+        jarvis.speaker.say("Away mode off. Welcome back.")
+
+
+def screen_jpeg():
+    """The PC's screen as a small JPEG for the phone (a locked screen shows as the lock screen)."""
+    from PIL import Image
+    from skills.screen import screenshot
+    path = os.path.join(RUN_DIR, "remote-screen.png")
+    screenshot(path)
+    img = Image.open(path).convert("RGB")
+    img.thumbnail((1280, 1280))
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=70)
+    os.remove(path)
+    return out.getvalue()
+
+
+def daily_health(jarvis, space):
+    """Once a day from DAILY_AT: the health check in a line, to Chat (if it doesn't come, something's wrong)."""
+    today = time.strftime("%Y-%m-%d")
+    if time.localtime().tm_hour < DAILY_AT or jarvis.memory.pref("remote_daily") == today or not webhook():
+        return
+    from skills.slow_computer import health_report
+    _lines, problems = health_report()
+    post(space, ("Morning check: the PC is fine (online, reachable, nothing filling up)." if not problems else
+                 "Morning check: %s. Say health check for the details." % ", ".join(problems)))
+    jarvis.memory.set_pref("remote_daily", today)
 
 
 def cards_since(since):
@@ -208,7 +254,13 @@ def serve(jarvis, port):
                 since = float(parse_qs(url.query).get("since", ["0"])[0] or 0)
                 self._send(200, "application/json", json.dumps(
                     {"said": said_since(jarvis, since), "cards": cards_since(since), "now": time.time(),
-                     "quiet": bool(jarvis.speaker.muted), **face(jarvis)}).encode())
+                     "quiet": bool(jarvis.speaker.muted), "away": os.path.exists(AWAY_FILE),
+                     **face(jarvis)}).encode())
+            elif url.path == "/screen":
+                try:
+                    self._send(200, "image/jpeg", screen_jpeg())
+                except Exception as e:
+                    self._send(500, "text/plain", ("Couldn't take a screenshot: %r" % e).encode())
 
             else:
                 self._send(404, "text/plain", b"Not here.")
@@ -216,8 +268,12 @@ def serve(jarvis, port):
         def do_POST(self):
             if not self._allowed():
                 return
-            if urlparse(self.path).path == "/rustdesk":
-                threading.Thread(target=rustdesk, args=(jarvis,), daemon=True).start()
+            url = urlparse(self.path)
+            action = {"/rustdesk": lambda: rustdesk(jarvis, "restart" in url.query),
+                      "/away": lambda: away_mode(jarvis, "on" in parse_qs(url.query).get("set", [""]))}.get(url.path)
+            if action:
+                LAST_WEB[0] = time.time()
+                threading.Thread(target=action, daemon=True).start()
                 self._send(200, "application/json", b"{}")
                 return
             size = min(int(self.headers.get("Content-Length") or 0), 2000)
@@ -262,7 +318,9 @@ def post(space, text):
 
 
 def away():
-    """Screen locked, or nothing touched for AWAY_AFTER seconds (GNOME): heads-ups go to Chat instead."""
+    """Away mode on, the screen locked, or nothing touched for AWAY_AFTER seconds (GNOME): heads-ups go to Chat."""
+    if os.path.exists(AWAY_FILE):
+        return True
     def ask(dest, path, method):
         out = subprocess.run(["gdbus", "call", "--session", "--dest", dest, "--object-path", path, "--method", method],
                              capture_output=True, text=True, timeout=5).stdout
@@ -314,6 +372,7 @@ def watch_chat(jarvis, name):
             print("[remote] chat failed: %r" % e)
             time.sleep(30)
         try:
+            daily_health(jarvis, space)
             if time.time() < forward_until + 5 or (webhook() and time.time() - LAST_WEB[0] > FORWARD_FOR and away()):
                 new = sorted([(at, text) for at, text in said_since(jarvis, forwarded)] +
                              [(at, chat_text(card)) for at, card in cards_since(forwarded)])

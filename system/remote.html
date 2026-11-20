@@ -36,10 +36,12 @@ header{display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-are
 .card code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:5px}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.btns:empty{display:none}
 button{font:inherit;color:var(--fg);background:var(--chip);border:1px solid var(--chipline);border-radius:999px}
-.btns button{font-size:14px;padding:7px 14px}
+.btns button{font-size:14px;padding:7px 14px}.btns .pri{background:var(--me);color:var(--meink);border-color:transparent}
+.shot{padding:6px}.shot img{display:block;width:100%;border-radius:14px}
 button:active{background:var(--me);color:var(--meink)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
-.ok{background:var(--fg)}.warn{background:transparent;border:1.5px solid var(--fg)}.bad{background:#9a9a9a}
+.ok{background:var(--fg)}.warn{background:transparent;border:1.5px solid var(--fg)}
+.x{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--fg);color:var(--meink);font-size:10px;font-weight:700;margin-right:4px;vertical-align:-2px}
 footer{border-top:1px solid var(--gline);padding:10px 16px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
 svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .answers{display:flex;gap:8px}.answers button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 0;font-size:15px}
@@ -63,10 +65,11 @@ form button{flex:none;width:46px;border:0;background:var(--me);color:var(--meink
 </div>
 <div class="icons">
 <button data-say="catch me up" aria-label="Catch me up" title="Catch me up"><svg viewBox="0 0 24 24"><path d="M3 13.5h5l1.6 2.5h4.8l1.6-2.5h5"/><path d="M5.5 5h13l2.5 8.5V19H3v-5.5z"/></svg></button>
-<button id="quiet" aria-label="Quiet at home" title="Quiet at home" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
-<button data-say="what's on my calendar" aria-label="Calendar" title="Calendar"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg></button>
-<button data-say="what's on my screen" aria-label="What's on my screen" title="What's on my screen"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+<button id="away" aria-label="Away mode" title="Away mode" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M5 20V10l7-5 7 5v10"/><path d="M15 20v-5"/><path d="M17.5 3.5l3 3M20.5 3.5l-3 3"/></svg></button>
+<button data-say="health check" aria-label="Health check" title="Health check"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 3.5 10 2.5-7 1.5 2H21"/></svg></button>
+<button id="shot" aria-label="Screenshot of the PC" title="Screenshot of the PC"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.2"/></svg></button>
 <button id="rustdesk" aria-label="Open RustDesk on the PC" title="Open RustDesk on the PC"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/><path d="M10.5 7.5l5 2.2-2.1.7-.8 2.1z" fill="currentColor"/></svg></button>
+<button id="fix" aria-label="Fix it: restart something" title="Fix it: restart something"><svg viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3l7.5-7.5"/><path d="M14.5 6.5l3-3 3 3-3 3"/></svg></button>
 </div>
 <form id="f"><input id="t" placeholder="Ask JARVIS…" autocomplete="off" enterkeyhint="send"><button aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></form>
 </footer>
@@ -241,7 +244,7 @@ catch(e){add("Couldn't reach JARVIS.","j")}}
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 function inline(s){return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>")
 .replace(/`(.+?)`/g,"<code>$1</code>").replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank">$1</a>')
-.replace(/\{(ok|warn|bad)\}/g,'<span class="dot $1"></span>').replace(/\{[a-z]+(:[^}]*)?\}|\[\[|\]\]/g,"")}
+.replace(/\{bad\}/g,'<span class="x" title="problem">\u2715</span>').replace(/\{(ok|warn)\}/g,'<span class="dot $1"></span>').replace(/\{[a-z]+(:[^}]*)?\}|\[\[|\]\]/g,"")}
 function md(text){let h="",list=null,table=false,fence=false;
 const close=()=>{if(list){h+="</"+list+">";list=null}if(table){h+="</table>";table=false}};
 for(let l of text.split("\n")){const t=l.trim();
@@ -264,15 +267,33 @@ b.textContent=typeof ch=="string"?ch:ch.label;b.onclick=()=>send(say);d.lastChil
 log.scrollTop=log.scrollHeight}
 document.getElementById("f").onsubmit=e=>{e.preventDefault();const t=document.getElementById("t");send(t.value);t.value=""};
 document.querySelectorAll("[data-say]").forEach(b=>b.onclick=()=>send(b.dataset.say));
-const quiet=document.getElementById("quiet");
-quiet.onclick=()=>{const on=quiet.getAttribute("aria-pressed")!=="true";quiet.setAttribute("aria-pressed",on);
-send(on?"/mute voice on":"/mute voice off",on?"Quiet at home":"Speak at home again")};
-document.getElementById("rustdesk").onclick=async()=>{add("Open RustDesk on the PC","u");setFace("thinking",null);
-try{await fetch("/rustdesk?key="+encodeURIComponent(key),{method:"POST"})}catch(e){add("Couldn't reach JARVIS.","j")}};
+const away=document.getElementById("away");
+away.onclick=()=>{const on=away.getAttribute("aria-pressed")!=="true";away.setAttribute("aria-pressed",on);
+act("/away?set="+(on?"on":"off"),on?"Away mode on":"Away mode off")};
+async function act(path,shown){add(shown,"u");setFace("thinking",null);
+try{await fetch(path+(path.includes("?")?"&":"?")+"key="+encodeURIComponent(key),{method:"POST"})}catch(e){add("Couldn't reach JARVIS.","j")}}
+document.getElementById("shot").onclick=()=>{add("Screenshot of the PC","u");const d=document.createElement("div");d.className="card shot";
+const img=new Image();img.alt="The PC's screen";img.src="/screen?key="+encodeURIComponent(key)+"&t="+Date.now();
+img.onload=()=>log.scrollTop=log.scrollHeight;img.onerror=()=>{d.textContent="Couldn't take a screenshot."};
+img.onclick=()=>window.open(img.src,"_blank");d.appendChild(img);log.appendChild(d);log.scrollTop=log.scrollHeight};
+// Fix it: a card of restarts; each asks on the page before anything happens
+const FIXES=[["Restart RustDesk","rustdesk"],["Restart JARVIS","restart yourself"],["Restart the PC","restart the computer"]];
+document.getElementById("fix").onclick=()=>{const d=document.createElement("div");d.className="card";
+d.innerHTML="<h3>Fix it</h3><p>Restart something that's stuck. Each one asks first.</p><div class=\"btns\"></div>";
+for(const [label,what] of FIXES){const b=document.createElement("button");b.textContent=label;b.onclick=()=>confirmFix(d,label,what);d.lastChild.appendChild(b)}
+log.appendChild(d);log.scrollTop=log.scrollHeight};
+function confirmFix(d,label,what){const note={"rustdesk":"Any RustDesk connection drops for a few seconds.",
+"restart yourself":"The app goes offline for about half a minute, then comes back.",
+"restart the computer":"Everything goes offline for a minute or two. RustDesk and SSH come back first; JARVIS once the desktop is up."}[what];
+d.innerHTML="<h3>"+label+"?</h3><p>"+note+"</p><div class=\"btns\"></div>";
+const yes=document.createElement("button"),no=document.createElement("button");yes.textContent="Yes, "+label.toLowerCase();no.textContent="Cancel";
+yes.className="pri";yes.onclick=()=>{d.remove();what==="rustdesk"?act("/rustdesk?restart=1",label):send(what,label)};
+no.onclick=()=>d.remove();d.lastChild.append(yes,no);log.scrollTop=log.scrollHeight}
+document.getElementById("rustdesk").onclick=()=>act("/rustdesk","Open RustDesk on the PC");
 async function poll(){try{const r=await(await fetch("/log?key="+encodeURIComponent(key)+"&since="+since)).json();
 const items=r.said.map(([at,t])=>[at,()=>add(t,"j")]).concat(r.cards.map(([at,c])=>[at,()=>card(c)]));
 items.sort((a,b)=>a[0]-b[0]);for(const [at,show] of items){show();since=Math.max(since,at)}
-setFace(r.state||"idle",r.layers);quiet.setAttribute("aria-pressed",!!r.quiet)}catch(e){setFace("offline",null)}
+setFace(r.state||"idle",r.layers);away.setAttribute("aria-pressed",!!r.away)}catch(e){setFace("offline",null)}
 setTimeout(poll,1000)}
 poll();
 </script></body></html>
