@@ -36,6 +36,7 @@ FORWARD_FOR = 120  # seconds after a Chat request that what JARVIS says is poste
 WEBHOOK_FILE = os.path.expanduser("~/.local/share/jarvis/chat_webhook")
 AWAY_AFTER = 600  # seconds without touching the PC that count as away
 LAST_WEB = [0.0]  # when the page last sent a request: you're on the page, so no Chat notifications meanwhile
+PAGE_FILE = os.path.join(os.path.dirname(__file__), "remote.html")  # read on each load: edits show on a refresh
 CARDS = deque(maxlen=10)  # (when, card) of the cards shown lately, for the page and Chat
 
 
@@ -61,6 +62,16 @@ def shown(card):
     if text or choices:
         CARDS.append((time.time(), {"title": str(card.get("title") or ""), "text": text, "choices": choices,
                                     "id": card.get("id")}))
+
+
+def face(jarvis):
+    """What the desktop orb shows now: its state (idle, listening, thinking, speaking, claude, off) and the looks its
+    eyes have on, [(mood, strength, style)] (ui/window.py eye_look; the page draws them the same way)."""
+    ui = jarvis.ui
+    state = ((getattr(ui, "_shown", None) or ("idle",))[0]) if ui else "idle"
+    layers = [(m, round(k, 3), style if isinstance(style, (str, int, float)) else None)
+              for m, k, style in (getattr(getattr(ui, "bar", None), "layers", None) or []) if m and m != "watching"]
+    return {"state": state, "layers": layers}
 
 
 def cards_since(since):
@@ -144,12 +155,13 @@ def serve(jarvis, port):
             if not self._allowed():
                 return
             if url.path == "/":
-                self._send(200, "text/html; charset=utf-8", PAGE.encode())
+                with open(PAGE_FILE, "rb") as f:
+                    self._send(200, "text/html; charset=utf-8", f.read())
             elif url.path == "/log":
                 since = float(parse_qs(url.query).get("since", ["0"])[0] or 0)
                 self._send(200, "application/json", json.dumps(
                     {"said": said_since(jarvis, since), "cards": cards_since(since), "now": time.time(),
-                     "state": "online"}).encode())
+                     **face(jarvis)}).encode())
             else:
                 self._send(404, "text/plain", b"Not here.")
 
@@ -261,75 +273,3 @@ def watch_chat(jarvis, name):
         except Exception as e:
             print("[remote] posting to Chat failed: %r" % e)
             time.sleep(30)
-
-
-PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>JARVIS</title>
-<style>
-:root{--bg:#0b1220;--card:#131c2e;--me:#1f6feb;--fg:#e6edf3;--dim:#8b949e}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif;
-display:flex;flex-direction:column;height:100dvh}
-header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #222c40}
-header b{letter-spacing:.15em;color:#58a6ff}#state{color:var(--dim);font-size:13px}
-#log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
-.m{max-width:85%;padding:9px 13px;border-radius:14px;line-height:1.35;white-space:pre-wrap;word-wrap:break-word}
-.j{background:var(--card);align-self:flex-start}.u{background:var(--me);align-self:flex-end}
-.quick{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 16px 8px}
-.quick button{flex:none;background:var(--card);color:var(--fg);border:1px solid #2a3550;border-radius:16px;padding:6px 12px}
-.card{background:var(--card);border:1px solid #2a3550;border-radius:14px;padding:12px 14px;align-self:stretch;
-overflow-x:auto}.card h3{margin:0 0 6px;font-size:16px;color:#58a6ff}.card h4{margin:8px 0 4px;font-size:15px}
-.card p{margin:4px 0}.card ul,.card ol{margin:4px 0;padding-left:20px}.card table{border-collapse:collapse;font-size:14px}
-.card td{padding:4px 8px;border-bottom:1px solid #222c40}.card a{color:#58a6ff}.card code{background:#0b1220;padding:0 4px;border-radius:4px}
-.card .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.card .btns button{background:#1f2a40;color:var(--fg);
-border:1px solid #2a3550;border-radius:10px;padding:7px 12px;font:inherit;font-size:14px}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.ok{background:#3fb950}.warn{background:#d29922}.bad{background:#f85149}
-form{display:flex;gap:8px;padding:8px 16px 16px}
-input{flex:1;font:inherit;padding:12px;border-radius:12px;border:1px solid #2a3550;background:var(--card);color:var(--fg)}
-form button{font:inherit;padding:0 18px;border:0;border-radius:12px;background:var(--me);color:#fff}
-</style></head><body>
-<header><b>J.A.R.V.I.S</b><span id="state"></span></header>
-<div id="log"></div>
-<div class="quick"><button>yes</button><button>no</button><button>stop</button><button>what's on my calendar</button>
-<button>pause music</button><button>lock the screen</button></div>
-<form id="f"><input id="t" placeholder="Ask JARVIS..." autocomplete="off" enterkeyhint="send"><button>Send</button></form>
-<script>
-const key=new URLSearchParams(location.search).get("key")||"",log=document.getElementById("log");
-let since=Date.now()/1000;
-function add(text,who){const d=document.createElement("div");d.className="m "+who;d.textContent=text;
-log.appendChild(d);log.scrollTop=log.scrollHeight}
-async function send(text){if(!text.trim())return;add(text,"u");
-try{await fetch("/?key="+encodeURIComponent(key),{method:"POST",body:JSON.stringify({text})})}
-catch(e){add("Couldn't reach JARVIS.","j")}}
-const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
-function inline(s){return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>")
-.replace(/`(.+?)`/g,"<code>$1</code>").replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank">$1</a>')
-.replace(/\{(ok|warn|bad)\}/g,'<span class="dot $1"></span>').replace(/\{[a-z]+(:[^}]*)?\}|\[\[|\]\]/g,"")}
-function md(text){let h="",list=null,table=false,fence=false;
-const close=()=>{if(list){h+="</"+list+">";list=null}if(table){h+="</table>";table=false}};
-for(let l of text.split("\n")){const t=l.trim();
-if(t.startsWith("```")){close();fence=!fence;continue}
-if(/^\|?[\s:|-]+\|?$/.test(t)&&t.includes("-"))continue;
-if(t.includes("|")){if(list){h+="</"+list+">";list=null}if(!table){h+="<table>";table=true}
-h+="<tr>"+t.replace(/^\||\|$/g,"").split("|").map(c=>"<td>"+inline(c.trim())+"</td>").join("")+"</tr>";continue}
-let m;if(!fence&&(m=t.match(/^(?:[-*]|\d+\.)\s+(?:\[( |x)\]\s*)?(.*)/))){const k=/^\d/.test(t)?"ol":"ul";
-if(table){h+="</table>";table=false}if(list!==k){if(list)h+="</"+list+">";h+="<"+k+">";list=k}
-h+="<li>"+(m[1]?(m[1]=="x"?"\u2611 ":"\u2610 "):"")+inline(m[2])+"</li>";continue}
-close();if(!t)continue;
-if((m=t.match(/^#+\s*(.*)/)))h+="<h4>"+inline(m[1])+"</h4>";else if(t=="---")h+="<hr>";
-else h+="<p>"+inline(t.replace(/^>\s*/,""))+"</p>"}
-close();return h}
-function card(c){let d=c.id&&document.getElementById("card-"+c.id);
-if(!d){d=document.createElement("div");d.className="card";if(c.id)d.id="card-"+c.id;log.appendChild(d)}
-d.innerHTML=(c.title?"<h3>"+inline(c.title)+"</h3>":"")+md(c.text)+'<div class="btns"></div>';
-for(const ch of c.choices){const b=document.createElement("button"),say=typeof ch=="string"?ch:ch.do;
-b.textContent=typeof ch=="string"?ch:ch.label;b.onclick=()=>send(say);d.lastChild.appendChild(b)}
-log.scrollTop=log.scrollHeight}
-document.getElementById("f").onsubmit=e=>{e.preventDefault();const t=document.getElementById("t");send(t.value);t.value=""};
-document.querySelectorAll(".quick button").forEach(b=>b.onclick=()=>send(b.textContent));
-async function poll(){try{const r=await(await fetch("/log?key="+encodeURIComponent(key)+"&since="+since)).json();
-const items=r.said.map(([at,t])=>[at,()=>add(t,"j")]).concat(r.cards.map(([at,c])=>[at,()=>card(c)]));
-items.sort((a,b)=>a[0]-b[0]);for(const [at,show] of items){show();since=Math.max(since,at)}
-document.getElementById("state").textContent=r.state||""}catch(e){document.getElementById("state").textContent="offline"}
-setTimeout(poll,1500)}
-poll();
-</script></body></html>"""
