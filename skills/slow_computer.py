@@ -1,7 +1,11 @@
 """"What's slowing my computer": top CPU and memory users; offers to close the worst one, or deals with a frozen
 window first (skills/frozen.py). Also "system usage" (rings for CPU, memory and GPU, with a CPU trend line kept
 fresh while the card is up) and "show the temperatures" (the Jetson's sensors and your wireless devices' batteries).
-Power draw is read only where the sensors allow it (the INA3221 rails are root-only on this Jetson)."""
+Power draw is read only where the sensors allow it (the INA3221 rails are root-only on this Jetson).
+
+"health check" / "is the PC okay": one card for checking in from far away (the phone page's Health button): internet,
+Tailscale, RustDesk, SSH and no-sleep up or not, then disk, memory, the hottest sensor, uptime and the last start.
+The same report goes to the JARVIS Chat space each morning (system/remote.py)."""
 import glob
 import os
 import signal
@@ -23,7 +27,8 @@ class SlowComputer(Skill):
     phrases = ("what's slowing my computer (top CPU/memory users, offers to close one)",
                "show the system usage (live rings for CPU, memory and GPU)",
                "show the temperatures (the Jetson's sensors and the mouse and keyboard batteries)",
-               "what's taking up space (a donut of your home folder, and the disk used and free)")
+               "what's taking up space (a donut of your home folder, and the disk used and free)",
+               "health check (is the PC okay: internet, Tailscale, RustDesk, SSH, disk, memory, heat, uptime)")
     gives = "speech and a card"
     permission = "confirm"
     asks = "before closing a program"
@@ -31,6 +36,9 @@ class SlowComputer(Skill):
 
     def patterns(self):
         return [
+            (r"(?:run a |do a )?(?:pc |system |computer )?health ?check|(?:pc|system|computer)(?:'s)? health|"
+             r"is (?:the |my )?(?:pc|computer|system|jetson|machine) (?:ok(?:ay)?|fine|alright|all right|healthy|up)",
+             lambda m: self.health()),
             (r"what'?s (?:slowing (?:down )?|hogging |using (?:up )?)(?:my |the )?(?:computer|system|jetson|cpu|"
              r"memory|ram)(?: down)?|why is (?:my |the )?(?:computer|system|jetson|it|everything) (?:so )?slow|"
              r"what'?s using (?:all )?(?:my |the )?(?:cpu|memory|ram)|(?:show )?(?:the )?top processes",
@@ -48,6 +56,13 @@ class SlowComputer(Skill):
              r"space go|(?:disk|storage) (?:space )?breakdown|what'?s (?:filling|using) (?:up )?(?:my |the )?"
              r"(?:disk|storage|sd card)", lambda m: self.disk()),
         ]
+
+    def health(self):
+        lines, problems = health_report()
+        self.j.show({"id": "health", "title": "PC health", "text": "\n".join(lines)})
+        self.say("All good: online, reachable, and nothing filling up." if not problems else
+                 "%s to look at: %s." % ("One thing" if len(problems) == 1 else "%d things" % len(problems),
+                                        ", ".join(problems)))
 
     def usage(self):
         """CPU, memory and GPU load together, read straight from /proc and sysfs (no shell, nothing chained); the
@@ -251,6 +266,49 @@ def _gpu_percent():
             return round(load * int(f.read()) / max(map(int, top.read().split())))
     except (OSError, ValueError, IndexError):
         return round(load)
+
+
+def health_report():
+    """(card lines, [problems in a few words]) for the health check and the morning message."""
+    def ok(*cmd, want=None):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return out.stdout.strip() == want if want else out.returncode == 0
+
+    lines, problems = ["**Reachable**"], []
+    for name, up, fix in (
+            ("Internet", ok("ping", "-c1", "-W3", "1.1.1.1"), "no internet"),
+            ("Tailscale", ok("tailscale", "status"), "Tailscale down"),
+            ("RustDesk (service)", ok("systemctl", "is-active", "rustdesk", want="active"), "RustDesk off"),
+            ("SSH", ok("systemctl", "is-active", "ssh", want="active"), "SSH off"),
+            ("Never sleeps", ok("systemctl", "is-enabled", "suspend.target", want="masked"), "sleep not off")):
+        lines.append("- %s %s" % ("{ok}" if up else "{bad}", name))
+        if not up:
+            problems.append(fix)
+    st = os.statvfs("/")
+    free, size = st.f_bavail * st.f_frsize / 2 ** 30, st.f_blocks * st.f_frsize / 2 ** 30
+    mem = dict((k, int(v.split()[0])) for k, v in (l.split(":", 1) for l in open("/proc/meminfo")))
+    used = 100 - 100 * mem.get("MemAvailable", 0) / max(mem.get("MemTotal", 1), 1)
+    temps = _temps()
+    hot = max(temps, key=lambda t: t[1]) if temps else None
+    up = float(open("/proc/uptime").read().split()[0])
+    lines += ["", "**The PC**",
+              "- %s Disk: %.0f GB free of %.0f" % ("{bad}" if free < 5 else "{warn}" if free < 15 else "{ok}", free, size),
+              "- %s Memory: %d%% used" % ("{bad}" if used > 90 else "{ok}", used)]
+    if hot:
+        lines.append("- %s Hottest: %s at %d °C" % ("{bad}" if hot[1] >= 85 else "{ok}", hot[0], hot[1]))
+    lines += ["- Up %s, since %s" % ("%d days" % (up // 86400) if up >= 86400 else "%d hours" % (up // 3600) if up >= 3600
+                                     else "%d minutes" % (up // 60), time.strftime("%a %-d %b, %-I:%M %p",
+                                                                                    time.localtime(time.time() - up)))]
+    if free < 5:
+        problems.append("only %.0f GB of disk left" % free)
+    if used > 90:
+        problems.append("memory %d%% full" % used)
+    if hot and hot[1] >= 85:
+        problems.append("the %s is at %d degrees" % (hot[0], hot[1]))
+    return lines, problems
 
 
 def _temps():
